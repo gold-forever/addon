@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.3.1"
+local VERSION = "0.4.0"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -152,6 +152,14 @@ local function init()
 	db.catalogue.vendor = db.catalogue.vendor or {}
 	db.catalogue.questNames = db.catalogue.questNames or {}
 	db.catalogue.taxiNodes = db.catalogue.taxiNodes or {}
+	db.catalogue.tooltips = db.catalogue.tooltips or {}
+	db.catalogue.npcs = db.catalogue.npcs or {}
+	db.catalogue.objects = db.catalogue.objects or {}
+	db.catalogue.maps = db.catalogue.maps or {}
+	db.catalogue.trainers = db.catalogue.trainers or {}
+	db.catalogue.merchants = db.catalogue.merchants or {}
+	db.catalogue.currencies = db.catalogue.currencies or {}
+	db.catalogue.factions = db.catalogue.factions or {}
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
 	db.errors = db.errors or {}
 	for name, e in pairs(errors) do

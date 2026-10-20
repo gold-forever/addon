@@ -185,8 +185,11 @@ end
 
 -- Vendors ----------------------------------------------------------------------------------------
 
+ns.FIELDS.merchant = "map,x,y,items"
+
 local function readMerchant()
 	local vendor = ns.db().catalogue.vendor
+	local sold = {} -- every item this vendor sells, for "where to buy" (recipes in particular)
 	for i = 1, GetMerchantNumItems() do
 		local id = GetMerchantItemID(i)
 		local price, quantity, available, extended
@@ -199,10 +202,19 @@ local function readMerchant()
 			local _
 			_, _, price, quantity, available, _, _, extended = GetMerchantItemInfo(i)
 		end
+		if id then
+			sold[#sold + 1] = id
+		end
 		if id and price and price > 0 and not extended then
 			vendor[id] = Encode.row(price, available and available >= 0 or nil, ns.now(), quantity)
 			ns.catalogueItem(id)
 		end
+	end
+	local src = Encode.source(UnitGUID("npc"))
+	local npc = src and tonumber(string.match(src, "^n(%d+)$"))
+	if npc and #sold > 0 then
+		local map, x, y = ns.position()
+		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"))
 	end
 end
 
