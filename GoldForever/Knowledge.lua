@@ -8,7 +8,8 @@ local Encode = ns.Encode
 ns.FIELDS.npc = "name,minLevel,maxLevel,classification,type"
 ns.FIELDS.object = "name"
 ns.FIELDS.map = "name,type,parent"
-ns.FIELDS.trainerService = "name,rank,category,cost,skill,skillRank,level"
+-- On Forever GetTrainerServiceInfo returns name, category, icon; the columns follow that order.
+ns.FIELDS.trainerService = "name,category,icon,cost,skill,skillRank,level"
 
 -- NPCs -------------------------------------------------------------------------------------------
 
@@ -131,7 +132,7 @@ local function readTrainer()
 	end
 	local rows = {}
 	for i = 1, GetNumTrainerServices() do
-		local name, rank, category = GetTrainerServiceInfo(i)
+		local name, category, icon = GetTrainerServiceInfo(i)
 		if name and category ~= "header" then
 			local skill, skillRank = nil, nil
 			if GetTrainerServiceSkillReq then
@@ -139,7 +140,7 @@ local function readTrainer()
 			end
 			local level = GetTrainerServiceLevelReq and GetTrainerServiceLevelReq(i)
 			local cost = GetTrainerServiceCost and GetTrainerServiceCost(i)
-			rows[#rows + 1] = Encode.row(Encode.name(name), rank and rank ~= "" and Encode.name(rank) or nil, category, cost,
+			rows[#rows + 1] = Encode.row(Encode.name(name), category, icon, cost,
 				skill and Encode.name(skill) or nil, skillRank, level)
 		end
 	end
