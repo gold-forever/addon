@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.5.5"
+local VERSION = "0.6.0"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -448,6 +448,6 @@ SlashCmdList.GOLDFOREVER = function(message)
 		ns.safely("/gf " .. message, command)
 	else
 		printStatus()
-		print("  /gf check — which APIs this client has · /gf scan — scan the auction house · /gf legacy — find the Legacy perks API")
+		print("  /gf appraise — the loot window · /gf reset — new farming session · /gf scan — scan the auction house · /gf check — APIs")
 	end
 end

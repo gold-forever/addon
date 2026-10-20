@@ -15,6 +15,9 @@ local FARMING_SECONDS = 15 * 60 -- the frontend's idle split
 local ITEM_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Item or 1
 local MONEY_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Money or 2
 
+-- Called with (coin, { [itemKey] = count }) after every loot window; see Appraiser.lua.
+ns.lootListeners = {}
+
 local window -- the open loot window
 local seen = {} -- spawn GUIDs looted this session, for `first`; never written
 local opened -- { id, at }: the container item last used, for `i<itemId>` sources
@@ -180,6 +183,16 @@ local function finish(w)
 		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items), w.fish))
 	end
 	lastLoot = GetTime()
+	-- The loot window as a whole, for whoever listens (the appraiser): coin and every item taken.
+	local taken = {}
+	for _, guid in ipairs(w.order) do
+		for key, n in pairs(w.sources[guid].items) do
+			taken[key] = (taken[key] or 0) + n
+		end
+	end
+	for _, listener in ipairs(ns.lootListeners) do
+		ns.safely("loot listener", listener, coin, taken)
+	end
 end
 
 ns.on("LOOT_CLOSED", "loot", function()

@@ -137,6 +137,47 @@ function Encode.split(amount, weights)
 	return parts
 end
 
+-- Market value of an item from one scan's listings ({ { unit, qty }, … }, any order): the average
+-- unit price of the cheapest 15% of units, at least one. The web app's price engine does the same
+-- (backend/Prices.kt), so the two agree.
+function Encode.marketValue(listings)
+	local sorted = {}
+	local total = 0
+	for i, l in ipairs(listings) do
+		sorted[i] = l
+		total = total + l.qty
+	end
+	if total == 0 then
+		return nil
+	end
+	table.sort(sorted, function(a, b)
+		return a.unit < b.unit
+	end)
+	local wanted = math.max(1, math.ceil(total * 0.15))
+	local units, copper = 0, 0
+	for _, l in ipairs(sorted) do
+		local take = math.min(wanted - units, l.qty)
+		units = units + take
+		copper = copper + take * l.unit
+		if units >= wanted then
+			break
+		end
+	end
+	return math.floor(copper / units)
+end
+
+-- "1g 23s 4c", "23s 4c", "4c": copper as text, for where coin icons cannot go.
+function Encode.money(copper)
+	copper = math.floor(copper + 0.5)
+	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
+	if g > 0 then
+		return string.format("%dg %ds %dc", g, s, c)
+	elseif s > 0 then
+		return string.format("%ds %dc", s, c)
+	end
+	return string.format("%dc", c)
+end
+
 -- UTC day key of an epoch time, the bucket events are stored under.
 function Encode.day(epoch)
 	return date("!%Y-%m-%d", epoch)

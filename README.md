@@ -69,6 +69,18 @@ item, recipe and vendor price seen. `/gf` shows today's counts and any collector
 Nothing about other players: auction owners and bidders are never read. See design 002, "Data
 minimisation", and its "Findings on the live client" for where 0.2.0 departs from the design.
 
+## Loot appraiser (0.6.0)
+
+While you farm, a small window adds up what you loot: coin, the items' worth, the total and the
+gold per hour, and the most valuable items so far. A session starts with the first loot and ends
+after 15 minutes without one, as in the web app. Item tooltips show the auction value (before and
+after the 5% cut) and the vendor price.
+
+Prices come from the newest full auction scan of your character's own auction house in the saved
+file, so scan once in a while; an item is worth the better of its auction value after the cut and
+its vendor price. `/gf appraise` shows or hides the window, `/gf reset` starts a new session; drag
+the window to move it.
+
 ## Keeping the data
 
 `scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it

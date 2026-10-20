@@ -79,6 +79,16 @@ eq(parts[1] .. "/" .. parts[2], "30/70", "proportional split")
 parts = E.split(5, { 0, 0 })
 eq(parts[1] .. "/" .. parts[2], "3/2", "zero weights split evenly")
 
+-- Market value: the cheapest 15% of units, averaged; the same as the web app's.
+eq(E.marketValue({ { unit = 500, qty = 70 }, { unit = 100, qty = 10 }, { unit = 110, qty = 20 } }), math.floor((10 * 100 + 5 * 110) / 15), "cheapest 15% of 100 units")
+eq(E.marketValue({ { unit = 9000, qty = 1 } }), 9000, "a single unit is its price")
+eq(E.marketValue({}), nil, "no listings, no value")
+
+-- Money as text.
+eq(E.money(10925), "1g 9s 25c", "gold, silver and copper")
+eq(E.money(2305), "23s 5c", "under a gold")
+eq(E.money(37), "37c", "copper only")
+
 -- Day buckets are UTC.
 eq(E.day(1792368000), "2026-10-19", "start of a UTC day")
 eq(E.day(1792454399), "2026-10-19", "end of the same UTC day")
