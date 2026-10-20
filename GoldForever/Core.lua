@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.8.3"
+local VERSION = "0.8.4"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -214,7 +214,10 @@ local function recordIdentity()
 
 	local _, race = UnitRace("player")
 	local _, class = UnitClass("player")
-	me.name = UnitName("player")
+	-- On Forever every character has a surname too, UnitName's second value (elsewhere the realm,
+	-- empty for the player).
+	me.name, me.surname = UnitName("player")
+	me.names = nil -- 0.8.2's probe of the name APIs
 	me.race = race
 	me.class = class
 	me.faction = UnitFactionGroup("player")
