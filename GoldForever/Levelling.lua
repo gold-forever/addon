@@ -118,14 +118,15 @@ end)
 -- XP -------------------------------------------------------------------------------------------------
 
 local seen -- { cur, max, rested }: the last reading
-local questAt, combatAt, zoneAt, bossAt = -math.huge, -math.huge, -math.huge, -math.huge
+local questAt, combatAt, zoneAt, bossAt, exploredAt = -math.huge, -math.huge, -math.huge, -math.huge, -math.huge
 
 local function read()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0 }
 end
 
--- What earned XP gained at `at`: a quest handed in, a boss killed, a kill (XP while in combat, or just after it),
--- a new zone (exploration), else something else (a profession, an event). The combat log would
+-- What earned XP gained at `at`: a quest handed in, a boss killed, a place discovered (the game's
+-- "Discovered …: N experience gained"), a kill (XP while in combat, or just after it), a new zone
+-- (exploration the message missed), else something else (a profession, an event). The combat log would
 -- name the kill, but the client keeps it for the Blizzard UI: an addon registering for it is blocked.
 local function kindAt(at, fighting)
 	local function near(t)
@@ -135,6 +136,8 @@ local function kindAt(at, fighting)
 		return "quest"
 	elseif near(bossAt) then
 		return "boss"
+	elseif near(exploredAt) then
+		return "explore"
 	elseif fighting or near(combatAt) then
 		return "kill"
 	elseif near(zoneAt) then
@@ -186,6 +189,25 @@ ns.on("ENCOUNTER_END", "boss", function(encounter, name, difficulty, size, succe
 	end
 	ns.append("boss", Encode.row(ns.now(), me.ref, encounter, Encode.name(name or "?"), difficulty, size, success == 1, map(), instanceId()))
 end)
+
+-- "Discovered Razor Hill: 55 experience gained", as a pattern from the client's own text.
+local function pattern(format)
+	local escaped = string.gsub(format, "[%%%(%)%.%+%-%*%?%[%]%^%$]", "%%%0")
+	return (string.gsub(string.gsub(escaped, "%%%%s", ".+"), "%%%%d", "%%d+"))
+end
+local DISCOVERED = pattern(ERR_ZONE_EXPLORED_XP or "Discovered %s: %d experience gained")
+
+local function discovered(message)
+	-- A message the client keeps from addons (in combat) cannot be read; that is no discovery.
+	local ok, found = pcall(string.find, message, DISCOVERED)
+	if ok and found then
+		exploredAt = GetTime()
+	end
+end
+ns.on("UI_INFO_MESSAGE", "explore", function(_, message)
+	discovered(message)
+end)
+ns.on("CHAT_MSG_SYSTEM", "explore", discovered)
 
 -- Combat's end: a kill's XP can come a moment after it.
 ns.on("PLAYER_REGEN_ENABLED", "xp", function()
