@@ -7,7 +7,8 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.loot = "t,char,map,x,y,src,first,coin,items"
+-- fish is appended to design 002's columns: set when the loot is a fishing catch.
+ns.FIELDS.loot = "t,char,map,x,y,src,first,coin,items,fish"
 ns.FIELDS.pos = "t,char,map,x,y"
 
 local FARMING_SECONDS = 15 * 60 -- the frontend's idle split
@@ -85,6 +86,7 @@ ns.on("LOOT_READY", "loot", function()
 	end
 	local w = { t = ns.now(), money = GetMoney(), slots = {}, sources = {}, order = {}, coinFrom = {} }
 	w.map, w.x, w.y = ns.position()
+	w.fish = IsFishingLoot and IsFishingLoot() or nil
 	for slot = 1, GetNumLootItems() do
 		local kind = GetLootSlotType(slot)
 		local _, _, quantity = GetLootSlotInfo(slot)
@@ -175,7 +177,7 @@ local function finish(w)
 			ns.catalogueItem(key)
 		end
 		local src = w.sources[guid].src or sourceOf(guid)
-		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items)))
+		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items), w.fish))
 	end
 	lastLoot = GetTime()
 end

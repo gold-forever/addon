@@ -75,6 +75,22 @@ ns.on("LOOT_READY", "objects", function()
 	cast = nil
 end)
 
+-- Objects by tooltip: mousing over a herb, vein, chest or fishing pool shows a tooltip whose
+-- data carries the object's GUID on newer clients.
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
+	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)
+		ns.safely("objects", function()
+			local guid = data and data.guid
+			local src = guid and type(guid) == "string" and Encode.source(guid)
+			local id = src and string.match(src, "^o(%d+)$")
+			local line = data.lines and data.lines[1] and data.lines[1].leftText
+			if id and line and line ~= "" and ns.db() then
+				ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
+			end
+		end)
+	end)
+end
+
 -- Maps -------------------------------------------------------------------------------------------
 
 local function seeMap()
