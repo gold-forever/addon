@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.3.0"
+local VERSION = "0.3.1"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -151,6 +151,7 @@ local function init()
 	db.catalogue.recipes = db.catalogue.recipes or {}
 	db.catalogue.vendor = db.catalogue.vendor or {}
 	db.catalogue.questNames = db.catalogue.questNames or {}
+	db.catalogue.taxiNodes = db.catalogue.taxiNodes or {}
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
 	db.errors = db.errors or {}
 	for name, e in pairs(errors) do
@@ -352,6 +353,11 @@ local function printStatus()
 		size(db.catalogue.recipes),
 		size(db.catalogue.vendor)
 	))
+	print(string.format("  today %d crafts, %d skill-ups, %d quests, %d money changes, %d flights",
+		count(today.craft), count(today.skill), count(today.quest), count(today.money), count(today.flight)))
+	if me and me.flights then
+		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, GetCoinTextureString and GetCoinTextureString(me.flights.cost) or me.flights.cost .. "c"))
+	end
 	for name, e in pairs(db.errors) do
 		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
 	end

@@ -151,3 +151,61 @@ ns.on("QUEST_TURNED_IN", "quest", function(id, xp, reward)
 	questAt = GetTime()
 	quest(id, "done", xp, reward)
 end)
+
+-- Flights ----------------------------------------------------------------------------------------
+
+ns.FIELDS.flight = "t,char,from,to,cost,map"
+ns.FIELDS.taxiNode = "name"
+
+local CURRENT = Enum and Enum.FlightPathState and Enum.FlightPathState.Current
+
+-- Taxi node IDs by slot on the open flight map, and the node the player is at. Node names go
+-- into the catalogue; without node IDs the names themselves are written.
+local function taxiNodes()
+	local bySlot, current = {}, nil
+	local map = GetTaxiMapID and GetTaxiMapID()
+	local nodes = map and C_TaxiMap and C_TaxiMap.GetAllTaxiNodes and C_TaxiMap.GetAllTaxiNodes(map) or {}
+	local names = ns.db().catalogue.taxiNodes
+	for _, node in ipairs(nodes) do
+		if node.nodeID then
+			if node.slotIndex then
+				bySlot[node.slotIndex] = node.nodeID
+			end
+			if node.name then
+				names[node.nodeID] = Encode.name(node.name)
+			end
+			if (CURRENT and node.state == CURRENT) or (node.slotIndex and TaxiNodeGetType(node.slotIndex) == "CURRENT") then
+				current = node.nodeID
+			end
+		end
+	end
+	if not current then
+		for slot = 1, NumTaxiNodes() do
+			if TaxiNodeGetType(slot) == "CURRENT" then
+				current = bySlot[slot] or Encode.name(TaxiNodeName(slot))
+			end
+		end
+	end
+	return bySlot, current
+end
+
+local function flight(slot)
+	local me = ns.me()
+	if not me then
+		return
+	end
+	local bySlot, from = taxiNodes()
+	local to = bySlot[slot] or Encode.name(TaxiNodeName(slot))
+	local cost = TaxiNodeCost(slot) or 0
+	ns.append("flight", Encode.row(ns.now(), me.ref, from, to, cost, C_Map.GetBestMapForUnit("player")))
+	local total = me.flights or { n = 0, cost = 0 }
+	me.flights = total
+	total.n = total.n + 1
+	total.cost = total.cost + cost
+end
+
+if TakeTaxiNode then
+	hooksecurefunc("TakeTaxiNode", function(slot)
+		ns.safely("flight", flight, slot)
+	end)
+end

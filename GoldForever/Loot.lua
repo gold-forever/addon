@@ -119,6 +119,8 @@ ns.on("LOOT_READY", "loot", function()
 	end
 	window = w
 	ns.lootAt = GetTime()
+	local first = w.order[1]
+	ns.lootSource = first and (w.sources[first].src or sourceOf(first)) or nil -- for skill-ups from gathering
 end)
 
 ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)

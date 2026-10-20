@@ -7,6 +7,7 @@ local Encode = ns.Encode
 -- name is appended to design 002's columns: it lets the web app show recipes whose output is not
 -- an item (enchants).
 ns.FIELDS.recipe = "skillLine,output,min,max,reagents,name"
+ns.FIELDS.skill = "t,char,line,skill,max,spell,src,map"
 
 local BASIC = Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 
@@ -154,6 +155,64 @@ local function readRecipes()
 end
 
 local recipesSoon = ns.throttle("recipes", 2, readRecipes)
+
+-- Skill-ups ---------------------------------------------------------------------------------------
+
+local known -- skill line -> skill, to spot a rise
+local lastSpell -- { id, at }: the player's last successful spell, the likely cause of a skill-up
+
+local function skills()
+	local out = {}
+	if GetProfessions then
+		local indices = { GetProfessions() }
+		for i = 1, 5 do
+			if indices[i] then
+				local _, _, skill, max, _, _, line = GetProfessionInfo(indices[i])
+				if line then
+					out[line] = { skill = skill, max = max }
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- One row per rise, with the spell cast in the last 5 s (the recipe for a craft, the gathering
+-- spell for a node) and, for gathering, the loot source opened in the last 5 s.
+local function checkSkills()
+	local me = ns.me()
+	if not me then
+		return
+	end
+	local now, current = GetTime(), skills()
+	if known then
+		for line, s in pairs(current) do
+			local was = known[line]
+			if was and s.skill > was then
+				local spell = lastSpell and now - lastSpell.at < 5 and lastSpell.id or nil
+				local t, map = ns.now(), C_Map.GetBestMapForUnit("player")
+				-- The loot window of a gather opens a moment after the skill rises.
+				ns.after(1, "skillup", function()
+					local src = ns.lootAt and math.abs(GetTime() - ns.lootAt) < 5 and ns.lootSource or nil
+					ns.append("skill", Encode.row(t, me.ref, line, s.skill, s.max, spell, src, map))
+				end)
+			end
+		end
+	end
+	known = {}
+	for line, s in pairs(current) do
+		known[line] = s.skill
+	end
+end
+
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "skillup", function(unit, _, spell)
+	if unit == "player" then
+		lastSpell = { id = spell, at = GetTime() }
+	end
+end)
+ns.on("SKILL_LINES_CHANGED", "skillup", checkSkills)
+ns.on("CHAT_MSG_SKILL", "skillup", checkSkills)
+ns.on("PLAYER_LOGIN", "skillup", checkSkills)
 
 ns.on("PLAYER_LOGIN", "skills", readSkills)
 ns.on("SKILL_LINES_CHANGED", "skills", ns.throttle("skills", 2, readSkills))
