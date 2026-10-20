@@ -90,3 +90,54 @@ end)
 ns.on("CURRENCY_DISPLAY_UPDATE", "currencies", ns.throttle("currencies", 10, readCurrencies))
 ns.on("UPDATE_FACTION", "reputation", ns.throttle("reputation", 10, readReputation))
 ns.on("PLAYER_EQUIPMENT_CHANGED", "gear", ns.throttle("gear", 5, readGear))
+
+-- Names: on Forever a character has two names, and UnitName gives only the first. Until the API
+-- for the second is known, every candidate is kept (me.names), with the names of client functions
+-- that sound like one (db.client.nameApis; listed, never called).
+local function readNames()
+	local me = ns.me()
+	if not me then
+		return
+	end
+	local names = {}
+	local function try(key, fn, ...)
+		local ok, a, b = pcall(fn, ...)
+		if ok and a ~= nil then
+			names[key] = tostring(a) .. (b ~= nil and (" | " .. tostring(b)) or "")
+		end
+	end
+	try("unit", UnitName, "player")
+	if UnitFullName then try("full", UnitFullName, "player") end
+	if GetUnitName then try("realmName", GetUnitName, "player", true) end
+	if UnitPVPName then try("pvp", UnitPVPName, "player") end
+	if C_TooltipInfo and C_TooltipInfo.GetUnit then
+		try("tooltip", function()
+			local data = C_TooltipInfo.GetUnit("player")
+			local lines = {}
+			for i = 1, math.min(3, data and data.lines and #data.lines or 0) do
+				lines[i] = data.lines[i].leftText or ""
+			end
+			return table.concat(lines, " / ")
+		end)
+	end
+	me.names = names
+
+	local apis = {}
+	for space, t in pairs(_G) do
+		if type(space) == "string" and string.find(space, "^C_") and type(t) == "table" then
+			for fn in pairs(t) do
+				local lower = type(fn) == "string" and string.lower(fn) or ""
+				if string.find(lower, "surname") or string.find(lower, "lastname") or string.find(lower, "fullname")
+					or string.find(lower, "familyname") or string.find(lower, "secondname") or string.find(lower, "charactername") then
+					apis[#apis + 1] = space .. "." .. fn
+				end
+			end
+		end
+	end
+	table.sort(apis)
+	ns.db().client.nameApis = table.concat(apis, ",")
+end
+
+ns.on("PLAYER_ENTERING_WORLD", "names", function()
+	ns.after(2, "names", readNames)
+end)
