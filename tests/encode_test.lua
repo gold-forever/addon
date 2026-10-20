@@ -54,6 +54,31 @@ eq(E.coord(nil), nil, "no position")
 eq(E.name("Gloves, of the Bear"), "Gloves\226\128\154 of the Bear", "comma swapped")
 eq(E.name("Black Lotus"), "Black Lotus", "plain name unchanged")
 
+-- Item keys: the item ID, plus the suffix (7th field after the ID) only when it is set.
+eq(E.itemKey("|cff1eff00|Hitem:14047::::::::30:::::::::|h[Runecloth]|h|r"), "14047", "plain item link")
+eq(E.itemKey("|cff1eff00|Hitem:10221::::::612:0:30:::::::::|h[Gloves of the Bear]|h|r"), "10221:612", "random suffix")
+eq(E.itemKey("item:10221:0:0:0:0:0:-19:0"), "10221:-19", "negative suffix kept raw")
+eq(E.itemKey("item:2589:0:0:0:0:0:0:0"), "2589", "zero suffix is none")
+eq(E.itemKey("|Hcurrency:1220|h[Resources]|h"), nil, "not an item")
+eq(E.itemKey(nil), nil, "no link")
+
+-- Loot sources from GUIDs.
+eq(E.source("Creature-0-4620-0-12-7440-0000ABCDEF"), "n7440", "npc")
+eq(E.source("Vehicle-0-4620-0-12-1234-0000ABCDEF"), "n1234", "vehicle is an npc")
+eq(E.source("GameObject-0-4620-0-12-176583-0000ABCDEF"), "o176583", "object")
+eq(E.source("Item-4620-0-4000000012345678"), nil, "items need the opened item's ID")
+eq(E.source("Player-4620-006C0FC1"), nil, "players are never a source")
+eq(E.source(nil), nil, "no guid")
+
+-- Splits add up to the amount.
+local parts = E.split(10, { 1, 1, 1 })
+eq(parts[1] + parts[2] + parts[3], 10, "even split adds up")
+eq(parts[1], 4, "remainder to the first share")
+parts = E.split(100, { 30, 70 })
+eq(parts[1] .. "/" .. parts[2], "30/70", "proportional split")
+parts = E.split(5, { 0, 0 })
+eq(parts[1] .. "/" .. parts[2], "3/2", "zero weights split evenly")
+
 -- Day buckets are UTC.
 eq(E.day(1792368000), "2026-10-19", "start of a UTC day")
 eq(E.day(1792454399), "2026-10-19", "end of the same UTC day")

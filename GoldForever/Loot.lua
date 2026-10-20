@@ -1,0 +1,232 @@
+-- Gold Forever: loot and farming positions (design 002, Stream: events).
+--
+-- One loot row per source per loot window: the items actually taken and the coin, split over the
+-- window's sources. Positions are sampled only while farming: from a loot until 15 minutes after
+-- the last one.
+
+local _, ns = ...
+local Encode = ns.Encode
+
+ns.FIELDS.loot = "t,char,map,x,y,src,first,coin,items"
+ns.FIELDS.pos = "t,char,map,x,y"
+
+local FARMING_SECONDS = 15 * 60 -- the frontend's idle split
+local ITEM_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Item or 1
+local MONEY_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Money or 2
+
+local window -- the open loot window
+local seen = {} -- spawn GUIDs looted this session, for `first`; never written
+local opened -- { id, at }: the container item last used, for `i<itemId>` sources
+local lastLoot -- GetTime() of the last loot, while farming
+
+-- Map position of the player, coordinates empty in instances.
+function ns.position()
+	local map = C_Map.GetBestMapForUnit("player")
+	if not map then
+		return nil
+	end
+	local p = C_Map.GetPlayerMapPosition(map, "player")
+	local x, y
+	if p then
+		x, y = p:GetXY()
+	end
+	if not x or (x == 0 and y == 0) then
+		return map
+	end
+	return map, Encode.coord(x), Encode.coord(y)
+end
+
+-- Item ID behind an Item GUID: the container being opened, still in the bags while its loot shows.
+local function itemOf(guid)
+	if C_Item and C_Item.GetItemGUID and ItemLocation then
+		for bag = 0, (NUM_BAG_SLOTS or 4) + 1 do
+			for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+				local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
+				if location:IsValid() and C_Item.GetItemGUID(location) == guid then
+					return C_Item.GetItemID(location)
+				end
+			end
+		end
+	end
+	if opened and GetTime() - opened.at < 5 then
+		return opened.id
+	end
+	return nil
+end
+
+local function sourceOf(guid)
+	local src = Encode.source(guid)
+	if src then
+		return src
+	end
+	if guid == "?" or string.find(guid, "^Item%-") then
+		local id = itemOf(guid)
+		if id then
+			return "i" .. id
+		end
+	end
+	-- Not in design 002's source kinds yet; recorded raw so the parser can learn it.
+	if guid == "?" and IsFishingLoot and IsFishingLoot() then
+		return "fishing"
+	end
+	return ""
+end
+
+local function addSource(w, guid)
+	if not w.sources[guid] then
+		w.sources[guid] = { items = {} }
+		w.order[#w.order + 1] = guid
+	end
+end
+
+ns.on("LOOT_READY", "loot", function()
+	if window then
+		return -- LOOT_READY can fire twice for one window
+	end
+	local w = { t = ns.now(), money = GetMoney(), slots = {}, sources = {}, order = {}, coinFrom = {} }
+	w.map, w.x, w.y = ns.position()
+	for slot = 1, GetNumLootItems() do
+		local kind = GetLootSlotType(slot)
+		local _, _, quantity = GetLootSlotInfo(slot)
+		local info = { sources = {} }
+		if kind == ITEM_SLOT then
+			info.key = Encode.itemKey(GetLootSlotLink(slot))
+		end
+		local list = { GetLootSourceInfo(slot) }
+		for i = 1, #list, 2 do
+			local guid = list[i]
+			if guid then
+				addSource(w, guid)
+				info.sources[#info.sources + 1] = { guid = guid, n = list[i + 1] or quantity }
+			end
+		end
+		if #info.sources == 0 then
+			addSource(w, "?")
+			info.sources[1] = { guid = "?", n = quantity }
+		end
+		if kind == MONEY_SLOT then
+			for _, s in ipairs(info.sources) do
+				w.coinFrom[s.guid] = (w.coinFrom[s.guid] or 0) + (tonumber(s.n) or 0)
+			end
+		end
+		w.slots[slot] = info
+	end
+	-- Resolve item and unknown sources now, while the container is in the bags and the window open.
+	for _, guid in ipairs(w.order) do
+		if guid == "?" or string.find(guid, "^Item%-") then
+			w.sources[guid].src = sourceOf(guid)
+		end
+	end
+	window = w
+end)
+
+ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)
+	local info = window and window.slots[slot]
+	if not info or not info.key or info.taken then
+		return
+	end
+	info.taken = true
+	for _, s in ipairs(info.sources) do
+		local items = window.sources[s.guid].items
+		items[info.key] = (items[info.key] or 0) + (tonumber(s.n) or 1)
+	end
+end)
+
+-- Coin: GetMoney() rises a moment after the money slot clears, so the rows are written a second
+-- after the window closes. The rise goes to the money slot's sources (by their amounts when the
+-- client gives them), else to every source.
+local function finish(w)
+	local me = ns.me()
+	if not me then
+		return
+	end
+	local coin = math.max(0, GetMoney() - w.money)
+	local takers, weights = {}, {}
+	for _, guid in ipairs(w.order) do
+		if w.coinFrom[guid] then
+			takers[#takers + 1] = guid
+			weights[#weights + 1] = w.coinFrom[guid]
+		end
+	end
+	if #takers == 0 then
+		for i, guid in ipairs(w.order) do
+			takers[i], weights[i] = guid, 0
+		end
+	end
+	local shares = {}
+	if #takers > 0 then
+		for i, part in ipairs(Encode.split(coin, weights)) do
+			shares[takers[i]] = part
+		end
+	end
+	for _, guid in ipairs(w.order) do
+		local first = nil
+		if guid ~= "?" and not string.find(guid, "^Item%-") then
+			first = not seen[guid] or nil
+			seen[guid] = true
+		else
+			first = true
+		end
+		local items = w.sources[guid].items
+		for key in pairs(items) do
+			ns.catalogueItem(key)
+		end
+		local src = w.sources[guid].src or sourceOf(guid)
+		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items)))
+	end
+	lastLoot = GetTime()
+end
+
+ns.on("LOOT_CLOSED", "loot", function()
+	local w = window
+	window = nil
+	if w then
+		ns.after(1, "loot", function()
+			finish(w)
+		end)
+	end
+end)
+
+-- Remember which container item was used, for loot whose source is an Item GUID.
+local function used(bag, slot)
+	local id = C_Container.GetContainerItemID(bag, slot)
+	if id then
+		opened = { id = id, at = GetTime() }
+	end
+end
+if C_Container and C_Container.UseContainerItem then
+	hooksecurefunc(C_Container, "UseContainerItem", used)
+end
+if UseContainerItem then
+	hooksecurefunc("UseContainerItem", used)
+end
+
+-- Positions ----------------------------------------------------------------------------------------
+
+local last -- previous sample, skipped when unchanged
+
+local function sample()
+	local me = ns.me()
+	if not me or not lastLoot or GetTime() - lastLoot > FARMING_SECONDS then
+		return
+	end
+	if IsResting() or (IsFlying and IsFlying()) or UnitOnTaxi("player") or UnitIsDeadOrGhost("player") then
+		return
+	end
+	local map, x, y = ns.position()
+	if not x then
+		return
+	end
+	local here = map .. "," .. x .. "," .. y
+	if here == last then
+		return
+	end
+	last = here
+	ns.append("pos", Encode.row(ns.now(), me.ref, map, x, y))
+end
+
+ns.on("PLAYER_LOGIN", "positions", function()
+	C_Timer.NewTicker(ns.db().settings.sampleSeconds or 5, function()
+		ns.safely("positions", sample)
+	end)
+end)

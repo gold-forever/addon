@@ -1,13 +1,18 @@
 -- Gold Forever: records the player's characters into GoldForeverDB (design 002, schema v1).
 -- The addon only records; everything else happens in the web app.
+--
+-- Core owns the saved table, the event wiring and the character state. Collectors in their own
+-- files subscribe with ns.on; a collector that fails records its error in db.errors and leaves
+-- the others running.
 
 local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.1.0"
+local VERSION = "0.2.0"
 
-local FIELDS = {
+-- Column dictionary; each collector adds its own entries when its file loads.
+ns.FIELDS = {
 	sys = "t,char,kind",
 }
 
@@ -15,7 +20,114 @@ local db -- GoldForeverDB, once loaded
 local me -- this character's entry in db.characters
 local reloading = false -- set by the ReloadUI hook just before the UI unloads
 
+function ns.db()
+	return db
+end
+
+function ns.me()
+	return me
+end
+
+ns.now = GetServerTime
+
+-- Errors ------------------------------------------------------------------------------------------
+
+local errors = {} -- collector -> { n, msg, t }; becomes db.errors once the file is loaded
+local told = {} -- collectors already reported in chat this session
+
+function ns.fail(name, err)
+	local e = errors[name] or { n = 0 }
+	errors[name] = e
+	e.n = e.n + 1
+	e.msg = tostring(err)
+	e.t = GetServerTime()
+	if not told[name] then
+		told[name] = true
+		print("|cffe0ac45Gold Forever|r: " .. name .. " failed: " .. tostring(err))
+	end
+end
+
+-- Runs fn(...) and records an error instead of raising it.
+function ns.safely(name, fn, ...)
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		ns.fail(name, err)
+	end
+	return ok
+end
+
+function ns.after(seconds, name, fn)
+	C_Timer.After(seconds, function()
+		ns.safely(name, fn)
+	end)
+end
+
+-- fn at most once per `seconds`; calls during the wait collapse into one run at its end.
+function ns.throttle(name, seconds, fn)
+	local waiting, last = false, -math.huge
+	return function()
+		if waiting then
+			return
+		end
+		local wait = last + seconds - GetTime()
+		if wait <= 0 then
+			last = GetTime()
+			ns.safely(name, fn)
+		else
+			waiting = true
+			C_Timer.After(wait, function()
+				waiting = false
+				last = GetTime()
+				ns.safely(name, fn)
+			end)
+		end
+	end
+end
+
+-- Events -----------------------------------------------------------------------------------------
+
+local frame = CreateFrame("Frame")
+local listeners = {} -- event -> { { name, fn } }
+local missing = {} -- events this client does not know, for the diagnostics
+
+function ns.on(event, name, fn)
+	if not listeners[event] then
+		listeners[event] = {}
+		if not pcall(frame.RegisterEvent, frame, event) then
+			missing[#missing + 1] = event
+		end
+	end
+	table.insert(listeners[event], { name = name, fn = fn })
+end
+
+frame:SetScript("OnEvent", function(_, event, ...)
+	for _, l in ipairs(listeners[event]) do
+		ns.safely(l.name, l.fn, ...)
+	end
+end)
+
+-- Appends a row to today's bucket of a stream.
+function ns.append(stream, row)
+	local day = Encode.day(GetServerTime())
+	db.events[day] = db.events[day] or {}
+	local bucket = db.events[day]
+	bucket[stream] = bucket[stream] or {}
+	Encode.append(bucket[stream], row)
+end
+
 -- Setup ------------------------------------------------------------------------------------------
+
+local REGIONS = { "US", "KR", "EU", "TW", "CN" }
+
+-- GetCurrentRegionName returns "" on the Forever client; fall back to the region number.
+local function region()
+	local name = GetCurrentRegionName and GetCurrentRegionName()
+	if name and name ~= "" then
+		return name
+	end
+	local id = GetCurrentRegion and GetCurrentRegion()
+	return id and (REGIONS[id] or tostring(id)) or nil
+end
 
 -- Creates or upgrades the saved table. Existing data is kept; only missing parts are added.
 local function init()
@@ -27,19 +139,32 @@ local function init()
 	db.schema = SCHEMA
 	db.addon = VERSION
 	db.fields = db.fields or {}
-	for name, columns in pairs(FIELDS) do
+	for name, columns in pairs(ns.FIELDS) do
 		db.fields[name] = columns -- columns only ever grow (design 002, rule 2)
 	end
 	db.characters = db.characters or {}
 	db.events = db.events or {}
+	db.scans = db.scans or {}
+	db.guildBanks = db.guildBanks or {}
+	db.catalogue = db.catalogue or {}
+	db.catalogue.items = db.catalogue.items or {}
+	db.catalogue.recipes = db.catalogue.recipes or {}
+	db.catalogue.vendor = db.catalogue.vendor or {}
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
+	db.errors = db.errors or {}
+	for name, e in pairs(errors) do
+		db.errors[name] = e
+	end
+	errors = db.errors
 
 	local version, build, _, interface = GetBuildInfo()
 	db.client = {
 		build = version .. "." .. build,
 		interface = interface,
 		locale = GetLocale(),
-		region = GetCurrentRegionName and GetCurrentRegionName() or nil,
+		region = region(),
+		regionId = GetCurrentRegion and GetCurrentRegion() or nil,
+		portal = GetCVar and GetCVar("portal") or nil,
 	}
 end
 
@@ -83,6 +208,7 @@ local function recordIdentity()
 	-- Design 002 checklist #8: the ruleset may be readable from the mega-realm's name. Keep the
 	-- raw name until we know; the upload page can ask when it cannot tell.
 	me.realm = GetRealmName()
+	me.guild = GetGuildInfo("player")
 end
 
 -- State that changes during play; written at every save so a file read after /reload is current.
@@ -115,18 +241,16 @@ local function recordState()
 	}
 end
 
--- Events -----------------------------------------------------------------------------------------
+-- Market of the auction house or guild bank the player is at: region, realm (until the ruleset
+-- is known, checklist #8) and side.
+function ns.market(side)
+	return (db.client.region or "?") .. "-" .. (me and me.realm or "?") .. "-" .. side
+end
 
 local function sys(kind)
-	if not me then
-		return
+	if me then
+		ns.append("sys", Encode.row(GetServerTime(), me.ref, kind))
 	end
-	local now = GetServerTime()
-	local day = Encode.day(now)
-	db.events[day] = db.events[day] or {}
-	local bucket = db.events[day]
-	bucket.sys = bucket.sys or {}
-	Encode.append(bucket.sys, Encode.row(now, me.ref, kind))
 end
 
 -- Launch-week checks -----------------------------------------------------------------------------
@@ -160,6 +284,11 @@ local function diagnose()
 		replicate = has("C_AuctionHouse.ReplicateItems"),
 		guildBank = has("GetGuildBankItemInfo"),
 		regionName = has("GetCurrentRegionName"),
+		professions = has("GetProfessions"),
+		skillLines = has("GetSkillLineInfo"),
+		merchantInfo = has("C_MerchantFrame.GetItemInfo"),
+		itemGUID = has("C_Item.GetItemGUID"),
+		missingEvents = #missing > 0 and table.concat(missing, " ") or nil,
 	}
 	return db.diag
 end
@@ -167,8 +296,8 @@ end
 local function printCheck()
 	local diag = diagnose()
 	local names = {}
-	for name in pairs(diag) do
-		if name ~= "t" then
+	for name, value in pairs(diag) do
+		if type(value) == "boolean" then
 			names[#names + 1] = name
 		end
 	end
@@ -177,46 +306,63 @@ local function printCheck()
 	for _, name in ipairs(names) do
 		print(string.format("  %s %s", diag[name] and "|cff56c98fyes|r" or "|cffe8615ano|r", name))
 	end
+	if diag.missingEvents then
+		print("  unknown events: " .. diag.missingEvents)
+	end
 	print("  realm: " .. tostring(me and me.realm) .. " · region: " .. tostring(db.client.region))
 end
 
-local function printStatus()
-	local characters, rows = 0, 0
-	for _ in pairs(db.characters) do
-		characters = characters + 1
-	end
-	local today = db.events[Encode.day(GetServerTime())]
-	for _, chunk in ipairs(today and today.sys or {}) do
+local function count(stream)
+	local rows = 0
+	for _, chunk in ipairs(stream or {}) do
 		rows = rows + Encode.count(chunk)
 	end
+	return rows
+end
+
+local function size(t)
+	local n = 0
+	for _ in pairs(t or {}) do
+		n = n + 1
+	end
+	return n
+end
+
+local function printStatus()
+	local today = db.events[Encode.day(GetServerTime())] or {}
 	print(string.format(
-		"|cffe0ac45Gold Forever|r: %d characters, %d events today. The file is written at logout and /reload.",
-		characters,
-		rows
+		"|cffe0ac45Gold Forever|r: %d characters · today %d loot, %d positions, %d sys · %d scans · catalogue %d items, %d recipes, %d vendor",
+		size(db.characters),
+		count(today.loot),
+		count(today.pos),
+		count(today.sys),
+		#db.scans,
+		size(db.catalogue.items),
+		size(db.catalogue.recipes),
+		size(db.catalogue.vendor)
 	))
+	for name, e in pairs(db.errors) do
+		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
+	end
+	print("  The file is written at logout and /reload.")
 end
 
 -- Wiring -----------------------------------------------------------------------------------------
 
-local frame = CreateFrame("Frame")
-
-local handlers = {}
-
-function handlers.ADDON_LOADED(name)
+ns.on("ADDON_LOADED", "core", function(name)
 	if name ~= addonName then
 		return
 	end
 	init()
 	prune()
-	frame:UnregisterEvent("ADDON_LOADED")
-end
+end)
 
-function handlers.PLAYER_LOGIN()
+ns.on("PLAYER_LOGIN", "core", function()
 	recordIdentity()
 	recordState()
-end
+end)
 
-function handlers.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
+ns.on("PLAYER_ENTERING_WORLD", "core", function(isInitialLogin, isReloadingUi)
 	-- In the world now, so the position check is meaningful.
 	diagnose()
 	if isInitialLogin then
@@ -224,29 +370,28 @@ function handlers.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
 	elseif isReloadingUi then
 		sys("resume")
 	end
-end
+end)
 
-function handlers.PLAYER_LEVEL_UP()
-	recordIdentity()
-end
+ns.on("PLAYER_LEVEL_UP", "core", recordIdentity)
+ns.on("PLAYER_UPDATE_RESTING", "core", recordState)
+ns.on("PLAYER_MONEY", "core", function()
+	if me then
+		me.money = GetMoney()
+	end
+end)
+ns.on("PLAYER_GUILD_UPDATE", "core", function()
+	if me then
+		me.guild = GetGuildInfo("player")
+	end
+end)
 
-function handlers.PLAYER_UPDATE_RESTING()
-	recordState()
-end
-
--- The last chance before the client writes the file; also fires on /reload.
-function handlers.PLAYER_LOGOUT()
+-- The last chance before the client writes the file; also fires on /reload. Collectors that
+-- save on logout subscribe to it too.
+ns.on("PLAYER_LOGOUT", "core", function()
 	recordState()
 	sys(reloading and "reload" or "logout")
 	db.writtenAt = GetServerTime()
-end
-
-frame:SetScript("OnEvent", function(_, event, ...)
-	handlers[event](...)
 end)
-for event in pairs(handlers) do
-	frame:RegisterEvent(event)
-end
 
 -- /reload and addons call ReloadUI; flag it so PLAYER_LOGOUT records a reload, not a logout.
 if ReloadUI then
@@ -260,13 +405,19 @@ if C_UI and C_UI.Reload then
 	end)
 end
 
+-- Collectors add subcommands: ns.commands.scan = function() ... end
+ns.commands = {
+	check = printCheck,
+}
+
 SLASH_GOLDFOREVER1 = "/gf"
 SLASH_GOLDFOREVER2 = "/goldforever"
 SlashCmdList.GOLDFOREVER = function(message)
-	if message == "check" then
-		printCheck()
+	local command = ns.commands[message]
+	if command then
+		ns.safely("/gf " .. message, command)
 	else
 		printStatus()
-		print("  /gf check — which APIs this client has (saved into the file too)")
+		print("  /gf check — which APIs this client has · /gf scan — scan the auction house")
 	end
 end

@@ -75,6 +75,68 @@ function Encode.name(text)
 	return (string.gsub(text, ",", "\226\128\154"))
 end
 
+-- Item key of an item link or item string: "itemId", or "itemId:suffixId" for random-suffix
+-- items. nil when the text is not an item.
+function Encode.itemKey(link)
+	local fields = link and string.match(link, "item:([%-%d:]+)")
+	if not fields then
+		return nil
+	end
+	local parts = {}
+	for part in string.gmatch(fields .. ":", "([^:]*):") do
+		parts[#parts + 1] = part
+	end
+	local id = tonumber(parts[1])
+	if not id then
+		return nil
+	end
+	local suffix = tonumber(parts[7] or "")
+	if suffix and suffix ~= 0 then
+		return id .. ":" .. suffix
+	end
+	return tostring(id)
+end
+
+-- Loot source of a unit or object GUID: "n<npcId>" or "o<objectId>"; nil for anything else.
+-- Creature-0-<server>-<instance>-<zoneUID>-<npcId>-<spawnUID>, GameObject the same.
+function Encode.source(guid)
+	if not guid then
+		return nil
+	end
+	local parts = {}
+	for part in string.gmatch(guid, "[^%-]+") do
+		parts[#parts + 1] = part
+	end
+	local prefix = (parts[1] == "Creature" or parts[1] == "Vehicle") and "n" or parts[1] == "GameObject" and "o" or nil
+	local id = tonumber(parts[6] or "")
+	if prefix and id then
+		return prefix .. id
+	end
+	return nil
+end
+
+-- Splits an integer amount over weights (numbers ≥ 0) in proportion, remainder to the first
+-- shares, so the parts always add up to the amount. Equal shares when every weight is 0.
+function Encode.split(amount, weights)
+	local total = 0
+	for _, w in ipairs(weights) do
+		total = total + w
+	end
+	local parts, given = {}, 0
+	for i, w in ipairs(weights) do
+		local share = total > 0 and w / total or 1 / #weights
+		parts[i] = math.floor(amount * share)
+		given = given + parts[i]
+	end
+	local i = 1
+	while given < amount and #parts > 0 do
+		parts[i] = parts[i] + 1
+		given = given + 1
+		i = i % #parts + 1
+	end
+	return parts
+end
+
 -- UTC day key of an epoch time, the bucket events are stored under.
 function Encode.day(epoch)
 	return date("!%Y-%m-%d", epoch)

@@ -6,7 +6,9 @@ rest. Version 0.1.0 is the skeleton: characters, rested XP, login/reload/logout,
 
 ## Install
 
-Link the folder into the game's AddOns folder, so a `git pull` updates the addon:
+Link the folder into the game's AddOns folder, so a `git pull` updates the addon. On Linux (Wine,
+Lutris or Steam), `scripts/install-addon.sh` finds the game folder and does this; `--help` lists its
+options.
 
 ```sh
 # macOS — adjust the flavour folder (_forever_, _classic_beta_ …) to your install
@@ -56,6 +58,18 @@ installed into the game.
 
 ## What it records
 
-Per character: name, race, class, faction, level, money, realm, region, rested XP (below max
-level), zone and subzone. Account-wide: login, reload, resume and logout times, and the API check.
-Nothing about other players. See design 002, "Data minimisation".
+Per character: name, race, class, faction, level, money, realm, region, guild, rested XP (below
+max level), zone and subzone, professions with known recipes, and bag and bank contents.
+
+Account-wide: login, reload, resume and logout times; every loot (source, first loot of a spawn,
+coin, items taken, position); positions every 5 s while farming; auction house scans (one per
+visit, at most every 15 minutes; `/gf scan` retries); guild bank tabs; and a catalogue of every
+item, recipe and vendor price seen. `/gf` shows today's counts and any collector that failed.
+
+Nothing about other players: auction owners and bidders are never read. See design 002, "Data
+minimisation", and its "Findings on the live client" for where 0.2.0 departs from the design.
+
+## Keeping the data
+
+`scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it
+was written.

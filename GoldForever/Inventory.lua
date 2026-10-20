@@ -1,0 +1,162 @@
+-- Gold Forever: bags, bank and guild bank contents (design 002, State: characters, guild banks).
+-- Items are aggregated per item key; slot positions are never recorded.
+
+local _, ns = ...
+local Encode = ns.Encode
+
+-- Container IDs by name from Enum.BagIndex when the client has it, else the classic numbering.
+local function containers(patterns, fallback)
+	local ids = {}
+	if Enum and Enum.BagIndex then
+		for name, id in pairs(Enum.BagIndex) do
+			for _, pattern in ipairs(patterns) do
+				if string.find(name, pattern) then
+					ids[#ids + 1] = id
+				end
+			end
+		end
+	end
+	if #ids == 0 then
+		ids = fallback
+	end
+	table.sort(ids)
+	return ids
+end
+
+local BAGS = containers({ "^Backpack$", "^Bag_%d+$", "^ReagentBag$" }, { 0, 1, 2, 3, 4 })
+local BANK = containers({ "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$", "^Reagentbank$" }, { -1, 5, 6, 7, 8, 9, 10, 11 })
+
+local function read(ids)
+	local counts, used, total = {}, 0, 0
+	for _, bag in ipairs(ids) do
+		local n = C_Container.GetContainerNumSlots(bag) or 0
+		total = total + n
+		for slot = 1, n do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info then
+				used = used + 1
+				local key = Encode.itemKey(info.hyperlink) or (info.itemID and tostring(info.itemID))
+				if key then
+					counts[key] = (counts[key] or 0) + (info.stackCount or 1)
+					ns.catalogueItem(key)
+				end
+			end
+		end
+	end
+	return { used = used, total = total, items = Encode.items(counts), t = ns.now() }
+end
+
+local function readBags()
+	local me = ns.me()
+	if me then
+		me.bags = read(BAGS)
+	end
+end
+
+local bankOpen = false
+
+local function readBank()
+	local me = ns.me()
+	if me and bankOpen then
+		local bank = read(BANK)
+		if bank.total > 0 then -- 0 slots: the bank's contents are not loaded
+			me.bank = bank
+		end
+	end
+end
+
+local bagsSoon = ns.throttle("bags", 10, readBags)
+local bankSoon = ns.throttle("bank", 2, readBank)
+
+ns.on("PLAYER_ENTERING_WORLD", "bags", function()
+	ns.after(3, "bags", readBags)
+end)
+ns.on("BAG_UPDATE_DELAYED", "bags", function()
+	bagsSoon()
+	if bankOpen then
+		bankSoon()
+	end
+end)
+ns.on("PLAYER_LOGOUT", "bags", readBags)
+
+local function bankOpened()
+	bankOpen = true
+	ns.after(0.5, "bank", readBank)
+end
+local function bankClosed()
+	readBank()
+	bankOpen = false
+end
+ns.on("BANKFRAME_OPENED", "bank", bankOpened)
+ns.on("BANKFRAME_CLOSED", "bank", bankClosed)
+ns.on("PLAYERBANKSLOTS_CHANGED", "bank", bankSoon)
+
+-- Guild bank -------------------------------------------------------------------------------------
+
+local SLOTS_PER_TAB = MAX_GUILDBANK_SLOTS_PER_TAB or 98
+
+local function readGuildBank()
+	local me = ns.me()
+	local guild = GetGuildInfo("player")
+	if not me or not guild then
+		return
+	end
+	local key = ns.market(string.lower(me.faction or "?")) .. ":" .. guild
+	local banks = ns.db().guildBanks
+	local bank = banks[key] or { tabs = {} }
+	banks[key] = bank
+	local current = GetCurrentGuildBankTab and GetCurrentGuildBankTab()
+	for tab = 1, GetNumGuildBankTabs() do
+		local name, _, viewable = GetGuildBankTabInfo(tab)
+		if viewable then
+			local counts, any = {}, false
+			for slot = 1, SLOTS_PER_TAB do
+				local link = GetGuildBankItemLink(tab, slot)
+				if link then
+					any = true
+					local _, count = GetGuildBankItemInfo(tab, slot)
+					local itemKey = Encode.itemKey(link)
+					if itemKey then
+						counts[itemKey] = (counts[itemKey] or 0) + (count or 1)
+						ns.catalogueItem(itemKey)
+					end
+				end
+			end
+			-- A tab not yet sent by the server reads empty; keep what an earlier visit saw.
+			if any or tab == current then
+				bank.tabs[tab] = { name = name, items = Encode.items(counts), t = ns.now() }
+			end
+		end
+	end
+	bank.t = ns.now()
+end
+
+local guildBankSoon = ns.throttle("guildBank", 1, readGuildBank)
+
+local function guildBankOpened()
+	for tab = 1, GetNumGuildBankTabs() do
+		local _, _, viewable = GetGuildBankTabInfo(tab)
+		if viewable then
+			QueryGuildBankTab(tab)
+		end
+	end
+	guildBankSoon()
+end
+
+ns.on("GUILDBANKFRAME_OPENED", "guildBank", guildBankOpened)
+ns.on("GUILDBANKBAGSLOTS_CHANGED", "guildBank", guildBankSoon)
+
+-- Newer clients open the bank and guild bank through the interaction manager.
+local INTERACTION = Enum and Enum.PlayerInteractionType or {}
+ns.on("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "bank", function(kind)
+	if kind == INTERACTION.Banker and not bankOpen then
+		bankOpened()
+	elseif kind == INTERACTION.GuildBanker then
+		guildBankOpened()
+	end
+end)
+ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "bank", function(kind)
+	if kind == INTERACTION.Banker and bankOpen then
+		bankClosed()
+	end
+end)
