@@ -100,27 +100,25 @@ end)
 -- XP -------------------------------------------------------------------------------------------------
 
 local seen -- { cur, max, rested }: the last reading
-local questAt, killAt, diedAt, zoneAt = -math.huge, -math.huge, -math.huge, -math.huge
+local questAt, combatAt, zoneAt = -math.huge, -math.huge, -math.huge
 
 local function read()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0 }
 end
 
--- What earned XP gained at `at`: a quest handed in, a kill by the group, a new zone (exploration),
--- a creature dying nearby (a kill the group log missed, such as by a damage-over-time spell), else
--- something else (a profession, an event).
-local function kindAt(at)
+-- What earned XP gained at `at`: a quest handed in, a kill (XP while in combat, or just after it),
+-- a new zone (exploration), else something else (a profession, an event). The combat log would
+-- name the kill, but the client keeps it for the Blizzard UI: an addon registering for it is blocked.
+local function kindAt(at, fighting)
 	local function near(t)
 		return math.abs(at - t) <= WINDOW
 	end
 	if near(questAt) then
 		return "quest"
-	elseif near(killAt) then
+	elseif fighting or near(combatAt) then
 		return "kill"
 	elseif near(zoneAt) then
 		return "explore"
-	elseif near(diedAt) then
-		return "kill"
 	end
 	return "other"
 end
@@ -136,11 +134,11 @@ local function xpChanged()
 	if gained <= 0 then
 		return
 	end
-	local at = GetTime()
+	local at, fighting = GetTime(), UnitAffectingCombat("player")
 	local row = { t = ns.now(), xp = gained, rested = math.max(0, before.rested - now.rested), instance = instance(), map = map(), level = UnitLevel("player") }
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
-		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kindAt(at), row.rested > 0 and row.rested or nil, row.instance, row.map, row.level))
+		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kindAt(at, fighting), row.rested > 0 and row.rested or nil, row.instance, row.map, row.level))
 	end)
 end
 
@@ -157,13 +155,9 @@ end)
 ns.on("QUEST_TURNED_IN", "xp", function()
 	questAt = GetTime()
 end)
-ns.on("COMBAT_LOG_EVENT_UNFILTERED", "xp", function()
-	local _, event, _, _, _, _, _, dest = CombatLogGetCurrentEventInfo()
-	if event == "PARTY_KILL" then
-		killAt = GetTime()
-	elseif event == "UNIT_DIED" and dest and string.find(dest, "^Creature") then
-		diedAt = GetTime()
-	end
+-- Combat's end: a kill's XP can come a moment after it.
+ns.on("PLAYER_REGEN_ENABLED", "xp", function()
+	combatAt = GetTime()
 end)
 
 -- Zones ------------------------------------------------------------------------------------------------
