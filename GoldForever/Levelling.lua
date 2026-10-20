@@ -1,14 +1,18 @@
 -- Gold Forever: the levelling history. Every level-up with the time played (`level` rows), every
 -- XP gain with where it came from (`xp` rows), and every zone entered (`zone` rows), so the web app
 -- can show how long each level took, in game and in real time, where its XP came from and where it
--- was spent. Gold per level comes from the `money` stream, between two level rows.
+-- was spent. Gold per level comes from the `money` stream, between two level rows. Bosses killed
+-- (`boss` rows) and the instance in each zone row make a dungeon run's report: its XP, from bosses
+-- and the rest.
 
 local _, ns = ...
 local Encode = ns.Encode
 
 ns.FIELDS.level = "t,char,kind,level,played,levelPlayed,money,map"
 ns.FIELDS.xp = "t,char,xp,kind,rested,instance,map,level"
-ns.FIELDS.zone = "t,char,map,instance"
+ns.FIELDS.zone = "t,char,map,instance,instanceId"
+ns.FIELDS.boss = "t,char,encounter,name,difficulty,size,success,map,instanceId"
+ns.FIELDS.instance = "name,type"
 
 local WINDOW = 3 -- seconds between an XP gain and what earned it (a kill, a quest, a new zone)
 local PLAYED_TIMEOUT = 10 -- seconds to wait for /played before writing a level row without it
@@ -16,6 +20,20 @@ local PLAYED_TIMEOUT = 10 -- seconds to wait for /played before writing a level 
 local function instance()
 	local inside, kind = IsInInstance()
 	return inside and kind ~= "none" and kind or nil
+end
+
+-- The instance the player is in (its ID, with its name kept in the catalogue), nil outside one.
+local function instanceId()
+	if not instance() or not GetInstanceInfo then
+		return nil
+	end
+	local name, kind, _, _, _, _, _, id = GetInstanceInfo()
+	if id then
+		local catalogue = ns.db().catalogue
+		catalogue.instances = catalogue.instances or {}
+		catalogue.instances[id] = Encode.row(Encode.name(name or "?"), kind)
+	end
+	return id
 end
 
 local function map()
@@ -100,13 +118,13 @@ end)
 -- XP -------------------------------------------------------------------------------------------------
 
 local seen -- { cur, max, rested }: the last reading
-local questAt, combatAt, zoneAt = -math.huge, -math.huge, -math.huge
+local questAt, combatAt, zoneAt, bossAt = -math.huge, -math.huge, -math.huge, -math.huge
 
 local function read()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0 }
 end
 
--- What earned XP gained at `at`: a quest handed in, a kill (XP while in combat, or just after it),
+-- What earned XP gained at `at`: a quest handed in, a boss killed, a kill (XP while in combat, or just after it),
 -- a new zone (exploration), else something else (a profession, an event). The combat log would
 -- name the kill, but the client keeps it for the Blizzard UI: an addon registering for it is blocked.
 local function kindAt(at, fighting)
@@ -115,6 +133,8 @@ local function kindAt(at, fighting)
 	end
 	if near(questAt) then
 		return "quest"
+	elseif near(bossAt) then
+		return "boss"
 	elseif fighting or near(combatAt) then
 		return "kill"
 	elseif near(zoneAt) then
@@ -155,6 +175,18 @@ end)
 ns.on("QUEST_TURNED_IN", "xp", function()
 	questAt = GetTime()
 end)
+-- A boss fight's end: won, its kill's XP is boss XP. Every fight is kept, wipes too.
+ns.on("ENCOUNTER_END", "boss", function(encounter, name, difficulty, size, success)
+	local me = ns.me()
+	if not me then
+		return
+	end
+	if success == 1 then
+		bossAt = GetTime()
+	end
+	ns.append("boss", Encode.row(ns.now(), me.ref, encounter, Encode.name(name or "?"), difficulty, size, success == 1, map(), instanceId()))
+end)
+
 -- Combat's end: a kill's XP can come a moment after it.
 ns.on("PLAYER_REGEN_ENABLED", "xp", function()
 	combatAt = GetTime()
@@ -170,12 +202,13 @@ local function zoneChanged()
 		return
 	end
 	zoneAt = GetTime()
-	local here = m .. "," .. (instance() or "")
+	local id = instanceId()
+	local here = m .. "," .. (instance() or "") .. "," .. (id or "")
 	if here == lastZone then
 		return
 	end
 	lastZone = here
-	ns.append("zone", Encode.row(ns.now(), me.ref, m, instance()))
+	ns.append("zone", Encode.row(ns.now(), me.ref, m, instance(), id))
 end
 
 for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
