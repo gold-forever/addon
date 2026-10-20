@@ -1,5 +1,6 @@
 -- Gold Forever: a loot appraiser. While farming, a small window adds up what the loot is worth, in
--- coin and items, and the gold per hour; every item's tooltip gets its value. Prices come from the
+-- coin and items, the gold and XP per hour with the time to the next level, and when the bags will
+-- be full; every item's tooltip gets its value. Prices come from the
 -- latest full scan of the character's own auction house in the saved file, valued as the web app
 -- does: the better of the market value after the auction cut and the vendor price.
 
@@ -86,10 +87,84 @@ end
 
 -- Session ---------------------------------------------------------------------------------------------
 
-local session -- { start, last, coin, items = { [id] = count } }
+-- { start, last, coin, items = { [id] = count }, xp, killXp, kills, bagBase, bagBaseAt, bagFree }
+local session
 
 local function idle()
 	return not session or GetTime() - session.last > IDLE_SECONDS
+end
+
+-- Free slots in general-purpose bags (profession bags take only their own kind of item).
+local function freeSlots()
+	local free = 0
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		local n, bagType = C_Container.GetContainerNumFreeSlots(bag)
+		if (bagType or 0) == 0 then
+			free = free + (n or 0)
+		end
+	end
+	return free
+end
+
+-- The current session, started now when there is none or the last one went idle. A kill's XP comes
+-- before its loot, so either starts one.
+local function current()
+	local now = GetTime()
+	if idle() then
+		local free = freeSlots()
+		session = {
+			start = now, last = now, coin = 0, items = {},
+			xp = 0, killXp = 0, kills = 0,
+			bagBase = free, bagBaseAt = now, bagFree = free,
+		}
+	end
+	session.last = now
+	return session
+end
+
+-- Bags: the fill rate from slots used since the baseline; selling or emptying bags (free slots go
+-- up) starts a new baseline.
+local function bagsChanged()
+	if idle() then
+		return
+	end
+	local free = freeSlots()
+	if free > session.bagFree then
+		session.bagBase, session.bagBaseAt = free, GetTime()
+	end
+	session.bagFree = free
+end
+
+-- XP since the last reading, across level-ups; quest XP counts toward XP per hour, not per kill.
+local xpSeen -- { cur, max, level }
+local questAt
+
+local function readXp()
+	return { cur = UnitXP("player"), max = UnitXPMax("player"), level = UnitLevel("player") }
+end
+
+local function xpChanged()
+	local now = readXp()
+	local before = xpSeen
+	xpSeen = now
+	if not before or now.max == 0 then
+		return
+	end
+	local gained = Encode.xpGained(before.cur, before.max, now.cur, now.level > before.level)
+	if gained <= 0 then
+		return
+	end
+	local s = current()
+	s.xp = s.xp + gained
+	if not (questAt and GetTime() - questAt < 3) then
+		s.killXp = s.killXp + gained
+		s.kills = s.kills + 1
+	end
+end
+
+local function number(n)
+	n = math.floor(n + 0.5)
+	return BreakUpLargeNumbers and BreakUpLargeNumbers(n) or tostring(n)
 end
 
 local function itemsValue()
@@ -128,11 +203,35 @@ local function text()
 		"Items: " .. coins(value) .. (unpriced > 0 and string.format(" (+%d unpriced)", unpriced) or ""),
 		"|cffffffffTotal: " .. coins(total) .. "|r",
 	}
-	if elapsed >= MIN_RATE_SECONDS then
+	local rated = elapsed >= MIN_RATE_SECONDS
+	if rated then
 		table.insert(lines, "|cffffd100Per hour: " .. coins(total * 3600 / elapsed) .. "|r")
 	else
 		table.insert(lines, "|cff999999Per hour: after a minute|r")
 	end
+	-- XP, and when the next level comes at this pace (not at the level cap: no XP to gain).
+	if session.xp > 0 and xpSeen and xpSeen.max > 0 then
+		local line = "XP: " .. number(session.xp)
+		if rated then
+			local perHour = session.xp * 3600 / elapsed
+			line = line .. " · " .. number(perHour) .. "/h · level " .. (xpSeen.level + 1) .. " in "
+				.. Encode.duration((xpSeen.max - xpSeen.cur) / perHour * 3600)
+		end
+		if session.kills > 0 then
+			line = line .. string.format(" (~%s kills)", number(math.ceil((xpSeen.max - xpSeen.cur) / (session.killXp / session.kills))))
+		end
+		table.insert(lines, line)
+	end
+	-- Bags: free slots, and when they run out at the rate they have been filling.
+	local used = session.bagBase - session.bagFree
+	local filling = GetTime() - session.bagBaseAt
+	local bags = "Bags: " .. session.bagFree .. " free"
+	if session.bagFree == 0 then
+		bags = "|cffff5555Bags full|r"
+	elseif used >= 1 and filling >= 120 then
+		bags = bags .. " · full in ~" .. Encode.duration(session.bagFree / (used / filling))
+	end
+	table.insert(lines, bags)
 	-- The most valuable items so far.
 	local ranked = {}
 	for id, n in pairs(session.items) do
@@ -213,11 +312,7 @@ local function show()
 end
 
 table.insert(ns.lootListeners, function(coin, taken)
-	local now = GetTime()
-	if idle() then
-		session = { start = now, last = now, coin = 0, items = {} }
-	end
-	session.last = now
+	current()
 	session.coin = session.coin + coin
 	for key, n in pairs(taken) do
 		local id = tonumber(string.match(tostring(key), "^(%d+)"))
@@ -228,6 +323,21 @@ table.insert(ns.lootListeners, function(coin, taken)
 	if settings().shown then
 		show()
 	end
+	refresh()
+end)
+
+ns.on("PLAYER_ENTERING_WORLD", "appraiser", function()
+	xpSeen = readXp()
+end)
+ns.on("PLAYER_XP_UPDATE", "appraiser", function()
+	xpChanged()
+	refresh()
+end)
+ns.on("QUEST_TURNED_IN", "appraiser", function()
+	questAt = GetTime()
+end)
+ns.on("BAG_UPDATE_DELAYED", "appraiser", function()
+	bagsChanged()
 	refresh()
 end)
 

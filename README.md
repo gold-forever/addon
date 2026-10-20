@@ -72,8 +72,10 @@ minimisation", and its "Findings on the live client" for where 0.2.0 departs fro
 ## Loot appraiser (0.6.0)
 
 While you farm, a small window adds up what you loot: coin, the items' worth, the total and the
-gold per hour, and the most valuable items so far. A session starts with the first loot and ends
-after 15 minutes without one, as in the web app. Item tooltips show the auction value (before and
+gold per hour, and the most valuable items so far; the XP gained, XP per hour, when you reach the
+next level at that pace and about how many kills that is; and your free bag slots with when they
+run out at the rate they are filling (it starts over after you sell). A session starts with the
+first loot or kill and ends after 15 minutes without loot, as in the web app. Item tooltips show the auction value (before and
 after the 5% cut) and the vendor price.
 
 Prices come from the newest full auction scan of your character's own auction house in the saved

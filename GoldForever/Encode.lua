@@ -178,6 +178,27 @@ function Encode.money(copper)
 	return string.format("%dc", c)
 end
 
+-- XP gained between two readings: within a level, the difference; across a level-up, the rest of
+-- the old level plus what the new one has so far.
+function Encode.xpGained(before, beforeMax, now, levelledUp)
+	if levelledUp then
+		return math.max(0, beforeMax - before) + now
+	end
+	return math.max(0, now - before)
+end
+
+-- "1h 20m", "25m", "under a minute": a duration in seconds, rounded to minutes.
+function Encode.duration(seconds)
+	if seconds < 60 then
+		return "under a minute"
+	end
+	local minutes = math.floor(seconds / 60 + 0.5)
+	if minutes < 60 then
+		return minutes .. "m"
+	end
+	return string.format("%dh %dm", math.floor(minutes / 60), minutes % 60)
+end
+
 -- UTC day key of an epoch time, the bucket events are stored under.
 function Encode.day(epoch)
 	return date("!%Y-%m-%d", epoch)

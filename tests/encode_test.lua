@@ -89,6 +89,16 @@ eq(E.money(10925), "1g 9s 25c", "gold, silver and copper")
 eq(E.money(2305), "23s 5c", "under a gold")
 eq(E.money(37), "37c", "copper only")
 
+-- XP gained, across a level-up too.
+eq(E.xpGained(2570, 47400, 3010, false), 440, "within a level")
+eq(E.xpGained(47000, 47400, 120, true), 520, "the rest of the old level plus the new one's")
+eq(E.xpGained(3010, 47400, 2570, false), 0, "never negative")
+
+-- Durations.
+eq(E.duration(30), "under a minute", "seconds")
+eq(E.duration(25 * 60), "25m", "minutes")
+eq(E.duration(80 * 60), "1h 20m", "hours")
+
 -- Day buckets are UTC.
 eq(E.day(1792368000), "2026-10-19", "start of a UTC day")
 eq(E.day(1792454399), "2026-10-19", "end of the same UTC day")
