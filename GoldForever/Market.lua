@@ -18,7 +18,14 @@ local NEUTRAL_MAPS = { [1434] = true, [1446] = true, [1452] = true } -- Strangle
 
 local scan -- the scan in progress
 
+-- Side of the auction house: the auctioneer's own faction (goblins have none), else by map.
 local function side()
+	local faction = UnitExists("npc") and UnitFactionGroup("npc")
+	if faction == "Alliance" or faction == "Horde" then
+		return string.lower(faction)
+	elseif UnitExists("npc") then
+		return "neutral"
+	end
 	local map = C_Map.GetBestMapForUnit("player")
 	while map do
 		if NEUTRAL_MAPS[map] then
@@ -57,6 +64,8 @@ local function finish(s, buckets, n)
 		auctions = n,
 		map = s.map,
 		zone = s.zone,
+		npc = s.npc,
+		npcFaction = s.npcFaction,
 		rows = {},
 	}
 	local keys = {}
@@ -128,7 +137,14 @@ local function start(manual)
 		return
 	end
 	db.lastReplicate = ns.now()
-	scan = { t = ns.now(), market = ns.market(side()), map = C_Map.GetBestMapForUnit("player"), zone = GetSubZoneText() }
+	scan = {
+		t = ns.now(),
+		market = ns.market(side()),
+		map = C_Map.GetBestMapForUnit("player"),
+		zone = GetSubZoneText(),
+		npc = Encode.source(UnitGUID("npc")),
+		npcFaction = UnitExists("npc") and (UnitFactionGroup("npc") or "none") or nil,
+	}
 	print("|cffe0ac45Gold Forever|r: scanning the auction house…")
 	C_AuctionHouse.ReplicateItems()
 	-- No update within a minute: the client is throttling; record that instead of waiting forever.
