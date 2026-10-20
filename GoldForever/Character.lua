@@ -120,6 +120,34 @@ local function readNames()
 			return table.concat(lines, " / ")
 		end)
 	end
+	-- The client has surnames: C_PlayerInfo.ShouldDisplaySurname and a "surname separator".
+	local guid = UnitGUID("player")
+	if GetPlayerInfoByGUID then try("byGuid", function() return select(6, GetPlayerInfoByGUID(guid)) end) end
+	if C_PlayerInfo then
+		if C_PlayerInfo.ShouldDisplaySurname then try("showSurname", C_PlayerInfo.ShouldDisplaySurname) end
+		if C_PlayerInfo.GetName and PlayerLocation and PlayerLocation.CreateFromUnit then
+			try("location", function() return C_PlayerInfo.GetName(PlayerLocation:CreateFromUnit("player")) end)
+		end
+		if C_PlayerInfo.GetPlayerCharacterData then
+			try("characterData", function()
+				local data = C_PlayerInfo.GetPlayerCharacterData()
+				local parts = {}
+				for k, v in pairs(type(data) == "table" and data or {}) do
+					if type(v) ~= "table" then
+						parts[#parts + 1] = tostring(k) .. "=" .. tostring(v)
+					end
+				end
+				table.sort(parts)
+				return table.concat(parts, "; ")
+			end)
+		end
+	end
+	if C_NameUtil and C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator then
+		try("separated", C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator, UnitName("player"))
+		if UnitFullName then
+			try("separatedFull", function() return C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator((UnitFullName("player"))) end)
+		end
+	end
 	me.names = names
 
 	local apis = {}
@@ -128,7 +156,7 @@ local function readNames()
 			for fn in pairs(t) do
 				local lower = type(fn) == "string" and string.lower(fn) or ""
 				if string.find(lower, "surname") or string.find(lower, "lastname") or string.find(lower, "fullname")
-					or string.find(lower, "familyname") or string.find(lower, "secondname") or string.find(lower, "charactername") then
+					or string.find(lower, "familyname") or string.find(lower, "secondname") or string.find(lower, "charactername") or string.find(lower, "surname") then
 					apis[#apis + 1] = space .. "." .. fn
 				end
 			end
