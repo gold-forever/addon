@@ -121,6 +121,13 @@ Loot that starts a quest you have not done gets an alert ("Starts a quest: …")
 the quest starters that mob has dropped for you, how often, and whether you have done the quest.
 It knows only what your characters have looted: a starter nobody has seen drop is not shown.
 
+## Your auctions (0.7.4)
+
+Every auction you post is recorded (item, count, price per unit, duration), and every sale from the
+auction house's "successful" mail (item, count, price, deposit, the house's cut), once per mail;
+the buyer the mail names is not kept. The loot window's **Stop** button ends the farming session
+there and then.
+
 ## Keeping the data
 
 `scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it

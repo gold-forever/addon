@@ -174,7 +174,7 @@ ns.price = {
 local session
 
 local function idle()
-	return not session or GetTime() - session.last > IDLE_SECONDS
+	return not session or session.stopped or GetTime() - session.last > IDLE_SECONDS
 end
 
 -- Free slots in general-purpose bags (profession bags take only their own kind of item).
@@ -277,7 +277,8 @@ local function text()
 	if not session then
 		return "Loot something to start a session."
 	end
-	local elapsed = GetTime() - session.start
+	-- An ended session stops its clock at its last loot (or at Stop).
+	local elapsed = (idle() and session.last or GetTime()) - session.start
 	local value, unpriced = itemsValue()
 	local total = session.coin + value
 	local lines = {
@@ -393,6 +394,18 @@ local function build()
 	frame, body = ns.makeWindow("GoldForeverAppraiser", "Gold Forever · loot", settings(), { "RIGHT", -60, 120 }, function()
 		settings().shown = false
 		print("|cffe0ac45Gold Forever|r: loot window hidden; /gf appraise shows it again.")
+	end)
+	-- Ends the session now; the window keeps its numbers, and the next loot or kill starts a new one.
+	local stop = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+	stop:SetSize(52, 18)
+	stop:SetPoint("TOPRIGHT", -26, -5)
+	stop:SetText("Stop")
+	stop:SetScript("OnClick", function()
+		if session and not idle() then
+			session.stopped = true
+			session.last = GetTime()
+		end
+		refresh()
 	end)
 end
 
