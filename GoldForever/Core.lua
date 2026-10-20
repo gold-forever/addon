@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.7.6"
+local VERSION = "0.8.0"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
