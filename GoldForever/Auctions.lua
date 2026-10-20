@@ -77,11 +77,13 @@ local function readInbox()
 		-- moneyDelay, etherealTime, count, commerceAuction
 		local invoice, itemName, _, bid, buyout, deposit, cut, _, _, count = GetInboxInvoiceInfo(i)
 		if invoice == "seller" and itemName then
-			count = tonumber(count) or 1
+			-- The client gives 0 here: an unknown count is left empty, for the web app to work out from the post.
+			count = tonumber(count)
+			count = count and count > 0 and count or nil
 			local price = (bid and bid > 0) and bid or buyout
 			local daysLeft = select(7, GetInboxHeaderInfo(i)) or 0
 			local expiry = now + daysLeft * 86400
-			local content = table.concat({ me.ref, itemName, price or 0, deposit or 0, count }, "|")
+			local content = table.concat({ me.ref, itemName, price or 0, deposit or 0, count or "" }, "|")
 			local seen = db.salesSeen[content]
 			if type(seen) ~= "table" then
 				seen = {}
