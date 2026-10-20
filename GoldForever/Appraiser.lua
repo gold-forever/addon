@@ -1,6 +1,7 @@
 -- Gold Forever: a loot appraiser. While farming, a small window adds up what the loot is worth, in
 -- coin and items, the gold and XP per hour with the time to the next level, and when the bags will
--- be full; every item's tooltip gets its value. Prices come from the
+-- be full; every item's tooltip gets its value, and every mob's what the characters have looted from
+-- it. The session survives a /reload. Prices come from the
 -- latest full scan of the character's own auction house in the saved file, valued as the web app
 -- does: the better of the market value after the auction cut and the vendor price.
 
@@ -326,8 +327,65 @@ table.insert(ns.lootListeners, function(coin, taken)
 	refresh()
 end)
 
-ns.on("PLAYER_ENTERING_WORLD", "appraiser", function()
+-- A /reload (or a quick relog) keeps the session: it is saved when the file is written, and picked
+-- up on load for the same character unless it went idle meanwhile. Times are kept as ages, since the
+-- client's clock (GetTime) and the server's differ.
+ns.on("PLAYER_LOGOUT", "appraiser", function()
+	local db, me = ns.db(), ns.me()
+	if not session or idle() or not me then
+		db.appraiserSession = nil
+		return
+	end
+	local now = GetTime()
+	db.appraiserSession = {
+		character = me.ref,
+		savedAt = GetServerTime(),
+		age = now - session.start,
+		sinceLoot = now - session.last,
+		sinceBagBase = now - session.bagBaseAt,
+		coin = session.coin,
+		items = session.items,
+		xp = session.xp,
+		killXp = session.killXp,
+		kills = session.kills,
+		bagBase = session.bagBase,
+	}
+end)
+
+local function restore()
+	local db, me = ns.db(), ns.me()
+	local saved = db.appraiserSession
+	db.appraiserSession = nil
+	if not saved or not me or saved.character ~= me.ref then
+		return
+	end
+	local gap = math.max(0, GetServerTime() - (saved.savedAt or 0))
+	if saved.sinceLoot + gap > IDLE_SECONDS then
+		return
+	end
+	local now = GetTime()
+	session = {
+		start = now - saved.age - gap,
+		last = now - saved.sinceLoot - gap,
+		coin = saved.coin or 0,
+		items = saved.items or {},
+		xp = saved.xp or 0,
+		killXp = saved.killXp or 0,
+		kills = saved.kills or 0,
+		bagBase = saved.bagBase or freeSlots(),
+		bagBaseAt = now - (saved.sinceBagBase or 0) - gap,
+		bagFree = freeSlots(),
+	}
+	if settings().shown then
+		show()
+	end
+end
+
+ns.on("PLAYER_ENTERING_WORLD", "appraiser", function(isInitialLogin, isReloadingUi)
 	xpSeen = readXp()
+	if isInitialLogin or isReloadingUi then
+		restore()
+	end
 end)
 ns.on("PLAYER_XP_UPDATE", "appraiser", function()
 	xpChanged()
@@ -363,6 +421,102 @@ ns.commands.reset = function()
 	session = nil
 	refresh()
 	print("|cffe0ac45Gold Forever|r: farming session reset.")
+end
+
+-- Mob tooltips: what the characters have looted from the NPC, from the loot rows in the file -------------
+
+local mobs -- npc ID -> { loots, coin, items = { [id] = { dropped, units } } }; rebuilt after new loot
+table.insert(ns.lootListeners, function()
+	mobs = nil
+end)
+
+local function buildMobs()
+	mobs = {}
+	local db = ns.db()
+	local columns = {}
+	local i = 0
+	for name in string.gmatch((db.fields and db.fields.loot) or "", "[^,]+") do
+		i = i + 1
+		columns[name] = i
+	end
+	if not (columns.src and columns.coin and columns.items) then
+		return
+	end
+	for _, bucket in pairs(db.events) do
+		for _, chunk in ipairs(bucket.loot or {}) do
+			for row in string.gmatch(chunk, "[^;]+") do
+				local values = { strsplit(",", row) }
+				local id = tonumber(string.match(values[columns.src] or "", "^n(%d+)$"))
+				if id then
+					local m = mobs[id] or { loots = 0, coin = 0, items = {} }
+					mobs[id] = m
+					m.loots = m.loots + 1
+					m.coin = m.coin + (tonumber(values[columns.coin]) or 0)
+					for key, n in string.gmatch(values[columns.items] or "", "([^+*]+)%*(%d+)") do
+						local item = tonumber(string.match(key, "^(%d+)"))
+						if item then
+							local d = m.items[item] or { dropped = 0, units = 0 }
+							m.items[item] = d
+							d.dropped = d.dropped + 1
+							d.units = d.units + tonumber(n)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+local function itemName(id)
+	local row = ns.db().catalogue.items[id]
+	return (row and string.match(row, "^([^,]+)")) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or ("item " .. id)
+end
+
+-- "looted 40× · ~7c a loot" and the three likeliest drops, for an NPC looted before.
+local function mobLines(npc)
+	if not mobs then
+		buildMobs()
+	end
+	local m = mobs[npc]
+	if not m then
+		return nil
+	end
+	local value = m.coin
+	local drops = {}
+	for id, d in pairs(m.items) do
+		value = value + (worth(id) or 0) * d.units
+		drops[#drops + 1] = { id = id, chance = d.dropped / m.loots }
+	end
+	table.sort(drops, function(a, b)
+		return a.chance > b.chance
+	end)
+	local top = {}
+	for i = 1, math.min(3, #drops) do
+		top[i] = string.format("%s %d%%", itemName(drops[i].id), math.floor(drops[i].chance * 100 + 0.5))
+	end
+	return string.format("looted %d× · ~%s a loot", m.loots, coins(value / m.loots)), #top > 0 and table.concat(top, " · ") or nil
+end
+
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
+		ns.safely("mob tooltip", function()
+			if tooltip ~= GameTooltip or not data or not ns.db() then
+				return
+			end
+			local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
+			local npc = tonumber(string.match(Encode.source(guid) or "", "^n(%d+)$"))
+			if not npc then
+				return
+			end
+			local summary, drops = mobLines(npc)
+			if summary then
+				tooltip:AddLine("|cffe0ac45Gold Forever|r " .. summary, 1, 1, 1)
+				if drops then
+					tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
+				end
+			end
+		end)
+	end)
 end
 
 -- Tooltips ----------------------------------------------------------------------------------------------

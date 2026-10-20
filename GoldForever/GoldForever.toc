@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Gold Forever
 ## Notes: Records your characters for the Gold Forever web app. Upload WTF/Account/<account>/SavedVariables/GoldForever.lua.
-## Version: 0.6.1
+## Version: 0.6.2
 ## SavedVariables: GoldForeverDB
 
 Encode.lua

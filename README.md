@@ -76,7 +76,9 @@ gold per hour, and the most valuable items so far; the XP gained, XP per hour, w
 next level at that pace and about how many kills that is; and your free bag slots with when they
 run out at the rate they are filling (it starts over after you sell). A session starts with the
 first loot or kill and ends after 15 minutes without loot, as in the web app. Item tooltips show the auction value (before and
-after the 5% cut) and the vendor price.
+after the 5% cut) and the vendor price. A `/reload` keeps the
+session. Mob tooltips show what your characters have looted from that mob: how often, what a loot
+is worth at your prices, and its three likeliest drops.
 
 Prices come from the newest full auction scan of your character's own auction house in the saved
 file, so scan once in a while; an item is worth the better of its auction value after the cut and
