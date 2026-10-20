@@ -418,7 +418,9 @@ local function show()
 end
 
 -- Big drops: an item worth the threshold or more (sold or, for an enchanter who can, disenchanted),
--- or any rare or better, gets a message mid-screen and a sound.
+-- or any rare or better, gets a message mid-screen and a sound; so does a quest starter, once per
+-- item a session (a starter known only from its tooltip cannot say whether its quest is done).
+local startersAlerted = {} -- item ID -> true
 local function bigDrops(taken)
 	local threshold = settings().bigDrop or BIG_DROP
 	for key, n in pairs(taken) do
@@ -431,7 +433,8 @@ local function bigDrops(taken)
 				value = math.max(value, de * n)
 			end
 			local quest = startsQuest(id)
-			if quest and not questDone(quest) then
+			if quest and not questDone(quest) and not startersAlerted[id] then
+				startersAlerted[id] = true
 				local text = "Starts a quest: " .. (name or ("item " .. id))
 				if RaidNotice_AddMessage and RaidWarningFrame then
 					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
@@ -440,7 +443,7 @@ local function bigDrops(taken)
 					PlaySound(SOUNDKIT.RAID_WARNING)
 				end
 				print("|cffe0ac45Gold Forever|r " .. text .. " — right-click it in your bags to start it.")
-			elseif (threshold > 0 and value >= threshold) or (quality or 0) >= 3 then
+			elseif not quest and ((threshold > 0 and value >= threshold) or (quality or 0) >= 3) then
 				local text = string.format("Big drop: %s%s — %s", n > 1 and (n .. "× ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
 				if RaidNotice_AddMessage and RaidWarningFrame then
 					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })

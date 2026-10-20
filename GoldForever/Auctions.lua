@@ -12,7 +12,9 @@ local DEDUPE_SECONDS = 5 -- a post and its confirmation are one auction
 
 local lastPost -- { key, at }
 
-local function post(location, duration, quantity, unit, commodity)
+-- A post, or with [confirming] the confirmation the client asks for after a warning (the same
+-- auction, recorded once).
+local function post(location, duration, quantity, unit, commodity, confirming)
 	local me = ns.me()
 	if not me or not location then
 		return
@@ -23,7 +25,7 @@ local function post(location, duration, quantity, unit, commodity)
 		return
 	end
 	local signature = table.concat({ key, quantity or 1, unit or 0 }, ":")
-	if lastPost and lastPost.key == signature and GetTime() - lastPost.at < DEDUPE_SECONDS then
+	if confirming and lastPost and lastPost.key == signature and GetTime() - lastPost.at < DEDUPE_SECONDS then
 		return -- the confirmation of the post just recorded
 	end
 	lastPost = { key = signature, at = GetTime() }
@@ -33,48 +35,87 @@ end
 
 if C_AuctionHouse then
 	-- PostItem(location, duration, quantity, bid, buyout): the unit price is the buyout per item.
-	local function item(location, duration, quantity, _, buyout)
-		ns.safely("post", post, location, duration, quantity,
-			buyout and math.floor(buyout / math.max(1, quantity or 1) + 0.5) or nil, nil)
+	local function item(confirming)
+		return function(location, duration, quantity, _, buyout)
+			ns.safely("post", post, location, duration, quantity,
+				buyout and math.floor(buyout / math.max(1, quantity or 1) + 0.5) or nil, nil, confirming)
+		end
 	end
 	-- PostCommodity(location, duration, quantity, unitPrice).
-	local function commodity(location, duration, quantity, unitPrice)
-		ns.safely("post", post, location, duration, quantity, unitPrice, true)
+	local function commodity(confirming)
+		return function(location, duration, quantity, unitPrice)
+			ns.safely("post", post, location, duration, quantity, unitPrice, true, confirming)
+		end
 	end
-	for name, hook in pairs({ PostItem = item, ConfirmPostItem = item, PostCommodity = commodity, ConfirmPostCommodity = commodity }) do
+	local hooks = {
+		PostItem = item(false), ConfirmPostItem = item(true),
+		PostCommodity = commodity(false), ConfirmPostCommodity = commodity(true),
+	}
+	for name, hook in pairs(hooks) do
 		if C_AuctionHouse[name] then
 			hooksecurefunc(C_AuctionHouse, name, hook)
 		end
 	end
 end
 
--- Sales: the "successful" mail's invoice says what sold and for how much. A mail is recorded once,
--- by a key from its content and days left (stable while it sits in the inbox).
+-- Sales: the "successful" mail's invoice says what sold and for how much. A mail is known by its
+-- content and when it expires (now plus its days left, steady while it sits in the inbox), so a
+-- mail seen again is not a second sale, and two alike mails are two.
+local SAME_EXPIRY = 300 -- seconds: the days left are read at slightly different moments
+
 local function readInbox()
 	local me = ns.me()
 	if not me or not GetInboxNumItems or not GetInboxInvoiceInfo then
 		return
 	end
 	local db = ns.db()
-	db.salesSeen = db.salesSeen or {}
+	db.salesSeen = db.salesSeen or {} -- content -> { [expiry] = seen at }
+	local now = ns.now()
+	local matched = {} -- expiries matched in this read, so alike mails each match their own
 	for i = 1, GetInboxNumItems() do
-		-- invoiceType, itemName, playerName (the buyer: not kept), bid, buyout, deposit, consignment, …, count
-		local invoice, itemName, _, bid, buyout, deposit, cut, _, _, _, count = GetInboxInvoiceInfo(i)
+		-- invoiceType, itemName, playerName (the buyer: not kept), bid, buyout, deposit, consignment,
+		-- moneyDelay, etherealTime, count, commerceAuction
+		local invoice, itemName, _, bid, buyout, deposit, cut, _, _, count = GetInboxInvoiceInfo(i)
 		if invoice == "seller" and itemName then
-			local daysLeft = select(7, GetInboxHeaderInfo(i))
-			local key = table.concat({ me.ref, itemName, buyout or bid or 0, deposit or 0, count or 1, string.format("%.3f", daysLeft or 0) }, "|")
-			if not db.salesSeen[key] then
-				db.salesSeen[key] = ns.now()
+			count = tonumber(count) or 1
+			local price = (bid and bid > 0) and bid or buyout
+			local daysLeft = select(7, GetInboxHeaderInfo(i)) or 0
+			local expiry = now + daysLeft * 86400
+			local content = table.concat({ me.ref, itemName, price or 0, deposit or 0, count }, "|")
+			local seen = db.salesSeen[content]
+			if type(seen) ~= "table" then
+				seen = {}
+				db.salesSeen[content] = seen
+			end
+			local known
+			for at in pairs(seen) do
+				if math.abs(at - expiry) <= SAME_EXPIRY and not matched[content .. "@" .. at] then
+					known = at
+					break
+				end
+			end
+			if known then
+				matched[content .. "@" .. known] = true
+			else
+				seen[expiry] = now
+				matched[content .. "@" .. expiry] = true
 				-- No free text in a stream: commas and semicolons out of the item name.
 				local name = (Encode.name(itemName):gsub(";", "."))
-				ns.append("sale", Encode.row(ns.now(), me.ref, name, count or 1, buyout or bid, deposit, cut))
+				ns.append("sale", Encode.row(now, me.ref, name, count, price, deposit, cut))
 			end
 		end
 	end
-	-- Mails live 30 days; older keys can go.
-	for key, t in pairs(db.salesSeen) do
-		if ns.now() - t > 31 * 86400 then
-			db.salesSeen[key] = nil
+	-- Mails live 30 days; expired ones can go, and so can the keys of the old format.
+	for content, seen in pairs(db.salesSeen) do
+		if type(seen) == "table" then
+			for at in pairs(seen) do
+				if at < now - 86400 then
+					seen[at] = nil
+				end
+			end
+		end
+		if type(seen) ~= "table" or next(seen) == nil then
+			db.salesSeen[content] = nil
 		end
 	end
 end
