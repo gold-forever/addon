@@ -43,8 +43,13 @@ local function readPerks(legacy)
 	for _, node in ipairs(C_Traits.GetTreeNodes(TREE) or {}) do
 		local info = C_Traits.GetNodeInfo(config, node)
 		if info and info.ID and info.ID ~= 0 then
-			local rank = info.activeRank or info.ranksPurchased or 0
+			-- On the live client activeRank read 0 for every perk while 16 points were spent; take the
+			-- highest of the rank fields, and keep the raw node info until the right one is known.
+			local rank = math.max(info.activeRank or 0, info.currentRank or 0, info.ranksPurchased or 0,
+				info.activeEntry and info.activeEntry.rank or 0)
 			ranks[#ranks + 1] = node .. ":" .. rank
+			legacy.nodes = legacy.nodes or {}
+			legacy.nodes[node] = ns.copy(info, 3)
 			local entry = info.activeEntry and info.activeEntry.entryID or (info.entryIDs and info.entryIDs[1])
 			local entryInfo = entry and C_Traits.GetEntryInfo(config, entry)
 			local definition = entryInfo and entryInfo.definitionID and C_Traits.GetDefinitionInfo(entryInfo.definitionID)
