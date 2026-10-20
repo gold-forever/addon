@@ -115,6 +115,12 @@ the auction house, at what price), and how many your bags and bank make now. It 
 Crafting rules (`Crafting.lua`, "use what I have"): reagents you own are charged at the lower of
 buying them again and selling them, so a craft only shows if it beats selling the materials.
 
+## Quest starters (0.7.3)
+
+Loot that starts a quest you have not done gets an alert ("Starts a quest: …"). Mob tooltips name
+the quest starters that mob has dropped for you, how often, and whether you have done the quest.
+It knows only what your characters have looted: a starter nobody has seen drop is not shown.
+
 ## Keeping the data
 
 `scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it

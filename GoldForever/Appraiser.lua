@@ -135,6 +135,26 @@ local function disenchantWorth(id)
 	return ns.Disenchant.value(de.outcomes, worth), de.skill
 end
 
+-- The quest an item starts: its ID when a loot window said so, true when only its tooltip does.
+local function startsQuest(id)
+	local catalogue = ns.db().catalogue
+	local quest = catalogue.questStarters and catalogue.questStarters[id]
+	if quest then
+		return quest
+	end
+	local tooltip = catalogue.tooltips[id]
+	return tooltip and (string.find(tooltip, ITEM_STARTS_QUEST or "This Item Begins a Quest", 1, true) and true) or nil
+end
+
+-- Whether this character finished the quest; unknown (nil) without a quest ID.
+local function questDone(quest)
+	if type(quest) ~= "number" then
+		return nil
+	end
+	local completed = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted or IsQuestFlaggedCompleted
+	return completed and completed(quest) or false
+end
+
 local function coins(copper)
 	if GetCoinTextureString then
 		return GetCoinTextureString(math.floor(copper + 0.5))
@@ -397,7 +417,17 @@ local function bigDrops(taken)
 			if de and enchanting() >= skill then
 				value = math.max(value, de * n)
 			end
-			if (threshold > 0 and value >= threshold) or (quality or 0) >= 3 then
+			local quest = startsQuest(id)
+			if quest and not questDone(quest) then
+				local text = "Starts a quest: " .. (name or ("item " .. id))
+				if RaidNotice_AddMessage and RaidWarningFrame then
+					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
+				end
+				if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
+					PlaySound(SOUNDKIT.RAID_WARNING)
+				end
+				print("|cffe0ac45Gold Forever|r " .. text .. " — right-click it in your bags to start it.")
+			elseif (threshold > 0 and value >= threshold) or (quality or 0) >= 3 then
 				local text = string.format("Big drop: %s%s — %s", n > 1 and (n .. "× ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
 				if RaidNotice_AddMessage and RaidWarningFrame then
 					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
@@ -605,7 +635,18 @@ local function mobLines(npc)
 	for i = 1, math.min(3, #drops) do
 		top[i] = string.format("%s %d%%", itemName(drops[i].id), math.floor(drops[i].chance * 100 + 0.5))
 	end
-	return string.format("looted %d× · ~%s a loot", m.loots, coins(value / m.loots)), #top > 0 and table.concat(top, " · ") or nil
+	-- Quest starters among its drops, with whether this character has done the quest.
+	local starters = {}
+	for id, d in pairs(m.items) do
+		local quest = startsQuest(id)
+		if quest then
+			local done = questDone(quest)
+			starters[#starters + 1] = string.format("%s (%d%% of loots)%s", itemName(id), math.floor(d.dropped / m.loots * 100 + 0.5),
+				done == false and " · not done" or done and " · done" or "")
+		end
+	end
+	return string.format("looted %d× · ~%s a loot", m.loots, coins(value / m.loots)), #top > 0 and table.concat(top, " · ") or nil,
+		#starters > 0 and ("Drops a quest starter: " .. table.concat(starters, ", ")) or nil
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
@@ -619,11 +660,14 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			if not npc then
 				return
 			end
-			local summary, drops = mobLines(npc)
+			local summary, drops, starters = mobLines(npc)
 			if summary then
 				tooltip:AddLine("|cffe0ac45Gold Forever|r " .. summary, 1, 1, 1)
 				if drops then
 					tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
+				end
+				if starters then
+					tooltip:AddLine(starters, 1, 0.82, 0, true)
 				end
 			end
 		end)

@@ -92,10 +92,15 @@ ns.on("LOOT_READY", "loot", function()
 	w.fish = IsFishingLoot and IsFishingLoot() or nil
 	for slot = 1, GetNumLootItems() do
 		local kind = GetLootSlotType(slot)
-		local _, _, quantity = GetLootSlotInfo(slot)
+		local _, _, quantity, _, _, _, _, questID = GetLootSlotInfo(slot)
 		local info = { sources = {} }
 		if kind == ITEM_SLOT then
 			info.key = Encode.itemKey(GetLootSlotLink(slot))
+			-- An item that starts a quest: kept by item, for the mob tooltips and the loot alert.
+			local item = info.key and tonumber(string.match(info.key, "^(%d+)"))
+			if item and questID and questID > 0 then
+				ns.db().catalogue.questStarters[item] = questID
+			end
 		end
 		local list = { GetLootSourceInfo(slot) }
 		for i = 1, #list, 2 do
