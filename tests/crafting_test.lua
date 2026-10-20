@@ -1,0 +1,49 @@
+-- Crafting.lua: the web app's pricing rules (pricing.ts), on the beta's Bolt of Linen Cloth.
+
+local ns = {}
+assert(load(SOURCES["Crafting.lua"], "@Crafting.lua"))("GoldForever", ns)
+local C = ns.Crafting
+
+local checks = 0
+local function eq(actual, expected, what)
+	checks = checks + 1
+	if actual ~= expected then
+		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
+	end
+end
+
+local market = { [2589] = 40, [2996] = 120, [2320] = 12 }
+local cheapest = { [2589] = 37, [2996] = 110 }
+local vendor = { [2320] = 9 }
+local price = {
+	market = function(id) return market[id] end,
+	cheapest = function(id) return cheapest[id] end,
+	vendorBuy = function(id) return vendor[id] end,
+}
+local bolt = { output = 2996, yield = 1, reagents = { { id = 2589, count = 2 } } }
+
+-- Buying everything: 2 Linen at the cheapest listing (37c), sold at 120c after 5%.
+local q = C.quote(bolt, price, function() return 0 end, 0.05)
+eq(q.revenue, 114, "120c after the 5% cut")
+eq(q.cost, 74, "2 × 37c")
+eq(q.profit, 40, "114 − 74")
+eq(q.lines[1].from, "auction", "bought on the auction house")
+
+-- Using owned Linen: charged at the lower of buying (37c) and selling (40c × 0.95 = 38c).
+q = C.quote(bolt, price, function(id) return id == 2589 and 5 or 0 end, 0.05)
+eq(q.cash, 0, "nothing to buy")
+eq(q.ownedValue, 74, "2 × 37c")
+eq(q.profit, 40, "the same profit: owning it is not free")
+
+-- A vendor reagent is bought at the vendor when that is cheaper.
+local shirt = { output = 2996, yield = 1, reagents = { { id = 2320, count = 1 } } }
+eq(C.quote(shirt, price, function() return 0 end, 0.05).lines[1].from, "vendor", "Coarse Thread at the vendor")
+
+-- An unpriced reagent makes the profit unknown, not zero.
+local mystery = { output = 2996, yield = 1, reagents = { { id = 99999, count = 1 } } }
+eq(C.quote(mystery, price, function() return 0 end, 0.05).profit, nil, "unknown")
+
+-- An unpriced output too.
+eq(C.quote({ output = 99999, yield = 1, reagents = {} }, price, function() return 0 end, 0.05).profit, nil, "no sale price")
+
+return checks

@@ -107,6 +107,14 @@ and a skull raid mark (solo, or in a group as its leader or an assistant). Every
 recorded in the file (`rare` rows: NPC, map, position, how it was seen). `/gf rares` turns the
 announcing on or off, `/gf rares mark` the skull.
 
+## Craft shopping list (0.7.2)
+
+At the auction house (and with `/gf shop`), a window lists the recipes you know that make a profit
+at the latest scan, best first: the profit per craft, what to buy for it (how many, from a vendor or
+the auction house, at what price), and how many your bags and bank make now. It uses the web app's
+Crafting rules (`Crafting.lua`, "use what I have"): reagents you own are charged at the lower of
+buying them again and selling them, so a craft only shows if it beats selling the materials.
+
 ## Keeping the data
 
 `scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it

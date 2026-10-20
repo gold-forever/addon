@@ -17,10 +17,12 @@ local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 -- Prices --------------------------------------------------------------------------------------------
 
 local prices -- item ID -> market value, from the latest full scan of the character's market
+local cheapestPrices -- item ID -> the cheapest unit listed in that scan
 local pricedFrom -- scans known when prices were built; a new scan rebuilds them
 
 local function buildPrices()
 	prices = {}
+	cheapestPrices = {}
 	local db, me = ns.db(), ns.me()
 	pricedFrom = #db.scans
 	if not me then
@@ -49,6 +51,11 @@ local function buildPrices()
 	end
 	for id, l in pairs(listings) do
 		prices[id] = Encode.marketValue(l)
+		local low
+		for _, x in ipairs(l) do
+			low = low and math.min(low, x.unit) or x.unit
+		end
+		cheapestPrices[id] = low
 	end
 end
 
@@ -57,6 +64,25 @@ local function market(id)
 		buildPrices()
 	end
 	return prices[id]
+end
+
+local function cheapest(id)
+	market(id) -- builds the prices when needed
+	return cheapestPrices[id]
+end
+
+-- What a vendor asks for one, when it sells it without limit: catalogue.vendor is the price of one
+-- purchase of qty units (fields.vendor = buy,limited,t,qty).
+local function vendorBuy(id)
+	local row = ns.db().catalogue.vendor[id]
+	if not row then
+		return nil
+	end
+	local buy, limited, _, qty = strsplit(",", row)
+	if limited == "1" or not tonumber(buy) then
+		return nil
+	end
+	return tonumber(buy) / math.max(1, tonumber(qty) or 1)
 end
 
 -- What a vendor pays, from the catalogue (`sell` is its 7th column), else from the client.
@@ -117,7 +143,10 @@ local function coins(copper)
 end
 
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.
-ns.price = { market = market, vendor = vendor, worth = worth, itemInfo = itemInfo, disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT }
+ns.price = {
+	market = market, cheapest = cheapest, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
+	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
+}
 
 -- Session ---------------------------------------------------------------------------------------------
 
