@@ -8,7 +8,7 @@ local Encode = ns.Encode
 local FACTION = 2802
 local TREE = 1187
 
-ns.FIELDS.legacyPerk = "name,maxRank,spell,description"
+ns.FIELDS.legacyPerk = "name,maxRank,spell,description,tree,x,y"
 ns.FIELDS.legacyReward = "level,item,name,description"
 
 -- Perk name and description: the definition's own text, else its spell's.
@@ -33,43 +33,77 @@ local function text(s)
 	return (Encode.name(s):gsub(";", ".") :gsub("[\r\n]+", " "))
 end
 
-local function readPerks(legacy)
-	local config = C_Traits.GetConfigIDByTreeID(TREE)
+-- Legacy has a perk tree per tab. 1187 (professions) came from the trace; the others are found by
+-- asking the configuration for its trees and, failing that, by searching tree IDs for ones paid
+-- in the same currency (findTrees).
+local trees = { [TREE] = true }
+local CURRENCY = 4225
+
+local function readTree(tree, legacy, ranks)
+	local config = C_Traits.GetConfigIDByTreeID(tree)
 	if not config then
 		return
 	end
 	local catalogue = ns.db().catalogue.legacyPerks
-	local ranks = {}
-	for _, node in ipairs(C_Traits.GetTreeNodes(TREE) or {}) do
+	for _, node in ipairs(C_Traits.GetTreeNodes(tree) or {}) do
 		local info = C_Traits.GetNodeInfo(config, node)
 		if info and info.ID and info.ID ~= 0 then
-			-- On the live client activeRank read 0 for every perk while 16 points were spent; take the
-			-- highest of the rank fields, and keep the raw node info until the right one is known.
 			local rank = math.max(info.activeRank or 0, info.currentRank or 0, info.ranksPurchased or 0,
 				info.activeEntry and info.activeEntry.rank or 0)
 			ranks[#ranks + 1] = node .. ":" .. rank
-			legacy.nodes = legacy.nodes or {}
-			legacy.nodes[node] = ns.copy(info, 3)
 			local entry = info.activeEntry and info.activeEntry.entryID or (info.entryIDs and info.entryIDs[1])
 			local entryInfo = entry and C_Traits.GetEntryInfo(config, entry)
 			local definition = entryInfo and entryInfo.definitionID and C_Traits.GetDefinitionInfo(entryInfo.definitionID)
 			if definition then
 				local name, spell, description = perkText(definition)
-				catalogue[node] = Encode.row(text(name), info.maxRanks, spell, text(description))
+				catalogue[node] = Encode.row(text(name), info.maxRanks, spell, text(description), tree, info.posX, info.posY)
 			end
 		end
 	end
-	legacy.ranks = table.concat(ranks, ",")
-	legacy.config = config
-	for _, c in ipairs(C_Traits.GetTreeCurrencyInfo(config, TREE, false) or {}) do
-		legacy.currency = c.traitCurrencyID
-		legacy.available = c.quantity
-		legacy.spent = c.spent
-		legacy.earned = c.maxQuantity
+	local summary = { config = config }
+	for _, c in ipairs(C_Traits.GetTreeCurrencyInfo(config, tree, false) or {}) do
+		summary.currency = c.traitCurrencyID
+		summary.available = c.quantity
+		summary.spent = c.spent
+		summary.spentInTree = c.spentInTree
+		summary.earned = c.maxQuantity
+	end
+	legacy.trees[tree] = summary
+	if summary.currency == CURRENCY and not legacy.currency then
+		legacy.currency = summary.currency
+		legacy.available = summary.available
+		legacy.spent = summary.spent
+		legacy.earned = summary.earned
+		legacy.config = config
 		if C_Traits.GetMaxAvailableTraitCurrency then
-			legacy.possible = C_Traits.GetMaxAvailableTraitCurrency(c.traitCurrencyID, false)
+			legacy.possible = C_Traits.GetMaxAvailableTraitCurrency(summary.currency, false)
 		end
 	end
+	-- The configuration may name its other trees.
+	local configInfo = C_Traits.GetConfigInfo and C_Traits.GetConfigInfo(config)
+	for _, other in ipairs(configInfo and configInfo.treeIDs or {}) do
+		trees[other] = true
+	end
+end
+
+local function readPerks(legacy)
+	local ranks = {}
+	legacy.trees = {}
+	local done = {}
+	-- readTree can add trees; loop until no new ones appear.
+	local again = true
+	while again do
+		again = false
+		for tree in pairs(trees) do
+			if not done[tree] then
+				done[tree] = true
+				again = true
+				ns.safely("legacy", readTree, tree, legacy, ranks)
+			end
+		end
+	end
+	table.sort(ranks)
+	legacy.ranks = table.concat(ranks, ",")
 end
 
 local function readRenown(legacy)
@@ -105,8 +139,44 @@ local function readLegacy()
 	db.account.legacy = legacy
 end
 
+-- Searches tree IDs 1-5000, 250 per step, for trees paid in the Legacy currency; reads Legacy again
+-- when done. Once per session.
+local searched = false
+local function findTrees()
+	if searched or not C_Traits.GetConfigIDByTreeID then
+		return
+	end
+	searched = true
+	local id, found = 0, {}
+	local function step()
+		for _ = 1, 250 do
+			id = id + 1
+			local ok, config = pcall(C_Traits.GetConfigIDByTreeID, id)
+			if ok and config then
+				local okInfo, currencies = pcall(C_Traits.GetTreeCurrencyInfo, config, id, false)
+				for _, c in ipairs(okInfo and currencies or {}) do
+					if c.traitCurrencyID == CURRENCY then
+						trees[id] = true
+						found[#found + 1] = id
+					end
+				end
+			end
+		end
+		if id < 5000 then
+			ns.after(0.1, "legacy", step)
+		else
+			ns.db().account.legacyTreeSearch = { t = ns.now(), found = table.concat(found, ",") }
+			readLegacy()
+		end
+	end
+	step()
+end
+
 ns.on("PLAYER_ENTERING_WORLD", "legacy", function()
-	ns.after(8, "legacy", readLegacy)
+	ns.after(8, "legacy", function()
+		readLegacy()
+		findTrees()
+	end)
 end)
 local legacySoon = ns.throttle("legacy", 5, readLegacy)
 ns.on("TRAIT_CONFIG_UPDATED", "legacy", legacySoon)
