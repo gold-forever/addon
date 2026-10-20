@@ -137,6 +137,11 @@ local function readLegacy()
 	ns.safely("legacy", readRenown, legacy)
 	ns.safely("legacy", readPerks, legacy)
 	db.account.legacy = legacy
+	-- Points are earned account-wide but spent per character: each keeps its own ranks.
+	local me = ns.me()
+	if me then
+		me.legacy = legacy
+	end
 end
 
 -- Searches tree IDs 1-5000, 250 per step, for trees paid in the Legacy currency; reads Legacy again
