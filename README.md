@@ -85,6 +85,20 @@ file, so scan once in a while; an item is worth the better of its auction value 
 its vendor price. `/gf appraise` shows or hides the window, `/gf reset` starts a new session; drag
 the window to move it.
 
+## Loot advisor and big drops (0.7.0)
+
+At a vendor, and with `/gf bags`, a window sorts what is in your bags by what brings the most:
+**vendor these** (a vendor pays more than the auction house would after the cut; soulbound items
+cannot go there), **post these** (with the price to post at), and **disenchant these** (only when
+your Enchanting is high enough), each with its total. Item tooltips also show what disenchanting is
+worth and whether that beats selling.
+
+A **big drop** (worth 1 gold or more, or any rare) gets a message mid-screen and a sound; `/gf
+bigdrop 2` sets the threshold to 2 gold, `/gf bigdrop 0` alerts on rares only.
+
+Disenchanting uses Classic's table (`Disenchant.lua`, the same as the web app's): the beta's one
+disenchanted blue gave dust, not a shard, so Forever's may differ.
+
 ## Keeping the data
 
 `scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it

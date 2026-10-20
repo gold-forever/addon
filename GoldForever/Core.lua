@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.6.2"
+local VERSION = "0.7.0"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -442,12 +442,15 @@ ns.commands = {
 
 SLASH_GOLDFOREVER1 = "/gf"
 SLASH_GOLDFOREVER2 = "/goldforever"
+-- "/gf bigdrop 2" runs ns.commands.bigdrop("2").
 SlashCmdList.GOLDFOREVER = function(message)
-	local command = ns.commands[message]
+	local name, rest = string.match(message or "", "^%s*(%S*)%s*(.-)%s*$")
+	local command = ns.commands[string.lower(name or "")]
 	if command then
-		ns.safely("/gf " .. message, command)
+		ns.safely("/gf " .. name, command, rest)
 	else
 		printStatus()
-		print("  /gf appraise — the loot window · /gf reset — new farming session · /gf scan — scan the auction house · /gf check — APIs")
+		print("  /gf appraise — the loot window · /gf bags — what to do with your loot · /gf reset — new farming session")
+		print("  /gf bigdrop <gold> — alert on drops worth that much · /gf scan — scan the auction house · /gf check — APIs")
 	end
 end

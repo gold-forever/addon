@@ -12,6 +12,7 @@ local CUT = 0.05 -- a faction auction house's cut; the character sells on its ow
 local IDLE_SECONDS = 15 * 60 -- the web app's session split
 local MIN_RATE_SECONDS = 60 -- no gold per hour for the first minute: one lucky drop is not a rate
 local TOP_ITEMS = 4
+local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 
 -- Prices --------------------------------------------------------------------------------------------
 
@@ -79,12 +80,44 @@ local function worth(id)
 	return net or v
 end
 
+-- Quality (0 poor … 4 epic), item level, class and vendor price, from the catalogue, else the client.
+local function itemInfo(id)
+	local row = ns.db().catalogue.items[id]
+	if row then
+		local name, quality, ilvl, class, _, _, sell = strsplit(",", row)
+		return tonumber(quality), tonumber(ilvl), tonumber(class), tonumber(sell), name
+	end
+	if C_Item and C_Item.GetItemInfo then
+		local name, _, quality, ilvl, _, _, _, _, _, _, sell, class = C_Item.GetItemInfo(id)
+		return quality, ilvl, class, sell, name
+	end
+end
+
+local function enchanting()
+	local me = ns.me()
+	local p = me and me.prof and me.prof[333]
+	return p and p.skill or 0
+end
+
+-- What disenchanting one is worth, and the skill it needs; nil when it cannot be disenchanted.
+local function disenchantWorth(id)
+	local quality, ilvl, class = itemInfo(id)
+	local de = quality and ns.Disenchant.of(quality, ilvl, class)
+	if not de then
+		return nil
+	end
+	return ns.Disenchant.value(de.outcomes, worth), de.skill
+end
+
 local function coins(copper)
 	if GetCoinTextureString then
 		return GetCoinTextureString(math.floor(copper + 0.5))
 	end
 	return Encode.money(copper)
 end
+
+-- For the loot advisor (Advisor.lua): the same prices and valuation as here.
+ns.price = { market = market, vendor = vendor, worth = worth, itemInfo = itemInfo, disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT }
 
 -- Session ---------------------------------------------------------------------------------------------
 
@@ -256,52 +289,62 @@ local function refresh()
 	end
 end
 
-local function build()
-	frame = CreateFrame("Frame", "GoldForeverAppraiser", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-	frame:SetSize(260, 120)
-	local point = settings().point
-	if point then
-		frame:SetPoint(point[1], UIParent, point[2], point[3], point[4])
+-- A small movable window with a title, a close button and a text body; its position is kept in
+-- [store]. Shared with the loot advisor.
+function ns.makeWindow(name, title, store, point, onClose)
+	local f = CreateFrame("Frame", name, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+	f:SetSize(260, 120)
+	if store.point then
+		f:SetPoint(store.point[1], UIParent, store.point[2], store.point[3], store.point[4])
 	else
-		frame:SetPoint("RIGHT", UIParent, "RIGHT", -60, 120)
+		f:SetPoint(point[1], UIParent, point[1], point[2], point[3])
 	end
-	if frame.SetBackdrop then
-		frame:SetBackdrop({
+	if f.SetBackdrop then
+		f:SetBackdrop({
 			bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
 			edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 			edgeSize = 12,
 			insets = { left = 3, right = 3, top = 3, bottom = 3 },
 		})
-		frame:SetBackdropColor(0, 0, 0, 0.85)
+		f:SetBackdropColor(0, 0, 0, 0.85)
 	end
-	frame:SetClampedToScreen(true)
-	frame:SetMovable(true)
-	frame:EnableMouse(true)
-	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", function(self)
+	f:SetClampedToScreen(true)
+	f:SetMovable(true)
+	f:EnableMouse(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
 		local p, _, rel, x, y = self:GetPoint()
-		settings().point = { p, rel, x, y }
+		store.point = { p, rel, x, y }
 	end)
 
-	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	title:SetPoint("TOPLEFT", 10, -9)
-	title:SetText("Gold Forever · loot")
+	local heading = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	heading:SetPoint("TOPLEFT", 10, -9)
+	heading:SetText(title)
 
-	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", 2, 2)
 	close:SetScript("OnClick", function()
-		settings().shown = false
-		frame:Hide()
-		print("|cffe0ac45Gold Forever|r: loot window hidden; /gf appraise shows it again.")
+		f:Hide()
+		if onClose then
+			onClose()
+		end
 	end)
 
-	body = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	body:SetPoint("TOPLEFT", 10, -28)
-	body:SetWidth(240)
-	body:SetJustifyH("LEFT")
-	body:SetSpacing(2)
+	local text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	text:SetPoint("TOPLEFT", 10, -28)
+	text:SetWidth(240)
+	text:SetJustifyH("LEFT")
+	text:SetSpacing(2)
+	return f, text
+end
+
+local function build()
+	frame, body = ns.makeWindow("GoldForeverAppraiser", "Gold Forever · loot", settings(), { "RIGHT", -60, 120 }, function()
+		settings().shown = false
+		print("|cffe0ac45Gold Forever|r: loot window hidden; /gf appraise shows it again.")
+	end)
 end
 
 local function show()
@@ -312,8 +355,36 @@ local function show()
 	refresh()
 end
 
+-- Big drops: an item worth the threshold or more (sold or, for an enchanter who can, disenchanted),
+-- or any rare or better, gets a message mid-screen and a sound.
+local function bigDrops(taken)
+	local threshold = settings().bigDrop or BIG_DROP
+	for key, n in pairs(taken) do
+		local id = tonumber(string.match(tostring(key), "^(%d+)"))
+		local quality, _, _, _, name = itemInfo(id or 0)
+		if id then
+			local value = (worth(id) or 0) * n
+			local de, skill = disenchantWorth(id)
+			if de and enchanting() >= skill then
+				value = math.max(value, de * n)
+			end
+			if (threshold > 0 and value >= threshold) or (quality or 0) >= 3 then
+				local text = string.format("Big drop: %s%s — %s", n > 1 and (n .. "× ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
+				if RaidNotice_AddMessage and RaidWarningFrame then
+					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
+				end
+				if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
+					PlaySound(SOUNDKIT.RAID_WARNING)
+				end
+				print("|cffe0ac45Gold Forever|r " .. text)
+			end
+		end
+	end
+end
+
 table.insert(ns.lootListeners, function(coin, taken)
 	current()
+	ns.safely("big drop", bigDrops, taken)
 	session.coin = session.coin + coin
 	for key, n in pairs(taken) do
 		local id = tonumber(string.match(tostring(key), "^(%d+)"))
@@ -415,6 +486,17 @@ ns.commands.appraise = function()
 		s.shown = true
 		show()
 	end
+end
+
+-- "/gf bigdrop 2" alerts on drops worth 2 gold or more; "/gf bigdrop 0" on rares only.
+ns.commands.bigdrop = function(arg)
+	local gold = tonumber(arg)
+	if not gold then
+		print(string.format("|cffe0ac45Gold Forever|r: big drops are worth %s or more, and every rare. /gf bigdrop <gold> changes it.", coins(settings().bigDrop or BIG_DROP)))
+		return
+	end
+	settings().bigDrop = math.floor(gold * 10000)
+	print(string.format("|cffe0ac45Gold Forever|r: big drops from %s.", gold > 0 and coins(gold * 10000) or "rare quality (no gold threshold)"))
 end
 
 ns.commands.reset = function()
@@ -528,7 +610,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				return
 			end
 			local m, v = market(data.id), vendor(data.id)
-			if not m and not v then
+			if not m and not v and not disenchantWorth(data.id) then
 				return
 			end
 			local parts = {}
@@ -538,7 +620,16 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			if v then
 				parts[#parts + 1] = "vendor " .. coins(v)
 			end
-			tooltip:AddLine("|cffe0ac45Gold Forever|r " .. table.concat(parts, " · "), 1, 1, 1)
+			if #parts > 0 then
+				tooltip:AddLine("|cffe0ac45Gold Forever|r " .. table.concat(parts, " · "), 1, 1, 1)
+			end
+			local de, skill = disenchantWorth(data.id)
+			if de and de > 0 then
+				local sale = worth(data.id) or 0
+				local verdict = de > sale and " · |cff56c98fbetter than selling|r" or ""
+				local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
+				tooltip:AddLine("Disenchant ≈ " .. coins(de) .. verdict .. short, 1, 1, 1)
+			end
 		end)
 	end)
 end
