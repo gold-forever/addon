@@ -42,6 +42,18 @@ The file is at:
 The game writes it only at logout, exit and `/reload`; a crash writes nothing. It keeps the
 previous version as `GoldForever.lua.bak`.
 
+## Tests
+
+```sh
+cd addon/tests && npm install && npm test
+```
+
+Compiles every addon file and runs the `*_test.lua` files on [fengari](https://fengari.io)
+(Lua in JavaScript). The game runs Lua 5.1 and fengari 5.3, so only code that does not depend on
+the difference — `Encode.lua` and other pure helpers — is unit-tested here; anything that calls
+the game API is tested in game. The `tests` folder sits beside `GoldForever`, so it is never
+installed into the game.
+
 ## What it records
 
 Per character: name, race, class, faction, level, money, realm, region, rested XP (below max

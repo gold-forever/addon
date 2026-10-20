@@ -1,0 +1,11 @@
+{
+  "name": "gold-forever-addon-tests",
+  "private": true,
+  "description": "Unit tests for the addon's pure-Lua code, run on fengari (Lua 5.3 in JS).",
+  "scripts": {
+    "test": "TZ=UTC node run.js"
+  },
+  "devDependencies": {
+    "fengari": "0.1.4"
+  }
+}
