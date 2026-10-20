@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.2.0"
+local VERSION = "0.2.1"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -211,15 +211,25 @@ local function recordIdentity()
 	me.guild = GetGuildInfo("player")
 end
 
--- State that changes during play; written at every save so a file read after /reload is current.
+-- On a real logout the client has already cleared money, XP and bags when PLAYER_LOGOUT fires
+-- (a /reload has not), so values read then are zeros, not the character's state.
+function ns.tornDown()
+	return UnitXPMax("player") == 0 and GetMoney() == 0
+end
+
+-- State that changes during play; kept current during play and at every save, so a file read
+-- after /reload or logout is current.
 local function recordState()
 	if not me then
 		return
 	end
 	local now = GetServerTime()
+	me.seen = now
+	if ns.tornDown() then
+		return
+	end
 	me.level = UnitLevel("player")
 	me.money = GetMoney()
-	me.seen = now
 
 	local maxLevel = GetMaxPlayerLevel and GetMaxPlayerLevel() or 60
 	if me.level < maxLevel then
@@ -360,6 +370,9 @@ end)
 ns.on("PLAYER_LOGIN", "core", function()
 	recordIdentity()
 	recordState()
+	C_Timer.NewTicker(60, function()
+		ns.safely("core", recordState)
+	end)
 end)
 
 ns.on("PLAYER_ENTERING_WORLD", "core", function(isInitialLogin, isReloadingUi)
@@ -374,11 +387,9 @@ end)
 
 ns.on("PLAYER_LEVEL_UP", "core", recordIdentity)
 ns.on("PLAYER_UPDATE_RESTING", "core", recordState)
-ns.on("PLAYER_MONEY", "core", function()
-	if me then
-		me.money = GetMoney()
-	end
-end)
+ns.on("PLAYER_MONEY", "core", recordState)
+ns.on("PLAYER_XP_UPDATE", "core", recordState)
+ns.on("PLAYER_LEAVING_WORLD", "core", recordState)
 ns.on("PLAYER_GUILD_UPDATE", "core", function()
 	if me then
 		me.guild = GetGuildInfo("player")

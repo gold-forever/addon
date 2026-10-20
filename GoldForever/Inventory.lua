@@ -48,8 +48,11 @@ end
 
 local function readBags()
 	local me = ns.me()
-	if me then
-		me.bags = read(BAGS)
+	if me and not ns.tornDown() then
+		local bags = read(BAGS)
+		if bags.total > 0 then
+			me.bags = bags
+		end
 	end
 end
 
@@ -77,6 +80,7 @@ ns.on("BAG_UPDATE_DELAYED", "bags", function()
 		bankSoon()
 	end
 end)
+ns.on("PLAYER_LEAVING_WORLD", "bags", readBags)
 ns.on("PLAYER_LOGOUT", "bags", readBags)
 
 local function bankOpened()
