@@ -118,6 +118,7 @@ ns.on("LOOT_READY", "loot", function()
 		end
 	end
 	window = w
+	ns.lootAt = GetTime()
 end)
 
 ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)
@@ -180,6 +181,7 @@ end
 ns.on("LOOT_CLOSED", "loot", function()
 	local w = window
 	window = nil
+	ns.lootAt = GetTime() -- coin arrives a moment after the window closes
 	if w then
 		ns.after(1, "loot", function()
 			finish(w)

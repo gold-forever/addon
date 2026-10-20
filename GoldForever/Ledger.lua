@@ -1,0 +1,153 @@
+-- Gold Forever: crafts, money changes and quests — the additive streams design 002 reserves for
+-- the ledger (rule 4). Recorded from 0.3.0; no names of other players, ever.
+
+local _, ns = ...
+local Encode = ns.Encode
+
+ns.FIELDS.craft = "t,char,recipe,item,qty,skill,map"
+ns.FIELDS.money = "t,char,delta,ctx"
+ns.FIELDS.quest = "t,char,quest,kind,xp,money,map"
+ns.FIELDS.questName = "name"
+
+local function GetItemCount(id)
+	return (C_Item and C_Item.GetItemCount or _G.GetItemCount)(id)
+end
+
+-- Crafts -----------------------------------------------------------------------------------------
+
+local before = {} -- castGUID -> output count in the bags when the cast started
+
+-- Output item and skill line of a catalogued recipe; recipes are catalogued when the profession
+-- window opens, which crafting needs.
+local function recipe(id)
+	local row = ns.db().catalogue.recipes[id]
+	if not row then
+		return nil
+	end
+	local line, output = string.match(row, "^([^,]*),([^,]*)")
+	return tonumber(output), tonumber(line)
+end
+
+ns.on("UNIT_SPELLCAST_START", "craft", function(unit, cast, spell)
+	if unit ~= "player" then
+		return
+	end
+	local output = recipe(spell)
+	if output then
+		before[cast] = GetItemCount(output)
+	end
+end)
+
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft", function(unit, cast, spell)
+	local me = ns.me()
+	if unit ~= "player" or not me or not ns.db().catalogue.recipes[spell] then
+		return
+	end
+	local output, line = recipe(spell)
+	local start = output and (before[cast] or GetItemCount(output))
+	before[cast] = nil
+	local t, map = ns.now(), C_Map.GetBestMapForUnit("player")
+	-- The made items reach the bags a moment after the cast.
+	ns.after(1, "craft", function()
+		local qty = output and math.max(0, GetItemCount(output) - start) or nil
+		ns.append("craft", Encode.row(t, me.ref, spell, output, qty, line and ns.skill(line), map))
+	end)
+end)
+
+-- Money ------------------------------------------------------------------------------------------
+
+local money -- last known GetMoney()
+local open = {} -- windows open now: merchant, auctioneer, mail, trainer, taxi, ...
+local questAt -- GetTime() of the last quest turned in
+
+-- Interaction types by number, so every window the interaction manager opens has a name.
+local INTERACTION = {}
+for name, id in pairs(Enum and Enum.PlayerInteractionType or {}) do
+	INTERACTION[id] = string.lower(name)
+end
+
+local function context()
+	if ns.lootAt and GetTime() - ns.lootAt < 2 then
+		return "loot"
+	end
+	if questAt and GetTime() - questAt < 3 then
+		return "quest"
+	end
+	local names = {}
+	for name in pairs(open) do
+		names[#names + 1] = name
+	end
+	table.sort(names)
+	return table.concat(names, "+") -- "+" keeps several windows in one column
+end
+
+ns.on("PLAYER_ENTERING_WORLD", "money", function()
+	money = GetMoney()
+end)
+
+ns.on("PLAYER_MONEY", "money", function()
+	local me = ns.me()
+	if not me or ns.tornDown() then
+		return
+	end
+	local now = GetMoney()
+	if money and now ~= money then
+		ns.append("money", Encode.row(ns.now(), me.ref, now - money, context()))
+	end
+	money = now
+end)
+
+ns.on("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "money", function(kind)
+	open[INTERACTION[kind] or tostring(kind)] = true
+end)
+ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "money", function(kind)
+	open[INTERACTION[kind] or tostring(kind)] = nil
+end)
+-- Older clients, and windows the interaction manager does not cover.
+for show, hide in pairs({
+	MERCHANT_SHOW = "MERCHANT_CLOSED",
+	AUCTION_HOUSE_SHOW = "AUCTION_HOUSE_CLOSED",
+	MAIL_SHOW = "MAIL_CLOSED",
+	TRADE_SHOW = "TRADE_CLOSED",
+	TAXIMAP_OPENED = "TAXIMAP_CLOSED",
+	TRAINER_SHOW = "TRAINER_CLOSED",
+}) do
+	local name = string.lower(string.match(show, "^([^_]+)"))
+	ns.on(show, "money", function()
+		open[name] = true
+	end)
+	ns.on(hide, "money", function()
+		open[name] = nil
+	end)
+end
+
+-- Quests -----------------------------------------------------------------------------------------
+
+local function questName(id)
+	local names = ns.db().catalogue.questNames
+	if names[id] then
+		return
+	end
+	local title = C_QuestLog and C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(id)
+	if title then
+		names[id] = Encode.name(title)
+	end
+end
+
+local function quest(id, kind, xp, reward)
+	local me = ns.me()
+	if not me or not id then
+		return
+	end
+	ns.append("quest", Encode.row(ns.now(), me.ref, id, kind, xp, reward, C_Map.GetBestMapForUnit("player")))
+	questName(id)
+end
+
+ns.on("QUEST_ACCEPTED", "quest", function(a, b)
+	-- Mainline passes the quest ID first; older clients pass the log index, then the ID.
+	quest(b or a, "accept")
+end)
+ns.on("QUEST_TURNED_IN", "quest", function(id, xp, reward)
+	questAt = GetTime()
+	quest(id, "done", xp, reward)
+end)

@@ -10,6 +10,22 @@ ns.FIELDS.recipe = "skillLine,output,min,max,reagents,name"
 
 local BASIC = Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 
+-- Current skill in a profession, by skill line.
+function ns.skill(line)
+	if GetProfessions then
+		local indices = { GetProfessions() }
+		for i = 1, 5 do
+			if indices[i] then
+				local _, _, skill, _, _, _, own = GetProfessionInfo(indices[i])
+				if own == line then
+					return skill
+				end
+			end
+		end
+	end
+	return nil
+end
+
 local function readSkills()
 	local me = ns.me()
 	if not me then
