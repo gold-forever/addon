@@ -99,6 +99,14 @@ bigdrop 2` sets the threshold to 2 gold, `/gf bigdrop 0` alerts on rares only.
 Disenchanting uses Classic's table (`Disenchant.lua`, the same as the web app's): the beta's one
 disenchanted blue gave dust, not a shard, so Forever's may differ.
 
+## Rare announcer (0.7.1)
+
+A rare or rare elite NPC, seen on a nameplate, as your target, under the mouse or as a minimap
+marker, gets a mid-screen message with a sound and a chat line with where you are, once per spawn,
+and a skull raid mark (solo, or in a group as its leader or an assistant). Every sighting is
+recorded in the file (`rare` rows: NPC, map, position, how it was seen). `/gf rares` turns the
+announcing on or off, `/gf rares mark` the skull.
+
 ## Keeping the data
 
 `scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it
