@@ -249,6 +249,8 @@ wait(70)
 SlashCmdList.GOLDFOREVER("scan")
 C_Background.GetThing()
 SlashCmdList.GOLDFOREVER("legacy")
+-- A claim code from the site, typed on this character (security review finding 4).
+SlashCmdList.GOLDFOREVER("claim bcdf-2345")
 C_Background.GetThing()
 wait(60)
 -- Appraiser: a scan of the character's market, then two loot windows.

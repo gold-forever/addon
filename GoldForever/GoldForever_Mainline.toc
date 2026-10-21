@@ -4,7 +4,7 @@
 ## Interface: 120000, 120001, 120005, 120007
 ## Title: Gold Forever
 ## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.evensberget.com.
-## Version: 0.12.0
+## Version: 0.13.0
 ## SavedVariables: GoldForeverDB
 
 Libs\LibStub\LibStub.lua
@@ -12,6 +12,7 @@ Libs\LibDeflate\LibDeflate.lua
 Encode.lua
 Export.lua
 Core.lua
+Claim.lua
 Theme.lua
 UI.lua
 ExportFrame.lua
