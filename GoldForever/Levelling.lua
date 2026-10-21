@@ -8,8 +8,8 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.level = "t,char,kind,level,played,levelPlayed,money,map"
-ns.FIELDS.xp = "t,char,xp,kind,rested,instance,map,level"
+ns.FIELDS.level = "t,char,kind,level,played,levelPlayed,money,map,x,y"
+ns.FIELDS.xp = "t,char,xp,kind,rested,instance,map,level,x,y"
 ns.FIELDS.zone = "t,char,map,instance,instanceId"
 ns.FIELDS.boss = "t,char,encounter,name,difficulty,size,success,map,instanceId"
 ns.FIELDS.instance = "name,type"
@@ -58,14 +58,15 @@ end
 local function write(p, played, levelPlayed)
 	local me = ns.me()
 	if me then
-		ns.append("level", Encode.row(p.t, me.ref, p.kind, p.level, played, levelPlayed, p.money, p.map))
+		ns.append("level", Encode.row(p.t, me.ref, p.kind, p.level, played, levelPlayed, p.money, p.map, p.x, p.y))
 	end
 end
 
 -- [t] is when it happened (a level-up, a login), not when /played is asked a moment later: the web
 -- app splits levels there.
 local function askPlayed(kind, level, t)
-	local request = { t = t, kind = kind, level = level, money = GetMoney(), map = map() }
+	local request = { t = t, kind = kind, level = level, money = GetMoney() }
+	request.map, request.x, request.y = ns.position() -- where: the levelling map (no coordinates in instances)
 	if not RequestTimePlayed then
 		write(request)
 		return
@@ -167,11 +168,12 @@ local function xpChanged()
 		return
 	end
 	local at, fighting = GetTime(), UnitAffectingCombat("player")
-	local row = { t = ns.now(), xp = gained, rested = math.max(0, before.rested - now.rested), instance = instance(), map = map(), level = UnitLevel("player") }
+	local row = { t = ns.now(), xp = gained, rested = math.max(0, before.rested - now.rested), instance = instance(), level = UnitLevel("player") }
+	row.map, row.x, row.y = ns.position() -- where it was earned (no coordinates in instances)
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
 		local kind = kindAt(at, fighting)
-		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kind, row.rested > 0 and row.rested or nil, row.instance, row.map, row.level))
+		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kind, row.rested > 0 and row.rested or nil, row.instance, row.map, row.level, row.x, row.y))
 		for _, listener in ipairs(ns.xpListeners) do
 			ns.safely("xp listener", listener, row.xp, kind)
 		end

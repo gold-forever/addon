@@ -128,21 +128,36 @@ end
 -- Map art: which texture files draw each map, and how they tile. The web app draws routes over
 -- the zone's own map, cut from the player's installed client by tools/maps (never from the web).
 -- Read once per client build, every map with art, a batch a frame-step so the login does not stall.
--- db.mapArt = { build, maps = { [uiMapID] = "layerWidth,layerHeight,tileWidth,tileHeight;id+id+…" } }
+-- db.mapArt = { build, maps = { [uiMapID] = "layerWidth,layerHeight,tileWidth,tileHeight;id+id+…" },
+--   rects = { [uiMapID] = "continentID,left,right,top,bottom" } }: where each map lies on its
+--   continent (0–1), so the web app can tile zones together into one map.
 local MAP_IDS = 3000 -- uiMapIDs searched; Classic's are well under it
 local MAP_BATCH = 100
 
 local function readMapArt(manual)
 	local db = ns.db()
 	local build = db.client and db.client.build
-	if not manual and db.mapArt and db.mapArt.build == build then
+	if not manual and db.mapArt and db.mapArt.build == build and db.mapArt.rects then
 		return
 	end
 	if not (C_Map and C_Map.GetMapArtLayers and C_Map.GetMapArtLayerTextures and C_Map.GetMapInfo) then
 		return
 	end
-	local maps = {}
+	local maps, rects = {}, {}
 	local id = 0
+	local CONTINENT = Enum and Enum.UIMapType and Enum.UIMapType.Continent or 2
+	local function continentOf(map)
+		for _ = 1, 10 do
+			local info = C_Map.GetMapInfo(map)
+			if not info then
+				return nil
+			end
+			if info.mapType == CONTINENT then
+				return map
+			end
+			map = info.parentMapID
+		end
+	end
 	local function step()
 		local last = math.min(MAP_IDS, id + MAP_BATCH)
 		for map = id + 1, last do
@@ -152,13 +167,20 @@ local function readMapArt(manual)
 			if textures and #textures > 0 then
 				maps[map] = string.format("%d,%d,%d,%d;%s", layer.layerWidth, layer.layerHeight, layer.tileWidth, layer.tileHeight,
 					table.concat(textures, "+"))
+				local continent = C_Map.GetMapRectOnMap and continentOf(map)
+				if continent and continent ~= map then
+					local left, right, top, bottom = C_Map.GetMapRectOnMap(map, continent)
+					if left and right and right > left then
+						rects[map] = string.format("%d,%.5f,%.5f,%.5f,%.5f", continent, left, right, top, bottom)
+					end
+				end
 			end
 		end
 		id = last
 		if id < MAP_IDS then
 			ns.after(0.05, "map art", step)
 		else
-			db.mapArt = { build = build, t = ns.now(), maps = maps }
+			db.mapArt = { build = build, t = ns.now(), maps = maps, rects = rects }
 			if manual then
 				local n = 0
 				for _ in pairs(maps) do
