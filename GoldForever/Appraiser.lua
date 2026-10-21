@@ -18,13 +18,13 @@ local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 
 local prices -- item ID -> market value, from the latest full scan of the character's market
 local cheapestPrices -- item ID -> the cheapest unit listed in that scan
-local pricedFrom -- scans known when prices were built; a new scan rebuilds them
+local pricedFrom -- ns.scanVersion when prices were built; a new scan (Market.lua) rebuilds them
 
 local function buildPrices()
 	prices = {}
 	cheapestPrices = {}
 	local db, me = ns.db(), ns.me()
-	pricedFrom = #db.scans
+	pricedFrom = ns.scanVersion or 0
 	if not me then
 		return
 	end
@@ -60,7 +60,7 @@ local function buildPrices()
 end
 
 local function market(id)
-	if not prices or pricedFrom ~= #ns.db().scans then
+	if not prices or pricedFrom ~= (ns.scanVersion or 0) then
 		buildPrices()
 	end
 	return prices[id]
@@ -218,32 +218,23 @@ local function bagsChanged()
 	session.bagFree = free
 end
 
--- XP since the last reading, across level-ups; quest XP counts toward XP per hour, not per kill.
+-- XP: quest XP counts toward XP per hour, not per kill.
+-- The XP bar now, for the time to the next level. The gains come from Levelling.lua, which tells
+-- what earned each: only kills count toward "~N kills".
 local xpSeen -- { cur, max, level }
-local questAt
 
 local function readXp()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), level = UnitLevel("player") }
 end
 
-local function xpChanged()
-	local now = readXp()
-	local before = xpSeen
-	xpSeen = now
-	if not before or now.max == 0 then
-		return
-	end
-	local gained = Encode.xpGained(before.cur, before.max, now.cur, now.level > before.level)
-	if gained <= 0 then
-		return
-	end
+table.insert(ns.xpListeners, function(gained, kind)
 	local s = current()
 	s.xp = s.xp + gained
-	if not (questAt and GetTime() - questAt < 3) then
+	if kind == "kill" or kind == "boss" then
 		s.killXp = s.killXp + gained
 		s.kills = s.kills + 1
 	end
-end
+end)
 
 local function number(n)
 	n = math.floor(n + 0.5)
@@ -534,11 +525,8 @@ ns.on("PLAYER_ENTERING_WORLD", "appraiser", function(isInitialLogin, isReloading
 	end
 end)
 ns.on("PLAYER_XP_UPDATE", "appraiser", function()
-	xpChanged()
+	xpSeen = readXp()
 	refresh()
-end)
-ns.on("QUEST_TURNED_IN", "appraiser", function()
-	questAt = GetTime()
 end)
 ns.on("BAG_UPDATE_DELAYED", "appraiser", function()
 	bagsChanged()

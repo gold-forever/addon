@@ -94,7 +94,12 @@ local function readPerks(legacy)
 	local again = true
 	while again do
 		again = false
+		-- The trees known now, copied: readTree adds to `trees`, and a table must not grow while pairs walks it.
+		local known = {}
 		for tree in pairs(trees) do
+			known[#known + 1] = tree
+		end
+		for _, tree in ipairs(known) do
 			if not done[tree] then
 				done[tree] = true
 				again = true
@@ -170,7 +175,9 @@ local function findTrees()
 		if id < 5000 then
 			ns.after(0.1, "legacy", step)
 		else
-			ns.db().account.legacyTreeSearch = { t = ns.now(), found = table.concat(found, ",") }
+			local db = ns.db()
+			db.account = db.account or {}
+			db.account.legacyTreeSearch = { t = ns.now(), found = table.concat(found, ",") }
 			readLegacy()
 		end
 	end

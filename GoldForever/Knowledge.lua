@@ -27,6 +27,9 @@ local function seeUnit(unit)
 	id = tonumber(id)
 	local npcs = ns.db().catalogue.npcs
 	local level = UnitLevel(unit)
+	if not level or level <= 0 then
+		return -- "??": too far above the player to show; the range stays as it was
+	end
 	local range = levels[id]
 	if not range and npcs[id] then
 		local min, max = string.match(npcs[id], "^[^,]*,([^,]*),([^,]*)")
@@ -63,10 +66,23 @@ end
 -- object's ID.
 local cast -- { name, at }
 
-ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
-	if unit == "player" and target and target ~= "" then
-		cast = { name = target, at = GetTime() }
+-- A cast on a unit (a buff on oneself or a friend, a spell on a mob) names no object: it is never
+-- kept, so no player's name can end up as an object's (design 002: no other players' names).
+local function onUnit(target)
+	for _, unit in ipairs({ "player", "target", "mouseover", "focus" }) do
+		if UnitExists(unit) and UnitName(unit) == target then
+			return true
+		end
 	end
+	return false
+end
+
+ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
+	if unit ~= "player" then
+		return
+	end
+	-- Every cast replaces the last, so an older cast never names the next loot.
+	cast = target and target ~= "" and not onUnit(target) and { name = target, at = GetTime() } or nil
 end)
 ns.on("LOOT_READY", "objects", function()
 	local id = ns.lootSource and string.match(ns.lootSource, "^o(%d+)$")
@@ -147,8 +163,11 @@ local function readTrainer()
 	for f, on in pairs(saved) do
 		SetTrainerServiceTypeFilter(f, on and true or false)
 	end
-	-- One string per trainer, rows joined by ";" like a stream chunk.
-	ns.db().catalogue.trainers[id] = table.concat(rows, ";")
+	-- One string per trainer, rows joined by ";" like a stream chunk. An empty read is the window gone
+	-- before it was read, not a trainer with nothing to teach: the stored list stays.
+	if #rows > 0 then
+		ns.db().catalogue.trainers[id] = table.concat(rows, ";")
+	end
 end
 
 local trainerSoon = ns.throttle("trainer", 1, readTrainer)

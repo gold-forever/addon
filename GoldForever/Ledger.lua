@@ -66,12 +66,49 @@ for name, id in pairs(Enum and Enum.PlayerInteractionType or {}) do
 	INTERACTION[id] = string.lower(name)
 end
 
+-- The Blizzard frames behind window names. A close event does not always come (the mailbox, a
+-- gossip window left by walking away), so a window whose frame is hidden is closed when money moves.
+local FRAMES = {
+	merchant = { "MerchantFrame" },
+	auction = { "AuctionHouseFrame", "AuctionFrame" },
+	auctioneer = { "AuctionHouseFrame", "AuctionFrame" },
+	mail = { "MailFrame" },
+	mailinfo = { "MailFrame" },
+	trade = { "TradeFrame" },
+	tradepartner = { "TradeFrame" },
+	taxi = { "TaxiFrame", "FlightMapFrame" },
+	taxinode = { "TaxiFrame", "FlightMapFrame" },
+	trainer = { "ClassTrainerFrame" },
+	gossip = { "GossipFrame" },
+	banker = { "BankFrame" },
+}
+
+-- Whether a window still shows: unknown (no frame of that name) counts as showing.
+local function showing(name)
+	local known = false
+	for _, frame in ipairs(FRAMES[name] or {}) do
+		local f = _G[frame]
+		if f and f.IsShown then
+			known = true
+			if f:IsShown() then
+				return true
+			end
+		end
+	end
+	return not known
+end
+
 local function context()
 	if ns.lootAt and GetTime() - ns.lootAt < 2 then
 		return "loot"
 	end
 	if questAt and GetTime() - questAt < 3 then
 		return "quest"
+	end
+	for name in pairs(open) do
+		if not showing(name) then
+			open[name] = nil
+		end
 	end
 	local names = {}
 	for name in pairs(open) do

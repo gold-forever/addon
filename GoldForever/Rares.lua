@@ -13,6 +13,7 @@ local RARE = { rare = true, rareelite = true }
 
 local announced = {} -- spawn GUID -> true, this session; never written
 local vignettes = {} -- minimap marker GUID -> true
+local marked = {} -- spawn GUID -> true once given the skull, this session
 
 local function settings()
 	local s = ns.db().settings
@@ -59,10 +60,16 @@ local function seeUnit(unit, how)
 	end
 	local guid = UnitGUID(unit)
 	local s = settings()
-	if s.mark and mayMark() and GetRaidTargetIndex(unit) ~= SKULL then
+	if not guid then
+		return
+	end
+	-- Marked once, when its unit is first seen (a minimap marker has no unit to mark): marking again on
+	-- every mouseover would move the skull back from whatever the group marked since, or between rares.
+	if not marked[guid] and s.mark and mayMark() and GetRaidTargetIndex(unit) ~= SKULL then
+		marked[guid] = true
 		pcall(SetRaidTarget, unit, SKULL)
 	end
-	if not guid or announced[guid] then
+	if announced[guid] then
 		return
 	end
 	announced[guid] = true

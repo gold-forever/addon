@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.8.8"
+local VERSION = "0.8.9"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -105,6 +105,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		ns.safely(l.name, l.fn, ...)
 	end
 end)
+
+-- Called with (gained, kind) for every XP gain once Levelling.lua knows what earned it (`quest`,
+-- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the appraiser listens.
+ns.xpListeners = {}
 
 -- Appends a row to today's bucket of a stream.
 function ns.append(stream, row)
@@ -408,7 +412,13 @@ ns.on("PLAYER_ENTERING_WORLD", "core", function(isInitialLogin, isReloadingUi)
 	end
 end)
 
-ns.on("PLAYER_LEVEL_UP", "core", recordIdentity)
+-- UnitLevel may still say the old level at this event; its first argument is the new one.
+ns.on("PLAYER_LEVEL_UP", "core", function(level)
+	recordIdentity()
+	if me and tonumber(level) then
+		me.level = tonumber(level)
+	end
+end)
 ns.on("PLAYER_UPDATE_RESTING", "core", recordState)
 ns.on("PLAYER_MONEY", "core", recordState)
 ns.on("PLAYER_XP_UPDATE", "core", recordState)

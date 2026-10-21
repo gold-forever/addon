@@ -43,9 +43,10 @@ end
 -- Time played --------------------------------------------------------------------------------------
 
 -- /played without the chat line: chat frames stop listening while the addon asks, and listen again
--- once the answer is in.
-local pending -- { t, kind, level, money, map }: the level row waiting for its time played
-local muted = {} -- chat frames that stopped listening for this request
+-- once every answer is in. Answers come in the order asked, so each goes to its own request (a
+-- level-up soon after a login asks twice).
+local asked = {} -- level rows waiting for their time played: { t, kind, level, money, map }, oldest first
+local muted = {} -- chat frames that stopped listening for these requests
 
 local function unmute()
 	for _, f in ipairs(muted) do
@@ -54,10 +55,9 @@ local function unmute()
 	muted = {}
 end
 
-local function write(played, levelPlayed)
-	local p, me = pending, ns.me()
-	pending = nil
-	if p and me then
+local function write(p, played, levelPlayed)
+	local me = ns.me()
+	if me then
 		ns.append("level", Encode.row(p.t, me.ref, p.kind, p.level, played, levelPlayed, p.money, p.map))
 	end
 end
@@ -65,14 +65,12 @@ end
 -- [t] is when it happened (a level-up, a login), not when /played is asked a moment later: the web
 -- app splits levels there.
 local function askPlayed(kind, level, t)
-	if pending then
-		write(nil, nil) -- the earlier request never got its answer
-	end
-	pending = { t = t, kind = kind, level = level, money = GetMoney(), map = map() }
+	local request = { t = t, kind = kind, level = level, money = GetMoney(), map = map() }
 	if not RequestTimePlayed then
-		write(nil, nil)
+		write(request)
 		return
 	end
+	asked[#asked + 1] = request
 	for i = 1, NUM_CHAT_WINDOWS or 10 do
 		local f = _G["ChatFrame" .. i]
 		if f and f:IsEventRegistered("TIME_PLAYED_MSG") then
@@ -81,23 +79,31 @@ local function askPlayed(kind, level, t)
 		end
 	end
 	RequestTimePlayed()
-	local asked = pending
 	ns.after(PLAYED_TIMEOUT, "played", function()
-		if pending == asked then
-			write(nil, nil)
+		for i, waiting in ipairs(asked) do
+			if waiting == request then
+				table.remove(asked, i)
+				write(request) -- no answer came: the row without its time played
+				break
+			end
+		end
+		if #asked == 0 then
 			unmute()
 		end
 	end)
 end
 
 ns.on("TIME_PLAYED_MSG", "played", function(total, thisLevel)
-	if pending then
-		write(total, thisLevel)
+	local request = table.remove(asked, 1)
+	if request then
+		write(request, total, thisLevel)
 	end
 	-- After this event has reached every listener, so the muted frames skip this one.
-	C_Timer.After(0, function()
-		ns.safely("played", unmute)
-	end)
+	if #asked == 0 then
+		C_Timer.After(0, function()
+			ns.safely("played", unmute)
+		end)
+	end
 end)
 
 -- A login row tells when the current level started even when its level-up was never seen.
@@ -164,7 +170,11 @@ local function xpChanged()
 	local row = { t = ns.now(), xp = gained, rested = math.max(0, before.rested - now.rested), instance = instance(), map = map(), level = UnitLevel("player") }
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
-		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kindAt(at, fighting), row.rested > 0 and row.rested or nil, row.instance, row.map, row.level))
+		local kind = kindAt(at, fighting)
+		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kind, row.rested > 0 and row.rested or nil, row.instance, row.map, row.level))
+		for _, listener in ipairs(ns.xpListeners) do
+			ns.safely("xp listener", listener, row.xp, kind)
+		end
 	end)
 end
 

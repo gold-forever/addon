@@ -40,6 +40,16 @@ function Encode.append(stream, row)
 	end
 end
 
+-- Rows as chunk strings in one pass, ROWS_PER_CHUNK to a chunk: for a stream written all at once
+-- (a scan's 20,000 listings), where appending row by row would copy each chunk again and again.
+function Encode.chunks(rows)
+	local chunks = {}
+	for i = 1, #rows, Encode.ROWS_PER_CHUNK do
+		chunks[#chunks + 1] = table.concat(rows, ";", i, math.min(#rows, i + Encode.ROWS_PER_CHUNK - 1))
+	end
+	return chunks
+end
+
 -- Number of rows in a chunk.
 function Encode.count(chunk)
 	local _, separators = string.gsub(chunk, ";", "")

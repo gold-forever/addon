@@ -90,6 +90,19 @@ eq(E.money(2305), "23s 5c", "under a gold")
 eq(E.money(37), "37c", "copper only")
 
 -- XP gained, across a level-up too.
+-- A whole stream at once: chunks of ROWS_PER_CHUNK rows, the same as appending row by row.
+do
+	local rows, appended = {}, {}
+	for i = 1, E.ROWS_PER_CHUNK * 2 + 3 do
+		rows[i] = tostring(i)
+		E.append(appended, rows[i])
+	end
+	local chunks = E.chunks(rows)
+	eq(#chunks, 3, "chunks for two full and a part")
+	eq(table.concat(chunks, "|"), table.concat(appended, "|"), "chunks match appending")
+	eq(#E.chunks({}), 0, "no rows, no chunks")
+end
+
 eq(E.xpGained(2570, 47400, 3010, false), 440, "within a level")
 eq(E.xpGained(47000, 47400, 120, true), 520, "the rest of the old level plus the new one's")
 eq(E.xpGained(3010, 47400, 2570, false), 0, "never negative")

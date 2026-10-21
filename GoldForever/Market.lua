@@ -73,13 +73,17 @@ local function finish(s, buckets, n)
 		keys[#keys + 1] = key
 	end
 	table.sort(keys)
-	for _, key in ipairs(keys) do
+	local rows = {}
+	for i, key in ipairs(keys) do
 		local b = buckets[key]
-		Encode.append(record.rows, Encode.row(b.item, b.unit, b.qty, b.auctions))
+		rows[i] = Encode.row(b.item, b.unit, b.qty, b.auctions)
 	end
+	record.rows = Encode.chunks(rows)
 	local scans = ns.db().scans
 	scans[#scans + 1] = record
 	prune()
+	-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
+	ns.scanVersion = (ns.scanVersion or 0) + 1
 	print(string.format("|cffe0ac45Gold Forever|r: scanned %d auctions into %d prices (%s).", n, #keys, s.market))
 	scan = nil
 end
@@ -163,7 +167,12 @@ local function auctionOpened()
 		return
 	end
 	auctionOpen = true
-	ns.after(1, "scan", start)
+	ns.after(1, "scan", function()
+		-- Closed again within the second: no scan, and the cooldown is not spent.
+		if auctionOpen then
+			start()
+		end
+	end)
 end
 local function auctionClosed()
 	auctionOpen = false
