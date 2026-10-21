@@ -1,0 +1,19 @@
+# The BigWigs packager builds the addon from this repository (.github/workflows/addon-release.yml).
+# move-folders lifts GoldForever/ to the package's root and registers it as the place the TOC files
+# are read from; the tests and the repository's own files are left out.
+package-as: GoldForever
+
+enable-nolib-creation: no
+
+# Written for players, not generated from the commit log.
+manual-changelog:
+  filename: GoldForever/CHANGELOG.md
+  markup-type: markdown
+
+move-folders:
+  GoldForever/GoldForever: GoldForever
+
+ignore:
+  - tests
+  - README.md
+  - .github

@@ -1,0 +1,28 @@
+# Every push and pull request: the unit tests, and the whole addon loading on a stand-in game API.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Unit tests (fengari)
+        working-directory: tests
+        run: npm ci && npm test
+      - name: The whole addon loads on a stand-in game API
+        run: |
+          sudo apt-get install -y -qq luajit >/dev/null
+          out=$(luajit tests/smoke.lua GoldForever)
+          echo "$out" | tail -20
+          # The smoke run prints its errors table; it must be empty.
+          if echo "$out" | grep -A2 '\["errors"\] = {' | tail -n +2 | grep -q '\["'; then
+            echo "::error::the smoke run recorded errors"
+            exit 1
+          fi

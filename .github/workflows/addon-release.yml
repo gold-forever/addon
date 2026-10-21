@@ -1,0 +1,86 @@
+# A tag addon-v<version> (addon-v0.13.1) tests the addon, packages GoldForever/ with the BigWigs
+# packager (.pkgmeta), attests the zip's build provenance, and publishes GoldForever-<version>.zip: to a
+# GitHub release always, and to
+# CurseForge and Wago when their project ids are in the TOC (X-Curse-Project-ID, X-Wago-ID) and their
+# tokens are repository secrets (CF_API_KEY, WAGO_API_TOKEN). Without them the packager skips that site
+# and says so in the log; the release on GitHub still happens.
+#
+# The packager reads WoW: Forever from the TOC's interface 16001 and retail from GoldForever_Mainline.toc,
+# so one file is uploaded for both (design: delivery 008, D-008.1).
+name: addon release
+
+on:
+  push:
+    tags: ["addon-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Unit tests (fengari)
+        working-directory: tests
+        run: npm ci && npm test
+      - name: The whole addon loads on a stand-in game API
+        run: |
+          sudo apt-get install -y -qq luajit >/dev/null
+          out=$(luajit tests/smoke.lua GoldForever)
+          echo "$out" | tail -20
+          # The smoke run prints its errors table; it must be empty.
+          if echo "$out" | grep -A2 '\["errors"\] = {' | tail -n +2 | grep -q '\["'; then
+            echo "::error::the smoke run recorded errors"
+            exit 1
+          fi
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Version and destinations
+        id: plan
+        env:
+          HAS_CF_TOKEN: ${{ secrets.CF_API_KEY != '' }}
+          HAS_WAGO_TOKEN: ${{ secrets.WAGO_API_TOKEN != '' }}
+        run: |
+          version="${GITHUB_REF_NAME#addon-v}"
+          toc_version=$(sed -n 's/^## Version: *//p' GoldForever/GoldForever.toc | tr -d '\r')
+          if [[ "$version" != "$toc_version" ]]; then
+            echo "::error::the tag says $version but GoldForever.toc says $toc_version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          cf_id=$(sed -n 's/^## X-Curse-Project-ID: *//p' GoldForever/GoldForever.toc | tr -d '\r')
+          wago_id=$(sed -n 's/^## X-Wago-ID: *//p' GoldForever/GoldForever.toc | tr -d '\r')
+          if [[ -n "$cf_id" && "$HAS_CF_TOKEN" == true ]]; then
+            echo "CurseForge: uploading to project $cf_id"
+          else
+            echo "CurseForge: SKIPPED (project id in the TOC: ${cf_id:-none}, CF_API_KEY set: $HAS_CF_TOKEN)"
+          fi
+          if [[ -n "$wago_id" && "$HAS_WAGO_TOKEN" == true ]]; then
+            echo "Wago: uploading to project $wago_id"
+          else
+            echo "Wago: SKIPPED (project id in the TOC: ${wago_id:-none}, WAGO_API_TOKEN set: $HAS_WAGO_TOKEN)"
+          fi
+      - uses: BigWigsMods/packager@0f24d2169de3ceb3b79a981311b2ebab4c6160c7 # 2026-10-10
+        with:
+          args: -n "{package-name}-${{ steps.plan.outputs.version }}:${{ steps.plan.outputs.version }}"
+          pandoc: "false"
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      # Who built the zip, from which commit, with which workflow: `gh attestation verify
+      # GoldForever-<version>.zip --repo gold-forever/addon` checks it.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: .release/GoldForever-${{ steps.plan.outputs.version }}.zip

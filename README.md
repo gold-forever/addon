@@ -1,78 +1,34 @@
 # Gold Forever addon
 
-Records your characters into `GoldForeverDB`, the format of
-[design 002](../docs/design/002-savedvariables-schema.md). It only records; the web app does the
-rest. Version 0.1.0 is the skeleton: characters, rested XP, login/reload/logout, and an API check.
+Records what your characters see and earn in **WoW: Forever** (it also loads in retail), for the
+[Gold Forever](https://gold-forever.app) web app, which turns it into prices, ledgers and plans. The
+addon only records; `/gf export` gives you the text to paste at gold-forever.app, or the
+[companion app](https://github.com/gold-forever/companion) uploads it for you.
 
-## Install (players)
+It records your own characters and what you loot and scan, and **never other players**: auction
+owners and bidders are not read. The web app's privacy page:
+<https://gold-forever.app/privacy>.
 
-Install **Gold Forever** like any other addon, for **WoW: Forever** (it also loads in retail):
+## Install
 
-- **CurseForge app, WowUp or the Wago app:** search for "Gold Forever" and install it. They keep it
-  up to date.
-- **By hand:** download `GoldForever-<version>.zip` from the
-  [releases](https://github.com/magnusev/gold-forever/releases), and unzip it into
-  the WoW: Forever folder's `Interface/AddOns/` (for example `<WoW>/_forever_/Interface/AddOns/`;
-  the folder name is known for certain at launch), so that `AddOns/GoldForever/GoldForever.toc` exists.
+- **CurseForge app, WowUp or the Wago app** (coming): search for "Gold Forever"; they keep it up to
+  date.
+- **By hand:** download `GoldForever-<version>.zip` from
+  [the releases](https://github.com/gold-forever/addon/releases) and unzip it into your WoW: Forever
+  folder's `Interface/AddOns/` (for example `<WoW>/_forever_/Interface/AddOns/`), so that
+  `AddOns/GoldForever/GoldForever.toc` exists.
 
-Then log in, and on the character select screen, under AddOns, check that **Gold Forever** is listed
-and not marked out of date. In game, `/gf` shows what it has recorded and `/gf export` gives the text
-to paste at gold-forever.app.
+Then, on the character select screen under AddOns, check that **Gold Forever** is listed and not
+marked out of date. In game, `/gf` shows what it has recorded.
 
-A tag `addon-v<version>` publishes a release (`.github/workflows/addon-release.yml`, with
-`.pkgmeta`); its version must match the TOCs' `## Version`.
-
-## Install (developers)
-
-Link the folder into the game's AddOns folder, so a `git pull` updates the addon. On Linux (Wine,
-Lutris or Steam), `scripts/install-addon.sh` finds the game folder and does this; `--help` lists its
-options.
+**Checking a download:** every release zip has a build attestation. With the
+[GitHub CLI](https://cli.github.com):
 
 ```sh
-# macOS — adjust the flavour folder (_forever_, _classic_beta_ …) to your install
-ln -s "$PWD/addon/GoldForever" "/Applications/World of Warcraft/_forever_/Interface/AddOns/GoldForever"
+gh attestation verify GoldForever-<version>.zip --repo gold-forever/addon
 ```
 
-```bat
-:: Windows (run as administrator)
-mklink /D "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\GoldForever" "%CD%\addon\GoldForever"
-```
-
-Or copy the folder there. On the character select screen, under AddOns, check that **Gold
-Forever** is listed and not marked out of date.
-
-## What to test (in this order)
-
-1. **Loads:** log in. `/gf` prints the number of characters and today's events.
-2. **API check:** `/gf check` lists which APIs design 002 relies on exist on this client
-   (green yes, red no), plus the realm name and region. The same answers are saved in the file.
-3. **Reload:** type `/reload`, then open the saved file (below). Under `events` → today → `sys`,
-   the last entries should be `…,reload` then `…,resume` — not `logout`.
-4. **Logout:** log out to character select, open the file again: the newest entry is `…,logout`.
-5. **Second character:** log in on another character and log out: `characters` has both, each
-   with its own `ref`.
-6. **Send the file** (after logout or `/reload`): it becomes a parser test fixture.
-
-The file is at:
-
-```
-<WoW>/<flavour>/WTF/Account/<ACCOUNT>/SavedVariables/GoldForever.lua
-```
-
-The game writes it only at logout, exit and `/reload`; a crash writes nothing. It keeps the
-previous version as `GoldForever.lua.bak`.
-
-## Tests
-
-```sh
-cd addon/tests && npm install && npm test
-```
-
-Compiles every addon file and runs the `*_test.lua` files on [fengari](https://fengari.io)
-(Lua in JavaScript). The game runs Lua 5.1 and fengari 5.3, so only code that does not depend on
-the difference — `Encode.lua` and other pure helpers — is unit-tested here; anything that calls
-the game API is tested in game. The `tests` folder sits beside `GoldForever`, so it is never
-installed into the game.
+It passes only when this repository's release workflow built that exact file.
 
 ## What it records
 
@@ -84,8 +40,7 @@ coin, items taken, position); positions every 5 s while farming; auction house s
 visit, at most every 15 minutes; `/gf scan` retries); guild bank tabs; and a catalogue of every
 item, recipe and vendor price seen. `/gf` shows today's counts and any collector that failed.
 
-Nothing about other players: auction owners and bidders are never read. See design 002, "Data
-minimisation", and its "Findings on the live client" for where 0.2.0 departs from the design.
+Nothing about other players: auction owners and bidders are never read. The full format is design 002 in the Gold Forever project.
 
 ## Loot appraiser (0.6.0)
 
@@ -146,7 +101,62 @@ auction house's "successful" mail (item, count, price, deposit, the house's cut)
 the buyer the mail names is not kept. The loot window's **Stop** button ends the farming session
 there and then.
 
-## Keeping the data
+## Developing
 
-`scripts/snapshot-data.sh` copies the saved file into `data/forever-beta/`, named by the time it
-was written.
+Clone, then link the `GoldForever` folder into the game's AddOns folder, so a `git pull` updates it:
+
+```sh
+# Linux (Wine, Lutris, Steam) or macOS: adjust the path to your install and flavour folder
+ln -s "$PWD/GoldForever" "<WoW>/_forever_/Interface/AddOns/GoldForever"
+```
+
+```bat
+:: Windows (run as administrator)
+mklink /D "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\GoldForever" "%CD%\GoldForever"
+```
+
+**Tests:**
+
+```sh
+cd tests && npm ci && npm test        # every file compiles; the *_test.lua files run on fengari
+luajit tests/smoke.lua GoldForever    # the whole addon loads on a stand-in game API; "errors" must be empty
+```
+
+The game runs Lua 5.1 and fengari 5.3, so the unit tests cover pure helpers; anything that calls the
+game API is tested in game. The `tests` folder sits beside `GoldForever`, so it is never installed.
+
+## What to test (in this order)
+
+1. **Loads:** log in. `/gf` prints the number of characters and today's events.
+2. **API check:** `/gf check` lists which APIs the web app relies on exist on this client
+   (green yes, red no), plus the realm name and region. The same answers are saved in the file.
+3. **Reload:** type `/reload`, then open the saved file (below). Under `events` → today → `sys`,
+   the last entries should be `…,reload` then `…,resume` — not `logout`.
+4. **Logout:** log out to character select, open the file again: the newest entry is `…,logout`.
+5. **Second character:** log in on another character and log out: `characters` has both, each
+   with its own `ref`.
+6. **Send the file** (after logout or `/reload`): it becomes a parser test fixture.
+
+The file is at:
+
+```
+<WoW>/<flavour>/WTF/Account/<ACCOUNT>/SavedVariables/GoldForever.lua
+```
+
+The game writes it only at logout, exit and `/reload`; a crash writes nothing. It keeps the
+previous version as `GoldForever.lua.bak`.
+
+**Releasing:** a tag `addon-v<version>` runs `.github/workflows/addon-release.yml`. The tag must
+match the TOCs' `## Version`. It tests, packages with the BigWigs packager (`.pkgmeta`), attests the
+zip, and publishes it to this repository's releases (and to CurseForge and Wago once their project
+ids and tokens are set).
+
+## Licence
+
+**Source-available, all rights reserved** (not open source): the code is published so anyone can
+read what the addon records and does, but it may not be copied, modified or redistributed without
+written permission. Installing and using the released addon is of course fine. See [LICENSE](LICENSE).
+
+LibDeflate (zlib, `GoldForever/Libs/LibDeflate/LICENSE.txt`) and LibStub (public domain) keep their
+own licences. World of Warcraft is Blizzard Entertainment's; this addon is not affiliated with or
+endorsed by Blizzard.
