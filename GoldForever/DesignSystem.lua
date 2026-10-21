@@ -215,7 +215,7 @@ local function buildCharacters(page)
 			sort = function(r) return r.level + (r.progress or 0) end },
 		{ key = "restedLevels", title = "Rested", width = 90, align = "RIGHT",
 			text = function(r) return r.restedLevels and (r.restedLevels >= Views.RESTED_CAP_LEVELS - 0.005 and "full" or string.format("%.2f levels", r.restedLevels)) or "—" end,
-			color = function(r) return r.restedLevels and r.restedLevels > 0 and Theme.color.rested or Theme.color.textFaint end },
+			color = function(r) return r.restedLevels and r.restedLevels >= 0.005 and Theme.color.rested or Theme.color.textFaint end },
 		{ key = "money", title = "Gold", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.money, "gold") end },
 		{ key = "seen", title = "Seen", width = 80, align = "RIGHT", text = function(r) return r.online and "now" or Views.ago(r.seen, ns.now()) end,
 			color = function() return Theme.color.textMuted end },
