@@ -1,0 +1,37 @@
+## Retail, for trying /gf export before WoW: Forever launches (design 005). The interface numbers are a
+## guess at retail's current ones: if the client says "out of date", tick "Load out of date AddOns", or
+## put in what /dump select(4, GetBuildInfo()) prints in retail.
+## Interface: 120000, 120001, 120005, 120007
+## Title: Gold Forever
+## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.evensberget.com.
+## Version: 0.12.0
+## SavedVariables: GoldForeverDB
+
+Libs\LibStub\LibStub.lua
+Libs\LibDeflate\LibDeflate.lua
+Encode.lua
+Export.lua
+Core.lua
+Theme.lua
+UI.lua
+ExportFrame.lua
+Views.lua
+Catalogue.lua
+Loot.lua
+Inventory.lua
+Professions.lua
+Market.lua
+Ledger.lua
+Knowledge.lua
+Character.lua
+Legacy.lua
+Achievements.lua
+Disenchant.lua
+Crafting.lua
+Appraiser.lua
+Advisor.lua
+Rares.lua
+Shop.lua
+Auctions.lua
+Levelling.lua
+DesignSystem.lua

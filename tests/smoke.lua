@@ -175,7 +175,8 @@ SlashCmdList = {}
 function tocFiles()
   local out = {}
   for line in io.lines(dir .. "/GoldForever_Forever.toc") do
-    if line:match("%.lua%s*$") then out[#out + 1] = line:match("^%s*(.-)%s*$") end
+    -- The TOC's paths use the client's backslash.
+    if line:match("%.lua%s*$") then out[#out + 1] = (line:match("^%s*(.-)%s*$"):gsub("\\", "/")) end
   end
   return out
 end
@@ -486,6 +487,13 @@ do
   print("SCANS KEPT " .. table.concat(kinds, " "))
 end
 print("SAME TOTALS " .. tostring((before:match("Total: [^|]*")) == (appraiserText:match("Total: [^|]*"))))
+-- /gf export: the first holds everything, the next only what is new; both build without error.
+SlashCmdList.GOLDFOREVER("export")
+local firstAt = GoldForeverDB.exportedAt
+print("EXPORT AT " .. tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil))
+now = now + 60
+SlashCmdList.GOLDFOREVER("export")
+print("EXPORT AGAIN after " .. tostring(GoldForeverDB.exportedAt and firstAt and GoldForeverDB.exportedAt - firstAt) .. " s")
 SlashCmdList.GOLDFOREVER("")
 money = 0; xpmax = 0; C_Container.GetContainerNumSlots = function() return 0 end
 fire("PLAYER_LEAVING_WORLD")
