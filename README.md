@@ -4,7 +4,25 @@ Records your characters into `GoldForeverDB`, the format of
 [design 002](../docs/design/002-savedvariables-schema.md). It only records; the web app does the
 rest. Version 0.1.0 is the skeleton: characters, rested XP, login/reload/logout, and an API check.
 
-## Install
+## Install (players)
+
+Install **Gold Forever** like any other addon, for **WoW: Forever** (it also loads in retail):
+
+- **CurseForge app, WowUp or the Wago app:** search for "Gold Forever" and install it. They keep it
+  up to date.
+- **By hand:** download `GoldForever-<version>.zip` from the
+  [releases](https://github.com/magnusev/gold-forever/releases), and unzip it into
+  the WoW: Forever folder's `Interface/AddOns/` (for example `<WoW>/_forever_/Interface/AddOns/`;
+  the folder name is known for certain at launch), so that `AddOns/GoldForever/GoldForever.toc` exists.
+
+Then log in, and on the character select screen, under AddOns, check that **Gold Forever** is listed
+and not marked out of date. In game, `/gf` shows what it has recorded and `/gf export` gives the text
+to paste at gold-forever.evensberget.com.
+
+A tag `addon-v<version>` publishes a release (`.github/workflows/addon-release.yml`, with
+`.pkgmeta`); its version must match the TOCs' `## Version`.
+
+## Install (developers)
 
 Link the folder into the game's AddOns folder, so a `git pull` updates the addon. On Linux (Wine,
 Lutris or Steam), `scripts/install-addon.sh` finds the game folder and does this; `--help` lists its
