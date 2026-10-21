@@ -4,7 +4,7 @@
 local _, ns = ...
 local UI, Export, Theme = ns.UI, ns.Export, ns.Theme
 
-local SITE = "gold-forever.evensberget.com/me/upload"
+local SITE = "gold-forever.app/me/upload"
 -- The highest level: a first export is a third smaller than at the default, for half a second more.
 local DEFLATE = { level = 9 }
 

@@ -17,7 +17,7 @@ Install **Gold Forever** like any other addon, for **WoW: Forever** (it also loa
 
 Then log in, and on the character select screen, under AddOns, check that **Gold Forever** is listed
 and not marked out of date. In game, `/gf` shows what it has recorded and `/gf export` gives the text
-to paste at gold-forever.evensberget.com.
+to paste at gold-forever.app.
 
 A tag `addon-v<version>` publishes a release (`.github/workflows/addon-release.yml`, with
 `.pkgmeta`); its version must match the TOCs' `## Version`.
