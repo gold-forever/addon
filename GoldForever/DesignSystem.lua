@@ -9,6 +9,15 @@ local function settings()
 	return ns.settings("window", {})
 end
 
+-- A page's table order, saved with the window: the column and direction last picked, at first the given
+-- column, highest first.
+local function sortOf(page, column)
+	local s = settings()
+	s.sort = s.sort or {}
+	s.sort[page] = s.sort[page] or { column = column, descending = true }
+	return s.sort[page]
+end
+
 -- A section heading with a line under it; returns where the next thing goes.
 local function heading(page, text, y)
 	local h = UI.Text(page, text, { size = "lg" })
@@ -172,12 +181,11 @@ local function buildMobs(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Mob", flex = 2 },
 		{ key = "loots", title = "Looted", width = 70, align = "RIGHT" },
-		{ key = "coin", title = "Coin a loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.money(r.coin) end, sort = function(r) return r.coin end },
-		{ key = "value", title = "A loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.money(r.value) end, sort = function(r) return r.value end },
-	}, { pageSize = 16, empty = "No loot recorded yet." })
+		{ key = "coin", title = "Coin a loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.coin) end, sort = function(r) return r.coin end },
+		{ key = "value", title = "A loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
+	}, { pageSize = 16, empty = "No loot recorded yet.", sort = sortOf("mobs", 4) })
 	tbl:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
-	tbl.sortColumn, tbl.sortDescending = 4, true
 	function page:Refresh()
 		local mobs, worth = ns.mobStats()
 		local names = ns.db().catalogue.npcs
@@ -222,12 +230,11 @@ local function buildInventory(page)
 	tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 2, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		{ key = "held", title = "Held", width = 60, align = "RIGHT" },
-		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end },
-		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return r.value > 0 and UI.layout.money(r.value) or "—" end, sort = function(r) return r.value end },
-	}, { pageSize = 13, empty = "Nothing matches." })
+		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end, tooltip = function(r) return r.holders end },
+		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
+	}, { pageSize = 13, empty = "Nothing matches.", sort = sortOf("inventory", 4) })
 	tbl:SetPoint("TOPLEFT", total, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
-	tbl.sortColumn, tbl.sortDescending = 4, true
 	function page:Refresh()
 		local byItem = {}
 		for _, c in pairs(ns.db().characters) do
@@ -245,7 +252,7 @@ local function buildInventory(page)
 			local name = itemName(id)
 			if query == "" or string.find(string.lower(name), query, 1, true) then
 				local unit = ns.price and ns.price.worth(id) or 0
-				rows[#rows + 1] = { name = name, quality = itemQuality(id), held = it.held, where = table.concat(it.where, ", "), value = (unit or 0) * it.held }
+				rows[#rows + 1] = { name = name, quality = itemQuality(id), held = it.held, where = table.concat(it.where, ", "), holders = it.where, value = (unit or 0) * it.held }
 				worth = worth + (unit or 0) * it.held
 				units = units + it.held
 			end

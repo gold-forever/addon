@@ -98,6 +98,27 @@ function UI.layout.money(copper, precision)
 	return sign .. table.concat(parts, " ")
 end
 
+-- Money in a table cell: a faint dash for nothing, so rows of "0c" don't drown the amounts.
+function UI.layout.amount(copper, precision)
+	if math.floor(math.abs(copper or 0) + 0.5) == 0 then
+		return Theme.escape(Theme.color.textFaint) .. "—|r"
+	end
+	return UI.layout.money(copper, precision)
+end
+
+-- What a row's tooltip shows for the cells too narrow for their text: each column's title and its
+-- full text, or the lines its `tooltip(row)` gives (a list reads better than a clipped sentence).
+function UI.layout.overflowTip(columns, row, clipped)
+	local out = {}
+	for i, c in ipairs(columns) do
+		if clipped[i] then
+			local lines = c.tooltip and c.tooltip(row) or { c.text and c.text(row) or tostring(row[c.key] or "") }
+			out[#out + 1] = { title = c.title, lines = lines }
+		end
+	end
+	return out
+end
+
 -- Pixels -------------------------------------------------------------------------------------------
 
 -- One physical pixel in UI units: 1-pixel lines stay 1 pixel at any UI scale.
@@ -395,14 +416,36 @@ end
 
 -- Table ----------------------------------------------------------------------------------------------------
 
+-- Whether a cell's text is cut short: the client's own answer where it has one, else the text's
+-- full width against the cell's.
+local function clipped(cell)
+	if cell.IsTruncated then
+		local truncated = cell:IsTruncated()
+		if type(truncated) == "boolean" then
+			return truncated
+		end
+	end
+	local full = cell.GetUnboundedStringWidth and cell:GetUnboundedStringWidth()
+	if type(full) ~= "number" then
+		full = cell:GetStringWidth()
+	end
+	local width = cell:GetWidth()
+	return type(full) == "number" and type(width) == "number" and full > width + 1
+end
+
 -- A table of rows: columns { key, title, width | flex, align, text = function(row), color = function(row),
--- sort = function(row) }. Headers sort (click again to reverse), rows alternate and light up under the
--- pointer, the wheel and the page arrows page. Row frames are made once per visible line and reused.
+-- sort = function(row), tooltip = function(row) -> lines }. Headers sort (click again to reverse), rows
+-- alternate and light up under the pointer, the wheel and the page arrows page; a cell cut short shows
+-- in full in the row's tooltip. opts.sort = { column, descending } is the starting order and is kept
+-- up to date, so a saved table remembers it. Row frames are made once per visible line and reused.
 function UI.Table(parent, columns, opts)
 	opts = opts or {}
 	local ROW = opts.rowHeight or 22
 	local t = UI.Panel(parent, { color = Theme.color.surface })
 	t.columns, t.all, t.page, t.size = columns, {}, 1, opts.pageSize or 12
+	if opts.sort and columns[opts.sort.column] then
+		t.sortColumn, t.sortDescending = opts.sort.column, opts.sort.descending
+	end
 	t.header = CreateFrame("Frame", nil, t)
 	t.header:SetPoint("TOPLEFT", 1, -1)
 	t.header:SetPoint("TOPRIGHT", -1, -1)
@@ -429,6 +472,9 @@ function UI.Table(parent, columns, opts)
 		h:SetScript("OnClick", function()
 			t.sortDescending = t.sortColumn == i and not t.sortDescending or (t.sortColumn ~= i and c.align == "RIGHT")
 			t.sortColumn = i
+			if opts.sort then
+				opts.sort.column, opts.sort.descending = i, t.sortDescending
+			end
 			t.page = 1
 			t:Refresh()
 		end)
@@ -466,9 +512,29 @@ function UI.Table(parent, columns, opts)
 			end
 		end)
 		l:SetScript("OnEnter", function(self)
-			if opts.onRowEnter and self.row then
-				opts.onRowEnter(self, self.row)
+			if not self.row then
+				return
 			end
+			if opts.onRowEnter then
+				opts.onRowEnter(self, self.row)
+				return
+			end
+			local cut = {}
+			for i, cell in ipairs(self.cells) do
+				cut[i] = clipped(cell)
+			end
+			local tip = UI.layout.overflowTip(columns, self.row, cut)
+			if #tip == 0 or not GameTooltip then
+				return
+			end
+			GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+			for _, part in ipairs(tip) do
+				GameTooltip:AddLine(part.title, Theme.rgb(Theme.color.textMuted))
+				for _, text in ipairs(part.lines) do
+					GameTooltip:AddLine(text, 1, 1, 1, true)
+				end
+			end
+			GameTooltip:Show()
 		end)
 		l:SetScript("OnLeave", function()
 			if GameTooltip then
