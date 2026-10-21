@@ -13,7 +13,12 @@ local function readCurrencies()
 		return
 	end
 	local names = ns.db().catalogue.currencies
+	-- The list shows only what is under an open header: a currency under a closed one keeps the
+	-- amount read last, instead of dropping out of the file.
 	local amounts = {}
+	for key, n in pairs(Encode.parseItems(me.currencies and me.currencies.items)) do
+		amounts[tostring(key)] = n
+	end
 	for i = 1, C_CurrencyInfo.GetCurrencyListSize() do
 		local info = C_CurrencyInfo.GetCurrencyListInfo(i)
 		local link = C_CurrencyInfo.GetCurrencyListLink and C_CurrencyInfo.GetCurrencyListLink(i)
@@ -39,6 +44,20 @@ local function readReputation()
 		return
 	end
 	local names = ns.db().catalogue.factions
+	-- As with currencies: a faction under a closed header keeps its standing read last.
+	local byFaction, order = {}, {}
+	local function keep(id, text)
+		if not byFaction[id] then
+			order[#order + 1] = id
+		end
+		byFaction[id] = text
+	end
+	for entry in string.gmatch((me.reputation and me.reputation.factions) or "", "[^+]+") do
+		local id = tonumber(string.match(entry, "^(%d+):"))
+		if id then
+			keep(id, entry)
+		end
+	end
 	local standing = {}
 	if C_Reputation and C_Reputation.GetNumFactions and C_Reputation.GetFactionDataByIndex then
 		for i = 1, C_Reputation.GetNumFactions() do
@@ -57,8 +76,15 @@ local function readReputation()
 			end
 		end
 	end
+	for _, entry in ipairs(standing) do
+		keep(tonumber(string.match(entry, "^(%d+):")), entry)
+	end
+	local merged = {}
+	for _, id in ipairs(order) do
+		merged[#merged + 1] = byFaction[id]
+	end
 	-- factionID:reaction:value, joined with "+"; reaction 1 hated … 8 exalted.
-	me.reputation = { factions = table.concat(standing, "+"), t = ns.now() }
+	me.reputation = { factions = table.concat(merged, "+"), t = ns.now() }
 end
 
 local function readGear()

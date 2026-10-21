@@ -556,9 +556,41 @@ end
 
 -- Mob tooltips: what the characters have looted from the NPC, from the loot rows in the file -------------
 
-local mobs -- npc ID -> { loots, coin, items = { [id] = { dropped, units } } }; rebuilt after new loot
-table.insert(ns.lootListeners, function()
-	mobs = nil
+local mobs -- npc ID -> { loots, coin, items = { [id] = { dropped, units } } }; built once, then kept up per loot
+
+-- One loot row counted in: by the full build and by every loot after it.
+local function countLoot(npc, coin, items)
+	local m = mobs[npc] or { loots = 0, coin = 0, items = {} }
+	mobs[npc] = m
+	m.loots = m.loots + 1
+	m.coin = m.coin + coin
+	for item, n in pairs(items) do
+		local d = m.items[item] or { dropped = 0, units = 0 }
+		m.items[item] = d
+		d.dropped = d.dropped + 1
+		d.units = d.units + n
+	end
+end
+
+-- New loot updates the counts in place, rather than reading every loot row again at the next
+-- tooltip (two weeks of rows, in the tooltip's own frame).
+table.insert(ns.lootListeners, function(_, _, rows)
+	if not mobs then
+		return -- not built yet: the first tooltip reads everything, this loot included
+	end
+	for _, row in ipairs(rows or {}) do
+		local npc = Encode.npcOf(row.src)
+		if npc then
+			local items = {}
+			for key, n in pairs(row.items) do
+				local id = Encode.itemId(key)
+				if id then
+					items[id] = (items[id] or 0) + n
+				end
+			end
+			countLoot(npc, row.coin or 0, items)
+		end
+	end
 end)
 
 local function buildMobs()
@@ -574,16 +606,7 @@ local function buildMobs()
 				local values = { strsplit(",", row) }
 				local id = Encode.npcOf(values[columns.src])
 				if id then
-					local m = mobs[id] or { loots = 0, coin = 0, items = {} }
-					mobs[id] = m
-					m.loots = m.loots + 1
-					m.coin = m.coin + (tonumber(values[columns.coin]) or 0)
-					for item, n in pairs(Encode.parseItems(values[columns.items])) do
-						local d = m.items[item] or { dropped = 0, units = 0 }
-						m.items[item] = d
-						d.dropped = d.dropped + 1
-						d.units = d.units + n
-					end
+					countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]))
 				end
 			end
 		end

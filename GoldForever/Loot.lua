@@ -15,7 +15,8 @@ local FARMING_SECONDS = 15 * 60 -- the frontend's idle split
 local ITEM_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Item or 1
 local MONEY_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Money or 2
 
--- Called with (coin, { [itemKey] = count }) after every loot window; see Appraiser.lua.
+-- Called with (coin, { [itemKey] = count }, rows) after every loot window, rows one per source:
+-- { src, coin, items = { [itemKey] = count } }; see Appraiser.lua.
 ns.lootListeners = {}
 
 local window -- the open loot window
@@ -220,6 +221,7 @@ local function finish(w)
 			shares[takers[i]] = part
 		end
 	end
+	local rows = {}
 	for _, guid in ipairs(w.order) do
 		local first = nil
 		if guid ~= "?" and not string.find(guid, "^Item%-") then
@@ -234,6 +236,7 @@ local function finish(w)
 		end
 		local src = w.sources[guid].src or sourceOf(guid)
 		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items), w.fish))
+		rows[#rows + 1] = { src = src, coin = shares[guid] or 0, items = items }
 	end
 	lastLoot = GetTime()
 	-- The loot window as a whole, for whoever listens (the appraiser): coin and every item taken.
@@ -244,7 +247,7 @@ local function finish(w)
 		end
 	end
 	for _, listener in ipairs(ns.lootListeners) do
-		ns.safely("loot listener", listener, coin, taken)
+		ns.safely("loot listener", listener, coin, taken, rows)
 	end
 end
 
