@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Gold Forever
-## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.evensberget.com.
-## Version: 0.13.0
+## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.app.
+## Version: 0.13.1
 ## SavedVariables: GoldForeverDB
 
 Libs\LibStub\LibStub.lua

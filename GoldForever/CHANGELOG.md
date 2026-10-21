@@ -1,5 +1,10 @@
 # Gold Forever
 
+## 0.13.1
+
+- The website moved to gold-forever.app. `/gf export` and the addon's notes name the new address; the
+  old one forwards there.
+
 ## 0.13.0
 
 - `/gf claim <code>`: prove a character is yours when another Gold Forever account uploaded it first.
