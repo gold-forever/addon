@@ -125,6 +125,62 @@ for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED", "ZONE_CHANGED_
 	ns.on(event, "maps", seeMap)
 end
 
+-- Map art: which texture files draw each map, and how they tile. The web app draws routes over
+-- the zone's own map, cut from the player's installed client by tools/maps (never from the web).
+-- Read once per client build, every map with art, a batch a frame-step so the login does not stall.
+-- db.mapArt = { build, maps = { [uiMapID] = "layerWidth,layerHeight,tileWidth,tileHeight;id+id+…" } }
+local MAP_IDS = 3000 -- uiMapIDs searched; Classic's are well under it
+local MAP_BATCH = 100
+
+local function readMapArt(manual)
+	local db = ns.db()
+	local build = db.client and db.client.build
+	if not manual and db.mapArt and db.mapArt.build == build then
+		return
+	end
+	if not (C_Map and C_Map.GetMapArtLayers and C_Map.GetMapArtLayerTextures and C_Map.GetMapInfo) then
+		return
+	end
+	local maps = {}
+	local id = 0
+	local function step()
+		local last = math.min(MAP_IDS, id + MAP_BATCH)
+		for map = id + 1, last do
+			local layers = C_Map.GetMapInfo(map) and C_Map.GetMapArtLayers(map)
+			local layer = layers and layers[1]
+			local textures = layer and C_Map.GetMapArtLayerTextures(map, 1)
+			if textures and #textures > 0 then
+				maps[map] = string.format("%d,%d,%d,%d;%s", layer.layerWidth, layer.layerHeight, layer.tileWidth, layer.tileHeight,
+					table.concat(textures, "+"))
+			end
+		end
+		id = last
+		if id < MAP_IDS then
+			ns.after(0.05, "map art", step)
+		else
+			db.mapArt = { build = build, t = ns.now(), maps = maps }
+			if manual then
+				local n = 0
+				for _ in pairs(maps) do
+					n = n + 1
+				end
+				ns.say(string.format("map art of %d maps recorded; /reload to write it.", n))
+			end
+		end
+	end
+	step()
+end
+
+ns.on("PLAYER_ENTERING_WORLD", "map art", function(isInitialLogin, isReloadingUi)
+	if isInitialLogin or isReloadingUi then
+		ns.after(10, "map art", readMapArt)
+	end
+end)
+
+ns.commands.maps = function()
+	readMapArt(true)
+end
+
 -- Trainers ---------------------------------------------------------------------------------------
 
 local FILTERS = { "available", "unavailable", "used" }
