@@ -1,6 +1,6 @@
-## Retail, for trying /gf export before WoW: Forever launches (design 005). The interface numbers are a
-## guess at retail's current ones: if the client says "out of date", tick "Load out of date AddOns", or
-## put in what /dump select(4, GetBuildInfo()) prints in retail.
+# Retail, for trying /gf export before WoW: Forever launches (design 005). The interface numbers are a
+# guess at retail's current ones: if the client says "out of date", tick "Load out of date AddOns", or
+# put in what /dump select(4, GetBuildInfo()) prints in retail.
 ## Interface: 120000, 120001, 120005, 120007
 ## Title: Gold Forever
 ## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.evensberget.com.
