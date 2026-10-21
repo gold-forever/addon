@@ -42,7 +42,7 @@ local function buildPrices()
 	for _, chunk in ipairs(latest.rows or {}) do
 		for row in string.gmatch(chunk, "[^;]+") do
 			local key, unit, qty = string.match(row, "^([^,]+),(%d+),(%d+)")
-			local id = key and tonumber(string.match(key, "^(%d+)"))
+			local id = Encode.itemId(key)
 			if id then
 				listings[id] = listings[id] or {}
 				table.insert(listings[id], { unit = tonumber(unit), qty = tonumber(qty) })
@@ -259,9 +259,7 @@ end
 local frame, body
 
 local function settings()
-	local s = ns.db().settings
-	s.appraiser = s.appraiser or { shown = true }
-	return s.appraiser
+	return ns.settings("appraiser", { shown = true })
 end
 
 local function text()
@@ -384,7 +382,7 @@ end
 local function build()
 	frame, body = ns.makeWindow("GoldForeverAppraiser", "Gold Forever · loot", settings(), { "RIGHT", -60, 120 }, function()
 		settings().shown = false
-		print("|cffe0ac45Gold Forever|r: loot window hidden; /gf appraise shows it again.")
+		ns.say("loot window hidden; /gf appraise shows it again.")
 	end)
 	-- Ends the session now; the window keeps its numbers, and the next loot or kill starts a new one.
 	local stop = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -415,7 +413,7 @@ local startersAlerted = {} -- item ID -> true
 local function bigDrops(taken)
 	local threshold = settings().bigDrop or BIG_DROP
 	for key, n in pairs(taken) do
-		local id = tonumber(string.match(tostring(key), "^(%d+)"))
+		local id = Encode.itemId(key)
 		local quality, _, _, _, name = itemInfo(id or 0)
 		if id then
 			local value = (worth(id) or 0) * n
@@ -427,22 +425,10 @@ local function bigDrops(taken)
 			if quest and not questDone(quest) and not startersAlerted[id] then
 				startersAlerted[id] = true
 				local text = "Starts a quest: " .. (name or ("item " .. id))
-				if RaidNotice_AddMessage and RaidWarningFrame then
-					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
-				end
-				if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
-					PlaySound(SOUNDKIT.RAID_WARNING)
-				end
-				print("|cffe0ac45Gold Forever|r " .. text .. " — right-click it in your bags to start it.")
+				ns.alert(text .. " — right-click it in your bags to start it.")
 			elseif not quest and ((threshold > 0 and value >= threshold) or (quality or 0) >= 3) then
 				local text = string.format("Big drop: %s%s — %s", n > 1 and (n .. "× ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
-				if RaidNotice_AddMessage and RaidWarningFrame then
-					RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
-				end
-				if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
-					PlaySound(SOUNDKIT.RAID_WARNING)
-				end
-				print("|cffe0ac45Gold Forever|r " .. text)
+				ns.alert(text)
 			end
 		end
 	end
@@ -453,7 +439,7 @@ table.insert(ns.lootListeners, function(coin, taken)
 	ns.safely("big drop", bigDrops, taken)
 	session.coin = session.coin + coin
 	for key, n in pairs(taken) do
-		local id = tonumber(string.match(tostring(key), "^(%d+)"))
+		local id = Encode.itemId(key)
 		if id then
 			session.items[id] = (session.items[id] or 0) + n
 		end
@@ -555,17 +541,17 @@ end
 ns.commands.bigdrop = function(arg)
 	local gold = tonumber(arg)
 	if not gold then
-		print(string.format("|cffe0ac45Gold Forever|r: big drops are worth %s or more, and every rare. /gf bigdrop <gold> changes it.", coins(settings().bigDrop or BIG_DROP)))
+		ns.say(string.format("big drops are worth %s or more, and every rare. /gf bigdrop <gold> changes it.", coins(settings().bigDrop or BIG_DROP)))
 		return
 	end
 	settings().bigDrop = math.floor(gold * 10000)
-	print(string.format("|cffe0ac45Gold Forever|r: big drops from %s.", gold > 0 and coins(gold * 10000) or "rare quality (no gold threshold)"))
+	ns.say(string.format("big drops from %s.", gold > 0 and coins(gold * 10000) or "rare quality (no gold threshold)"))
 end
 
 ns.commands.reset = function()
 	session = nil
 	refresh()
-	print("|cffe0ac45Gold Forever|r: farming session reset.")
+	ns.say("farming session reset.")
 end
 
 -- Mob tooltips: what the characters have looted from the NPC, from the loot rows in the file -------------
@@ -578,12 +564,7 @@ end)
 local function buildMobs()
 	mobs = {}
 	local db = ns.db()
-	local columns = {}
-	local i = 0
-	for name in string.gmatch((db.fields and db.fields.loot) or "", "[^,]+") do
-		i = i + 1
-		columns[name] = i
-	end
+	local columns = Encode.columns(db.fields and db.fields.loot)
 	if not (columns.src and columns.coin and columns.items) then
 		return
 	end
@@ -591,20 +572,17 @@ local function buildMobs()
 		for _, chunk in ipairs(bucket.loot or {}) do
 			for row in string.gmatch(chunk, "[^;]+") do
 				local values = { strsplit(",", row) }
-				local id = tonumber(string.match(values[columns.src] or "", "^n(%d+)$"))
+				local id = Encode.npcOf(values[columns.src])
 				if id then
 					local m = mobs[id] or { loots = 0, coin = 0, items = {} }
 					mobs[id] = m
 					m.loots = m.loots + 1
 					m.coin = m.coin + (tonumber(values[columns.coin]) or 0)
-					for key, n in string.gmatch(values[columns.items] or "", "([^+*]+)%*(%d+)") do
-						local item = tonumber(string.match(key, "^(%d+)"))
-						if item then
-							local d = m.items[item] or { dropped = 0, units = 0 }
-							m.items[item] = d
-							d.dropped = d.dropped + 1
-							d.units = d.units + tonumber(n)
-						end
+					for item, n in pairs(Encode.parseItems(values[columns.items])) do
+						local d = m.items[item] or { dropped = 0, units = 0 }
+						m.items[item] = d
+						d.dropped = d.dropped + 1
+						d.units = d.units + n
 					end
 				end
 			end
@@ -660,13 +638,13 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				return
 			end
 			local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
-			local npc = tonumber(string.match(Encode.source(guid) or "", "^n(%d+)$"))
+			local npc = Encode.npcId(guid)
 			if not npc then
 				return
 			end
 			local summary, drops, starters = mobLines(npc)
 			if summary then
-				tooltip:AddLine("|cffe0ac45Gold Forever|r " .. summary, 1, 1, 1)
+				tooltip:AddLine(ns.PREFIX .. " " .. summary, 1, 1, 1)
 				if drops then
 					tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
 				end
@@ -698,7 +676,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				parts[#parts + 1] = "vendor " .. coins(v)
 			end
 			if #parts > 0 then
-				tooltip:AddLine("|cffe0ac45Gold Forever|r " .. table.concat(parts, " · "), 1, 1, 1)
+				tooltip:AddLine(ns.PREFIX .. " " .. table.concat(parts, " · "), 1, 1, 1)
 			end
 			local de, skill = disenchantWorth(data.id)
 			if de and de > 0 then

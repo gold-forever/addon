@@ -209,6 +209,43 @@ function Encode.duration(seconds)
 	return string.format("%dh %dm", math.floor(minutes / 60), minutes % 60)
 end
 
+-- The item ID of an item key ("2589", "10221:612"), or of an ID given as a number.
+function Encode.itemId(key)
+	return key and tonumber(string.match(tostring(key), "^(%d+)"))
+end
+
+-- The NPC ID of a loot source ("n7440"); nil for an object, an item or "?".
+function Encode.npcOf(src)
+	return src and tonumber(string.match(src, "^n(%d+)$"))
+end
+
+-- The NPC ID behind a unit or spawn GUID; nil for players, objects and anything else.
+function Encode.npcId(guid)
+	return Encode.npcOf(Encode.source(guid))
+end
+
+-- An item list ("2589*2+10221:612*1") as item ID -> count; variants of one item add up.
+function Encode.parseItems(text)
+	local out = {}
+	for key, n in string.gmatch(text or "", "([^+*]+)%*(%d+)") do
+		local id = Encode.itemId(key)
+		if id then
+			out[id] = (out[id] or 0) + tonumber(n)
+		end
+	end
+	return out
+end
+
+-- Declared columns ("t,char,map") as name -> position, so a row is read as its file declares it.
+function Encode.columns(declared)
+	local out, i = {}, 0
+	for name in string.gmatch(declared or "", "[^,]+") do
+		i = i + 1
+		out[name] = i
+	end
+	return out
+end
+
 -- UTC day key of an epoch time, the bucket events are stored under.
 function Encode.day(epoch)
 	return date("!%Y-%m-%d", epoch)

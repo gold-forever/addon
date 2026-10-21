@@ -9,9 +9,7 @@ local LIST_LENGTH = 8 -- items shown per list; the rest are summed in one line
 local frame, body
 
 local function settings()
-	local s = ns.db().settings
-	s.advisor = s.advisor or { shown = true }
-	return s.advisor
+	return ns.settings("advisor", { shown = true })
 end
 
 -- Bag contents by item and whether it is bound (bound items cannot go to the auction house).
@@ -124,7 +122,7 @@ end
 local function show()
 	if not frame then
 		frame, body = ns.makeWindow("GoldForeverAdvisor", "Gold Forever · your loot", settings(), { "LEFT", 60, 80 }, function()
-			print("|cffe0ac45Gold Forever|r: /gf bags shows it again; it opens at vendors unless you hide it there with /gf bags.")
+			ns.say("/gf bags shows it again; it opens at vendors unless you hide it there with /gf bags.")
 		end)
 		frame:SetWidth(330)
 		body:SetWidth(310)
@@ -151,7 +149,7 @@ ns.commands.bags = function()
 		frame:Hide()
 		if MerchantFrame and MerchantFrame:IsShown() then
 			settings().shown = false
-			print("|cffe0ac45Gold Forever|r: the loot advisor no longer opens at vendors; /gf bags at one turns it back on.")
+			ns.say("the loot advisor no longer opens at vendors; /gf bags at one turns it back on.")
 		end
 	else
 		if MerchantFrame and MerchantFrame:IsShown() then

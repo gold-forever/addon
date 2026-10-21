@@ -9,30 +9,15 @@ local SHOWN = 8 -- recipes listed
 local frame, body
 
 local function settings()
-	local s = ns.db().settings
-	s.shop = s.shop or { shown = true }
-	return s.shop
+	return ns.settings("shop", { shown = true })
 end
+
+local Encode = ns.Encode
+local itemList = Encode.parseItems
 
 -- Columns by name from fields.<format>, so a row is read as the file declares it.
 local function columns(format)
-	local out, i = {}, 0
-	for name in string.gmatch(ns.db().fields[format] or "", "[^,]+") do
-		i = i + 1
-		out[name] = i
-	end
-	return out
-end
-
-local function itemList(text)
-	local out = {}
-	for key, n in string.gmatch(text or "", "([^+*]+)%*(%d+)") do
-		local id = tonumber(string.match(key, "^(%d+)"))
-		if id then
-			out[id] = (out[id] or 0) + tonumber(n)
-		end
-	end
-	return out
+	return Encode.columns(ns.db().fields[format])
 end
 
 -- What the character holds: bags and bank, as last read.
@@ -181,7 +166,7 @@ ns.commands.shop = function()
 		hide()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			settings().shown = false
-			print("|cffe0ac45Gold Forever|r: the craft list no longer opens at the auction house; /gf shop there turns it back on.")
+			ns.say("the craft list no longer opens at the auction house; /gf shop there turns it back on.")
 		end
 	else
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then

@@ -103,6 +103,23 @@ do
 	eq(#E.chunks({}), 0, "no rows, no chunks")
 end
 
+-- Keys, sources and lists, as several collectors read them.
+eq(E.itemId("10221:612"), 10221, "item ID of a suffixed key")
+eq(E.itemId(2589), 2589, "item ID of a number")
+eq(E.itemId(nil), nil, "no key, no ID")
+eq(E.npcOf("n7440"), 7440, "NPC of a source")
+eq(E.npcOf("o1618"), nil, "an object is no NPC")
+eq(E.npcId("Creature-0-4620-0-12-299-000A"), 299, "NPC of a GUID")
+eq(E.npcId("Player-4620-006C0FC1"), nil, "a player is no NPC")
+do
+	local items = E.parseItems("2589*2+10221:612*1+2589*3")
+	eq(items[2589], 5, "variants and repeats add up")
+	eq(items[10221], 1, "a suffixed item by its ID")
+	local columns = E.columns("t,char,map")
+	eq(columns.map, 3, "a column by name")
+	eq(next(E.columns(nil)), nil, "no declaration, no columns")
+end
+
 eq(E.xpGained(2570, 47400, 3010, false), 440, "within a level")
 eq(E.xpGained(47000, 47400, 120, true), 520, "the rest of the old level plus the new one's")
 eq(E.xpGained(3010, 47400, 2570, false), 0, "never negative")

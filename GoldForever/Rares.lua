@@ -16,9 +16,7 @@ local vignettes = {} -- minimap marker GUID -> true
 local marked = {} -- spawn GUID -> true once given the skull, this session
 
 local function settings()
-	local s = ns.db().settings
-	s.rares = s.rares or { announce = true, mark = true }
-	return s.rares
+	return ns.settings("rares", { announce = true, mark = true })
 end
 
 -- Marks may be set solo, or in a group as its leader or an assistant.
@@ -26,15 +24,7 @@ local function mayMark()
 	return not IsInGroup() or UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
 end
 
-local function alert(text)
-	if RaidNotice_AddMessage and RaidWarningFrame then
-		RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
-	end
-	if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
-		PlaySound(SOUNDKIT.RAID_WARNING)
-	end
-	print("|cffe0ac45Gold Forever|r " .. text)
-end
+local alert = ns.alert
 
 -- "52.3, 34.1": the player's position on the map, close to the rare when it is seen.
 local function where()
@@ -73,7 +63,7 @@ local function seeUnit(unit, how)
 		return
 	end
 	announced[guid] = true
-	local npc = tonumber(string.match(Encode.source(guid) or "", "^n(%d+)$"))
+	local npc = Encode.npcId(guid)
 	if npc then
 		record(npc, how)
 	end
@@ -104,7 +94,7 @@ ns.on("VIGNETTE_MINIMAP_UPDATED", "rares", function(vignette, onMinimap)
 	if not info or not info.objectGUID then
 		return
 	end
-	local npc = tonumber(string.match(Encode.source(info.objectGUID) or "", "^n(%d+)$"))
+	local npc = Encode.npcId(info.objectGUID)
 	if not npc then
 		return -- a treasure or an event, not an NPC
 	end
@@ -124,9 +114,9 @@ ns.commands.rares = function(arg)
 	local s = settings()
 	if arg == "mark" then
 		s.mark = not s.mark
-		print("|cffe0ac45Gold Forever|r: rares " .. (s.mark and "get a skull mark" or "are not marked") .. ".")
+		ns.say("rares " .. (s.mark and "get a skull mark" or "are not marked") .. ".")
 	else
 		s.announce = not s.announce
-		print("|cffe0ac45Gold Forever|r: rares are " .. (s.announce and "announced" or "not announced") .. ".")
+		ns.say("rares are " .. (s.announce and "announced" or "not announced") .. ".")
 	end
 end

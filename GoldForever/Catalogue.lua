@@ -60,7 +60,7 @@ end
 
 -- Records the catalogue entry for an item key ("14047", "10221:612" or a number), once.
 function ns.catalogueItem(key)
-	local id = tonumber(string.match(tostring(key), "^(%d+)"))
+	local id = Encode.itemId(key)
 	local catalogue = ns.db().catalogue
 	if not id or (catalogue.items[id] and catalogue.tooltips[id]) or pending[id] then
 		return

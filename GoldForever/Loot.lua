@@ -97,7 +97,7 @@ ns.on("LOOT_READY", "loot", function()
 		if kind == ITEM_SLOT then
 			info.key = Encode.itemKey(GetLootSlotLink(slot))
 			-- An item that starts a quest: kept by item, for the mob tooltips and the loot alert.
-			local item = info.key and tonumber(string.match(info.key, "^(%d+)"))
+			local item = Encode.itemId(info.key)
 			if item and questID and questID > 0 then
 				ns.db().catalogue.questStarters[item] = questID
 			end

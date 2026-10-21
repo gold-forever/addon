@@ -84,7 +84,7 @@ local function finish(s, buckets, n)
 	prune()
 	-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
 	ns.scanVersion = (ns.scanVersion or 0) + 1
-	print(string.format("|cffe0ac45Gold Forever|r: scanned %d auctions into %d prices (%s).", n, #keys, s.market))
+	ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
 	scan = nil
 end
 
@@ -133,7 +133,7 @@ local function start(manual)
 	local wait = (db.lastReplicate or 0) + COOLDOWN - ns.now()
 	if wait > 0 then
 		if manual then
-			print(string.format("|cffe0ac45Gold Forever|r: next scan possible in %d:%02d.", math.floor(wait / 60), wait % 60))
+			ns.say(string.format("next scan possible in %d:%02d.", math.floor(wait / 60), wait % 60))
 		end
 		return
 	end
@@ -149,7 +149,7 @@ local function start(manual)
 		npc = Encode.source(UnitGUID("npc")),
 		npcFaction = UnitExists("npc") and (UnitFactionGroup("npc") or "none") or nil,
 	}
-	print("|cffe0ac45Gold Forever|r: scanning the auction house…")
+	ns.say("scanning the auction house…")
 	C_AuctionHouse.ReplicateItems()
 	-- No update within a minute: the client is throttling; record that instead of waiting forever.
 	local mine = scan
@@ -186,7 +186,7 @@ end)
 
 ns.commands.scan = function()
 	if not auctionOpen then
-		print("|cffe0ac45Gold Forever|r: open the auction house first.")
+		ns.say("open the auction house first.")
 		return
 	end
 	start(true)
@@ -219,8 +219,7 @@ local function readMerchant()
 			ns.catalogueItem(id)
 		end
 	end
-	local src = Encode.source(UnitGUID("npc"))
-	local npc = src and tonumber(string.match(src, "^n(%d+)$"))
+	local npc = Encode.npcId(UnitGUID("npc"))
 	if npc and #sold > 0 then
 		local map, x, y = ns.position()
 		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"))

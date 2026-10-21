@@ -19,12 +19,10 @@ local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
 		return
 	end
-	local src = Encode.source(UnitGUID(unit))
-	local id = src and string.match(src, "^n(%d+)$")
+	local id = Encode.npcId(UnitGUID(unit))
 	if not id then
 		return
 	end
-	id = tonumber(id)
 	local npcs = ns.db().catalogue.npcs
 	local level = UnitLevel(unit)
 	if not level or level <= 0 then
@@ -134,8 +132,7 @@ local FILTERS = { "available", "unavailable", "used" }
 -- Everything the trainer teaches, with cost and requirements, keyed by trainer NPC. Every filter
 -- is switched on while reading, then put back as the player had it.
 local function readTrainer()
-	local src = Encode.source(UnitGUID("npc"))
-	local id = src and tonumber(string.match(src, "^n(%d+)$"))
+	local id = Encode.npcId(UnitGUID("npc"))
 	if not id or not GetNumTrainerServices then
 		return
 	end
@@ -354,21 +351,21 @@ local function finishTrace()
 	for _ in pairs(found) do
 		n = n + 1
 	end
-	print(string.format("|cffe0ac45Gold Forever|r: the Legacy window called %d functions; saved. /reload to stop watching.", n))
+	ns.say(string.format("the Legacy window called %d functions; saved. /reload to stop watching.", n))
 end
 
 ns.commands.legacy = function()
 	hookAll()
 	seen = {}
 	phase = "before"
-	print("|cffe0ac45Gold Forever|r: watching the API for 3 s, then opening the Legacy window…")
+	ns.say("watching the API for 3 s, then opening the Legacy window…")
 	ns.after(3, "legacy", function()
 		phase = "open"
 		if not pcall(ToggleLegacySystemUI) and LegacySystemFrame_LoadUI then
 			pcall(LegacySystemFrame_LoadUI)
 			pcall(ToggleLegacySystemUI)
 		end
-		print("|cffe0ac45Gold Forever|r: open the Legacy window if it did not open, and click through its pages — 20 s.")
+		ns.say("open the Legacy window if it did not open, and click through its pages — 20 s.")
 		ns.after(20, "legacy", finishTrace)
 	end)
 end

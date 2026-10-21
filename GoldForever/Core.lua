@@ -43,7 +43,7 @@ function ns.fail(name, err)
 	e.t = GetServerTime()
 	if not told[name] then
 		told[name] = true
-		print("|cffe0ac45Gold Forever|r: " .. name .. " failed: " .. tostring(err))
+		ns.say(name .. " failed: " .. tostring(err))
 	end
 end
 
@@ -106,6 +106,33 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	end
 end)
 
+-- Chat ------------------------------------------------------------------------------------------
+
+ns.PREFIX = "|cffe0ac45Gold Forever|r"
+
+-- "Gold Forever: …" in the chat frame.
+function ns.say(text)
+	print(ns.PREFIX .. ": " .. text)
+end
+
+-- A message mid-screen with the raid-warning sound, and in chat: big drops, quest starters, rares.
+function ns.alert(text)
+	if RaidNotice_AddMessage and RaidWarningFrame then
+		RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or { r = 1, g = 0.82, b = 0 })
+	end
+	if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
+		PlaySound(SOUNDKIT.RAID_WARNING)
+	end
+	print(ns.PREFIX .. " " .. text)
+end
+
+-- A feature's settings table in the saved file, made with its defaults the first time.
+function ns.settings(name, defaults)
+	local s = ns.db().settings
+	s[name] = s[name] or defaults
+	return s[name]
+end
+
 -- Called with (gained, kind) for every XP gain once Levelling.lua knows what earned it (`quest`,
 -- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the appraiser listens.
 ns.xpListeners = {}
@@ -138,7 +165,7 @@ local function init()
 	GoldForeverDB = GoldForeverDB or {}
 	db = GoldForeverDB
 	if db.schema and db.schema > SCHEMA then
-		print("|cffe0ac45Gold Forever|r: this file was written by a newer version. Update the addon.")
+		ns.say("this file was written by a newer version. Update the addon.")
 	end
 	db.schema = SCHEMA
 	db.addon = VERSION
@@ -334,7 +361,7 @@ local function printCheck()
 		end
 	end
 	table.sort(names)
-	print("|cffe0ac45Gold Forever|r " .. VERSION .. " · schema " .. SCHEMA .. " · " .. db.client.build)
+	print(ns.PREFIX .. " " .. VERSION .. " · schema " .. SCHEMA .. " · " .. db.client.build)
 	for _, name in ipairs(names) do
 		print(string.format("  %s %s", diag[name] and "|cff56c98fyes|r" or "|cffe8615ano|r", name))
 	end
@@ -363,7 +390,7 @@ end
 local function printStatus()
 	local today = db.events[Encode.day(GetServerTime())] or {}
 	print(string.format(
-		"|cffe0ac45Gold Forever|r: %d characters · today %d loot, %d positions, %d sys · %d scans · catalogue %d items, %d recipes, %d vendor",
+		ns.PREFIX .. ": %d characters · today %d loot, %d positions, %d sys · %d scans · catalogue %d items, %d recipes, %d vendor",
 		size(db.characters),
 		count(today.loot),
 		count(today.pos),
