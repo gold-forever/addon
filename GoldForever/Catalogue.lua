@@ -58,38 +58,65 @@ local function load(id)
 	end
 end
 
+-- Items to catalogue, oldest first, BATCH every PAUSE seconds: a scan names thousands of items at
+-- once, and asking the client (and through it the server) for all of them in one frame stutters
+-- the game and gets throttled. One queue serves loot, scans, bags and the backfill below.
+local BATCH, PAUSE = 20, 0.2
+local queue, head = {}, 1
+local queued = {} -- item ID -> true while it waits in the queue
+local tried = {} -- item IDs asked for this session: one with no tooltip is not asked again and again
+local draining = false
+
+local function drain()
+	for _ = 1, BATCH do
+		local id = queue[head]
+		if not id then
+			break
+		end
+		queue[head] = nil
+		head = head + 1
+		queued[id] = nil
+		tried[id] = true
+		if not pending[id] then
+			load(id)
+		end
+	end
+	if queue[head] then
+		ns.after(PAUSE, "catalogue", drain)
+	else
+		draining = false
+	end
+end
+
 -- Records the catalogue entry for an item key ("14047", "10221:612" or a number), once.
 function ns.catalogueItem(key)
 	local id = Encode.itemId(key)
 	local catalogue = ns.db().catalogue
-	if not id or (catalogue.items[id] and catalogue.tooltips[id]) or pending[id] then
+	if not id or (catalogue.items[id] and catalogue.tooltips[id]) or pending[id] or queued[id] or tried[id] then
 		return
 	end
-	load(id)
+	queued[id] = true
+	queue[#queue + 1] = id
+	if not draining then
+		draining = true
+		drain() -- the first batch now: a single loot is catalogued at once
+	end
 end
 
--- Fills in tooltips (and the new columns) for items catalogued before 0.4.0, a few at a time so
--- the server is not asked for thousands of items at once.
+-- Fills in tooltips (and the new columns) for items catalogued before 0.4.0, through the queue,
+-- once a session.
+local backfilled = false
 ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
-	local todo = {}
-	local catalogue = ns.db().catalogue
-	for id in pairs(catalogue.items) do
-		if not catalogue.tooltips[id] then
-			todo[#todo + 1] = id
-		end
+	if backfilled then
+		return
 	end
-	local i = 0
-	local function batch()
-		for _ = 1, 20 do
-			i = i + 1
-			if not todo[i] then
-				return
-			end
-			if not pending[todo[i]] then
-				load(todo[i])
+	backfilled = true
+	ns.after(5, "catalogue", function()
+		local catalogue = ns.db().catalogue
+		for id in pairs(catalogue.items) do
+			if not catalogue.tooltips[id] then
+				ns.catalogueItem(id)
 			end
 		end
-		ns.after(0.2, "catalogue", batch)
-	end
-	ns.after(5, "catalogue", batch)
+	end)
 end)

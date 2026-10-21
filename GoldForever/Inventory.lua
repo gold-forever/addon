@@ -68,6 +68,38 @@ local function readBank()
 	end
 end
 
+-- Mail: what waits in the mailbox as last seen, like the bags: items, gold, cash on delivery, how many
+-- mails and when the first runs out. Never who sent them or what they say: senders are players.
+local function readMail()
+	local me = ns.me()
+	if not me or not GetInboxNumItems or not GetInboxHeaderInfo then
+		return
+	end
+	local shown, total = GetInboxNumItems()
+	local counts, money, cod, expires = {}, 0, 0, nil
+	for i = 1, shown or 0 do
+		local _, _, _, _, gold, codAmount, daysLeft, itemCount = GetInboxHeaderInfo(i)
+		money = money + (gold or 0)
+		cod = cod + (codAmount or 0)
+		if daysLeft then
+			local at = ns.now() + math.floor(daysLeft * 86400)
+			expires = expires and math.min(expires, at) or at
+		end
+		for slot = 1, (itemCount or 0) > 0 and (ATTACHMENTS_MAX_RECEIVE or 16) or 0 do
+			local link = GetInboxItemLink and GetInboxItemLink(i, slot)
+			local key = link and Encode.itemKey(link)
+			if key then
+				local count = select(4, GetInboxItem(i, slot))
+				counts[key] = (counts[key] or 0) + (count or 1)
+				ns.catalogueItem(key)
+			end
+		end
+	end
+	me.mail = { used = shown or 0, total = total or shown or 0, items = Encode.items(counts), money = money, cod = cod, expires = expires, t = ns.now() }
+end
+
+ns.on("MAIL_INBOX_UPDATE", "mail", ns.throttle("mail", 2, readMail))
+
 local bagsSoon = ns.throttle("bags", 10, readBags)
 local bankSoon = ns.throttle("bank", 2, readBank)
 

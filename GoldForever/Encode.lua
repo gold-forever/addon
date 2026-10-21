@@ -246,6 +246,13 @@ function Encode.columns(declared)
 	return out
 end
 
+-- A Lua pattern from one of the client's own message formats ("You create: %sx%d."), with a capture
+-- for each %s and %d, so a message reads the same in every language the client speaks.
+function Encode.pattern(format)
+	local escaped = string.gsub(format, "[%%%(%)%.%+%-%*%?%[%]%^%$]", "%%%0")
+	return (string.gsub(string.gsub(escaped, "%%%%s", "(.+)"), "%%%%d", "(%%d+)"))
+end
+
 -- UTC day key of an epoch time, the bucket events are stored under.
 function Encode.day(epoch)
 	return date("!%Y-%m-%d", epoch)

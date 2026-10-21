@@ -120,6 +120,16 @@ do
 	eq(next(E.columns(nil)), nil, "no declaration, no columns")
 end
 
+-- Patterns from the client's message formats, with captures.
+do
+	local link, n = string.match("You create: |cffffffff|Hitem:2996::::::::30|h[Bolt of Linen Cloth]|h|rx2.", E.pattern("You create: %sx%d."))
+	eq(n, "2", "the count made")
+	eq(E.itemId(E.itemKey(link)), 2996, "the item made")
+	eq(string.match("Discovered Razor Hill: 55 experience gained", E.pattern("Discovered %s: %d experience gained")), "Razor Hill", "a discovery")
+	eq(string.match("Discovered: Razor Hill", E.pattern("Discovered %s: %d experience gained")), nil, "no XP, no match")
+	eq(string.match("Entdeckt: Klingenhügel (55 EP)", E.pattern("Entdeckt: %s (%d EP)")), "Klingenhügel", "parentheses escaped")
+end
+
 eq(E.xpGained(2570, 47400, 3010, false), 440, "within a level")
 eq(E.xpGained(47000, 47400, 120, true), 520, "the rest of the old level plus the new one's")
 eq(E.xpGained(3010, 47400, 2570, false), 0, "never negative")

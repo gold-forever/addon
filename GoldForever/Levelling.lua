@@ -208,11 +208,7 @@ ns.on("ENCOUNTER_END", "boss", function(encounter, name, difficulty, size, succe
 end)
 
 -- "Discovered Razor Hill: 55 experience gained", as a pattern from the client's own text.
-local function pattern(format)
-	local escaped = string.gsub(format, "[%%%(%)%.%+%-%*%?%[%]%^%$]", "%%%0")
-	return (string.gsub(string.gsub(escaped, "%%%%s", ".+"), "%%%%d", "%%d+"))
-end
-local DISCOVERED = pattern(ERR_ZONE_EXPLORED_XP or "Discovered %s: %d experience gained")
+local DISCOVERED = Encode.pattern(ERR_ZONE_EXPLORED_XP or "Discovered %s: %d experience gained")
 
 local function discovered(message)
 	-- A message the client keeps from addons (in combat) cannot be read; that is no discovery.

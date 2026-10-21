@@ -38,20 +38,62 @@ ns.on("UNIT_SPELLCAST_START", "craft", function(unit, cast, spell)
 	end
 end)
 
+-- What a craft made: the game's "You create: [Bolt of Linen Cloth]x2." says it exactly. Counting the
+-- bags instead misses with "Create All", where the next cast starts before this one's items arrive.
+-- A craft waits for its message a moment, then falls back to the bag count.
+local CREATED_MULTIPLE = Encode.pattern(LOOT_ITEM_CREATED_SELF_MULTIPLE or "You create: %sx%d.")
+local CREATED = Encode.pattern(LOOT_ITEM_CREATED_SELF or "You create: %s.")
+local MESSAGE_WAIT = 2 -- seconds
+local crafting = {} -- casts done, oldest first: { t, spell, output, line, map, start, me }
+
+local function writeCraft(c, qty)
+	ns.append("craft", Encode.row(c.t, c.me.ref, c.spell, c.output, qty, c.line and ns.skill(c.line), c.map))
+end
+
 ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft", function(unit, cast, spell)
 	local me = ns.me()
 	if unit ~= "player" or not me or not ns.db().catalogue.recipes[spell] then
 		return
 	end
 	local output, line = recipe(spell)
-	local start = output and (before[cast] or GetItemCount(output))
+	local c = {
+		t = ns.now(), spell = spell, output = output, line = line, map = C_Map.GetBestMapForUnit("player"), me = me,
+		start = output and (before[cast] or GetItemCount(output)),
+	}
 	before[cast] = nil
-	local t, map = ns.now(), C_Map.GetBestMapForUnit("player")
-	-- The made items reach the bags a moment after the cast.
-	ns.after(1, "craft", function()
-		local qty = output and math.max(0, GetItemCount(output) - start) or nil
-		ns.append("craft", Encode.row(t, me.ref, spell, output, qty, line and ns.skill(line), map))
+	crafting[#crafting + 1] = c
+	ns.after(MESSAGE_WAIT, "craft", function()
+		for i, waiting in ipairs(crafting) do
+			if waiting == c then
+				table.remove(crafting, i)
+				writeCraft(c, c.output and math.max(0, GetItemCount(c.output) - c.start) or nil)
+				break
+			end
+		end
 	end)
+end)
+
+ns.on("CHAT_MSG_LOOT", "craft", function(message)
+	if #crafting == 0 then
+		return
+	end
+	-- A message the client keeps from addons (in combat) cannot be read; the bag count stands in.
+	local ok, link, count = pcall(string.match, message, CREATED_MULTIPLE)
+	if not (ok and link) then
+		ok, link = pcall(string.match, message, CREATED)
+		count = 1
+	end
+	if not (ok and link) then
+		return
+	end
+	local item = Encode.itemId(Encode.itemKey(link))
+	for i, c in ipairs(crafting) do
+		if c.output == item then
+			table.remove(crafting, i)
+			writeCraft(c, tonumber(count))
+			return
+		end
+	end
 end)
 
 -- Money ------------------------------------------------------------------------------------------

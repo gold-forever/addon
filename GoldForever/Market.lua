@@ -13,7 +13,8 @@ ns.FIELDS.vendor = "buy,limited,t,qty"
 
 local COOLDOWN = 15 * 60
 local BATCH = 500 -- auctions read per frame
-local KEEP = 10 -- full scans kept per market; design 002 keeps 2, raised for the last days
+local KEEP_RECENT = 2 -- the newest full scans kept per market (design 002)
+local KEEP_MAX = 10 -- with one more a day before them, up to this many: a week or so of history
 local NEUTRAL_MAPS = { [1434] = true, [1446] = true, [1452] = true } -- Stranglethorn, Tanaris, Winterspring
 
 local scan -- the scan in progress
@@ -38,15 +39,28 @@ local function side()
 	return string.lower(me and me.faction or "?")
 end
 
--- Keeps the newest KEEP full scans per market and throttled markers from the last day.
+-- Keeps, per market, the newest KEEP_RECENT full scans and the newest of each earlier UTC day, up to
+-- KEEP_MAX; throttled markers from the last day. The web app keeps every scan it was sent, so the
+-- file needs only enough for the in-game prices and for a save that misses an upload or two.
+-- A full scan is about 90 KB on the beta: ten a market for three markets made a save of 2.7 MB, of
+-- which these rules keep about a third.
 local function prune()
-	local scans = ns.db().scans
-	local full, kept = {}, {}
+	local scans = {}
+	for i, s in ipairs(ns.db().scans) do
+		scans[i] = s
+	end
+	table.sort(scans, function(a, b)
+		return (a.t or 0) < (b.t or 0)
+	end)
+	local full, days, kept = {}, {}, {}
 	for i = #scans, 1, -1 do
 		local s = scans[i]
 		if s.kind == "full" then
-			full[s.market] = (full[s.market] or 0) + 1
-			if full[s.market] <= KEEP then
+			local n = full[s.market] or 0
+			local day = s.market .. "@" .. Encode.day(s.t or 0)
+			if n < KEEP_RECENT or (n < KEEP_MAX and not days[day]) then
+				full[s.market] = n + 1
+				days[day] = true
 				table.insert(kept, 1, s)
 			end
 		elseif ns.now() - (s.t or 0) < 86400 then
@@ -55,6 +69,11 @@ local function prune()
 	end
 	ns.db().scans = kept
 end
+
+-- A file saved by an older version with more scans shrinks at the next login, not the next scan.
+ns.on("PLAYER_LOGIN", "scans", function()
+	ns.safely("scans", prune)
+end)
 
 local function finish(s, buckets, n)
 	local record = {
