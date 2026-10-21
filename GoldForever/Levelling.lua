@@ -62,11 +62,13 @@ local function write(played, levelPlayed)
 	end
 end
 
-local function askPlayed(kind, level)
+-- [t] is when it happened (a level-up, a login), not when /played is asked a moment later: the web
+-- app splits levels there.
+local function askPlayed(kind, level, t)
 	if pending then
 		write(nil, nil) -- the earlier request never got its answer
 	end
-	pending = { t = ns.now(), kind = kind, level = level, money = GetMoney(), map = map() }
+	pending = { t = t, kind = kind, level = level, money = GetMoney(), map = map() }
 	if not RequestTimePlayed then
 		write(nil, nil)
 		return
@@ -101,17 +103,18 @@ end)
 -- A login row tells when the current level started even when its level-up was never seen.
 ns.on("PLAYER_ENTERING_WORLD", "levelling", function(isInitialLogin)
 	if isInitialLogin then
+		local t = ns.now()
 		ns.after(3, "played", function()
-			askPlayed("login", UnitLevel("player"))
+			askPlayed("login", UnitLevel("player"), t)
 		end)
 	end
 end)
 
 ns.on("PLAYER_LEVEL_UP", "levelling", function(level)
-	local reached = tonumber(level) or UnitLevel("player")
+	local reached, t = tonumber(level) or UnitLevel("player"), ns.now()
 	-- The time played this level restarts at the level-up; asked a moment later, it has.
 	ns.after(1, "played", function()
-		askPlayed("up", reached)
+		askPlayed("up", reached, t)
 	end)
 end)
 
@@ -169,10 +172,12 @@ ns.on("PLAYER_ENTERING_WORLD", "xp", function()
 	seen = read()
 end)
 ns.on("PLAYER_XP_UPDATE", "xp", xpChanged)
--- Rested XP grows while resting; a new reading keeps that from counting as rested XP spent.
+-- Rested XP grows while resting; taking the rise keeps it from counting as rested XP spent. A fall is
+-- XP being earned, which the XP update counts (whichever of the two events comes first).
 ns.on("UPDATE_EXHAUSTION", "xp", function()
-	if seen then
-		seen.rested = GetXPExhaustion() or 0
+	local rested = GetXPExhaustion() or 0
+	if seen and rested > seen.rested then
+		seen.rested = rested
 	end
 end)
 ns.on("QUEST_TURNED_IN", "xp", function()
