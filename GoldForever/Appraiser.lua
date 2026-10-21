@@ -618,6 +618,15 @@ local function itemName(id)
 	return (row and string.match(row, "^([^,]+)")) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or ("item " .. id)
 end
 
+-- Every NPC looted, for the in-game pages: { [npc] = { loots, coin, items = { [id] = { dropped, units } } } }
+-- and what one unit of an item is worth.
+function ns.mobStats()
+	if not mobs then
+		buildMobs()
+	end
+	return mobs, worth
+end
+
 -- "looted 40× · ~7c a loot" and the three likeliest drops, for an NPC looted before.
 local function mobLines(npc)
 	if not mobs then
