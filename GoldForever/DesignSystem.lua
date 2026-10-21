@@ -1,9 +1,10 @@
--- Gold Forever: the in-game window (/gf ui). Its first page shows every UI kit component with
--- example data, as the web app's Design system page does; the others are web pages brought into
--- the game from the saved file: mobs by what a loot is worth, and everything the characters hold.
+-- Gold Forever: the in-game window (/gf ui): web pages brought into the game from the saved file
+-- (characters and who to play next, levelling, the ledger, mobs by what a loot is worth, everything
+-- the characters hold), and a page showing every UI kit component with example data, as the web
+-- app's Design system page does.
 
 local _, ns = ...
-local Theme, UI, Encode = ns.Theme, ns.UI, ns.Encode
+local Theme, UI, Encode, Views = ns.Theme, ns.UI, ns.Encode, ns.Views
 
 local function settings()
 	return ns.settings("window", {})
@@ -170,6 +171,221 @@ local function buildDesign(page)
 	body:SetHeight(-y + 100)
 end
 
+-- Shared by the pages ------------------------------------------------------------------------------------
+
+-- 12345 -> "12,345".
+local function count(n)
+	local s = tostring(math.floor((n or 0) + 0.5))
+	local out = string.gsub(string.reverse(s), "(%d%d%d)", "%1,")
+	return (string.gsub(string.reverse(out), "^(%-?),", "%1"))
+end
+
+local function classColor(class)
+	return Theme.class[class or ""] or Theme.color.text
+end
+
+-- A page's title and the line under it; returns the line, to place what follows.
+local function header(page, title, lede)
+	local t = UI.Text(page, title, { size = "xl" })
+	t:SetPoint("TOPLEFT")
+	local l = UI.Text(page, lede, { size = "sm", tone = "muted", wrap = true })
+	l:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -6)
+	l:SetPoint("RIGHT", page, "RIGHT")
+	return l, t
+end
+
+-- Characters ----------------------------------------------------------------------------------------------
+
+local function buildCharacters(page)
+	local lede = header(page, "Characters", "Every character this save has seen. Rested XP grows while logged out, so it is worked out to now: the one with the most waiting is the one to play next.")
+	local gold = UI.StatCard(page, "Gold, all characters", "", "")
+	gold:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
+	gold:SetWidth(200)
+	local nextUp = UI.StatCard(page, "Play next", "", "")
+	nextUp:SetPoint("LEFT", gold, "RIGHT", 12, 0)
+	nextUp:SetWidth(220)
+	local capped = UI.StatCard(page, "Characters", "", "")
+	capped:SetPoint("LEFT", nextUp, "RIGHT", 12, 0)
+	capped:SetWidth(200)
+	local tbl = UI.Table(page, {
+		{ key = "name", title = "Character", flex = 2, text = function(r) return r.online and (r.display .. "  " .. Theme.escape(Theme.color.success) .. "online|r") or r.display end,
+			color = function(r) return classColor(r.class) end },
+		{ key = "level", title = "Level", width = 56, align = "RIGHT" },
+		{ key = "progress", title = "Into level", width = 80, align = "RIGHT", text = function(r) return r.progress and string.format("%d%%", math.floor(r.progress * 100)) or "—" end,
+			sort = function(r) return r.level + (r.progress or 0) end },
+		{ key = "restedLevels", title = "Rested", width = 90, align = "RIGHT",
+			text = function(r) return r.restedLevels and (r.restedLevels >= Views.RESTED_CAP_LEVELS - 0.005 and "full" or string.format("%.2f levels", r.restedLevels)) or "—" end,
+			color = function(r) return r.restedLevels and r.restedLevels > 0 and Theme.color.rested or Theme.color.textFaint end },
+		{ key = "money", title = "Gold", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.money, "gold") end },
+		{ key = "seen", title = "Seen", width = 80, align = "RIGHT", text = function(r) return r.online and "now" or Views.ago(r.seen, ns.now()) end,
+			color = function() return Theme.color.textMuted end },
+	}, { pageSize = 12, empty = "No characters yet.", sort = sortOf("characters", 4) })
+	tbl:SetPoint("TOPLEFT", gold, "BOTTOMLEFT", 0, -12)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	function page:Refresh()
+		local rows, best = Views.characters(ns.db().characters, ns.now(), UnitGUID and UnitGUID("player"))
+		local money, top = 0, 0
+		for _, r in ipairs(rows) do
+			money = money + r.money
+			top = top + (r.progress and 0 or 1)
+		end
+		gold:Set(UI.layout.money(money, "gold"), #rows .. (#rows == 1 and " character" or " characters"))
+		if best then
+			nextUp:Set(Theme.escape(classColor(best.class)) .. best.display .. "|r", string.format("%.2f levels of rested XP waiting", best.restedLevels))
+		else
+			nextUp:Set("—", "no one else with rested XP")
+		end
+		capped:Set(tostring(#rows), top > 0 and (top .. " at the level cap") or "none at the level cap yet")
+		tbl:SetRows(rows)
+	end
+end
+
+-- Levelling -----------------------------------------------------------------------------------------------
+
+local SOURCES = {
+	{ key = "kill", label = "Kills", color = Theme.color.chart1 },
+	{ key = "quest", label = "Quests", color = Theme.color.chart2 },
+	{ key = "boss", label = "Bosses", color = Theme.color.xp },
+	{ key = "explore", label = "Exploring", color = Theme.color.success },
+	{ key = "other", label = "Other", color = Theme.color.chartMuted },
+}
+
+local function buildLevelling(page)
+	local lede, title = header(page, "Levelling", "This character, from the last two weeks the save keeps. XP an hour counts the time between gains; a break over ten minutes is left out.")
+	local progress = UI.Text(page, "", { size = "sm", tone = "muted" })
+	progress:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
+	local bar = UI.Bar(page, 1, {})
+	bar:SetPoint("TOPLEFT", progress, "BOTTOMLEFT", 0, -6)
+	bar:SetPoint("RIGHT", page, "RIGHT")
+	local pace = UI.StatCard(page, "XP an hour", "", "")
+	pace:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -12)
+	pace:SetWidth(200)
+	local ding = UI.StatCard(page, "Next level", "", "")
+	ding:SetPoint("LEFT", pace, "RIGHT", 12, 0)
+	ding:SetWidth(200)
+	local rested = UI.StatCard(page, "Rested", "", "")
+	rested:SetPoint("LEFT", ding, "RIGHT", 12, 0)
+	rested:SetWidth(200)
+	local mixLabel = UI.Text(page, "", { size = "sm", tone = "muted" })
+	mixLabel:SetPoint("TOPLEFT", pace, "BOTTOMLEFT", 0, -12)
+	local mix = UI.Bar(page, 1, {}, 6)
+	mix:SetPoint("TOPLEFT", mixLabel, "BOTTOMLEFT", 0, -6)
+	mix:SetPoint("RIGHT", page, "RIGHT")
+	local tbl = UI.Table(page, {
+		{ key = "level", title = "Level", width = 60, align = "RIGHT" },
+		{ key = "seconds", title = "Time on it", flex = 1, align = "RIGHT", text = function(r) return r.seconds and Views.duration(r.seconds) or Theme.escape(Theme.color.textFaint) .. "—|r" end },
+		{ key = "money", title = "Gold when reached", flex = 1, align = "RIGHT", text = function(r) return r.money and UI.layout.amount(r.money) or Theme.escape(Theme.color.textFaint) .. "—|r" end },
+		{ key = "reached", title = "Reached", flex = 1, align = "RIGHT", text = function(r) return r.reached and Views.ago(r.reached, ns.now()) or Theme.escape(Theme.color.textFaint) .. "—|r" end,
+			color = function() return Theme.color.textMuted end },
+	}, { pageSize = 8, empty = "No level-ups recorded yet.", sort = sortOf("levelling", 1) })
+	tbl:SetPoint("TOPLEFT", mix, "BOTTOMLEFT", 0, -16)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	function page:Refresh()
+		local me, db = ns.me(), ns.db()
+		if not me then
+			return
+		end
+		title:SetText(string.format("Levelling · %s%s|r, level %d", Theme.escape(classColor(me.class)), me.name or "?", me.level or 0))
+		local lv = Views.levelling(Views.rows(db, "level"), Views.rows(db, "xp"), me.ref)
+		local xp = me.xp
+		if xp and xp.max and xp.max > 0 then
+			local have = math.min(xp.rested or 0, xp.max * Views.RESTED_CAP_LEVELS)
+			progress:SetText(string.format("%s / %s XP · %d%% · %s rested", count(xp.cur), count(xp.max), math.floor(xp.cur / xp.max * 100), count(have)))
+			bar:Set(xp.max, { { value = xp.cur, color = Theme.color.xp }, { value = math.min(have, xp.max - xp.cur), color = Theme.color.rested } })
+			local left = xp.max - xp.cur
+			ding:Set(lv.perHour and ("in " .. Views.duration(left / lv.perHour * 3600)) or "—", count(left) .. " XP to go" .. (lv.perHour and " at your pace" or ""))
+			rested:Set(string.format("%.2f levels", have / xp.max), have > 0 and "kills give double XP until it is used" or "rest in an inn or a city to build it")
+		else
+			progress:SetText("At the level cap: nothing left to level.")
+			bar:Set(1, { { value = 1, color = Theme.color.xp } })
+			ding:Set("—", "at the level cap")
+			rested:Set("—", "at the level cap")
+		end
+		pace:Set(lv.perHour and count(lv.perHour) or "—", lv.perHour and Views.duration(lv.playSeconds) .. " of play counted" or "not enough play recorded yet")
+		local segments, legend = {}, {}
+		for _, s in ipairs(SOURCES) do
+			local n = lv.sources[s.key] or 0
+			if s.key == "other" then
+				for kind, v in pairs(lv.sources) do
+					if kind ~= "kill" and kind ~= "quest" and kind ~= "boss" and kind ~= "explore" and kind ~= "other" then
+						n = n + v
+					end
+				end
+			end
+			if n > 0 then
+				segments[#segments + 1] = { value = n, color = s.color }
+				legend[#legend + 1] = string.format("%s%s|r %d%%", Theme.escape(s.color), s.label, math.floor(n / lv.xp * 100 + 0.5))
+			end
+		end
+		mixLabel:SetText(lv.xp > 0 and ("XP by source: " .. table.concat(legend, " · ")) or "XP by source: none recorded yet")
+		mix:Set(math.max(1, lv.xp), segments)
+		tbl:SetRows(lv.levels)
+	end
+end
+
+-- Ledger ----------------------------------------------------------------------------------------------------
+
+local LEDGER_DAYS = 14
+
+local function buildLedger(page)
+	local whose = settings().ledger or "me"
+	local lede, title = header(page, "Ledger", "Where money came from and went, by the window open when it moved, over the last two weeks the save keeps.")
+	local tabs = UI.TabBar(page, { { key = "me", label = "This character" }, { key = "all", label = "All characters" } }, function(key)
+		whose = key
+		settings().ledger = key
+		page:Refresh()
+	end)
+	tabs:SetPoint("TOPRIGHT")
+	tabs:SetWidth(240)
+	tabs:Select(whose)
+	-- The line under the title stops short of the tabs.
+	lede:ClearAllPoints()
+	lede:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+	lede:SetWidth(380)
+	local gained = UI.StatCard(page, "Money in", "", "")
+	gained:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
+	gained:SetWidth(150)
+	local spent = UI.StatCard(page, "Money out", "", "")
+	spent:SetPoint("LEFT", gained, "RIGHT", 12, 0)
+	spent:SetWidth(150)
+	local net = UI.StatCard(page, "Net", "", "")
+	net:SetPoint("LEFT", spent, "RIGHT", 12, 0)
+	net:SetWidth(150)
+	local trend = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	trend:SetPoint("TOPLEFT", net, "TOPRIGHT", 12, 0)
+	trend:SetPoint("RIGHT", page, "RIGHT")
+	trend:SetHeight(72)
+	local trendLabel = UI.Text(trend, "NET A DAY", { size = "xs", tone = "muted" })
+	trendLabel:SetPoint("TOPLEFT", 12, -10)
+	local spark = UI.Sparkline(trend, {}, Theme.color.accent)
+	spark:SetPoint("TOPLEFT", trendLabel, "BOTTOMLEFT", 0, -8)
+	spark:SetPoint("BOTTOMRIGHT", -12, 10)
+	local tbl = UI.Table(page, {
+		{ key = "label", title = "Source", flex = 2 },
+		{ key = "n", title = "Times", width = 60, align = "RIGHT" },
+		{ key = "gained", title = "In", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.gained) end },
+		{ key = "spent", title = "Out", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.spent) end },
+		{ key = "net", title = "Net", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.net) end },
+	}, { pageSize = 9, empty = "No money has moved yet.", sort = sortOf("ledger", 5) })
+	tbl:SetPoint("TOPLEFT", gained, "BOTTOMLEFT", 0, -12)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	function page:Refresh()
+		local db, me, now = ns.db(), ns.me(), ns.now()
+		local ref = whose == "me" and me and me.ref or nil
+		local from = now - LEDGER_DAYS * 86400
+		local ledger = Views.ledger(Views.rows(db, "money"), Views.rows(db, "flight"), ref, from, Encode.day)
+		gained:Set(UI.layout.money(ledger.gained, "gold"), "last " .. LEDGER_DAYS .. " days")
+		spent:Set(UI.layout.money(ledger.spent, "gold"), "last " .. LEDGER_DAYS .. " days")
+		net:Set(UI.layout.money(ledger.net, "gold"), ledger.net >= 0 and "ahead" or "behind")
+		local days = {}
+		for i = LEDGER_DAYS - 1, 0, -1 do
+			days[#days + 1] = ledger.days[Encode.day(now - i * 86400)] or 0
+		end
+		spark:Set(days)
+		tbl:SetRows(ledger.categories)
+	end
+end
+
 -- Mobs ---------------------------------------------------------------------------------------------------
 
 local function buildMobs(page)
@@ -274,9 +490,12 @@ ns.commands.ui = function(page)
 	end
 	if not window then
 		window = UI.Window("GoldForeverWindow", "Gold Forever", {
-			{ key = "design", label = "Design system", build = buildDesign },
+			{ key = "characters", label = "Characters", build = buildCharacters },
+			{ key = "levelling", label = "Levelling", build = buildLevelling },
+			{ key = "ledger", label = "Ledger", build = buildLedger },
 			{ key = "mobs", label = "Mobs", build = buildMobs },
 			{ key = "inventory", label = "Inventory", build = buildInventory },
+			{ key = "design", label = "Design system", build = buildDesign },
 		}, settings())
 	end
 	window:Show()

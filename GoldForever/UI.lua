@@ -340,6 +340,7 @@ function UI.Bar(parent, max, segments, height)
 	f.track:SetAllPoints()
 	f.fills = {}
 	function f:Set(newMax, newSegments)
+		self.max, self.segments = newMax, newSegments
 		for _, t in ipairs(self.fills) do
 			t:Hide()
 		end
@@ -370,6 +371,7 @@ function UI.Sparkline(parent, values, hex)
 	local f = CreateFrame("Frame", nil, parent)
 	f.lines = {}
 	function f:Set(newValues)
+		self.values = newValues
 		for _, l in ipairs(self.lines) do
 			l:Hide()
 		end
