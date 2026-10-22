@@ -19,12 +19,14 @@ local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 local prices -- item ID -> market value, from the latest full scan of the character's market
 local cheapestPrices -- item ID -> the cheapest unit listed in that scan
 local pricedFrom -- ns.scanVersion when prices were built; a new scan (Market.lua) rebuilds them
+local pricedAt -- when that scan was taken
 
 local function buildPrices()
 	prices = {}
 	cheapestPrices = {}
 	local db, me = ns.db(), ns.me()
 	pricedFrom = ns.scanVersion or 0
+	pricedAt = nil
 	if not me then
 		return
 	end
@@ -38,6 +40,7 @@ local function buildPrices()
 	if not latest then
 		return
 	end
+	pricedAt = latest.t
 	local listings = {}
 	for _, chunk in ipairs(latest.rows or {}) do
 		for row in string.gmatch(chunk, "[^;]+") do
@@ -69,6 +72,14 @@ end
 local function cheapest(id)
 	market(id) -- builds the prices when needed
 	return cheapestPrices[id]
+end
+
+-- The own scan's market value, cheapest unit and time, for the pool's fallback (Prices.lua).
+function ns.ownPrice(id)
+	local value = market(id)
+	if value then
+		return value, cheapestPrices[id], pricedAt
+	end
 end
 
 -- What a vendor asks for one, when it sells it without limit: catalogue.vendor is the price of one
