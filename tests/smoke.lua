@@ -68,7 +68,7 @@ function CreateFrame() local f = widget({ events = {}, shown = false })
   frames[#frames+1] = f; return f end
 UIParent = widget()
 function strsplit(sep, s) local out = {} for part in (s .. sep):gmatch("([^" .. sep .. "]*)" .. sep) do out[#out + 1] = part end return unpack(out) end
-GameTooltip = widget({ lines = {} }); function GameTooltip:AddLine(t) table.insert(self.lines, t) end
+GameTooltip = widget({ lines = {}, shades = {} }); function GameTooltip:AddLine(t, r) table.insert(self.lines, t); self.shades[t] = r end
 C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end, NewTicker = function(s, fn) ticker = fn end }
 local function runTimers(upto) local i = 0 while #timers > 0 and i < 5000 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
 function fire(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end runTimers() end
@@ -387,30 +387,63 @@ print("APPRAISER\n" .. tostring(appraiserText))
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
 print("TOOLTIP " .. tostring(GameTooltip.lines[1]))
 -- The pool's prices from GoldForever_Data (contract T01): one line for the player's own market.
-local function poolLine(id)
+local function poolLine(id, label)
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id }) end
-  for _, l in ipairs(GameTooltip.lines) do if l:find("Pool: ", 1, true) then return l end end
+  for _, l in ipairs(GameTooltip.lines) do if l:find(label or "Pool: ", 1, true) then return l, GameTooltip.shades[l] end end
 end
-assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
+assert(poolLine(2589) == nil and poolLine(2589, "Your scan: ") == nil, "no pool line without GoldForever_Prices, nor the own scan's (the appraiser shows it)")
+-- /gf prices without a file.
+local said = {}
+do
+  local saved = print
+  function print(...) said[#said + 1] = table.concat({...}, " ") end
+  SlashCmdList.GOLDFOREVER("prices")
+  print = saved
+end
+assert(#said == 1 and said[1]:find("no prices file loaded", 1, true), "/gf prices without a file: " .. tostring(said[1]))
 -- The server's key for this character's market ("EU-Classic Beta PvE 2-alliance" on Forever).
 local POOL_ALLIANCE, POOL_HORDE = "forever-EU-normal-alliance", "forever-EU-normal-horde"
 GoldForever_Prices = { v = 1, at = now, markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
 local pool = poolLine(2589)
 print("POOL " .. tostring(pool))
 if INTERFACE < 110000 then
-  assert(pool and pool:find("Pool: 12s 34c · min 11s 0c · 3 players · 2h ago", 1, true), "the pool line")
+  assert(pool and pool:find("Pool: 12s 34c · min buyout 11s 0c · 3 players · scanned 2h ago", 1, true), "the pool line")
 else
   assert(pool == nil, "no Forever market on retail")
   -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.
   GoldForever_Prices.markets = { ["retail-EU-AnotherRealm"] = { [2589] = { 100, 90, 2, now } },
     ["retail-EU"] = { [2589] = { 500, 490, 9, now }, [2590] = { 200, 190, 4, now } } }
-  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min 90c · 2 players", 1, true), "retail: the group's price first")
-  assert((poolLine(2590) or ""):find("Pool: 2s 0c · min 1s 90c · 4 players", 1, true), "retail: the region's commodity price")
+  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min buyout 90c · 2 players", 1, true), "retail: the group's price first")
+  assert((poolLine(2590) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "retail: the region's commodity price")
   assert(poolLine(2591) == nil, "retail: neither market has it")
   GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
+if INTERFACE < 110000 then
+  -- Older than three days: greyed, the words kept.
+  local fresh, freshShade = poolLine(2589)
+  assert(freshShade == 1, "a fresh price is white")
+  GoldForever_Prices.markets[POOL_ALLIANCE][2589][4] = now - 3 * 86400 - 1
+  local old, oldShade = poolLine(2589)
+  assert(old:find("scanned 3d ago", 1, true) and oldShade < 1, "a price older than three days is greyed: " .. tostring(oldShade))
+  GoldForever_Prices.markets[POOL_ALLIANCE][2589][4] = now - 3 * 86400
+  assert(select(2, poolLine(2589)) == 1, "three days old is not greyed yet")
+  -- The file lacks the item: the player's own latest scan, labelled as theirs.
+  assert(poolLine(2589, "Your scan: ") == nil, "no own-scan line when the file has the item")
+  local own = poolLine(2996, "Your scan: ")
+  print("OWN " .. tostring(own))
+  assert(own and own:find("Your scan: 2s 0c · min buyout 2s 0c · scanned", 1, true), "the own scan's fallback")
+  -- /gf prices with a file: its age, each market's item count, this character's marked.
+  said = {}
+  local saved = print
+  function print(...) said[#said + 1] = table.concat({...}, " ") end
+  SlashCmdList.GOLDFOREVER("prices")
+  print = saved
+  print("PRICES " .. table.concat(said, " / "))
+  assert(said[1]:find("prices file written just now · 1 market", 1, true), "/gf prices: the file")
+  assert(said[2] and said[2]:find("forever-EU-normal-alliance: 1 item · this character's", 1, true), "/gf prices: the market")
+end
 GoldForever_Prices.markets = { [POOL_HORDE] = { [2589] = { 1234, 1100, 3, now } }, [ns.market("alliance")] = { [2589] = { 1234, 1100, 3, now } } }
 assert(poolLine(2589) == nil, "no pool line from another side's market or the addon's own key")
 GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = { [2589] = { "x", 1100 } } } }
@@ -426,11 +459,11 @@ GoldForever_Prices = { v = 1, at = now, markets = {
 if INTERFACE < 110000 then
   local me, client = ns.me(), ns.db().client
   local faction, region = me.faction, client.region
-  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min 90c · 2 players", 1, true), "the Alliance character reads its market")
+  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min buyout 90c · 2 players", 1, true), "the Alliance character reads its market")
   me.faction = "Horde"
-  assert((poolLine(2589) or ""):find("Pool: 2s 0c · min 1s 90c · 4 players", 1, true), "a Horde character reads its market")
+  assert((poolLine(2589) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "a Horde character reads its market")
   client.region = "US"
-  assert((poolLine(2589) or ""):find("Pool: 3s 0c · min 2s 90c · 6 players", 1, true), "a Horde character in NA reads NA's")
+  assert((poolLine(2589) or ""):find("Pool: 3s 0c · min buyout 2s 90c · 6 players", 1, true), "a Horde character in NA reads NA's")
   me.faction = "Alliance"
   assert(poolLine(2589) == nil, "an Alliance character in NA has no market in the file")
   me.faction, client.region = faction, region
@@ -441,7 +474,7 @@ assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
   TooltipDataProcessor = nil
-  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Views = ns.Views, Realms = ns.Realms })
+  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Views = ns.Views, Realms = ns.Realms, commands = {} })
   TooltipDataProcessor = saved
   assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
 end

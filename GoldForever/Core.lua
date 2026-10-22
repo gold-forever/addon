@@ -495,5 +495,6 @@ SlashCmdList.GOLDFOREVER = function(message)
 		printStatus()
 		print("  /gf ui — the Gold Forever window · /gf appraise — the loot window · /gf bags — what to do with your loot · /gf shop — crafts to make · /gf reset — new session")
 		print("  /gf bigdrop <gold> — alert on drops worth that much · /gf rares [mark] — rare alerts and skull · /gf scan · /gf check · /gf claim <code> — prove a character is yours")
+		print("  /gf prices — the pool's prices file: its markets and age")
 	end
 end

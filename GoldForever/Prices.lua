@@ -11,6 +11,8 @@ local Prices = {}
 ns.Prices = Prices
 
 local VERSION = 1 -- the GoldForever_Prices layout this addon reads
+local STALE_SECONDS = 3 * 86400 -- a price scanned longer ago than this is greyed
+local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
 local REGIONS = { US = "NA", NA = "NA", EU = "EU", KR = "KR", TW = "TW", CN = "CN" }
 
 local function amount(x)
@@ -92,9 +94,24 @@ local function entry(data, markets, id)
 	end
 end
 
--- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. Nil without a valid price.
+-- Whether data is a prices file this addon reads.
+function Prices.loaded(data)
+	return type(data) == "table" and data.v == VERSION and type(data.markets) == "table"
+end
+
+local function ago(t, now)
+	local text = ns.Views.ago(t, now)
+	return text == "now" and "just now" or text
+end
+
+local function scanned(scannedAt, now)
+	return "scanned " .. ago(scannedAt, now), now - scannedAt > STALE_SECONDS
+end
+
+-- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The line and whether it
+-- is stale; nil without a valid price.
 function Prices.line(data, markets, id, now)
-	if type(data) ~= "table" or data.v ~= VERSION or type(markets) ~= "table" or id == nil then
+	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil
 	end
 	local value, minBuyout, players, scannedAt = entry(data, markets, id)
@@ -103,8 +120,62 @@ function Prices.line(data, markets, id, now)
 	end
 	players = math.floor(players)
 	local coins = ns.price.coins
-	return string.format("Pool: %s · min %s · %d %s · %s", coins(value), coins(minBuyout), players,
-		players == 1 and "player" or "players", ns.Views.ago(scannedAt, now))
+	local age, stale = scanned(scannedAt, now)
+	return string.format("Pool: %s · min buyout %s · %d %s · %s", coins(value), coins(minBuyout), players,
+		players == 1 and "player" or "players", age), stale
+end
+
+-- The player's own latest scan (the appraiser's prices), for an item the file lacks.
+function Prices.ownLine(value, cheapest, scannedAt, now)
+	if not value or not scannedAt then
+		return nil
+	end
+	local coins = ns.price.coins
+	local age, stale = scanned(scannedAt, now)
+	local min = cheapest and (" · min buyout " .. coins(cheapest)) or ""
+	return "Your scan: " .. coins(value) .. min .. " · " .. age, stale
+end
+
+local function count(t)
+	local n = 0
+	for _ in pairs(type(t) == "table" and t or {}) do
+		n = n + 1
+	end
+	return n
+end
+
+-- /gf prices: the file's age, then each market with its item count; mine are the keys the tooltip reads.
+function Prices.summary(data, mine, now)
+	if type(data) ~= "table" then
+		return { "no prices file loaded. The companion app writes it into the GoldForever_Data addon." }
+	end
+	if data.v ~= VERSION then
+		return { string.format("the prices file is version %s; this addon reads version %d. Update the addon.", tostring(data.v), VERSION) }
+	end
+	if not Prices.loaded(data) then
+		return { "the prices file cannot be read. The companion app writes it again on its next update." }
+	end
+	local keys, used = {}, {}
+	for key in pairs(data.markets) do
+		keys[#keys + 1] = tostring(key)
+	end
+	table.sort(keys)
+	for _, key in ipairs(mine or {}) do
+		used[key] = true
+	end
+	local age = amount(data.at) and ("written " .. ago(data.at, now)) or "of unknown age"
+	local lines = { string.format("prices file %s · %d %s", age, #keys, #keys == 1 and "market" or "markets") }
+	for _, key in ipairs(keys) do
+		local n = count(data.markets[key])
+		lines[#lines + 1] = string.format("%s: %d %s%s", key, n, n == 1 and "item" or "items", used[key] and " · this character's" or "")
+	end
+	return lines
+end
+
+-- The server's keys for the character being played; nil before login.
+local function mine()
+	local me = ns.me()
+	return me and Prices.markets(ns.market(string.lower(me.faction or "?")), ns.db().client.interface)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
@@ -113,11 +184,25 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
 				return
 			end
-			local markets = Prices.markets(ns.market(string.lower(ns.me().faction or "?")), ns.db().client.interface)
-			local line = Prices.line(GoldForever_Prices, markets, data.id, GetServerTime())
+			local now = GetServerTime()
+			local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
+			-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
+			if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
+				local value, cheapest, scannedAt = ns.ownPrice(data.id)
+				line, stale = Prices.ownLine(value, cheapest, scannedAt, now)
+			end
 			if line then
-				tooltip:AddLine(ns.PREFIX .. " " .. line, 1, 1, 1)
+				local shade = stale and STALE_SHADE or 1
+				tooltip:AddLine(ns.PREFIX .. " " .. line, shade, shade, shade)
 			end
 		end)
 	end)
+end
+
+ns.commands.prices = function()
+	local lines = Prices.summary(GoldForever_Prices, mine(), GetServerTime())
+	ns.say(lines[1])
+	for i = 2, #lines do
+		print("  " .. lines[i])
+	end
 end
