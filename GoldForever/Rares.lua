@@ -75,6 +75,15 @@ local function seeUnit(unit, how)
 	end
 end
 
+-- Off on retail for now: its cities are full of minimap markers for ordinary NPCs, which the marker
+-- handler below takes for rares, so the announcer fired constantly in Silvermoon (owner, 2026-10-22).
+if ns.Realms.isRetail(select(4, GetBuildInfo())) then
+	ns.commands.rares = function()
+		ns.say("the rare announcer is off on retail.")
+	end
+	return
+end
+
 ns.on("NAME_PLATE_UNIT_ADDED", "rares", function(unit)
 	seeUnit(unit, "nameplate")
 end)

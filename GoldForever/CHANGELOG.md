@@ -2,6 +2,8 @@
 
 ## 0.14.1
 
+- Retail: the rare announcer is off for now. Retail's cities are full of minimap markers for ordinary NPCs,
+  and it took them for rares. `/gf rares` says so. WoW: Forever is unchanged.
 - Every item an auction scan names now reaches the item catalogue: about half were lost when the
   catalogue's queue was emptied while a scan was still adding to it.
 - Retail: each auction scan records every item's class and, when the client knows it, its stack size,

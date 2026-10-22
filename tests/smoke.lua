@@ -320,6 +320,12 @@ UnitExists = function(u) return u == "npc" or u == "target" or u == "nameplate3"
 fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
 fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
 print("RARE " .. tostring(raidNotices[1]) .. " | notices " .. #raidNotices .. " | skull " .. tostring(marks.nameplate3))
+-- Off on retail for now: its cities' minimap markers made the announcer fire on ordinary NPCs (2026-10-22).
+if INTERFACE >= 110000 then
+  assert(#raidNotices == 0 and marks.nameplate3 == nil, "retail: no rare notice and no skull")
+else
+  assert(#raidNotices == 1 and marks.nameplate3 == 8, "WoW: Forever: the rare is announced once and marked")
+end
 -- The craft list at the auction house: Bolt of Linen Cloth from 2 Linen, Bolts selling at 2s.
 table.insert(GoldForeverDB.scans, { t = 1792520200, kind = "full", market = "EU-Classic Beta PvE 2-alliance",
   rows = { "2589,40,100,10;2589,50,200,5;2996,200,20,4;2934,500,3,1" } })
