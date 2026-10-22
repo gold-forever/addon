@@ -1,5 +1,10 @@
 # Gold Forever
 
+## 0.13.2
+
+- Retail: the addon is no longer out of date on patch 12.1.5 (interface 120105).
+- The first release from the addon's own repository, github.com/gold-forever/addon.
+
 ## 0.13.1
 
 - The website moved to gold-forever.app. `/gf export` and the addon's notes name the new address; the
