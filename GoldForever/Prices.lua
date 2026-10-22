@@ -10,6 +10,7 @@ local Prices = {}
 ns.Prices = Prices
 
 local VERSION = 1 -- the GoldForever_Prices layout this addon reads
+local REGIONS = { US = "NA", NA = "NA", EU = "EU", KR = "KR", TW = "TW", CN = "CN" }
 
 local function amount(x)
 	return type(x) == "number" and x >= 0 and x < math.huge
@@ -20,7 +21,29 @@ local function field(t, key)
 	return type(value) == "table" and value or nil
 end
 
--- data: GoldForever_Prices; market: ns.market's key; id: the item. Nil when there is no valid price.
+local function ruleset(realm)
+	if string.find(string.lower(realm), "%f[%w]pvp%f[%W]") then
+		return "pvp"
+	elseif string.find(realm, "%f[%w]RP%f[%W]") then
+		return "rp"
+	end
+	return "normal"
+end
+
+-- The server's key for the addon's market "<region>-<realm>-<side>" (backend Markets.kt key()):
+-- "forever-<region>-<ruleset>-<side>". Forever only; nil on retail and for anything malformed.
+function Prices.poolMarket(market, interface)
+	if type(market) ~= "string" or not ns.Realms.isForever(interface) then
+		return nil
+	end
+	local region, realm, side = string.match(market, "^([^-]+)-(.+)-([^-]+)$")
+	if not region then
+		return nil
+	end
+	return "forever-" .. (REGIONS[string.upper(region)] or "BETA") .. "-" .. ruleset(realm) .. "-" .. side
+end
+
+-- data: GoldForever_Prices; market: the server's key (poolMarket); id: the item. Nil when there is no valid price.
 function Prices.line(data, market, id, now)
 	if type(data) ~= "table" or data.v ~= VERSION or market == nil or id == nil then
 		return nil
@@ -45,7 +68,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
 				return
 			end
-			local market = ns.market(string.lower(ns.me().faction or "?"))
+			local market = Prices.poolMarket(ns.market(string.lower(ns.me().faction or "?")), ns.db().client.interface)
 			local line = Prices.line(GoldForever_Prices, market, data.id, GetServerTime())
 			if line then
 				tooltip:AddLine(ns.PREFIX .. " " .. line, 1, 1, 1)

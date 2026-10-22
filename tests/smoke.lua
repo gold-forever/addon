@@ -393,16 +393,22 @@ local function poolLine(id)
   for _, l in ipairs(GameTooltip.lines) do if l:find("Pool: ", 1, true) then return l end end
 end
 assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
-GoldForever_Prices = { v = 1, at = now, markets = { [ns.market("alliance")] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
+-- The server's key for this character's market ("EU-Classic Beta PvE 2-alliance" on Forever).
+local POOL_ALLIANCE, POOL_HORDE = "forever-EU-normal-alliance", "forever-EU-normal-horde"
+GoldForever_Prices = { v = 1, at = now, markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
 local pool = poolLine(2589)
 print("POOL " .. tostring(pool))
-assert(pool and pool:find("Pool: 12s 34c · min 11s 0c · 3 players · 2h ago", 1, true), "the pool line")
+if INTERFACE < 110000 then
+  assert(pool and pool:find("Pool: 12s 34c · min 11s 0c · 3 players · 2h ago", 1, true), "the pool line")
+else
+  assert(pool == nil, "no pool line on retail (T06)")
+end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
-GoldForever_Prices.markets = { [ns.market("horde")] = { [2589] = { 1234, 1100, 3, now } } }
-assert(poolLine(2589) == nil, "no pool line from another side's market")
-GoldForever_Prices = { v = 1, markets = { [ns.market("alliance")] = { [2589] = { "x", 1100 } } } }
+GoldForever_Prices.markets = { [POOL_HORDE] = { [2589] = { 1234, 1100, 3, now } }, [ns.market("alliance")] = { [2589] = { 1234, 1100, 3, now } } }
+assert(poolLine(2589) == nil, "no pool line from another side's market or the addon's own key")
+GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = { [2589] = { "x", 1100 } } } }
 assert(poolLine(2589) == nil, "no pool line from a malformed entry")
-GoldForever_Prices = { v = 1, markets = { [ns.market("alliance")] = "x" } }
+GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = "x" } }
 assert(poolLine(2589) == nil, "no pool line from a malformed market")
 GoldForever_Prices = nil
 assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the pool tooltip recorded no error")
@@ -410,7 +416,7 @@ assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
   TooltipDataProcessor = nil
-  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Views = ns.Views })
+  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Views = ns.Views, Realms = ns.Realms })
   TooltipDataProcessor = saved
   assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
 end
