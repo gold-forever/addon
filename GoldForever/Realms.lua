@@ -13,6 +13,11 @@ function Realms.isRetail(interface)
 	return (interface or 0) >= 110000
 end
 
+-- WoW: Forever's interface numbers.
+function Realms.isForever(interface)
+	return type(interface) == "number" and interface >= 16000 and interface <= 16999
+end
+
 -- own: this realm's normalized name; list: the names it is connected to (normalized), which may or
 -- may not include it.
 function Realms.connectedKey(own, list)
