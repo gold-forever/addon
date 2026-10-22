@@ -401,7 +401,14 @@ print("POOL " .. tostring(pool))
 if INTERFACE < 110000 then
   assert(pool and pool:find("Pool: 12s 34c · min 11s 0c · 3 players · 2h ago", 1, true), "the pool line")
 else
-  assert(pool == nil, "no pool line on retail (T06)")
+  assert(pool == nil, "no Forever market on retail")
+  -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.
+  GoldForever_Prices.markets = { ["retail-EU-AnotherRealm"] = { [2589] = { 100, 90, 2, now } },
+    ["retail-EU"] = { [2589] = { 500, 490, 9, now }, [2590] = { 200, 190, 4, now } } }
+  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min 90c · 2 players", 1, true), "retail: the group's price first")
+  assert((poolLine(2590) or ""):find("Pool: 2s 0c · min 1s 90c · 4 players", 1, true), "retail: the region's commodity price")
+  assert(poolLine(2591) == nil, "retail: neither market has it")
+  GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
 GoldForever_Prices.markets = { [POOL_HORDE] = { [2589] = { 1234, 1100, 3, now } }, [ns.market("alliance")] = { [2589] = { 1234, 1100, 3, now } } }
