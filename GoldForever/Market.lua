@@ -8,6 +8,8 @@ local _, ns = ...
 local Encode = ns.Encode
 
 ns.FIELDS.scan = "item,unit,qty,auctions"
+-- Retail only: each distinct item a scan names, for telling commodities from gear (Realms.itemRow).
+ns.FIELDS.scanItem = "item,class,subclass,stack"
 -- qty is appended to design 002's columns: buy is the price of one purchase of qty items.
 ns.FIELDS.vendor = "buy,limited,t,qty"
 
@@ -98,6 +100,18 @@ local function finish(s, buckets, n)
 		rows[i] = Encode.row(b.item, b.unit, b.qty, b.auctions)
 	end
 	record.rows = Encode.chunks(rows)
+	if s.items then
+		local ids = {}
+		for id in pairs(s.items) do
+			ids[#ids + 1] = id
+		end
+		table.sort(ids)
+		local items = {}
+		for k, id in ipairs(ids) do
+			items[k] = s.items[id]
+		end
+		record.items = Encode.chunks(items)
+	end
 	local scans = ns.db().scans
 	scans[#scans + 1] = record
 	prune()
@@ -115,6 +129,12 @@ local function read()
 	s.reading = true
 	local n = C_AuctionHouse.GetNumReplicateItems()
 	local buckets, i = {}, 0
+	-- On retail, each distinct item's class and stack size, read now: the catalogue loads in the
+	-- background and a /reload can come first.
+	local instant, stack = ns.Realms.itemApis()
+	if ns.Realms.isRetail(ns.db().client and ns.db().client.interface) then
+		s.items = {}
+	end
 	local function batch()
 		local stop = math.min(i + BATCH, n)
 		for index = i, stop - 1 do
@@ -132,6 +152,9 @@ local function read()
 				end
 				b.qty = b.qty + count
 				b.auctions = b.auctions + 1
+				if s.items and not s.items[itemID] then
+					s.items[itemID] = ns.Realms.itemRow(itemID, instant, stack)
+				end
 			end
 		end
 		i = stop

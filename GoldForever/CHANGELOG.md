@@ -1,5 +1,12 @@
 # Gold Forever
 
+## 0.14.1
+
+- Every item an auction scan names now reaches the item catalogue: about half were lost when the
+  catalogue's queue was emptied while a scan was still adding to it.
+- Retail: each auction scan records every item's class and, when the client knows it, its stack size,
+  so commodities and gear are told apart even before the catalogue has loaded the item.
+
 ## 0.14.0
 
 - Retail: auction scans are filed under the connected realm group, as retail's auction house trades gear,

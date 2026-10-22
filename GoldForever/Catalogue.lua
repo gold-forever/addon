@@ -62,7 +62,9 @@ end
 -- once, and asking the client (and through it the server) for all of them in one frame stutters
 -- the game and gets throttled. One queue serves loot, scans, bags and the backfill below.
 local BATCH, PAUSE = 20, 0.2
-local queue, head = {}, 1
+-- head and tail are explicit: # on a table emptied from the front is any border, and an append at
+-- #queue + 1 then landed behind head and was never drained (half of a retail scan's items, 0.14.0).
+local queue, head, tail = {}, 1, 0
 local queued = {} -- item ID -> true while it waits in the queue
 local tried = {} -- item IDs asked for this session: one with no tooltip is not asked again and again
 local draining = false
@@ -96,7 +98,8 @@ function ns.catalogueItem(key)
 		return
 	end
 	queued[id] = true
-	queue[#queue + 1] = id
+	tail = tail + 1
+	queue[tail] = id
 	if not draining then
 		draining = true
 		drain() -- the first batch now: a single loot is catalogued at once

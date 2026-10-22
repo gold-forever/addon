@@ -137,7 +137,9 @@ C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return
     if s == 3 and bagsFull then return { itemID = 271206, stackCount = 1, isBound = true, hyperlink = "|Hitem:271206::::::::30|h[Skin]|h" } end
   end,
   GetContainerItemID = function() return 2589 end }
-C_Item = { GetItemInfo = function(id) return "Item, " .. id, nil, 1, 10, 1, "", "", 20, "", 132889, 13, 7, 5, 0 end }
+C_Item = { GetItemInfo = function(id) return "Item, " .. id, nil, 1, 10, 1, "", "", 20, "", 132889, 13, 7, 5, 0 end,
+  GetItemInfoInstant = function(id) return id, "Tradeskill", "Cloth", "", 132889, 7, 5 end,
+  GetItemMaxStackSizeByID = function(id) return id == 2589 and 1000 or nil end }
 C_TradeSkillUI = { GetAllRecipeIDs = function() return { 2963, 3915 } end, GetRecipeInfo = function(id) return { learned = id == 2963, name = "Bolt of Linen" } end,
   GetBaseProfessionInfo = function() return { professionID = 197, professionName = "Tailoring", skillLevel = 75, maxSkillLevel = 150 } end,
   GetRecipeSchematic = function() return { outputItemID = 2996, quantityMin = 1, quantityMax = 1, reagentSlotSchematics = { { reagentType = 1, quantityRequired = 2, reagents = { { itemID = 2589 } } } } } end }
@@ -254,6 +256,13 @@ do -- the scan's market names the realm on WoW: Forever, the connected group on 
   local scan = GoldForeverDB.scans[#GoldForeverDB.scans]
   local want = INTERFACE >= 110000 and "-AnotherRealm-" or "-Classic Beta PvE 2-"
   assert(scan and scan.market and scan.market:find(want, 1, true), "scan market: " .. tostring(scan and scan.market))
+  -- Retail records each distinct item's class and stack; WoW: Forever's scan keeps its shape.
+  if INTERFACE >= 110000 then
+    local items = table.concat(scan.items or {}, ";")
+    assert(items == "2589,7,5,1000;14047,7,5,", "retail scan items: " .. items)
+  else
+    assert(scan.items == nil, "a WoW: Forever scan records no items")
+  end
 end
 SlashCmdList.GOLDFOREVER("scan")
 C_Background.GetThing()

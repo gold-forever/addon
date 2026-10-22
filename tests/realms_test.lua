@@ -2,6 +2,7 @@
 -- realm part is the connected group's key: the alphabetically first normalized realm name of the group.
 
 local ns = {}
+assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 local R = ns.Realms
 
@@ -31,5 +32,27 @@ eq(R.connectedKey(nil, nil), nil, "nothing known")
 eq(R.marketRealm(120105, "Argent Dawn", "ArgentDawn", { "ArgentDawn", "AeriePeak" }), "AeriePeak", "retail: the group")
 eq(R.marketRealm(16001, "Classic Beta PvE 2", "ClassicBetaPvE2", { "Other" }), "Classic Beta PvE 2", "Forever: unchanged")
 eq(R.marketRealm(120105, "Argent Dawn", nil, nil), "Argent Dawn", "retail without the realm APIs: the name")
+
+-- What a retail scan records per item, so the server can tell commodities (region-wide) from gear
+-- (per connected realm) even for items the catalogue has not loaded yet: class and subclass are
+-- client data (GetItemInfoInstant needs no server query), the stack size only when the client has it.
+local instant = function(id)
+	if id == 2589 then
+		return 2589, "Tradeskill", "Cloth", "", 132889, 7, 5
+	end
+	if id == 19019 then
+		return 19019, "Weapon", "Swords", "INVTYPE_WEAPONMAINHAND", 135349, 2, 7
+	end
+end
+local stack = function(id)
+	return id == 2589 and 1000 or nil
+end
+eq(R.itemRow(2589, instant, stack), "2589,7,5,1000", "a commodity: class, subclass and stack")
+eq(R.itemRow(19019, instant, stack), "19019,2,7,", "gear with no stack known: the column stays empty")
+eq(R.itemRow(424242, instant, stack), "424242,,,", "an item the client does not know")
+eq(R.itemRow(2589, nil, nil), "2589,,,", "a client without the item APIs")
+eq(R.itemRow(2589, instant, function()
+	error("not loaded")
+end), "2589,7,5,", "a stack call that fails is not fatal")
 
 return checks
