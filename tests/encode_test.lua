@@ -1,14 +1,5 @@
 -- Encode.lua: the compact row format of design 002.
 
--- The game has os.date as the global date; fengari lacks the "!" (UTC) prefix, so tests run
--- with TZ=UTC and the prefix is stripped.
-date = function(format, t)
-	if format:sub(1, 1) == "!" then
-		format = format:sub(2)
-	end
-	return os.date(format, t)
-end
-
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 local E = ns.Encode

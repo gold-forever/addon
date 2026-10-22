@@ -21,6 +21,11 @@ function state() {
     lua.lua_setfield(L, -2, to_luastring(name))
   }
   lua.lua_setglobal(L, to_luastring('SOURCES'))
+  // The game's global date, with UTC ("!") formats that hold in every time zone (gamedate.lua).
+  const gamedate = fs.readFileSync(path.join(__dirname, 'gamedate.lua'), 'utf8')
+  if (lauxlib.luaL_dostring(L, to_luastring(gamedate)) !== lua.LUA_OK) {
+    throw new Error(`gamedate.lua: ${lua.lua_tojsstring(L, -1)}`)
+  }
   return L
 }
 

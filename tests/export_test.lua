@@ -1,13 +1,5 @@
 -- Export.lua: the in-game export string of design 005 (GF1: base64 of deflated Lua table text).
 
--- The game's global date; fengari lacks the "!" (UTC) prefix, so tests run with TZ=UTC.
-date = function(format, t)
-	if format:sub(1, 1) == "!" then
-		format = format:sub(2)
-	end
-	return os.date(format, t)
-end
-
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Export.lua"], "@Export.lua"))("GoldForever", ns)
