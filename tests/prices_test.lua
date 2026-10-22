@@ -81,4 +81,16 @@ eq(P.poolMarket("EU-Some Realm-", FOREVER), nil, "an empty side")
 eq(P.poolMarket(nil, FOREVER), nil, "no market")
 eq(P.poolMarket(42, FOREVER), nil, "a market not a string")
 
+-- One file holding both factions and two regions (contract T05): each character's key reads its own.
+local several = { v = 1, at = NOW, markets = {
+	["forever-EU-normal-alliance"] = { [2589] = { 100, 90, 2, NOW } },
+	["forever-EU-normal-horde"] = { [2589] = { 200, 190, 4, NOW } },
+	["forever-NA-pvp-horde"] = { [2589] = { 300, 290, 6, NOW } },
+} }
+local function mine(market) return P.line(several, P.poolMarket(market, FOREVER), 2589, NOW) end
+eq(mine("EU-Some Realm-horde"), "Pool: 2s 0c · min 1s 90c · 4 players · now", "Horde in EU")
+eq(mine("EU-Some Realm-alliance"), "Pool: 1s 0c · min 90c · 2 players · now", "Alliance in EU")
+eq(mine("US-Grim PvP-horde"), "Pool: 3s 0c · min 2s 90c · 6 players · now", "Horde on an NA PvP realm")
+eq(mine("US-Grim PvP-alliance"), nil, "Alliance in NA: not in the file")
+
 return checks

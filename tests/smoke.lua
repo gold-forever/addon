@@ -410,6 +410,24 @@ GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = { [2589] = { "x", 11
 assert(poolLine(2589) == nil, "no pool line from a malformed entry")
 GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = "x" } }
 assert(poolLine(2589) == nil, "no pool line from a malformed market")
+-- One file with both factions and two regions (contract T05): each character reads its own market.
+GoldForever_Prices = { v = 1, at = now, markets = {
+  [POOL_ALLIANCE] = { [2589] = { 100, 90, 2, now } },
+  [POOL_HORDE] = { [2589] = { 200, 190, 4, now } },
+  ["forever-NA-normal-horde"] = { [2589] = { 300, 290, 6, now } },
+} }
+if INTERFACE < 110000 then
+  local me, client = ns.me(), ns.db().client
+  local faction, region = me.faction, client.region
+  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min 90c · 2 players", 1, true), "the Alliance character reads its market")
+  me.faction = "Horde"
+  assert((poolLine(2589) or ""):find("Pool: 2s 0c · min 1s 90c · 4 players", 1, true), "a Horde character reads its market")
+  client.region = "US"
+  assert((poolLine(2589) or ""):find("Pool: 3s 0c · min 2s 90c · 6 players", 1, true), "a Horde character in NA reads NA's")
+  me.faction = "Alliance"
+  assert(poolLine(2589) == nil, "an Alliance character in NA has no market in the file")
+  me.faction, client.region = faction, region
+end
 GoldForever_Prices = nil
 assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the pool tooltip recorded no error")
 -- A client without TooltipDataProcessor loads the file without registering anything.
