@@ -1,5 +1,17 @@
 # Gold Forever
 
+## 0.15.0
+
+- Prices from everyone's scans in the item tooltip: "Pool: 12s 34c · min buyout 11s 0c · 3 players ·
+  scanned 2h ago", for the market of the character you are playing. The Gold Forever companion app
+  (v0.1.0 or newer) fetches them every hour and writes them into a small addon, GoldForever_Data.
+  After the companion's first install, restart the game fully once; later, `/reload` picks up new prices.
+- A price scanned more than 3 days ago is shown in grey.
+- An item the shared prices lack shows your own latest scan instead ("Your scan: …").
+- Retail: gear shows your connected realm group's price, commodities the region's.
+- `/gf prices`: how old the prices file is, its markets and item counts, and which one this
+  character reads.
+
 ## 0.14.1
 
 - Retail: the rare announcer is off for now. Retail's cities are full of minimap markers for ordinary NPCs,
