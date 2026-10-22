@@ -75,7 +75,11 @@ function fire(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handle
 -- An event without running the timers due, for orderings within a second.
 function fireNow(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end end
 function wait(s) runTimers(clock + s) clock = clock + s end
-function GetBuildInfo() return "1.60.1", "70450", "", 16001 end
+-- GF_SMOKE_INTERFACE=120105 plays the same session on a retail client.
+local INTERFACE = tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001
+function GetBuildInfo() return "1.60.1", "70450", "", INTERFACE end
+function GetNormalizedRealmName() return "ClassicBetaPvE2" end
+C_AutoComplete = { GetAutoCompleteRealms = function() return { "ClassicBetaPvE2", "AnotherRealm" } end }
 function GetLocale() return "enUS" end
 function GetCurrentRegionName() return "" end
 function GetCurrentRegion() return 3 end
@@ -246,6 +250,11 @@ wait(10)
 fire("AUCTION_HOUSE_SHOW")
 fire("REPLICATE_ITEM_LIST_UPDATE")
 wait(70)
+do -- the scan's market names the realm on WoW: Forever, the connected group on retail
+  local scan = GoldForeverDB.scans[#GoldForeverDB.scans]
+  local want = INTERFACE >= 110000 and "-AnotherRealm-" or "-Classic Beta PvE 2-"
+  assert(scan and scan.market and scan.market:find(want, 1, true), "scan market: " .. tostring(scan and scan.market))
+end
 SlashCmdList.GOLDFOREVER("scan")
 C_Background.GetThing()
 SlashCmdList.GOLDFOREVER("legacy")

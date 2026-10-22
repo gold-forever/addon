@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.13.2"
+local VERSION = "0.14.0"
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -301,9 +301,11 @@ local function recordState()
 end
 
 -- Market of the auction house or guild bank the player is at: region, realm (until the ruleset
--- is known, checklist #8) and side.
+-- is known, checklist #8) and side. On retail the realm is the connected group's key (Realms.lua).
 function ns.market(side)
-	return (db.client.region or "?") .. "-" .. (me and me.realm or "?") .. "-" .. side
+	local realm = ns.Realms.marketRealm(db.client.interface, me and me.realm,
+		GetNormalizedRealmName and GetNormalizedRealmName(), ns.Realms.connected())
+	return (db.client.region or "?") .. "-" .. (realm or "?") .. "-" .. side
 end
 
 local function sys(kind)

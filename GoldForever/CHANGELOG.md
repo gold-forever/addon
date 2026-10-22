@@ -1,5 +1,10 @@
 # Gold Forever
 
+## 0.14.0
+
+- Retail: auction scans are filed under the connected realm group, as retail's auction house trades gear,
+  so prices from every realm of the group meet in one market. WoW: Forever is unchanged.
+
 ## 0.13.2
 
 - Retail: the addon is no longer out of date on patch 12.1.5 (interface 120105).
