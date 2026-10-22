@@ -386,6 +386,34 @@ print("RARE ROWS " .. tostring(GoldForeverDB.events["2026-10-20"] and GoldForeve
 print("APPRAISER\n" .. tostring(appraiserText))
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
 print("TOOLTIP " .. tostring(GameTooltip.lines[1]))
+-- The pool's prices from GoldForever_Data (contract T01): one line for the player's own market.
+local function poolLine(id)
+  GameTooltip.lines = {}
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id }) end
+  for _, l in ipairs(GameTooltip.lines) do if l:find("Pool: ", 1, true) then return l end end
+end
+assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
+GoldForever_Prices = { v = 1, at = now, markets = { [ns.market("alliance")] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
+local pool = poolLine(2589)
+print("POOL " .. tostring(pool))
+assert(pool and pool:find("Pool: 12s 34c · min 11s 0c · 3 players · 2h ago", 1, true), "the pool line")
+assert(poolLine(2590) == nil, "no pool line for an item without a price")
+GoldForever_Prices.markets = { [ns.market("horde")] = { [2589] = { 1234, 1100, 3, now } } }
+assert(poolLine(2589) == nil, "no pool line from another side's market")
+GoldForever_Prices = { v = 1, markets = { [ns.market("alliance")] = { [2589] = { "x", 1100 } } } }
+assert(poolLine(2589) == nil, "no pool line from a malformed entry")
+GoldForever_Prices = { v = 1, markets = { [ns.market("alliance")] = "x" } }
+assert(poolLine(2589) == nil, "no pool line from a malformed market")
+GoldForever_Prices = nil
+assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the pool tooltip recorded no error")
+-- A client without TooltipDataProcessor loads the file without registering anything.
+do
+  local saved, before = TooltipDataProcessor, #itemTooltipHooks
+  TooltipDataProcessor = nil
+  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Views = ns.Views })
+  TooltipDataProcessor = saved
+  assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
+end
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
 print("MOB " .. tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lines[2]))

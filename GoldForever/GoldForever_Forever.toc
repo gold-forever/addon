@@ -3,6 +3,7 @@
 ## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.app.
 ## Version: 0.14.1
 ## SavedVariables: GoldForeverDB
+## OptionalDeps: GoldForever_Data
 
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
@@ -28,6 +29,7 @@ Achievements.lua
 Disenchant.lua
 Crafting.lua
 Appraiser.lua
+Prices.lua
 Advisor.lua
 Rares.lua
 Shop.lua
