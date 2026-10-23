@@ -7,7 +7,10 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.scan = "item,unit,qty,auctions"
+-- left: the auctions' time-left band (Enum.AuctionHouseTimeLeftBand: 0 under 30 minutes, 1 under 2 hours,
+-- 2 under 12 hours, 3 longer), so a listing that vanishes can be told sold from expired (data gap D1).
+-- Rows are grouped by item, unit price and band; empty on a client without the call.
+ns.FIELDS.scan = "item,unit,qty,auctions,left"
 -- Retail only: each distinct item a scan names, for telling commodities from gear (Realms.itemRow).
 ns.FIELDS.scanItem = "item,class,subclass,stack"
 -- qty is appended to design 002's columns: buy is the price of one purchase of qty items.
@@ -97,7 +100,7 @@ local function finish(s, buckets, n)
 	local rows = {}
 	for i, key in ipairs(keys) do
 		local b = buckets[key]
-		rows[i] = Encode.row(b.item, b.unit, b.qty, b.auctions)
+		rows[i] = Encode.row(b.item, b.unit, b.qty, b.auctions, b.left)
 	end
 	record.rows = Encode.chunks(rows)
 	if s.items then
@@ -132,6 +135,7 @@ local function read()
 	-- On retail, each distinct item's class and stack size, read now: the catalogue loads in the
 	-- background and a /reload can come first.
 	local instant, stack = ns.Realms.itemApis()
+	local timeLeft = C_AuctionHouse.GetReplicateItemTimeLeft
 	if ns.Realms.isRetail(ns.db().client and ns.db().client.interface) then
 		s.items = {}
 	end
@@ -143,10 +147,11 @@ local function read()
 			if itemID and buyout and buyout > 0 and count and count > 0 then
 				local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
 				local unit = math.floor(buyout / count + 0.5)
-				local bucket = key .. "|" .. unit
+				local left = timeLeft and timeLeft(index)
+				local bucket = key .. "|" .. unit .. "|" .. tostring(left)
 				local b = buckets[bucket]
 				if not b then
-					b = { item = key, unit = unit, qty = 0, auctions = 0 }
+					b = { item = key, unit = unit, qty = 0, auctions = 0, left = left }
 					buckets[bucket] = b
 					ns.catalogueItem(key)
 				end
