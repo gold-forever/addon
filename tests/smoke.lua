@@ -417,6 +417,28 @@ do
   assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
   -- The purchase above is a test's, not one later checks expect to find recorded.
   for _, d in pairs(GoldForeverDB.events) do d.ahBuy = nil end
+  -- Cancel undercut: one auction of 10 Linen at 50s; the book's cheapest other is 42s50 (15% under,
+  -- past the 5% tolerance), so Cancel next cancels it.
+  local cancelled
+  C_AuctionHouse.QueryOwnedAuctions = function() end
+  C_AuctionHouse.GetNumOwnedAuctions = function() return 1 end
+  C_AuctionHouse.GetOwnedAuctionInfo = function() return { auctionID = 777, itemKey = { itemID = 2589, itemLevel = 0 }, status = 0, quantity = 10, buyoutAmount = 5000 } end
+  C_AuctionHouse.GetItemKeyInfo = function() return { isCommodity = true, itemName = "Linen Cloth" } end
+  C_AuctionHouse.GetCancelCost = function() return 300 end
+  local cancelInner = C_AuctionHouse.CancelAuction or function() end
+  C_AuctionHouse.CancelAuction = function(id, ...) cancelled = id return cancelInner(id, ...) end
+  AP.tab("cancel")
+  AP.cancelCheck()
+  fire("OWNED_AUCTIONS_UPDATED")
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+  wait(1)
+  local mine, checking = AP.owned()
+  assert(#mine == 1 and mine[1].under == 15 and not checking, "the auction is 15% undercut, the check done: " .. tostring(mine[1] and mine[1].under))
+  AP.cancelNext()
+  assert(cancelled == 777, "Cancel next cancels it")
+  fire("AUCTION_CANCELED", 777)
+  assert(#(AP.owned()) == 0, "and it leaves the list")
+  for _, d in pairs(GoldForeverDB.events) do d.auctionEnd = nil end
   AP.tab("scan")
   assert(not AP.bound(), "and is free again off it")
   fire("AUCTION_HOUSE_CLOSED")

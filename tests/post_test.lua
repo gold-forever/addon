@@ -50,4 +50,17 @@ eq(P.check(100, 10000, 50, 0.05), "more than half under the market value", "far 
 eq(P.check(100, nil, 200, 0.05), "under what a vendor pays", "under vendor after the cut")
 eq(P.check(9400, 10000, 200, 0.05), nil, "a normal post")
 
+-- Cancel undercut: how far under, as the playground's undercutPct.
+eq(P.undercutPct(2100, 1900), 9.5, "9.5% under")
+eq(P.undercutPct(2100, 2100), 0, "level")
+eq(P.undercutPct(2100, 2500), 0, "dearer")
+eq(P.undercutPct(2100, nil), 0, "nobody")
+-- The sneaky-price guard: one unit far under the next is passed over; two units, or close, count.
+local function lv(u, q, own) return { unitPrice = u, quantity = q, own = own or 0 } end
+eq(P.honestCheapest({ lv(1000, 1), lv(2000, 20) }), 2000, "a single cheap unit far under is a sneaky price")
+eq(P.honestCheapest({ lv(1000, 2), lv(2000, 20) }), 1000, "two units count")
+eq(P.honestCheapest({ lv(1900, 1), lv(2000, 20) }), 1900, "one unit close to the next counts")
+eq(P.honestCheapest({ lv(1500, 5, 5), lv(2000, 20) }), 2000, "the player's own units are left out")
+eq(P.honestCheapest({}), nil, "an empty book")
+
 return checks

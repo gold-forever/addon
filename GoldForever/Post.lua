@@ -80,3 +80,36 @@ function Post.check(unit, market, vendor, cut)
 		return "more than half under the market value"
 	end
 end
+
+-- How far under the player's unit price the cheapest other listing sits, in percent to one decimal; 0
+-- when nobody is cheaper (the playground's undercutPct). Cancel undercut acts past a tolerance only.
+function Post.undercutPct(mine, other)
+	if not other or other >= mine then
+		return 0
+	end
+	return math.floor((mine - other) / mine * 1000 + 0.5) / 10
+end
+
+-- The cheapest other listing worth reacting to, from levels { unitPrice, quantity, own }: a level of
+-- fewer than `units` (2) other units more than `pct` (30%) under the next level is a "sneaky price"
+-- and is passed over (design 009 decision 13's defaults). Returns the unit price, or nil.
+function Post.honestCheapest(levels, units, pct)
+	units, pct = units or 2, pct or 30
+	local others = {}
+	for _, l in ipairs(levels or {}) do
+		local n = (l.quantity or 0) - (l.own or 0)
+		if n > 0 then
+			others[#others + 1] = { unit = l.unitPrice, n = n }
+		end
+	end
+	table.sort(others, function(a, b)
+		return a.unit < b.unit
+	end)
+	for i, o in ipairs(others) do
+		local nextUnit = others[i + 1] and others[i + 1].unit
+		if not (o.n < units and nextUnit and o.unit < nextUnit * (1 - pct / 100)) then
+			return o.unit
+		end
+	end
+	return nil
+end

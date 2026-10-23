@@ -298,7 +298,7 @@ ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 end)
 ns.on("UI_ERROR_MESSAGE", "auction panel", function(_, message)
 	if waiting and panel then
-		local note = string.find(waiting.key, "^shop:") and panel.shop.note or panel.post.note
+		local note = string.find(waiting.key, "^shop:") and panel.shop.note or string.find(waiting.key, "^cancel:") and panel.cancel.note or panel.post.note
 		waiting = nil
 		note:SetText(Theme.escape(Theme.color.danger) .. tostring(message or "The post failed.") .. "|r")
 	end
@@ -771,6 +771,190 @@ if hooksecurefunc and ChatEdit_InsertLink then
 	end)
 end
 
+-- Cancel undercut ----------------------------------------------------------------------------------------------
+
+-- The player's own auctions (design 009, Cancel undercut; owner: build it now, 5% by default): each
+-- searched in turn against other players' listings (a sneaky single cheap unit passed over); those
+-- undercut by more than the tolerance are listed, and Cancel next cancels the most undercut one a press
+-- (CancelAuction is a hardware event, and costs the deposit). The items come back by mail.
+local TOLERANCES = { { value = 1, label = "1 percent" }, { value = 5, label = "5 percent" }, { value = 10, label = "10 percent" } }
+local owned = {} -- { auctionID, itemID, key, name, quality, quantity, unit, commodity, cheapest, under }
+local checking -- the index of the auction being searched, while a check runs
+
+local function tolerance()
+	return settings().tolerance or 5
+end
+
+-- The cheapest other listing for an owned auction, from the last search of its item.
+local function cheapestFor(a)
+	local book = live[a.commodity and tostring(a.itemID) or ("item:" .. a.itemID)]
+	return book and book.levels and Post.honestCheapest(book.levels) or nil, book ~= nil
+end
+
+local function readOwned()
+	owned = {}
+	local n = C_AuctionHouse.GetNumOwnedAuctions and C_AuctionHouse.GetNumOwnedAuctions() or 0
+	for i = 1, n do
+		local info = C_AuctionHouse.GetOwnedAuctionInfo(i)
+		-- Active ones only (status 0); sold ones wait in the list for their mail.
+		if info and info.itemKey and (info.status or 0) == 0 and info.buyoutAmount and info.buyoutAmount > 0 then
+			local keyInfo = C_AuctionHouse.GetItemKeyInfo and C_AuctionHouse.GetItemKeyInfo(info.itemKey)
+			local commodity = keyInfo and keyInfo.isCommodity or false
+			local qty = info.quantity or 1
+			-- ASSUMED: a commodity's buyoutAmount is its unit price, an item's the whole auction's.
+			local unit = commodity and info.buyoutAmount or math.floor(info.buyoutAmount / math.max(1, qty) + 0.5)
+			local quality, _, _, _, name = ns.price.itemInfo(info.itemKey.itemID)
+			owned[#owned + 1] = { auctionID = info.auctionID, itemID = info.itemKey.itemID, itemKey = info.itemKey, quantity = qty,
+				unit = unit, commodity = commodity, name = (keyInfo and keyInfo.itemName) or name or ("item " .. info.itemKey.itemID), quality = quality or 1 }
+		end
+	end
+end
+
+-- Searches the next owned auction's item; the results event moves the check on.
+local function checkNext()
+	checking = (checking or 0) + 1
+	local a = owned[checking]
+	if not a then
+		checking = nil
+		refresh()
+		return
+	end
+	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
+	C_AuctionHouse.SendSearchQuery(a.itemKey, sorts, true)
+	refresh()
+end
+
+local function startCheck()
+	if C_AuctionHouse.QueryOwnedAuctions then
+		C_AuctionHouse.QueryOwnedAuctions({ { sortOrder = 0, reverseSort = false } })
+	end
+	checking = 0
+	panel.cancel.note:SetText("Reading your auctions…")
+end
+
+ns.on("OWNED_AUCTIONS_UPDATED", "auction cancel", function()
+	if checking == 0 then
+		readOwned()
+		checkNext()
+	end
+end)
+-- A search answered moves the check to the next auction (both kinds of results).
+local function searched()
+	if checking and checking > 0 then
+		C_Timer.After(0.3, function()
+			ns.safely("auction cancel", checkNext)
+		end)
+	end
+end
+ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction cancel", searched)
+ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction cancel", searched)
+
+-- The owned auctions undercut past the tolerance, most undercut first.
+local function undercut()
+	local out = {}
+	for _, a in ipairs(owned) do
+		local other = cheapestFor(a)
+		a.cheapest, a.under = other, Post.undercutPct(a.unit, other)
+		if a.under > tolerance() then
+			out[#out + 1] = a
+		end
+	end
+	table.sort(out, function(x, y)
+		return x.under > y.under
+	end)
+	return out
+end
+
+local function cancelNext()
+	if waiting then
+		return
+	end
+	local a = undercut()[1]
+	if not a then
+		panel.cancel.note:SetText("Nothing undercut past " .. tolerance() .. "%.")
+		return
+	end
+	C_AuctionHouse.CancelAuction(a.auctionID)
+	waiting = { key = "cancel:" .. a.auctionID, at = GetTime() }
+	panel.cancel.note:SetText("Cancelling " .. a.name .. "…")
+end
+
+ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
+	if waiting and waiting.key == "cancel:" .. tostring(auctionID) then
+		waiting = nil
+	end
+	for i, a in ipairs(owned) do
+		if a.auctionID == auctionID then
+			table.remove(owned, i)
+			break
+		end
+	end
+	if panel then
+		panel.cancel.note:SetText(Theme.escape(Theme.color.success) .. "Cancelled: it comes back by mail.|r")
+		refresh()
+	end
+end)
+
+local function buildCancel(page)
+	local tol = UI.Dropdown(page, TOLERANCES, tolerance(), function(v)
+		settings().tolerance = v
+		refresh()
+	end)
+	tol:SetPoint("TOPLEFT", 120, 0)
+	tol:SetWidth(120)
+	local tolLabel = UI.Text(page, "Undercut past", { size = "sm", tone = "muted" })
+	tolLabel:SetPoint("RIGHT", tol, "LEFT", -10, 0)
+	local check = UI.Button(page, "Check my auctions", function()
+		ns.safely("auction cancel", startCheck)
+	end, { width = 150, height = 28 })
+	check:SetPoint("TOPRIGHT", 0, 0)
+	local tbl = UI.Table(page, {
+		{ key = "name", title = "Your auction", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
+			text = function(r) return r.quantity > 1 and (r.name .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.quantity .. "|r") or r.name end },
+		{ key = "unit", title = "Yours", width = 74, align = "RIGHT", text = function(r) return money(r.unit) end },
+		{ key = "cheapest", title = "Cheapest", width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "—" or "") end },
+		{ key = "under", title = "Under", width = 56, align = "RIGHT", text = function(r) return r.under and r.under > 0 and (r.under .. "%") or "" end,
+			color = function(r) return r.under and r.under > tolerance() and Theme.color.warning or Theme.color.textMuted end, sort = function(r) return r.under or 0 end },
+	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut." })
+	tbl:SetPoint("TOPLEFT", 0, -40)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	local go = UI.Button(page, "Cancel next", function()
+		ns.safely("auction cancel", cancelNext)
+		refresh()
+	end, { kind = "primary", width = 200, height = 30 })
+	go:SetPoint("TOPRIGHT", tbl, "BOTTOMRIGHT", 0, -10)
+	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
+	page.note:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -16)
+	page.note:SetPoint("RIGHT", go, "LEFT", -12, 0)
+	function page:Refresh()
+		local list = undercut()
+		for _, a in ipairs(owned) do
+			a.searched = select(2, cheapestFor(a))
+		end
+		tbl:SetRows(owned)
+		local first = list[1]
+		if checking then
+			go.label:SetText(string.format("Checking %d of %d…", math.max(1, checking), #owned))
+		elseif first then
+			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
+			go.label:SetText("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
+		else
+			go.label:SetText("Cancel next")
+		end
+		local can = first and not checking and not waiting
+		if can then
+			go:Enable()
+			go:SetAlpha(1)
+		else
+			go:Disable()
+			go:SetAlpha(0.5)
+		end
+		if not checking and #owned > 0 and page.note:GetText() == "Reading your auctions…" then
+			page.note:SetText(string.format("%d of your %d auctions are undercut past %d%%.", #list, #owned, tolerance()))
+		end
+	end
+end
+
 local function buildRule(page)
 	local s = settings()
 	local function row(y, label, control)
@@ -832,7 +1016,7 @@ local function build()
 	local title = UI.Text(p, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "lg", medium = true })
 	title:SetPoint("LEFT", mark, "RIGHT", 8, 0)
 	local pages = {}
-	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "shop", label = "Shop" }, { key = "rule", label = "Rule" } }, function(key)
+	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "shop", label = "Shop" }, { key = "cancel", label = "Cancel" }, { key = "rule", label = "Rule" } }, function(key)
 		for k, f in pairs(pages) do
 			f:SetShown(k == key)
 		end
@@ -842,7 +1026,7 @@ local function build()
 	end, { variant = "underline" })
 	tabs:SetPoint("TOPLEFT", 16, -42)
 	tabs:SetPoint("TOPRIGHT", -16, -42)
-	for _, key in ipairs({ "scan", "post", "shop", "rule" }) do
+	for _, key in ipairs({ "scan", "post", "shop", "cancel", "rule" }) do
 		local f = CreateFrame("Frame", nil, p)
 		f:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
 		f:SetPoint("BOTTOMRIGHT", -20, 16)
@@ -852,8 +1036,9 @@ local function build()
 	buildScan(pages.scan)
 	buildPost(pages.post)
 	buildShop(pages.shop)
+	buildCancel(pages.cancel)
 	buildRule(pages.rule)
-	p.scan, p.post, p.shop, p.tabs, p.pages = pages.scan, pages.post, pages.shop, tabs, pages
+	p.scan, p.post, p.shop, p.cancel, p.tabs, p.pages = pages.scan, pages.post, pages.shop, pages.cancel, tabs, pages
 	p:SetScript("OnShow", bindSpace)
 	p:SetScript("OnHide", bindSpace)
 	panel = p
@@ -896,6 +1081,8 @@ refresh = function()
 		panel.post:Refresh()
 	elseif panel.tab == "shop" then
 		panel.shop:Refresh()
+	elseif panel.tab == "cancel" then
+		panel.cancel:Refresh()
 	end
 end
 
@@ -1025,5 +1212,14 @@ ns.AuctionPanel = {
 	end,
 	shopNote = function()
 		return panel and panel.shop.note.text
+	end,
+	cancelCheck = function()
+		startCheck()
+	end,
+	cancelNext = function()
+		cancelNext()
+	end,
+	owned = function()
+		return owned, checking
 	end,
 }
