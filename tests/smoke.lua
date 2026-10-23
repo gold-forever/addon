@@ -682,10 +682,15 @@ end
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)
-  for _, page in ipairs({ "home", "characters", "ledger", "inventory", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
+  for _, page in ipairs({ "home", "ledger", "characters", "inventory", "money", "session", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
     SlashCmdList.GOLDFOREVER("ui " .. page)
   end
 end
+-- Pages folded into tabs (design 009 decision 2): an old key opens its page on its tab.
+SlashCmdList.GOLDFOREVER("ui levelling")
+assert(GoldForeverDB.settings.window.page == "session" and GoldForeverDB.settings.window.tabs.session == "levelling", "levelling is Session's tab")
+SlashCmdList.GOLDFOREVER("ui inventory")
+assert(GoldForeverDB.settings.window.page == "ledger" and GoldForeverDB.settings.window.tabs.ledger == "inventory", "inventory is Ledger's tab")
 SlashCmdList.GOLDFOREVER("accent #2fd1a8")
 assert(GoldForeverDB.settings.window.accent == "#2fd1a8", "the accent is kept")
 assert(ns.Theme.color.accent == "#2fd1a8", "and goes over the look")

@@ -222,10 +222,7 @@ local function buildHome(page)
 		card.line:SetWidth(cardW - 76)
 		if a.go then
 			card:SetScript("OnClick", function()
-				local w = page:GetParent() and page:GetParent():GetParent()
-				if w and w.SelectPage then
-					w:SelectPage(a.go)
-				end
+				ns.openPage(a.go)
 			end)
 		end
 		actions[i] = card
@@ -496,7 +493,7 @@ local function buildCharacters(page)
 		{ key = "money", title = "Gold", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.money, "gold") end },
 		{ key = "seen", title = "Seen", width = 80, align = "RIGHT", text = function(r) return r.online and "now" or Views.ago(r.seen, ns.now()) end,
 			color = function() return Theme.color.textMuted end },
-	}, { pageSize = 12, empty = "No characters yet.", sort = sortOf("characters", 4) })
+	}, { pageSize = 10, empty = "No characters yet.", sort = sortOf("characters", 4) })
 	tbl:SetPoint("TOPLEFT", gold, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -554,7 +551,7 @@ local function buildLevelling(page)
 		{ key = "money", title = "Gold when reached", flex = 1, align = "RIGHT", text = function(r) return r.money and UI.layout.amount(r.money) or Theme.escape(Theme.color.textFaint) .. "—|r" end },
 		{ key = "reached", title = "Reached", flex = 1, align = "RIGHT", text = function(r) return r.reached and Views.ago(r.reached, ns.now()) or Theme.escape(Theme.color.textFaint) .. "—|r" end,
 			color = function() return Theme.color.textMuted end },
-	}, { pageSize = 8, empty = "No level-ups recorded yet.", sort = sortOf("levelling", 1) })
+	}, { pageSize = 6, empty = "No level-ups recorded yet.", sort = sortOf("levelling", 1) })
 	tbl:SetPoint("TOPLEFT", mix, "BOTTOMLEFT", 0, -16)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -610,9 +607,8 @@ local function buildLedger(page)
 		whose = key
 		settings().ledger = key
 		page:Refresh()
-	end, { variant = "underline" })
+	end)
 	tabs:SetPoint("TOPLEFT")
-	tabs:SetPoint("TOPRIGHT")
 	tabs:Select(whose)
 	local lede = tabs
 	local gained = UI.StatCard(page, "Money in", "", "")
@@ -639,7 +635,7 @@ local function buildLedger(page)
 		{ key = "gained", title = "In", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.gained) end },
 		{ key = "spent", title = "Out", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.spent) end },
 		{ key = "net", title = "Net", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.net) end },
-	}, { pageSize = 9, empty = "No money has moved yet.", sort = sortOf("ledger", 5) })
+	}, { pageSize = 8, empty = "No money has moved yet.", sort = sortOf("ledger", 5) })
 	tbl:SetPoint("TOPLEFT", gained, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -668,7 +664,7 @@ local function buildMobs(page)
 		{ key = "loots", title = "Looted", width = 70, align = "RIGHT" },
 		{ key = "coin", title = "Coin a loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.coin) end, sort = function(r) return r.coin end },
 		{ key = "value", title = "A loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
-	}, { pageSize = 16, empty = "No loot recorded yet.", sort = sortOf("mobs", 4) })
+	}, { pageSize = 13, empty = "No loot recorded yet.", sort = sortOf("mobs", 4) })
 	tbl:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -716,7 +712,7 @@ local function buildInventory(page)
 		{ key = "held", title = "Held", width = 60, align = "RIGHT" },
 		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end, tooltip = function(r) return r.holders end },
 		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
-	}, { pageSize = 13, empty = "Nothing matches.", sort = sortOf("inventory", 4) })
+	}, { pageSize = 11, empty = "Nothing matches.", sort = sortOf("inventory", 4) })
 	tbl:SetPoint("TOPLEFT", total, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -1036,19 +1032,78 @@ end
 -- and switching should not need a /reload. All share the saved position, page, scale and sorts.
 local windows = {}
 
+-- A page of tabs (design 009 decision 2, settled: the old pages folded into fewer rows, each a tab):
+-- underline tabs at the top, each tab's page built the first time it is shown, the tab kept per page.
+local function tabbed(key, tabs)
+	return function(page)
+		local store = settings()
+		store.tabs = store.tabs or {}
+		local bar = UI.TabBar(page, tabs, function(k)
+			page:SelectTab(k)
+		end, { variant = "underline" })
+		bar:SetPoint("TOPLEFT")
+		bar:SetPoint("TOPRIGHT")
+		local subs = {}
+		function page:SelectTab(k)
+			local def
+			for _, t in ipairs(tabs) do
+				if t.key == k then
+					def = t
+				end
+			end
+			def = def or tabs[1]
+			for _, f in pairs(subs) do
+				f:Hide()
+			end
+			local sub = subs[def.key]
+			if not sub then
+				sub = CreateFrame("Frame", nil, page)
+				sub:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -14)
+				sub:SetPoint("BOTTOMRIGHT")
+				-- A tab can name the page more closely (whose levelling it shows), as a page can.
+				function sub.SetTitle(_, text)
+					if page.SetTitle then
+						page:SetTitle(text)
+					end
+				end
+				ns.safely("ui " .. def.key, def.build, sub)
+				subs[def.key] = sub
+			end
+			sub:Show()
+			if page.SetTitle and page.title then
+				page:SetTitle(page.title) -- a tab that names the page more closely sets it again on refresh
+			end
+			bar:Select(def.key)
+			store.tabs[key] = def.key
+			self.tab = def.key
+			if sub.Refresh then
+				ns.safely("ui " .. def.key, sub.Refresh, sub)
+			end
+		end
+		function page:Refresh()
+			self:SelectTab(self.tab or store.tabs[key])
+		end
+		page:SelectTab(store.tabs[key])
+		page.tab = store.tabs[key] or tabs[1].key
+	end
+end
+
 local PAGES = {
 	{ key = "home", label = "Home", icon = "coins", group = "Overview", build = buildHome, title = "Home",
 		lede = "Your next moves, from everyone's prices and your own bags." },
-	{ key = "characters", label = "Characters", icon = "users", group = "Overview", build = buildCharacters, title = "Characters",
-		lede = "Every character this save has seen. Rested XP grows while logged out, so it is worked out to now: the one with the most waiting is the one to play next." },
-	{ key = "ledger", label = "Ledger", icon = "book-open", group = "Overview", build = buildLedger, title = "Ledger",
-		lede = "Where money came from and went, by the window open when it moved, over the last two weeks the save keeps." },
-	{ key = "inventory", label = "Inventory", icon = "package", group = "Overview", build = buildInventory, title = "Inventory",
-		lede = "Everything your characters hold, in bags, bank and mail, at the better of auction and vendor." },
-	{ key = "levelling", label = "Levelling", icon = "trending-up", group = "Play", build = buildLevelling, title = "Levelling",
-		lede = "This character, from the last two weeks the save keeps. XP an hour counts the time between gains; a break over ten minutes is left out." },
-	{ key = "mobs", label = "Mobs", icon = "skull", group = "Play", build = buildMobs, title = "Mobs, by what a loot is worth",
-		lede = "Every mob your characters have looted: how often, and what a loot brought in coin and items, priced as on the web." },
+	{ key = "ledger", label = "Ledger", icon = "book-open", group = "Overview", title = "Ledger",
+		lede = "Where your money went and came from, your characters, and everything they hold.",
+		build = tabbed("ledger", {
+			{ key = "money", label = "Money", build = buildLedger },
+			{ key = "characters", label = "Characters", build = buildCharacters },
+			{ key = "inventory", label = "Inventory", build = buildInventory },
+		}) },
+	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
+		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
+		build = tabbed("session", {
+			{ key = "levelling", label = "Levelling", build = buildLevelling },
+			{ key = "mobs", label = "Mobs", build = buildMobs },
+		}) },
 	{ key = "rares", label = "Rares", icon = "skull", group = "Play", build = buildRares, title = "Rares",
 		lede = "Every rare your characters have seen, where and when last, and what a loot of one has been worth." },
 	{ key = "companion", label = "Companion", icon = "rotate-ccw", group = "Addon", build = buildCompanion, title = "Companion",
@@ -1058,6 +1113,33 @@ local PAGES = {
 	{ key = "design", label = "Design system", icon = "palette", group = "Addon", build = buildDesign, title = "Design system",
 		lede = "Every part of the window kit with example data, in the look in use." },
 }
+
+-- The pages that became tabs, by their old keys: /gf ui levelling, a saved page, a card's link.
+local FOLDED = {
+	characters = { "ledger", "characters" }, inventory = { "ledger", "inventory" }, money = { "ledger", "money" },
+	levelling = { "session", "levelling" }, mobs = { "session", "mobs" },
+}
+
+-- Opens a page, or the page and tab an old key names.
+local function openIn(window, key)
+	local f = FOLDED[key]
+	if f then
+		settings().tabs = settings().tabs or {}
+		settings().tabs[f[1]] = f[2]
+		window:SelectPage(f[1])
+		local page = window.pages[f[1]]
+		if page and page.SelectTab then
+			page:SelectTab(f[2])
+		end
+	else
+		window:SelectPage(key)
+	end
+end
+ns.openPage = function(key)
+	if ns.commands.ui then
+		ns.commands.ui(key)
+	end
+end
 
 local function look()
 	local name = settings().look
@@ -1070,6 +1152,13 @@ function ns.applyLook()
 end
 
 local function windowFor(name)
+	-- A page saved before the pages were folded opens as its tab.
+	local folded = FOLDED[settings().page or ""]
+	if folded then
+		settings().tabs = settings().tabs or {}
+		settings().tabs[folded[1]] = folded[2]
+		settings().page = folded[1]
+	end
 	local accent = settings().accent
 	Theme.apply(name, accent)
 	local key = name .. (accent and string.gsub(accent, "#", "_") or "")
@@ -1100,7 +1189,7 @@ ns.commands.ui = function(page)
 	window:Restore()
 	window:Show()
 	if page and page ~= "" then
-		window:SelectPage(page)
+		openIn(window, page)
 	end
 end
 

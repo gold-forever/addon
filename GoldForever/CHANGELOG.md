@@ -16,6 +16,8 @@
 - The window is a hub: the Gold Forever emblem and a page search at the top of a sidebar, the pages in
   groups with an icon each, a large page title over art in the look's colours, and a footer with
   Reload UI and Close. The sidebar's foot shows the addon's own memory and CPU use.
+- Fewer rows in the hub: **Ledger** holds Money, Characters and Inventory as tabs, and **Session** holds
+  Levelling and Mobs; each page remembers its tab, and `/gf ui levelling` and the like still work.
 - A **Home** page, the hub's first: the next moves (when you can scan, what your bags would sell for,
   the best craft at the latest prices), today's money by where it came from, and the bag items worth
   most.

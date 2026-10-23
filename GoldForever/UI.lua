@@ -1590,6 +1590,7 @@ function UI.Window(name, title, pages, store, opts)
 			function page.SetTitle(_, text)
 				self.pageTitle:SetText(text)
 			end
+			page.title = def.title or def.label
 			ns.safely("ui " .. key, def.build, page)
 			self.pages[key] = page
 		end
