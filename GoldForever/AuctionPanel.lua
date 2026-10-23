@@ -105,7 +105,10 @@ end
 -- Live search ------------------------------------------------------------------------------------------------
 
 -- Asks the server for the chosen row's listings, own ones apart, sorted by price.
-local function search(r)
+-- Asks for the chosen row's listings. With `open`, the auction house's own window shows the item too, as
+-- a click on it in Blizzard's browse list does (its buy view, with every price); its search is the one
+-- whose results arrive here. Without it, or on a client without that method, a search of our own.
+local function search(r, open)
 	if not (r and C_AuctionHouse.SendSearchQuery and C_AuctionHouse.GetItemKeyFromItem) then
 		return
 	end
@@ -113,25 +116,39 @@ local function search(r)
 	if not key then
 		return
 	end
+	r.itemKey = key
+	if open and AuctionHouseFrame and AuctionHouseFrame.SelectBrowseResult and AuctionHouseFrame:IsShown() then
+		if ns.safely("auction browse", AuctionHouseFrame.SelectBrowseResult, AuctionHouseFrame, { itemKey = key }) then
+			return
+		end
+	end
 	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
-	r.itemKey = key
 end
+
+local LISTED = 5 -- the cheapest listings the panel shows
 
 local refresh, show
 
 -- Commodities: the cheapest unit left after the player's own.
 ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction panel", function(itemID)
 	local n = C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
-	local cheapest
+	local cheapest, list = nil, {}
 	for i = 1, n do
 		local res = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, i)
-		if res and (res.quantity or 0) - (res.numOwnerItems or 0) > 0 then
-			cheapest = res.unitPrice
+		if res then
+			if not cheapest and (res.quantity or 0) - (res.numOwnerItems or 0) > 0 then
+				cheapest = res.unitPrice
+			end
+			if #list < LISTED then
+				list[#list + 1] = { unit = res.unitPrice, qty = res.quantity or 0, own = (res.numOwnerItems or 0) > 0 }
+			end
+		end
+		if cheapest and #list >= LISTED then
 			break
 		end
 	end
-	live[tostring(itemID)] = { cheapest = cheapest, at = GetTime() }
+	live[tostring(itemID)] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -143,17 +160,27 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 		return
 	end
 	local n = C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
-	local cheapest
+	local cheapest, all = nil, {}
 	for i = 1, n do
 		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
-		if res and not res.containsOwnerItem and res.buyoutAmount and res.buyoutAmount > 0 then
+		if res and res.buyoutAmount and res.buyoutAmount > 0 then
 			local unit = math.floor(res.buyoutAmount / math.max(1, res.quantity or 1) + 0.5)
-			cheapest = cheapest and math.min(cheapest, unit) or unit
+			all[#all + 1] = { unit = unit, qty = res.quantity or 1, own = res.containsOwnerItem and true or false }
+			if not res.containsOwnerItem then
+				cheapest = cheapest and math.min(cheapest, unit) or unit
+			end
 		end
+	end
+	table.sort(all, function(a, b)
+		return a.unit < b.unit
+	end)
+	local list = {}
+	for i = 1, math.min(LISTED, #all) do
+		list[i] = all[i]
 	end
 	for _, r in ipairs(rows) do
 		if r.itemKey and r.itemKey.itemID == itemKey.itemID and r.itemKey.itemLevel == itemKey.itemLevel then
-			live[r.key] = { cheapest = cheapest, at = GetTime() }
+			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
 		end
 	end
 	if refresh then
@@ -329,13 +356,13 @@ local function buildPost(page)
 		{ key = "post", title = "Post at", width = 86, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "—" end,
 			sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
-		pageSize = 9,
+		pageSize = 6,
 		rowHeight = 24,
 		empty = "Nothing in your bags the auction house takes.",
 		isSelected = function(r) return chosen and r.key == chosen.key end,
 		onRowClick = function(r)
 			chosen, armed = r, nil
-			search(r)
+			search(r, true)
 			refresh()
 		end,
 	})
@@ -346,7 +373,7 @@ local function buildPost(page)
 	local detail = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
 	detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
 	detail:SetPoint("RIGHT", page, "RIGHT")
-	detail:SetHeight(132)
+	detail:SetHeight(214)
 	local name = UI.Text(detail, "", { size = "md", medium = true })
 	name:SetPoint("TOPLEFT", 14, -12)
 	name:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
@@ -356,6 +383,19 @@ local function buildPost(page)
 	local facts = UI.Text(detail, "", { size = "xs", tone = "muted", wrap = true })
 	facts:SetPoint("TOPLEFT", reason, "BOTTOMLEFT", 0, -6)
 	facts:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
+	-- The cheapest listings, the player's own marked, from the last search.
+	local listHead = UI.Text(detail, "LISTINGS", { size = "xs", medium = true, tone = "faint" })
+	listHead:SetPoint("TOPLEFT", facts, "BOTTOMLEFT", 0, -10)
+	local listed = {}
+	for i = 1, LISTED do
+		local unit = UI.Text(detail, "", { size = "sm", align = "RIGHT" })
+		unit:SetPoint("TOPLEFT", listHead, "BOTTOMLEFT", 0, -4 - (i - 1) * 15)
+		unit:SetWidth(110)
+		local qty = UI.Text(detail, "", { size = "xs", tone = "muted" })
+		qty:SetPoint("LEFT", unit, "RIGHT", 12, 0)
+		qty:SetWidth(200)
+		listed[i] = { unit = unit, qty = qty }
+	end
 	local duration = UI.Dropdown(detail, DURATIONS, settings().duration, function(v)
 		settings().duration = v
 		refresh()
@@ -392,6 +432,13 @@ local function buildPost(page)
 		facts:SetText(string.format("Cheapest other %s · market %s%s · floor %s · normal %s", cheapest,
 			r.market and money(r.market) or "—", r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or "",
 			sug and money(sug.floor) or "—", sug and money(sug.normal) or "—"))
+		local l = live[r.key]
+		for i, line in ipairs(listed) do
+			local x = l and l.list and l.list[i]
+			line.unit:SetText(x and money(x.unit) or (i == 1 and (faint .. (l and "none listed" or "searching…") .. "|r") or ""))
+			line.qty:SetText(x and ("×" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
+		end
+		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
 		local can = sug and sug.unit and not waiting
 		if can then
 			button.label:SetText((Theme.skin.titleCaps and "POST " or "Post ") .. quantity(r) .. " × " .. money(sug.unit))
