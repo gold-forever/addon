@@ -1,7 +1,8 @@
 -- Gold Forever: the in-game UI kit. The web app's components (frontend/src/design-system) in the
--- game's own frames, styled by Theme.lua: flat ink surfaces, 1-pixel borders, one gold accent,
--- text at three levels, everything on the pixel grid. Plain frames only (no secure templates), so
--- every window can open in combat; nothing here reads a value the client keeps secret.
+-- game's own frames, in the look the player picked (Theme.skin): the web's rounded, shadowed cards in
+-- Roboto, or the client's own dialog boxes, red buttons and Friz Quadrata. Text at three levels, one
+-- accent, everything on the pixel grid. Plain frames and Blizzard's plain templates only (no secure
+-- ones), so every window can open in combat; nothing here reads a value the client keeps secret.
 --
 -- Pure helpers (ns.UI.layout) carry the arithmetic, so it is tested without the client.
 
@@ -12,8 +13,7 @@ local UI = { layout = {} }
 ns.UI = UI
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
--- A condensed sans every client has; a bundled font can replace it in one place.
-local FONT = "Fonts\\ARIALN.TTF"
+
 
 -- Layout: pure ---------------------------------------------------------------------------------------
 
@@ -119,6 +119,7 @@ function UI.layout.overflowTip(columns, row, clipped)
 	return out
 end
 
+
 -- Pixels -------------------------------------------------------------------------------------------
 
 -- One physical pixel in UI units: 1-pixel lines stay 1 pixel at any UI scale.
@@ -131,7 +132,55 @@ function UI.pixel()
 	return 768 / height / scale
 end
 
+-- The Round texture's solid middle, a sliver wide enough to stretch without its edge showing.
+local MID_LO, MID_HI = 0.49, 0.51
+
+-- Texture coordinates for the nine parts of a rounded box cut from the Round texture (a circle): a
+-- rounded corner takes its quarter of the circle, a corner named in `square` the solid middle.
+function UI.layout.nineSlice(square)
+	square = square or {}
+	local function corner(name, l, r, t, b)
+		if square[name] then
+			return { MID_LO, MID_HI, MID_LO, MID_HI }
+		end
+		return { l, r, t, b }
+	end
+	return {
+		TOPLEFT = corner("TOPLEFT", 0, 0.5, 0, 0.5),
+		TOPRIGHT = corner("TOPRIGHT", 0.5, 1, 0, 0.5),
+		BOTTOMLEFT = corner("BOTTOMLEFT", 0, 0.5, 0.5, 1),
+		BOTTOMRIGHT = corner("BOTTOMRIGHT", 0.5, 1, 0.5, 1),
+		TOP = { MID_LO, MID_HI, 0, 0.5 },
+		BOTTOM = { MID_LO, MID_HI, 0.5, 1 },
+		LEFT = { 0, 0.5, MID_LO, MID_HI },
+		RIGHT = { 0.5, 1, MID_LO, MID_HI },
+		CENTER = { MID_LO, MID_HI, MID_LO, MID_HI },
+	}
+end
+
 -- Drawing ------------------------------------------------------------------------------------------
+
+-- A box: one or more textures recoloured, faded and shown together.
+local function box(parts)
+	local b = { parts = parts }
+	function b:SetColor(hex, alpha)
+		local r, g, bl = Theme.rgb(hex)
+		for _, t in pairs(self.parts) do
+			t:SetVertexColor(r, g, bl, alpha or 1)
+		end
+	end
+	function b:SetAlpha(alpha)
+		for _, t in pairs(self.parts) do
+			t:SetAlpha(alpha)
+		end
+	end
+	function b:SetShown(on)
+		for _, t in pairs(self.parts) do
+			t:SetShown(on)
+		end
+	end
+	return b
+end
 
 local function solid(parent, layer, hex, alpha)
 	local t = parent:CreateTexture(nil, layer or "BACKGROUND")
@@ -163,27 +212,138 @@ function UI.border(frame, hex, alpha)
 	return edges
 end
 
--- A flat panel: a surface colour with a border.
+-- A rounded box of `hex`, `r` pixels round, `inset` in from the frame's edges: nine textures cut from
+-- the Round texture. Corners named in `square` stay square. The frame must be at least 2r on each side.
+function UI.round(frame, layer, sublevel, hex, alpha, r, inset, square)
+	inset = inset or 0
+	local p = {}
+	for key, c in pairs(UI.layout.nineSlice(square)) do
+		local t = frame:CreateTexture(nil, layer or "BACKGROUND", nil, sublevel or 0)
+		t:SetTexture(Theme.media.round)
+		t:SetTexCoord(c[1], c[2], c[3], c[4])
+		p[key] = t
+	end
+	for _, corner in ipairs({ { "TOPLEFT", 1, -1 }, { "TOPRIGHT", -1, -1 }, { "BOTTOMLEFT", 1, 1 }, { "BOTTOMRIGHT", -1, 1 } }) do
+		p[corner[1]]:SetPoint(corner[1], corner[2] * inset, corner[3] * inset)
+		p[corner[1]]:SetSize(r, r)
+	end
+	p.TOP:SetPoint("TOPLEFT", p.TOPLEFT, "TOPRIGHT")
+	p.TOP:SetPoint("BOTTOMRIGHT", p.TOPRIGHT, "BOTTOMLEFT")
+	p.BOTTOM:SetPoint("TOPLEFT", p.BOTTOMLEFT, "TOPRIGHT")
+	p.BOTTOM:SetPoint("BOTTOMRIGHT", p.BOTTOMRIGHT, "BOTTOMLEFT")
+	p.LEFT:SetPoint("TOPLEFT", p.TOPLEFT, "BOTTOMLEFT")
+	p.LEFT:SetPoint("BOTTOMRIGHT", p.BOTTOMLEFT, "TOPRIGHT")
+	p.RIGHT:SetPoint("TOPLEFT", p.TOPRIGHT, "BOTTOMLEFT")
+	p.RIGHT:SetPoint("BOTTOMRIGHT", p.BOTTOMRIGHT, "TOPRIGHT")
+	p.CENTER:SetPoint("TOPLEFT", p.TOPLEFT, "BOTTOMRIGHT")
+	p.CENTER:SetPoint("BOTTOMRIGHT", p.BOTTOMRIGHT, "TOPLEFT")
+	local b = box(p)
+	b:SetColor(hex, alpha)
+	return b
+end
+
+-- The web's soft shadow under a window: nine textures from the Shadow texture, spread around the frame
+-- and dropped a little, behind everything the frame draws.
+function UI.shadow(frame, spread, alpha)
+	spread = spread or 24
+	local edge = spread / 64
+	local cut = { 0, edge, 1 - edge, 1 }
+	local p = {}
+	local names = { { "TOPLEFT", 1, 1 }, { "TOP", 2, 1 }, { "TOPRIGHT", 3, 1 }, { "LEFT", 1, 2 }, { "CENTER", 2, 2 }, { "RIGHT", 3, 2 },
+		{ "BOTTOMLEFT", 1, 3 }, { "BOTTOM", 2, 3 }, { "BOTTOMRIGHT", 3, 3 } }
+	for _, n in ipairs(names) do
+		local t = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+		t:SetTexture(Theme.media.shadow)
+		t:SetTexCoord(cut[n[2]], cut[n[2] + 1], cut[n[3]], cut[n[3] + 1])
+		p[n[1]] = t
+	end
+	local drop = 8
+	p.TOPLEFT:SetPoint("TOPLEFT", -spread, spread - drop)
+	p.TOPRIGHT:SetPoint("TOPRIGHT", spread, spread - drop)
+	p.BOTTOMLEFT:SetPoint("BOTTOMLEFT", -spread, -spread - drop)
+	p.BOTTOMRIGHT:SetPoint("BOTTOMRIGHT", spread, -spread - drop)
+	for _, c in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+		p[c]:SetSize(spread, spread)
+	end
+	p.TOP:SetPoint("TOPLEFT", p.TOPLEFT, "TOPRIGHT")
+	p.TOP:SetPoint("BOTTOMRIGHT", p.TOPRIGHT, "BOTTOMLEFT")
+	p.BOTTOM:SetPoint("TOPLEFT", p.BOTTOMLEFT, "TOPRIGHT")
+	p.BOTTOM:SetPoint("BOTTOMRIGHT", p.BOTTOMRIGHT, "BOTTOMLEFT")
+	p.LEFT:SetPoint("TOPLEFT", p.TOPLEFT, "BOTTOMLEFT")
+	p.LEFT:SetPoint("BOTTOMRIGHT", p.BOTTOMLEFT, "TOPRIGHT")
+	p.RIGHT:SetPoint("TOPLEFT", p.TOPRIGHT, "BOTTOMLEFT")
+	p.RIGHT:SetPoint("BOTTOMRIGHT", p.BOTTOMRIGHT, "TOPRIGHT")
+	p.CENTER:SetPoint("TOPLEFT", p.TOPLEFT, "BOTTOMRIGHT")
+	p.CENTER:SetPoint("BOTTOMRIGHT", p.BOTTOMRIGHT, "TOPLEFT")
+	local b = box(p)
+	b:SetColor("#000000", alpha or 0.35)
+	return b
+end
+
+-- A surface in the look in use: `hex` with a 1-pixel `edge` (or none), rounded `r` pixels on the web,
+-- square in the classic look. Returns the fill and the edge as boxes, so they recolour together.
+local function surface(frame, hex, alpha, edge, r, square)
+	if Theme.skin.radius and r and r > 0 then
+		local px = UI.pixel()
+		local rim = edge and UI.round(frame, "BACKGROUND", -7, edge, 1, r, 0, square)
+		local fill = UI.round(frame, "BACKGROUND", -6, hex, alpha, edge and math.max(1, r - px) or r, edge and px or 0, square)
+		return fill, rim
+	end
+	local t = solid(frame, "BACKGROUND", hex, alpha)
+	t:SetAllPoints()
+	local rim = edge and box(UI.border(frame, edge))
+	return box({ t }), rim
+end
+UI.surface = surface
+
+local function radius(kind)
+	return Theme.skin.radius and Theme.skin.radius[kind] or 0
+end
+
+-- A panel: a surface colour with a border. opts.window draws a window: the web's large rounded card
+-- with its shadow, or the client's dialog box (its own background and edge files).
 function UI.Panel(parent, opts)
 	opts = opts or {}
-	local f = CreateFrame("Frame", opts.name, parent)
-	f.bg = solid(f, "BACKGROUND", opts.color or Theme.color.surface, opts.alpha)
-	f.bg:SetAllPoints()
-	if opts.border ~= false then
-		UI.border(f, opts.borderColor)
+	local skin = Theme.skin
+	local classicWindow = opts.window and skin.backdrop and BackdropTemplateMixin
+	local f = CreateFrame("Frame", opts.name, parent, classicWindow and "BackdropTemplate" or nil)
+	if classicWindow then
+		f:SetBackdrop(skin.backdrop)
+		f:SetBackdropColor(1, 1, 1, opts.alpha or 0.96)
+		f:SetBackdropBorderColor(Theme.rgb(Theme.color.borderStrong))
+		return f
+	end
+	local edge = opts.border ~= false and (opts.borderColor or Theme.color.border) or nil
+	f.bg, f.rim = surface(f, opts.color or Theme.color.surface, opts.alpha, edge, opts.radius or radius(opts.window and "window" or "card"), opts.square)
+	if opts.window and skin.windowShadow then
+		f.shadow = UI.shadow(f)
 	end
 	return f
 end
 
 -- Text -----------------------------------------------------------------------------------------------
 
--- Text at a size from Theme.text and a tone: "text" (default), "muted", "faint", "accent", or a hex.
+-- SetFont, falling back to the game's own font when a file will not load (the client says false), so
+-- text never goes blank over a missing font.
+function UI.setFont(region, file, size, flags)
+	if region:SetFont(file, size, flags) == false then
+		region:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, flags)
+	end
+end
+
+-- Text at a size from Theme.text and a tone: "text" (default), "muted", "faint", "accent", or a hex,
+-- in the look's font (opts.medium for the heavier weight). The classic look keeps the game's shadow.
 function UI.Text(parent, text, opts)
 	opts = opts or {}
+	local skin = Theme.skin
 	local fs = parent:CreateFontString(nil, "OVERLAY")
-	fs:SetFont(FONT, Theme.text[opts.size or "md"] or Theme.text.md, opts.outline and "OUTLINE" or "")
-	fs:SetShadowOffset(1, -1)
-	fs:SetShadowColor(0, 0, 0, 0.6)
+	UI.setFont(fs, opts.medium and skin.fontMedium or skin.font, Theme.text[opts.size or "md"] or Theme.text.md, opts.outline and "OUTLINE" or "")
+	if skin.textShadow then
+		fs:SetShadowOffset(1, -1)
+		fs:SetShadowColor(0, 0, 0, 1)
+	else
+		fs:SetShadowOffset(0, 0)
+	end
 	local tones = { text = Theme.color.text, muted = Theme.color.textMuted, faint = Theme.color.textFaint, accent = Theme.color.accent }
 	fs:SetTextColor(Theme.rgb(tones[opts.tone or "text"] or opts.tone))
 	fs:SetJustifyH(opts.align or "LEFT")
@@ -196,69 +356,94 @@ end
 
 -- Controls ---------------------------------------------------------------------------------------------
 
--- A flat button: `primary` (gold, dark text), `ghost` (border only) or the default (raised surface).
--- Hover lifts it a little; the colours stay the theme's.
+-- A button: `primary`, `ghost` or the default. On the web: the site's rounded buttons (gold, bordered
+-- raised, or bare), lifting on hover. Classic: the client's red panel button, and a framed one for ghost.
 function UI.Button(parent, label, onClick, opts)
 	opts = opts or {}
-	local b = CreateFrame("Button", nil, parent)
-	b:SetHeight(opts.height or 24)
+	local skin = Theme.skin
 	local kind = opts.kind or "default"
-	local bgHex = kind == "primary" and Theme.color.accent or Theme.color.surfaceRaised
-	b.bg = solid(b, "BACKGROUND", bgHex, kind == "ghost" and 0 or 1)
-	b.bg:SetAllPoints()
-	UI.border(b, kind == "primary" and Theme.color.accentStrong or Theme.color.borderStrong)
-	b.label = UI.Text(b, label, { size = "sm", tone = kind == "primary" and Theme.color.accentContrast or "text", align = "CENTER" })
-	b.label:SetPoint("CENTER")
-	b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
-	b:SetScript("OnEnter", function(self)
-		self.bg:SetAlpha(kind == "ghost" and 0.15 or 0.85)
-	end)
-	b:SetScript("OnLeave", function(self)
-		self.bg:SetAlpha(1)
-		if kind == "ghost" then
-			self.bg:SetAlpha(0)
-		end
-	end)
+	local b
+	if skin.buttonTemplate and kind ~= "ghost" then
+		b = CreateFrame("Button", nil, parent, skin.buttonTemplate)
+		b:SetHeight(opts.height or 22)
+		b:SetText(label)
+		b.label = b:GetFontString()
+		b:SetWidth(opts.width or math.max(60, (b.label and b.label:GetStringWidth() or 40) + 28))
+	else
+		b = CreateFrame("Button", nil, parent)
+		b:SetHeight(opts.height or 24)
+		local web = skin.radius ~= nil
+		local fill = ({ primary = Theme.color.accent, default = Theme.color.surfaceRaised, ghost = Theme.color.surfaceHover })[kind]
+		local lift = ({ primary = Theme.color.accentStrong, default = Theme.color.surfaceHover, ghost = Theme.color.surfaceHover })[kind]
+		local rest = kind == "ghost" and (web and 0 or 0.35) or 1
+		local edge = (kind == "default" or (kind == "ghost" and not web)) and Theme.color.borderStrong or nil
+		b.bg = surface(b, kind == "ghost" and not web and "#000000" or fill, rest, edge, radius("control"))
+		local tone = kind == "primary" and Theme.color.accentContrast or kind == "ghost" and (web and "muted" or "accent") or "text"
+		b.label = UI.Text(b, label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
+		b.label:SetPoint("CENTER")
+		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
+		b:SetScript("OnEnter", function(self)
+			self.bg:SetColor(lift, kind == "ghost" and (web and 1 or 0.6) or 1)
+		end)
+		b:SetScript("OnLeave", function(self)
+			self.bg:SetColor(kind == "ghost" and not web and "#000000" or fill, rest)
+		end)
+	end
 	if onClick then
 		b:SetScript("OnClick", onClick)
 	end
 	return b
 end
 
--- A small rounded-looking label: a tone's soft background and its colour as text.
+-- A small label in a tone: the web's soft pill, or a framed label in the classic look.
 function UI.Badge(parent, text, hex)
+	local skin = Theme.skin
+	local tone = hex or Theme.color.accent
 	local f = CreateFrame("Frame", nil, parent)
-	f.bg = solid(f, "BACKGROUND", hex or Theme.color.accent, 0.18)
-	f.bg:SetAllPoints()
-	f.text = UI.Text(f, text, { size = "xs", tone = hex or Theme.color.accent, align = "CENTER" })
+	f.text = UI.Text(f, text, { size = "xs", medium = true, tone = tone, align = "CENTER" })
 	f.text:SetPoint("CENTER")
-	f:SetSize((f.text:GetStringWidth() or 30) + 12, 16)
+	local h = skin.radius and 18 or 16
+	f:SetSize((f.text:GetStringWidth() or 30) + 16, h)
+	if skin.radius then
+		f.bg = UI.round(f, "BACKGROUND", 0, tone, skin.badgeFill, h / 2)
+	else
+		f.bg = box(UI.border(f, tone, 0.55))
+	end
 	return f
 end
 
--- A row of tabs with an accent underline on the chosen one; onSelect(key) when one is clicked.
+-- A row of tabs; onSelect(key) when one is clicked. The web's segmented control (a sunken track, the
+-- chosen tab raised), or the client's framed tabs with the chosen one lit and its label gold.
 function UI.TabBar(parent, tabs, onSelect)
+	local skin = Theme.skin
+	local segmented = skin.tabs == "segmented"
 	local bar = CreateFrame("Frame", nil, parent)
-	bar:SetHeight(28)
-	bar.line = solid(bar, "BORDER", Theme.color.border)
-	bar.line:SetPoint("BOTTOMLEFT")
-	bar.line:SetPoint("BOTTOMRIGHT")
-	bar.line:SetHeight(UI.pixel())
+	local inner = segmented and 3 or 0
+	bar:SetHeight(segmented and 30 or 28)
+	if segmented then
+		bar.bg = surface(bar, Theme.color.surfaceSunken, 1, Theme.color.border, radius("control"))
+	else
+		bar.line = solid(bar, "BORDER", Theme.color.border)
+		bar.line:SetPoint("BOTTOMLEFT")
+		bar.line:SetPoint("BOTTOMRIGHT")
+		bar.line:SetHeight(UI.pixel())
+	end
 	bar.buttons = {}
-	local x = 0
+	local x = inner
 	for i, tab in ipairs(tabs) do
 		local b = CreateFrame("Button", nil, bar)
 		b.key = tab.key
-		b.label = UI.Text(b, tab.label, { size = "md", tone = "muted" })
-		b.label:SetPoint("CENTER", 0, 1)
-		local w = (b.label:GetStringWidth() or 50) + 20
-		b:SetSize(w, 28)
-		b:SetPoint("BOTTOMLEFT", x, 0)
-		x = x + w
-		b.underline = solid(b, "OVERLAY", Theme.color.accent)
-		b.underline:SetPoint("BOTTOMLEFT")
-		b.underline:SetPoint("BOTTOMRIGHT")
-		b.underline:SetHeight(2)
+		b.label = UI.Text(b, tab.label, { size = "sm", medium = segmented, tone = "muted" })
+		b.label:SetPoint("CENTER", 0, segmented and 0 or 1)
+		local w = (b.label:GetStringWidth() or 50) + 24
+		b:SetSize(w, segmented and 24 or 26)
+		b:SetPoint(segmented and "LEFT" or "BOTTOMLEFT", x, 0)
+		x = x + w + (segmented and 2 or 2)
+		if segmented then
+			b.on = surface(b, Theme.color.surfaceHover, 1, Theme.color.borderStrong, radius("tab"))
+		else
+			b.on = surface(b, "#000000", 0.45, Theme.color.border)
+		end
 		b:SetScript("OnClick", function()
 			bar:Select(tab.key)
 			if onSelect then
@@ -267,11 +452,16 @@ function UI.TabBar(parent, tabs, onSelect)
 		end)
 		bar.buttons[i] = b
 	end
+	bar:SetWidth(x + inner)
 	function bar:Select(key)
 		for _, b in ipairs(self.buttons) do
 			local on = b.key == key
-			b.underline:SetShown(on)
-			b.label:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
+			if segmented then
+				b.on:SetShown(on)
+			else
+				b.on:SetColor(on and Theme.color.surfaceHover or "#000000", on and 1 or 0.45)
+			end
+			b.label:SetTextColor(Theme.rgb(on and (segmented and Theme.color.accentStrong or Theme.color.accent) or Theme.color.textMuted))
 		end
 		self.selected = key
 	end
@@ -281,19 +471,17 @@ function UI.TabBar(parent, tabs, onSelect)
 	return bar
 end
 
--- A search field with a placeholder; onChange(text) as it is typed.
+-- A search field with a placeholder; onChange(text) as it is typed. Its edge lights up while it has focus.
 function UI.SearchBox(parent, placeholder, onChange)
 	local box = CreateFrame("EditBox", nil, parent)
 	box:SetAutoFocus(false)
-	box:SetHeight(24)
-	box:SetFont(FONT, Theme.text.md, "")
+	box:SetHeight(Theme.skin.radius and 28 or 24)
+	UI.setFont(box, Theme.skin.font, Theme.text.md, "")
 	box:SetTextColor(Theme.rgb(Theme.color.text))
-	box:SetTextInsets(8, 8, 0, 0)
-	box.bg = solid(box, "BACKGROUND", Theme.color.surfaceSunken)
-	box.bg:SetAllPoints()
-	UI.border(box, Theme.color.borderStrong)
+	box:SetTextInsets(10, 10, 0, 0)
+	box.bg, box.rim = surface(box, Theme.color.surfaceSunken, 1, Theme.color.borderStrong, radius("control"))
 	box.hint = UI.Text(box, placeholder, { tone = "faint" })
-	box.hint:SetPoint("LEFT", 8, 0)
+	box.hint:SetPoint("LEFT", 10, 0)
 	box:SetScript("OnTextChanged", function(self)
 		local text = self:GetText() or ""
 		self.hint:SetShown(text == "")
@@ -305,10 +493,10 @@ function UI.SearchBox(parent, placeholder, onChange)
 		self:ClearFocus()
 	end)
 	box:SetScript("OnEditFocusGained", function(self)
-		self.edges.TOP:SetVertexColor(Theme.rgb(Theme.color.accent))
+		self.rim:SetColor(Theme.color.focus)
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		self.edges.TOP:SetVertexColor(Theme.rgb(Theme.color.borderStrong))
+		self.rim:SetColor(Theme.color.borderStrong)
 	end)
 	return box
 end
@@ -318,10 +506,10 @@ end
 -- A headline number: a small caps label, the value, a hint under it.
 function UI.StatCard(parent, label, value, hint)
 	local f = UI.Panel(parent, { color = Theme.color.surfaceRaised })
-	f:SetHeight(72)
-	f.label = UI.Text(f, string.upper(label), { size = "xs", tone = "muted" })
-	f.label:SetPoint("TOPLEFT", 12, -10)
-	f.value = UI.Text(f, value, { size = "xl" })
+	f:SetHeight(76)
+	f.label = UI.Text(f, string.upper(label), { size = "xs", medium = true, tone = "muted" })
+	f.label:SetPoint("TOPLEFT", 14, -12)
+	f.value = UI.Text(f, value, { size = "xl", medium = true })
 	f.value:SetPoint("TOPLEFT", f.label, "BOTTOMLEFT", 0, -6)
 	f.hint = UI.Text(f, hint, { size = "xs", tone = "faint" })
 	f.hint:SetPoint("TOPLEFT", f.value, "BOTTOMLEFT", 0, -4)
@@ -452,8 +640,8 @@ function UI.Table(parent, columns, opts)
 	t.header:SetPoint("TOPLEFT", 1, -1)
 	t.header:SetPoint("TOPRIGHT", -1, -1)
 	t.header:SetHeight(ROW + 2)
-	t.header.bg = solid(t.header, "BACKGROUND", Theme.color.surfaceRaised)
-	t.header.bg:SetAllPoints()
+	-- The header follows the table's rounded top; its bottom corners stay square against the rows.
+	t.header.bg = surface(t.header, Theme.color.surfaceRaised, 1, nil, math.max(0, radius("card") - 1), { BOTTOMLEFT = true, BOTTOMRIGHT = true })
 	t.heads, t.lines = {}, {}
 
 	local function cellPoints(cell, i, widths)
@@ -500,9 +688,16 @@ function UI.Table(parent, columns, opts)
 		l:SetHeight(ROW)
 		l:SetPoint("TOPLEFT", t.header, "BOTTOMLEFT", 0, -(n - 1) * ROW)
 		l:SetPoint("TOPRIGHT", t.header, "BOTTOMRIGHT", 0, -(n - 1) * ROW)
-		l.bg = solid(l, "BACKGROUND", n % 2 == 0 and Theme.color.surfaceHover or Theme.color.surface, n % 2 == 0 and 0.45 or 0)
+		-- Alternate rows shaded on the web; the classic look lights a row with the quest log's highlight.
+		l.bg = solid(l, "BACKGROUND", Theme.color.surfaceHover, n % 2 == 0 and Theme.skin.radius and 0.45 or 0)
 		l.bg:SetAllPoints()
-		l.hover = solid(l, "HIGHLIGHT", Theme.color.accent, 0.08)
+		if Theme.skin.highlight then
+			l.hover = l:CreateTexture(nil, "HIGHLIGHT")
+			l.hover:SetTexture(Theme.skin.highlight)
+			l.hover:SetBlendMode("ADD")
+		else
+			l.hover = solid(l, "HIGHLIGHT", Theme.color.accent, 0.08)
+		end
 		l.hover:SetAllPoints()
 		l.cells = {}
 		for i, c in ipairs(columns) do
@@ -595,27 +790,37 @@ end
 
 -- The main window: a title bar to drag it by, a close button, a sidebar of pages and a content
 -- area; Escape closes it. pages = { { key, label, build = function(content) } }: a page is built the
--- first time it is shown. Its position is kept in `store`.
+-- first time it is shown. Its position and page are kept in `store`. opts.onLook(name), when given,
+-- puts a button in the title bar that switches to the other look.
 function UI.Window(name, title, pages, store, opts)
 	opts = opts or {}
-	local w = UI.Panel(UIParent, { name = name, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
+	local skin = Theme.skin
+	local web = skin.radius ~= nil
+	local w = UI.Panel(UIParent, { name = name, window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	w:SetSize(opts.width or 860, opts.height or 560)
 	w:SetFrameStrata("HIGH")
 	w:SetClampedToScreen(true)
 	w:SetMovable(true)
 	w:EnableMouse(true)
-	if store.point then
-		w:SetPoint(store.point[1], UIParent, store.point[2], store.point[3], store.point[4])
-	else
-		w:SetPoint("CENTER")
+	-- Back to where the player left it (the store is shared by the window of each look).
+	function w:Restore()
+		self:ClearAllPoints()
+		if store.point then
+			self:SetPoint(store.point[1], UIParent, store.point[2], store.point[3], store.point[4])
+		else
+			self:SetPoint("CENTER")
+		end
 	end
+	w:Restore()
 	if UISpecialFrames then
 		table.insert(UISpecialFrames, name)
 	end
+	-- Inside the edge: the web's 1-pixel rim, or the dialog border's width.
+	local inset = web and 1 or 5
 
 	local bar = CreateFrame("Frame", nil, w)
-	bar:SetPoint("TOPLEFT", 1, -1)
-	bar:SetPoint("TOPRIGHT", -1, -1)
+	bar:SetPoint("TOPLEFT", inset, -inset)
+	bar:SetPoint("TOPRIGHT", -inset, -inset)
 	bar:SetHeight(36)
 	bar:EnableMouse(true)
 	bar:RegisterForDrag("LeftButton")
@@ -627,24 +832,50 @@ function UI.Window(name, title, pages, store, opts)
 		local p, _, rel, x, y = w:GetPoint()
 		store.point = { p, rel, x, y }
 	end)
-	bar.bg = solid(bar, "BACKGROUND", Theme.color.surface)
-	bar.bg:SetAllPoints()
+	if web then
+		bar.bg = surface(bar, Theme.color.surface, 1, nil, radius("window") - 1, { BOTTOMLEFT = true, BOTTOMRIGHT = true })
+	else
+		bar.bg = solid(bar, "BACKGROUND", "#000000", 0.35)
+		bar.bg:SetAllPoints()
+	end
+	local rule = solid(bar, "BORDER", Theme.color.border)
+	rule:SetPoint("BOTTOMLEFT")
+	rule:SetPoint("BOTTOMRIGHT")
+	rule:SetHeight(UI.pixel())
 	local mark = solid(bar, "ARTWORK", Theme.color.accent)
 	mark:SetSize(10, 10)
 	mark:SetPoint("LEFT", 14, 0)
-	w.title = UI.Text(bar, title, { size = "lg" })
+	w.title = UI.Text(bar, title, { size = "lg", medium = true, tone = web and "text" or "accent" })
 	w.title:SetPoint("LEFT", mark, "RIGHT", 8, 0)
-	local close = UI.Button(bar, "×", function()
+	local close
+	if skin.closeTemplate then
+		close = CreateFrame("Button", nil, bar, skin.closeTemplate)
+		close:SetPoint("RIGHT", 2, 0)
+	else
+		close = UI.Button(bar, "×", nil, { kind = "ghost", width = 28, height = 24 })
+		close:SetPoint("RIGHT", -8, 0)
+	end
+	close:SetScript("OnClick", function()
 		w:Hide()
-	end, { kind = "ghost", width = 28, height = 24 })
-	close:SetPoint("RIGHT", -8, 0)
+	end)
+	if opts.onLook then
+		local other = web and "classic" or "web"
+		local look = UI.Button(bar, Theme.skins[other].label .. " look", function()
+			opts.onLook(other)
+		end, { kind = "ghost", height = 22 })
+		look:SetPoint("RIGHT", close, "LEFT", -6, 0)
+	end
 
 	local side = CreateFrame("Frame", nil, w)
 	side:SetPoint("TOPLEFT", bar, "BOTTOMLEFT")
-	side:SetPoint("BOTTOMLEFT", 1, 1)
+	side:SetPoint("BOTTOMLEFT", inset, inset)
 	side:SetWidth(opts.sidebar or 170)
-	side.bg = solid(side, "BACKGROUND", Theme.color.surface)
-	side.bg:SetAllPoints()
+	if web then
+		side.bg = surface(side, Theme.color.surface, 1, nil, radius("window") - 1, { TOPLEFT = true, TOPRIGHT = true, BOTTOMRIGHT = true })
+	else
+		side.bg = solid(side, "BACKGROUND", "#000000", 0.3)
+		side.bg:SetAllPoints()
+	end
 	local divider = solid(side, "BORDER", Theme.color.border)
 	divider:SetPoint("TOPRIGHT")
 	divider:SetPoint("BOTTOMRIGHT")
@@ -652,7 +883,7 @@ function UI.Window(name, title, pages, store, opts)
 
 	local content = CreateFrame("Frame", nil, w)
 	content:SetPoint("TOPLEFT", side, "TOPRIGHT", 16, -16)
-	content:SetPoint("BOTTOMRIGHT", -16, 16)
+	content:SetPoint("BOTTOMRIGHT", -16 - inset, 16 + inset)
 	w.content = content
 
 	w.pages, w.items = {}, {}
@@ -663,7 +894,7 @@ function UI.Window(name, title, pages, store, opts)
 		for _, item in ipairs(self.items) do
 			local on = item.key == key
 			item.bg:SetAlpha(on and 1 or 0)
-			item.label:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
+			item.label:SetTextColor(Theme.rgb(on and (web and Theme.color.accentStrong or Theme.color.accent) or Theme.color.textMuted))
 		end
 		local page = self.pages[key]
 		if not page then
@@ -687,13 +918,20 @@ function UI.Window(name, title, pages, store, opts)
 	for i, p in ipairs(pages) do
 		local item = CreateFrame("Button", nil, side)
 		item.key = p.key
-		item:SetHeight(28)
-		item:SetPoint("TOPLEFT", 8, -8 - (i - 1) * 30)
-		item:SetPoint("TOPRIGHT", -8, -8 - (i - 1) * 30)
-		item.bg = solid(item, "BACKGROUND", Theme.color.accentSoft)
-		item.bg:SetAllPoints()
-		item.label = UI.Text(item, p.label, { size = "md", tone = "muted" })
-		item.label:SetPoint("LEFT", 10, 0)
+		item:SetHeight(30)
+		item:SetPoint("TOPLEFT", 8, -10 - (i - 1) * 32)
+		item:SetPoint("TOPRIGHT", -8, -10 - (i - 1) * 32)
+		if skin.highlight then
+			local t = item:CreateTexture(nil, "BACKGROUND")
+			t:SetTexture(skin.highlight)
+			t:SetBlendMode("ADD")
+			t:SetAllPoints()
+			item.bg = box({ t })
+		else
+			item.bg = surface(item, Theme.color.accentSoft, 1, nil, radius("item"))
+		end
+		item.label = UI.Text(item, p.label, { size = "md", medium = web, tone = "muted" })
+		item.label:SetPoint("LEFT", 12, 0)
 		item:SetScript("OnClick", function()
 			w:SelectPage(p.key)
 		end)
