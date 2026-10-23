@@ -72,4 +72,12 @@ function Crafting.quote(recipe, price, stock, cut)
 	}
 end
 
+-- Profit over what the reagents cost, in whole percent; nil without both. The strip's "margin".
+function Crafting.margin(q)
+	if not q or not q.profit or not q.cost or q.cost <= 0 then
+		return nil
+	end
+	return math.floor(q.profit / q.cost * 100 + 0.5)
+end
+
 return Crafting

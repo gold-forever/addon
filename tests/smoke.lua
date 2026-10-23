@@ -338,6 +338,17 @@ GoldForeverDB.catalogue.items[2996] = "Bolt of Linen Cloth,1,10,7,5,10,25,0,1328
 GoldForeverDB.catalogue.tooltips[2996] = "Bolt of Linen Cloth"
 fire("AUCTION_HOUSE_SHOW")
 print("SHOP\n" .. tostring(appraiserText))
+-- The crafting strip: beside the profession window, the selected recipe's cost, sale and profit.
+do
+  ProfessionsFrame = widget()
+  fire("TRADE_SKILL_SHOW")
+  ns.CraftingStrip.select(2963)
+  local title = ns.CraftingStrip.shown()
+  assert(title and title:find("Bolt of Linen Cloth", 1, true), "the strip names the recipe's item: " .. tostring(title))
+  fire("TRADE_SKILL_CLOSE")
+  assert(not ns.CraftingStrip.shown(), "and closes with the window")
+  ProfessionsFrame = nil
+end
 -- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
 do
   AuctionHouseFrame = widget()

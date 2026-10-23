@@ -22,7 +22,7 @@
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
   any look (also `/gf accent #rrggbb`), the minimap button, the window's size and the alerts. Its
   **Modules** tab switches each part on or off without a reload: the session HUD, the auction house
-  panel, prices in tooltips, bag advice at vendors, the craft list and rare alerts. What the save
+  panel, prices in tooltips, the crafting strip, bag advice at vendors, the craft list and rare alerts. What the save
   records stays the same whatever is off.
 - The loot window is now the **session HUD**: one line to drag anywhere with the session's time, gold,
   XP and kills an hour and when you will ding, drawn in the window's look. Click it for the session:
@@ -43,6 +43,9 @@
 - Retail saves keep one full auction scan per connected realm group (either side's auctioneer opens the
   same auction house): a retail scan is about 2 MB, and a save with four of them grew past the server's
   10 MB upload limit, so nothing new reached the site. The server keeps every scan it received.
+- A **crafting strip** beside the profession window: for the recipe you choose, what its reagents
+  cost (each at the cheaper of the auction house and a vendor), what the item sells for after the cut,
+  the profit and margin, and what you still have to buy. Settings → Modules switches it off.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.

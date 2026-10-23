@@ -45,5 +45,6 @@ Levelling.lua
 Dings.lua
 Post.lua
 AuctionPanel.lua
+CraftingStrip.lua
 DesignSystem.lua
 Minimap.lua

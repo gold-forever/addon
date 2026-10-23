@@ -770,6 +770,7 @@ local function buildSettings(page)
 	local m = page.modules
 	local auction = ns.settings("auction", { rule = {}, duration = 2 })
 	local prices = ns.settings("prices", { tooltip = true })
+	local crafting = ns.settings("crafting", { strip = true })
 	local MODULES = {
 		{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
 			on = function() return appraiser.shown end,
@@ -788,6 +789,9 @@ local function buildSettings(page)
 		{ icon = "backpack", name = "Bag advice at vendors", blurb = "What to sell, keep or post when a vendor opens.",
 			on = function() return advisor.shown end,
 			set = function(on) advisor.shown = on end },
+		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
+			on = function() return crafting.strip ~= false end,
+			set = function(on) crafting.strip = on end },
 		{ icon = "flask-conical", name = "Craft list at the auction house", blurb = "Your recipes that make a profit, and what to buy for them.",
 			on = function() return shop.shown end,
 			set = function(on) shop.shown = on end },

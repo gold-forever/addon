@@ -46,4 +46,10 @@ eq(C.quote(mystery, price, function() return 0 end, 0.05).profit, nil, "unknown"
 -- An unpriced output too.
 eq(C.quote({ output = 99999, yield = 1, reagents = {} }, price, function() return 0 end, 0.05).profit, nil, "no sale price")
 
+-- The margin: profit over cost, whole percent; unknown without both.
+eq(C.margin({ profit = 50, cost = 200 }), 25, "a quarter")
+eq(C.margin({ profit = -30, cost = 200 }), -15, "a loss")
+eq(C.margin({ profit = nil, cost = 200 }), nil, "no profit known")
+eq(C.margin({ profit = 10, cost = 0 }), nil, "nothing to buy: no margin")
+
 return checks

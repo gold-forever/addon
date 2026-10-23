@@ -86,6 +86,24 @@ end
 -- For the hub's Home page: the best crafts now.
 ns.profitableCrafts = profitable
 
+-- For the crafting strip: one recipe's quote from the catalogue, with what this character holds; nil
+-- for a recipe the catalogue lacks or one that makes no item (an enchant).
+function ns.quoteRecipe(id)
+	if not ns.me() or not ns.price then
+		return nil
+	end
+	local r = recipe(id, columns("recipe"))
+	if not r then
+		return nil
+	end
+	local held = stock()
+	local q = ns.Crafting.quote(r, ns.price, function(x)
+		return held[x] or 0
+	end, ns.price.cut)
+	q.recipe = r
+	return q
+end
+
 local function name(id)
 	local _, _, _, _, n = ns.price.itemInfo(id)
 	return n or ("item " .. id)
