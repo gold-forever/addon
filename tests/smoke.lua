@@ -387,7 +387,7 @@ do
 end
 print("BUYER KEPT " .. tostring((table.concat(day.sale or {}, ";")):find("SomeBuyer") ~= nil))
 print("RARE ROWS " .. tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]))
-print("APPRAISER\n" .. tostring(appraiserText))
+print("APPRAISER\n" .. tostring(ns.sessionText and ns.sessionText()))
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
 print("TOOLTIP " .. tostring(GameTooltip.lines[1]))
 -- The pool's prices from GoldForever_Data (contract T01): one line for the player's own market.
@@ -654,7 +654,7 @@ do
 end
 
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
-local before = appraiserText
+local before = ns.sessionText()
 fire("PLAYER_LOGOUT")
 for k in pairs(frames) do frames[k] = nil end
 local ns2 = {}
@@ -663,13 +663,15 @@ for _, f in ipairs(tocFiles()) do
 end
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
-print("AFTER RELOAD\n" .. tostring(appraiserText))
+local after = ns2.sessionText and ns2.sessionText() or ""
+print("AFTER RELOAD\n" .. tostring(after))
 do
   local kinds = {}
   for _, sc in ipairs(GoldForeverDB.scans) do kinds[#kinds + 1] = sc.kind .. "@" .. tostring(sc.t) end
   print("SCANS KEPT " .. table.concat(kinds, " "))
 end
-print("SAME TOTALS " .. tostring((before:match("Total: [^|]*")) == (appraiserText:match("Total: [^|]*"))))
+print("SAME TOTALS " .. tostring((before:match("Total: [^|]*")) == (after:match("Total: [^|]*"))))
+assert(before:match("Total: [^|]*") and before:match("Total: [^|]*") == after:match("Total: [^|]*"), "the session survives a /reload")
 -- /gf export: the first holds everything, the next only what is new; both build without error.
 SlashCmdList.GOLDFOREVER("export")
 local firstAt = GoldForeverDB.exportedAt

@@ -248,6 +248,8 @@ function Theme.apply(name, accent)
 	end
 	Theme.skin = skin
 	Theme.accent = Theme.color.accent
+	-- Which look and accent are in: a panel built under another key redraws itself.
+	Theme.key = skin.name .. Theme.color.accent
 	return skin
 end
 

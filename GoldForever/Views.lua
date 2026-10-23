@@ -272,3 +272,37 @@ function Views.ago(t, now)
 	end
 	return Views.duration(s < 3600 and s or s < 86400 and math.floor(s / 3600) * 3600 or math.floor(s / 86400) * 86400) .. " ago"
 end
+
+-- The session HUD's numbers (design 009, Session module) from a session { coin, xp, killXp, kills } that
+-- has run `elapsed` seconds, its loot worth `value`, and `toLevel` XP to the next level (0 or less at the
+-- cap). No rate in the first minute: one lucky drop is not a rate. dingIn is seconds at this XP pace;
+-- killsToLevel at this session's XP a kill.
+Views.SESSION_MIN_RATE = 60
+
+function Views.sessionRates(s, elapsed, value, toLevel)
+	local total = (s.coin or 0) + (value or 0)
+	local r = { total = total, rated = elapsed >= Views.SESSION_MIN_RATE }
+	if r.rated then
+		r.goldPerHour = total * 3600 / elapsed
+		r.xpPerHour = (s.xp or 0) * 3600 / elapsed
+		r.killsPerHour = (s.kills or 0) * 3600 / elapsed
+		if r.xpPerHour > 0 and toLevel and toLevel > 0 then
+			r.dingIn = toLevel / r.xpPerHour * 3600
+		end
+	end
+	if (s.kills or 0) > 0 and (s.killXp or 0) > 0 and toLevel and toLevel > 0 then
+		r.killsToLevel = math.ceil(toLevel / (s.killXp / s.kills))
+	end
+	return r
+end
+
+-- "12.3k" for the HUD: thousands with one decimal, millions likewise, smaller numbers whole.
+function Views.short(n)
+	n = n or 0
+	if n >= 1e6 then
+		return string.format("%.1fm", n / 1e6)
+	elseif n >= 1e3 then
+		return string.format("%.1fk", n / 1e3)
+	end
+	return tostring(math.floor(n + 0.5))
+end

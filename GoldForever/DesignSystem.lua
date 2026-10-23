@@ -591,7 +591,7 @@ local function buildSettings(page)
 		end },
 	})
 	settingsCard(g, "Panels and alerts", -146, {
-		{ side = 0, row = 0, label = "Loot appraiser", make = function(cell)
+		{ side = 0, row = 0, label = "Session HUD", make = function(cell)
 			return UI.Switch(cell, appraiser.shown, function(on)
 				if on ~= appraiser.shown and ns.commands.appraise then
 					ns.commands.appraise()
@@ -607,6 +607,11 @@ local function buildSettings(page)
 		{ side = 0, row = 2, label = "Craft list at the auction house", make = function(cell)
 			return UI.Switch(cell, shop.shown, function(on)
 				shop.shown = on
+			end)
+		end },
+		{ side = 0, row = 3, label = "Hide the HUD in combat", make = function(cell)
+			return UI.Switch(cell, appraiser.hideInCombat, function(on)
+				appraiser.hideInCombat = on
 			end)
 		end },
 		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
@@ -727,6 +732,11 @@ local PAGES = {
 local function look()
 	local name = settings().look
 	return Theme.skins[name] and name or "web"
+end
+
+-- The look and accent the player set, for panels outside the window (the session HUD) to draw in.
+function ns.applyLook()
+	Theme.apply(look(), settings().accent)
 end
 
 local function windowFor(name)

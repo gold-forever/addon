@@ -19,6 +19,11 @@
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
   any look (also `/gf accent #rrggbb`), the minimap button, the window's size, the loot appraiser, bag
   advice at vendors, the craft list at the auction house, the big-drop alert and the rare alerts.
+- The loot window is now the **session HUD**: one line to drag anywhere with the session's time, gold,
+  XP and kills an hour and when you will ding, drawn in the window's look. Click it for the session:
+  coin, loot at what it sells for, XP, kills (counted from XP and corpses, never the combat log), bags
+  and the best loot, with Stop and New session. Settings can hide it in combat; `/gf hud` shows or
+  hides it, `/gf session` prints it.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.

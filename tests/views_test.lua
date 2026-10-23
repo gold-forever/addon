@@ -113,4 +113,20 @@ eq(V.ago(100, 130), "now", "just now")
 eq(V.ago(0, 3 * 3600 + 1800), "3h ago", "hours ago, whole")
 eq(V.ago(0, 2 * 86400 + 7200), "2d ago", "days ago, whole")
 
+-- The session HUD: no rates in the first minute, then gold, XP and kills an hour and the ding.
+local early = V.sessionRates({ coin = 5000, xp = 900, killXp = 900, kills = 3 }, 30, 1000, 9000)
+eq(early.rated, false, "no rate before a minute")
+eq(early.goldPerHour, nil, "no gold an hour yet")
+eq(early.total, 6000, "coin and loot")
+eq(early.killsToLevel, 30, "kills to level: 9000 XP at 300 a kill")
+local hour = V.sessionRates({ coin = 10000, xp = 30000, killXp = 24000, kills = 120 }, 1800, 20000, 45000)
+eq(hour.goldPerHour, 60000, "30 silver in half an hour: 6 gold an hour")
+eq(hour.xpPerHour, 60000, "XP an hour")
+eq(hour.killsPerHour, 240, "kills an hour")
+eq(hour.dingIn, 2700, "45k XP at 60k an hour: 45 minutes")
+eq(V.sessionRates({ coin = 0, xp = 500 }, 600, 0, 0).dingIn, nil, "no ding at the level cap")
+eq(V.short(12345), "12.3k", "thousands")
+eq(V.short(2500000), "2.5m", "millions")
+eq(V.short(240.4), "240", "whole below a thousand")
+
 return checks
