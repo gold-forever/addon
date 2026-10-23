@@ -258,4 +258,13 @@ function Encode.day(epoch)
 	return date("!%Y-%m-%d", epoch)
 end
 
+-- A time-left band (Enum.AuctionHouseTimeLeftBand, 0–3) from GetReplicateItemTimeLeft's answer, which
+-- is 1–4 (short … very long); nil for anything else.
+function Encode.band(raw)
+	if type(raw) == "number" and raw >= 1 and raw <= 4 and raw == math.floor(raw) then
+		return raw - 1
+	end
+	return nil
+end
+
 return Encode

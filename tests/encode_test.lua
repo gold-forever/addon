@@ -134,4 +134,11 @@ eq(E.duration(80 * 60), "1h 20m", "hours")
 eq(E.day(1792368000), "2026-10-19", "start of a UTC day")
 eq(E.day(1792454399), "2026-10-19", "end of the same UTC day")
 
+-- The time-left band: the client's 1–4 as the enum's 0–3, anything else nothing.
+eq(E.band(1), 0, "short: under 30 minutes")
+eq(E.band(4), 3, "very long")
+eq(E.band(0), nil, "0 is not an answer the client gives")
+eq(E.band(5), nil, "out of range")
+eq(E.band(nil), nil, "no answer")
+
 return checks

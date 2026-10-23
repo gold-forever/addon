@@ -1,5 +1,14 @@
 # Gold Forever
 
+## Unreleased
+
+- Records three new things for your pages on the site and the shared prices:
+  - each auction scan now notes how long the listings have left, so the site can tell a sale from an
+    auction that simply ran out;
+  - what you sell to and buy from vendors (item, how many, for how much);
+  - what you buy on the auction house, and your auctions that expire or that you cancel.
+  As before, nothing about other players is kept: no buyer or seller names.
+
 ## 0.15.0
 
 - Prices from everyone's scans in the item tooltip: "Pool: 12s 34c · min buyout 11s 0c · 3 players ·
