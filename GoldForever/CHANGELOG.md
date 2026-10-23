@@ -32,6 +32,9 @@
   the server's answer, then moves to the next item. A post under vendor value or far under the market
   asks for a second press. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
   as shares of the market value (the pool's, else your own scan), and hold or post at the floor.
+- The pool's prices find the launch realms' markets: the region from a region number or the portal
+  when the client gives no name, and the ruleset from the realm's name (Hardcore, RP-PvP, PvP, RP,
+  Normal, or the realm's own name), as the server files them now.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.

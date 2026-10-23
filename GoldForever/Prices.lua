@@ -14,6 +14,10 @@ local VERSION = 1 -- the GoldForever_Prices layout this addon reads
 local STALE_SECONDS = 3 * 86400 -- a price scanned longer ago than this is greyed
 local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
 local REGIONS = { US = "NA", NA = "NA", EU = "EU", KR = "KR", TW = "TW", CN = "CN" }
+-- GetCurrentRegion's ids, which the addon writes when GetCurrentRegionName answers "".
+local REGION_IDS = { ["1"] = "NA", ["2"] = "KR", ["3"] = "EU", ["4"] = "TW", ["5"] = "CN" }
+local BETA_REGION, BETA_PORTAL = "110", "test"
+local MAX_REGION_CODE, MAX_RULESET = 8, 32
 
 local function amount(x)
 	return type(x) == "number" and x >= 0 and x < math.huge
@@ -24,18 +28,80 @@ local function field(t, key)
 	return type(value) == "table" and value or nil
 end
 
-local function ruleset(realm)
-	if string.find(string.lower(realm), "%f[%w]pvp%f[%W]") then
-		return "pvp"
-	elseif string.find(realm, "%f[%w]RP%f[%W]") then
-		return "rp"
+local function trim(x)
+	return (string.gsub(x, "^%s*(.-)%s*$", "%1"))
+end
+
+-- A live region's key for a raw region name or id, else nil.
+local function live(raw)
+	if type(raw) ~= "string" then
+		return nil
 	end
-	return "normal"
+	local r = string.upper(trim(raw))
+	return REGIONS[r] or REGION_IDS[r]
+end
+
+-- Backend Markets.region: as the client named it, else as the portal CVar does; the beta's "110" and
+-- portal "test" are the beta ("110" wins over a live portal). Anything else is a market of its own:
+-- "X" and its code ("X41"), or UNKNOWN with none; never the beta.
+function Prices.region(raw, portal)
+	local r = live(raw)
+	if r then
+		return r
+	end
+	if type(raw) == "string" and trim(raw) == BETA_REGION then
+		return "BETA"
+	end
+	r = live(portal)
+	if r then
+		return r
+	end
+	if type(portal) == "string" and string.lower(trim(portal)) == BETA_PORTAL then
+		return "BETA"
+	end
+	local code = type(raw) == "string" and string.sub(string.gsub(string.upper(raw), "[^A-Z0-9]", ""), 1, MAX_REGION_CODE) or ""
+	return code == "" and "UNKNOWN" or ("X" .. code)
+end
+
+-- Backend Markets.ruleset: from the realm name's words (letters and digits, any case): Hardcore; RP and
+-- PvP together (or "rppvp") RP-PvP; PvP; RP, Roleplay(ing) or "Role Play"; PvE or Normal. A name saying
+-- none of these is a market of its own, keyed by its words joined ("shendralas"). Bytes above ASCII
+-- count as letters, so a name in another script stays one word.
+function Prices.ruleset(realm)
+	if type(realm) ~= "string" then
+		return "normal"
+	end
+	local words, has = {}, {}
+	for w in string.gmatch(string.lower(realm), "[%w\128-\255]+") do
+		words[#words + 1] = w
+		has[w] = true
+	end
+	local rp = has.rp or has.roleplay or has.roleplaying or has.rppvp
+	for i = 1, #words - 1 do
+		if words[i] == "role" and words[i + 1] == "play" then
+			rp = true
+		end
+	end
+	local pvp = has.pvp or has.rppvp
+	if has.hardcore then
+		return "hardcore"
+	elseif rp and pvp then
+		return "rppvp"
+	elseif pvp then
+		return "pvp"
+	elseif rp then
+		return "rp"
+	elseif has.pve or has.normal then
+		return "normal"
+	end
+	local joined = string.sub(table.concat(words), 1, MAX_RULESET)
+	return joined == "" and "unknown" or joined
 end
 
 -- The server's key for the addon's market "<region>-<realm>-<side>" (backend Markets.kt key()):
 -- "forever-<region>-<ruleset>-<side>". Forever only; nil on retail and for anything malformed.
-function Prices.poolMarket(market, interface)
+-- `portal` is the save's portal CVar, for a region the client named only by a number.
+function Prices.poolMarket(market, interface, portal)
 	if type(market) ~= "string" or not ns.Realms.isForever(interface) then
 		return nil
 	end
@@ -43,7 +109,7 @@ function Prices.poolMarket(market, interface)
 	if not region then
 		return nil
 	end
-	return "forever-" .. (REGIONS[string.upper(region)] or "BETA") .. "-" .. ruleset(realm) .. "-" .. side
+	return "forever-" .. Prices.region(region, portal) .. "-" .. Prices.ruleset(realm) .. "-" .. side
 end
 
 local SIDES = { alliance = true, horde = true, neutral = true }
@@ -68,19 +134,19 @@ local function retailMarkets(market)
 	if not region then
 		return nil
 	end
-	local r = REGIONS[string.upper(region)] or "BETA"
+	local r = Prices.region(region)
 	return { "retail-" .. r .. "-" .. string.gsub(realm, "[ %-%.]", ""), "retail-" .. r }
 end
 
 -- The server's keys to read for the addon's market, in order; nil when there are none.
-function Prices.markets(market, interface)
+function Prices.markets(market, interface, portal)
 	if type(market) ~= "string" then
 		return nil
 	end
 	if ns.Realms.isRetail(interface) then
 		return retailMarkets(market)
 	end
-	local key = Prices.poolMarket(market, interface)
+	local key = Prices.poolMarket(market, interface, portal)
 	return key and { key } or nil
 end
 
@@ -175,7 +241,8 @@ end
 -- The server's keys for the character being played; nil before login.
 local function mine()
 	local me = ns.me()
-	return me and Prices.markets(ns.market(string.lower(me.faction or "?")), ns.db().client.interface)
+	local client = ns.db().client
+	return me and Prices.markets(ns.market(string.lower(me.faction or "?")), client.interface, client.portal)
 end
 
 -- An item's market value for the character being played: the pool's when the companion's file has it,
