@@ -181,22 +181,40 @@ end
 function Encode.marketValueFlat(flat)
 	local n = #flat / 2
 	local total = 0
-	local order = {}
-	for k = 1, n do
-		order[k] = k
-		total = total + flat[2 * k]
+	for k = 2, #flat, 2 do
+		total = total + flat[k]
 	end
 	if total == 0 then
 		return nil
 	end
-	if n > 1 then
+	local wanted = math.max(1, math.ceil(total * 0.15))
+	if n == 1 then
+		return flat[1]
+	end
+	local order
+	if n <= 24 then
+		-- Few listings (most items): sorted in place by unit, pairs moved together; no table, no closure.
+		for i = 2, n do
+			local u, q = flat[2 * i - 1], flat[2 * i]
+			local j = i - 1
+			while j >= 1 and flat[2 * j - 1] > u do
+				flat[2 * j + 1], flat[2 * j + 2] = flat[2 * j - 1], flat[2 * j]
+				j = j - 1
+			end
+			flat[2 * j + 1], flat[2 * j + 2] = u, q
+		end
+	else
+		order = {}
+		for k = 1, n do
+			order[k] = k
+		end
 		table.sort(order, function(a, b)
 			return flat[2 * a - 1] < flat[2 * b - 1]
 		end)
 	end
-	local wanted = math.max(1, math.ceil(total * 0.15))
 	local units, copper = 0, 0
-	for _, k in ipairs(order) do
+	for i = 1, n do
+		local k = order and order[i] or i
 		local take = math.min(wanted - units, flat[2 * k])
 		units = units + take
 		copper = copper + take * flat[2 * k - 1]
