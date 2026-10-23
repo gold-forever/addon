@@ -365,7 +365,9 @@ do
   C_AuctionHouse.GetNumCommoditySearchResults = function() return 2 end
   C_AuctionHouse.GetCommoditySearchResultInfo = function(_, i) return ({ { unitPrice = 3000, quantity = 5, numOwnerItems = 5 }, { unitPrice = 4250, quantity = 20, numOwnerItems = 0 } })[i] end
   C_AuctionHouse.PostCommodity = function(...) posts[#posts + 1] = { ... } end
+  local framesBefore = #frames
   fire("AUCTION_HOUSE_SHOW")
+  print("AH PANEL FRAMES at opening: " .. (#frames - framesBefore))
   local AP = ns.AuctionPanel
   function SetOverrideBindingClick() end
   function ClearOverrideBindings() end

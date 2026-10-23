@@ -336,7 +336,7 @@ ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 		confirm = { key = waiting.key, args = lastArgs }
 	end
 	waiting = nil
-	if panel then
+	if panel and panel.post.note then
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
 	end
 end)
@@ -344,6 +344,9 @@ ns.on("UI_ERROR_MESSAGE", "auction panel", function(_, message)
 	if waiting and panel then
 		local note = string.find(waiting.key, "^shop:") and panel.shop.note or string.find(waiting.key, "^cancel:") and panel.cancel.note or panel.post.note
 		waiting = nil
+		if not note then
+			return
+		end
 		note:SetText(Theme.escape(Theme.color.danger) .. tostring(message or "The post failed.") .. "|r")
 	end
 end)
@@ -646,7 +649,7 @@ local function buyNext()
 end
 
 ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
-	if not purchase or not panel then
+	if not purchase or not panel or not panel.shop.note then
 		return
 	end
 	purchase.quoted = total
@@ -657,8 +660,8 @@ ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
 	refresh()
 end)
 local function bought(ok, why)
-	if not panel then
-		return
+	if not panel or not panel.shop.note then
+		return -- a purchase from Blizzard's own window, the Shop not drawn
 	end
 	waiting, purchase = nil, nil
 	panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
@@ -966,7 +969,7 @@ ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
 			break
 		end
 	end
-	if panel then
+	if panel and panel.cancel.note then
 		panel.cancel.note:SetText(Theme.escape(Theme.color.success) .. "Cancelled: it comes back by mail.|r")
 		refresh()
 	end
@@ -1164,6 +1167,7 @@ local function build()
 	title:SetPoint("LEFT", mark, "RIGHT", 8, 0)
 	local pages = {}
 	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "shop", label = "Shop" }, { key = "cancel", label = "Cancel" }, { key = "rule", label = "Rule" } }, function(key)
+		p.ensure(key)
 		for k, f in pairs(pages) do
 			f:SetShown(k == key)
 		end
@@ -1180,11 +1184,16 @@ local function build()
 		f:Hide()
 		pages[key] = f
 	end
-	buildScan(pages.scan)
-	buildPost(pages.post)
-	buildShop(pages.shop)
-	buildCancel(pages.cancel)
-	buildRule(pages.rule)
+	-- Each tab is drawn the first time it is chosen: opening the auction house draws Scan only.
+	local builders = { scan = buildScan, post = buildPost, shop = buildShop, cancel = buildCancel, rule = buildRule }
+	function p.ensure(key)
+		local f = pages[key]
+		if f and not f.built then
+			f.built = true
+			builders[key](f)
+		end
+	end
+	p.ensure("scan")
 	p.scan, p.post, p.shop, p.cancel, p.tabs, p.pages = pages.scan, pages.post, pages.shop, pages.cancel, tabs, pages
 	p:SetScript("OnShow", bindSpace)
 	p:SetScript("OnHide", bindSpace)
@@ -1203,6 +1212,7 @@ refresh = function()
 		local tab = panel.tab
 		panel:Hide()
 		build()
+		panel.ensure(tab)
 		panel.tabs:Select(tab)
 		for k, f in pairs(panel.pages) do
 			f:SetShown(k == tab)
@@ -1323,6 +1333,7 @@ end
 ns.AuctionPanel = {
 	tab = function(key)
 		if panel then
+			panel.ensure(key)
 			panel.tabs:Select(key)
 			for k, f in pairs(panel.pages) do
 				f:SetShown(k == key)
