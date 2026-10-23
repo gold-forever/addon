@@ -439,6 +439,40 @@ local function elapsed()
 	return (idle() and session.last or GetTime()) - session.start
 end
 
+-- The session in figures, for the HUD and the hub's Session page: nil before any session.
+function ns.sessionSummary()
+	if not session then
+		return nil
+	end
+	local secs = elapsed()
+	local value, unpriced = itemsValue()
+	local toLevel = xpSeen and xpSeen.max > 0 and (xpSeen.max - xpSeen.cur) or 0
+	local used = session.bagBase - session.bagFree
+	local filling = GetTime() - session.bagBaseAt
+	local ranked = {}
+	for id, n in pairs(session.items) do
+		ranked[#ranked + 1] = { id = id, n = n, value = (worth(id) or 0) * n }
+	end
+	table.sort(ranked, function(a, b)
+		return a.value > b.value
+	end)
+	return {
+		ended = idle(), elapsed = secs, coin = session.coin, value = value, unpriced = unpriced,
+		rates = ns.Views.sessionRates(session, secs, value, toLevel),
+		xp = session.xp, kills = session.kills, nextLevel = xpSeen and (xpSeen.level or 0) + 1,
+		bagFree = session.bagFree,
+		fullIn = session.bagFree > 0 and used >= 1 and filling >= 120 and session.bagFree / (used / filling) or nil,
+		ranked = ranked,
+		bigDrop = settings().bigDrop or BIG_DROP,
+	}
+end
+
+-- What the item info gives for a looted item: quality and name.
+function ns.sessionItem(id)
+	local quality, _, _, _, name = itemInfo(id)
+	return quality, name
+end
+
 local function refresh()
 	if not hud or not hud:IsShown() then
 		return
@@ -461,10 +495,8 @@ local function refresh()
 		hud.details:Hide()
 		return
 	end
-	local secs = elapsed()
-	local value, unpriced = itemsValue()
-	local toLevel = xpSeen and xpSeen.max > 0 and (xpSeen.max - xpSeen.cur) or 0
-	local r = Views.sessionRates(session, secs, value, toLevel)
+	local sum = ns.sessionSummary()
+	local secs, value, unpriced, r = sum.elapsed, sum.value, sum.unpriced, sum.rates
 	local dash = faint .. "—|r"
 	hud.time:SetText((idle() and "ended " or "") .. Views.duration(math.max(60, secs)))
 	hud.gold:SetText((r.rated and UI.layout.money(r.goldPerHour, "gold") or dash) .. faint .. " /h|r")
@@ -479,23 +511,15 @@ local function refresh()
 	d.values[1]:SetText(UI.layout.money(session.coin))
 	d.values[2]:SetText(UI.layout.money(value) .. (unpriced > 0 and (faint .. string.format("  +%d unpriced", unpriced) .. "|r") or ""))
 	d.values[3]:SetText(UI.layout.money(r.total) .. (r.rated and (faint .. "  · " .. "|r" .. UI.layout.money(r.goldPerHour, "gold") .. faint .. " an hour|r") or ""))
-	d.values[4]:SetText(Views.short(session.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, (xpSeen.level or 0) + 1) .. "|r") or ""))
-	d.values[5]:SetText(session.kills .. faint .. "  from kill XP and corpses, never the combat log|r")
-	local used = session.bagBase - session.bagFree
-	local filling = GetTime() - session.bagBaseAt
-	local bags = session.bagFree == 0 and (Theme.escape(Theme.color.danger) .. "full|r") or (session.bagFree .. " free")
-	if session.bagFree > 0 and used >= 1 and filling >= 120 then
-		bags = bags .. faint .. "  · full in ~" .. Views.duration(session.bagFree / (used / filling)) .. "|r"
+	d.values[4]:SetText(Views.short(sum.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, sum.nextLevel or 0) .. "|r") or ""))
+	d.values[5]:SetText(sum.kills .. faint .. "  from kill XP and corpses, never the combat log|r")
+	local bags = sum.bagFree == 0 and (Theme.escape(Theme.color.danger) .. "full|r") or (sum.bagFree .. " free")
+	if sum.fullIn then
+		bags = bags .. faint .. "  · full in ~" .. Views.duration(sum.fullIn) .. "|r"
 	end
 	d.values[6]:SetText(bags)
 	-- The most valuable loot so far.
-	local ranked = {}
-	for id, n in pairs(session.items) do
-		ranked[#ranked + 1] = { id = id, n = n, value = (worth(id) or 0) * n }
-	end
-	table.sort(ranked, function(a, b)
-		return a.value > b.value
-	end)
+	local ranked = sum.ranked
 	for i, row in ipairs(d.items) do
 		local it = ranked[i]
 		row:SetShown(it ~= nil)

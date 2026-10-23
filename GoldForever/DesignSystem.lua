@@ -620,6 +620,90 @@ local function buildCrafting(page)
 	end
 end
 
+-- This session --------------------------------------------------------------------------------------------------
+
+-- The session as the HUD has it, at full size (design 009, Session module: the rates, the session's
+-- loot, the big-drop threshold): refreshed once a second only while the tab shows.
+local function buildSessionNow(page)
+	local cards = {}
+	for i, label in ipairs({ "Time", "Gold an hour", "XP an hour", "Kills an hour" }) do
+		local c = UI.StatCard(page, label, "", "")
+		c:SetWidth(160)
+		if i == 1 then
+			c:SetPoint("TOPLEFT")
+		else
+			c:SetPoint("LEFT", cards[i - 1], "RIGHT", 12, 0)
+		end
+		cards[i] = c
+	end
+	local lines = {}
+	for i, label in ipairs({ "Coin", "Loot, at what it sells for", "XP", "Kills", "Bags" }) do
+		local l = UI.Text(page, label, { size = "sm", tone = "muted" })
+		l:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -14 - (i - 1) * 20)
+		local v = UI.Text(page, "", { size = "sm" })
+		v:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 200, -14 - (i - 1) * 20)
+		v:SetPoint("RIGHT", page, "RIGHT")
+		lines[i] = v
+	end
+	local tbl = UI.Table(page, {
+		{ key = "name", title = "Loot", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "n", title = "Count", width = 60, align = "RIGHT" },
+		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return r.value > 0 and UI.layout.amount(r.value) or "—" end },
+	}, { pageSize = 5, empty = "Nothing looted this session." })
+	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -124)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	local note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -8)
+	note:SetPoint("RIGHT", page, "RIGHT")
+	function page:Refresh()
+		local sum = ns.sessionSummary and ns.sessionSummary()
+		local faint = Theme.escape(Theme.color.textFaint)
+		if not sum then
+			for _, c in ipairs(cards) do
+				c:Set("—", "")
+			end
+			for _, l in ipairs(lines) do
+				l:SetText("")
+			end
+			tbl:SetRows({})
+			note:SetText("Loot or kill something to start a session. A break of 15 minutes ends it.")
+			return
+		end
+		local r = sum.rates
+		cards[1]:Set(Views.duration(math.max(60, sum.elapsed)), sum.ended and "ended" or "running")
+		cards[2]:Set(r.rated and UI.layout.money(r.goldPerHour, "gold") or "—", r.rated and "" or "after a minute")
+		cards[3]:Set(r.rated and Views.short(r.xpPerHour) or "—", r.dingIn and ("ding in " .. Views.duration(r.dingIn)) or "")
+		cards[4]:Set(r.rated and Views.short(r.killsPerHour) or "—", "no combat log")
+		lines[1]:SetText(UI.layout.money(sum.coin))
+		lines[2]:SetText(UI.layout.money(sum.value) .. (sum.unpriced > 0 and (faint .. string.format("  +%d unpriced", sum.unpriced) .. "|r") or ""))
+		lines[3]:SetText(Views.short(sum.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, sum.nextLevel or 0) .. "|r") or ""))
+		lines[4]:SetText(tostring(sum.kills))
+		lines[5]:SetText(sum.bagFree == 0 and "full" or (sum.bagFree .. " free" .. (sum.fullIn and (faint .. "  · full in ~" .. Views.duration(sum.fullIn) .. "|r") or "")))
+		local rows = {}
+		for i, it in ipairs(sum.ranked) do
+			local quality, name = ns.sessionItem(it.id)
+			rows[i] = { name = name or ("item " .. it.id), quality = quality or 1, n = it.n, value = it.value }
+		end
+		tbl:SetRows(rows)
+		note:SetText("A big drop (" .. UI.layout.money(sum.bigDrop, "gold") .. " or more, or rare and better) gets a message and a sound; change it in Settings → General.")
+	end
+	-- Once a second while shown, and no ticker otherwise.
+	local ticker
+	page:SetScript("OnShow", function(self)
+		if C_Timer and C_Timer.NewTicker and not ticker then
+			ticker = C_Timer.NewTicker(1, function()
+				ns.safely("ui session", self.Refresh, self)
+			end)
+		end
+	end)
+	page:SetScript("OnHide", function()
+		if ticker and ticker.Cancel then
+			ticker:Cancel()
+		end
+		ticker = nil
+	end)
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -1254,6 +1338,7 @@ local PAGES = {
 	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
 		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
 		build = tabbed("session", {
+			{ key = "now", label = "This session", build = buildSessionNow },
 			{ key = "levelling", label = "Levelling", build = buildLevelling },
 			{ key = "mobs", label = "Mobs", build = buildMobs },
 		}) },
@@ -1271,7 +1356,7 @@ local PAGES = {
 local FOLDED = {
 	characters = { "ledger", "characters" }, inventory = { "ledger", "inventory" }, money = { "ledger", "money" },
 	sales = { "ledger", "sales" },
-	levelling = { "session", "levelling" }, mobs = { "session", "mobs" },
+	levelling = { "session", "levelling" }, mobs = { "session", "mobs" }, now = { "session", "now" },
 }
 
 -- Opens a page, or the page and tab an old key names.
