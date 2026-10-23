@@ -162,4 +162,18 @@ eq(rares[2].seen, 2, "seen twice")
 eq(rares[2].how, "target", "the last sighting's way")
 eq(rares[2].x, 500, "and place")
 
+-- Auction sales: one character's or all, newest first, net of the cut, the deposit not counted.
+local sales = V.sales({
+	{ t = 100, char = 1, item = "Linen Cloth", qty = "20", price = "2000", deposit = "60", cut = "100" },
+	{ t = 300, char = 2, item = "Wool Cloth", qty = "5", price = "5000", deposit = "0", cut = "250" },
+	{ t = 200, char = 1, item = "Silk Cloth", qty = "1", price = "900", cut = "45" },
+	{ t = 400, char = 1, item = "Bad", price = "x" },
+}, 1, 0)
+eq(sales.count, 2, "this character's sales, a bad row left out")
+eq(sales.list[1].item, "Silk Cloth", "newest first")
+eq(sales.gross, 2900, "gross")
+eq(sales.cut, 145, "the cut")
+eq(sales.net, 2755, "after the cut")
+eq(V.sales({ { t = 100, char = 1, item = "A", price = "100", cut = "5" }, { t = 50, char = 2, item = "B", price = "10", cut = "1" } }, nil, 60).count, 1, "all characters, from a time")
+
 return checks

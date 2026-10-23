@@ -468,6 +468,59 @@ local function buildRares(page)
 	end
 end
 
+-- The days the save keeps, which the Ledger's tabs cover.
+local LEDGER_DAYS = 14
+
+-- Auction sales ----------------------------------------------------------------------------------------------
+
+-- What sold on the auction house, from the "sold" mail the addon reads: for this character or all,
+-- with the cut and what it brought, over the two weeks the save keeps.
+local function buildSales(page)
+	local whose = settings().ledger or "me"
+	local tabs = UI.TabBar(page, { { key = "me", label = "This character" }, { key = "all", label = "All characters" } }, function(key)
+		whose = key
+		settings().ledger = key
+		page:Refresh()
+	end)
+	tabs:SetPoint("TOPLEFT")
+	tabs:Select(whose)
+	local cards = {}
+	for i, label in ipairs({ "Sold", "Sold for", "After the cut" }) do
+		local c = UI.StatCard(page, label, "", "")
+		c:SetWidth(200)
+		if i == 1 then
+			c:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -12)
+		else
+			c:SetPoint("LEFT", cards[i - 1], "RIGHT", 12, 0)
+		end
+		cards[i] = c
+	end
+	local names = {}
+	local tbl = UI.Table(page, {
+		{ key = "item", title = "Item", flex = 3, text = function(r) return r.qty > 1 and (r.item .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.qty .. "|r") or r.item end },
+		{ key = "char", title = "Character", flex = 2, text = function(r) return names[r.char] or "?" end, color = function() return Theme.color.textMuted end },
+		{ key = "price", title = "Sold for", width = 90, align = "RIGHT", text = function(r) return UI.layout.amount(r.price) end },
+		{ key = "net", title = "After cut", width = 90, align = "RIGHT", text = function(r) return UI.layout.amount(r.net) end },
+		{ key = "t", title = "When", width = 70, align = "RIGHT", text = function(r) return Views.ago(r.t, ns.now()) end, color = function() return Theme.color.textFaint end },
+	}, { pageSize = 8, empty = "No sale yet: they are read from the auction house's mail when you open it.", sort = sortOf("sales", 5) })
+	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	function page:Refresh()
+		local db, me, now = ns.db(), ns.me(), ns.now()
+		for _, c in pairs(db.characters or {}) do
+			if c.ref then
+				names[tonumber(c.ref) or c.ref] = c.name
+			end
+		end
+		local ref = whose == "me" and me and me.ref or nil
+		local sales = Views.sales(Views.rows(db, "sale"), ref, now - LEDGER_DAYS * 86400)
+		cards[1]:Set(tostring(sales.count), sales.count == 1 and "sale" or "sales")
+		cards[2]:Set(UI.layout.money(sales.gross, "gold"), "last " .. LEDGER_DAYS .. " days")
+		cards[3]:Set(UI.layout.money(sales.net, "gold"), UI.layout.money(sales.cut, "gold") .. " to the auction house")
+		tbl:SetRows(sales.list)
+	end
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -598,8 +651,6 @@ local function buildLevelling(page)
 end
 
 -- Ledger ----------------------------------------------------------------------------------------------------
-
-local LEDGER_DAYS = 14
 
 local function buildLedger(page)
 	local whose = settings().ledger or "me"
@@ -1097,6 +1148,7 @@ local PAGES = {
 			{ key = "money", label = "Money", build = buildLedger },
 			{ key = "characters", label = "Characters", build = buildCharacters },
 			{ key = "inventory", label = "Inventory", build = buildInventory },
+			{ key = "sales", label = "Auction sales", build = buildSales },
 		}) },
 	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
 		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
@@ -1117,6 +1169,7 @@ local PAGES = {
 -- The pages that became tabs, by their old keys: /gf ui levelling, a saved page, a card's link.
 local FOLDED = {
 	characters = { "ledger", "characters" }, inventory = { "ledger", "inventory" }, money = { "ledger", "money" },
+	sales = { "ledger", "sales" },
 	levelling = { "session", "levelling" }, mobs = { "session", "mobs" },
 }
 

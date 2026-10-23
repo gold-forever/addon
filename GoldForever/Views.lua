@@ -375,3 +375,26 @@ function Views.rares(rows)
 	end)
 	return out
 end
+
+-- Auction house sales from the sale stream ({ t, char, item, qty, price, deposit, cut }, the "sold" mail):
+-- for one character (ref) or all (nil), from `from` on, newest first, each with what it brought after
+-- the cut; and the totals. The deposit comes back with the sale and is not counted as earned.
+function Views.sales(rows, ref, from)
+	local out = { list = {}, count = 0, gross = 0, cut = 0, net = 0 }
+	for _, r in ipairs(rows or {}) do
+		local price = tonumber(r.price)
+		if price and (ref == nil or r.char == ref) and r.t >= (from or 0) then
+			local cut = tonumber(r.cut) or 0
+			local sale = { t = r.t, char = r.char, item = r.item or "?", qty = tonumber(r.qty) or 1, price = price, cut = cut, net = price - cut }
+			out.list[#out.list + 1] = sale
+			out.count = out.count + 1
+			out.gross = out.gross + price
+			out.cut = out.cut + cut
+			out.net = out.net + sale.net
+		end
+	end
+	table.sort(out.list, function(a, b)
+		return a.t > b.t
+	end)
+	return out
+end
