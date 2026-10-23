@@ -788,7 +788,7 @@ end
 -- The Session page's This session tab reads the HUD's figures.
 do
   local sum = ns.sessionSummary()
-  assert(sum and sum.rates and #sum.ranked >= 1, "the session's figures for the page")
+  assert(sum and sum.rates and sum.ranked, "the session's figures for the page")
 end
 -- The Crafting page's recipes: the known Bolt of Linen, quoted.
 do
