@@ -6,6 +6,10 @@
   rounded panels with a soft shadow, the site's colours and text sizes, in Roboto. **Classic** looks
   like the game's own windows: the dark dialog box, red buttons, gold Friz Quadrata. Switch with the
   button in the window's title bar or `/gf look web` / `/gf look classic`; no reload needed.
+- A Gold Forever button on the minimap: left-click opens the window, right-click switches its look,
+  drag it around the rim. `/gf minimap` hides it (and brings it back). On clients with the addon
+  compartment (the minimap's addon list), Gold Forever is there too.
+- Key bindings under AddOns in the game's Key Bindings: open or close the window, and switch its look.
 
 ## 0.15.0
 
