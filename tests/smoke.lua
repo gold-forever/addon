@@ -423,6 +423,20 @@ do
   AP.shopBuy()
   fire("COMMODITY_PRICE_UPDATED", 5000, 100000) -- 18% dearer than the deal
   assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
+  -- A profile's buy rule (up to 12 Linen at 45s at most) is the Shop's last list: holding 7, Buy next
+  -- asks for the 5 still needed, not every cheap unit.
+  local count = C_Item.GetItemCount
+  C_Item.GetItemCount = function(id) if id == 2589 then return 7 end return count and count(id) or 0 end
+  AP.importProfile(ns.SalePlan.encode({ name = "Mats", author = "Test", sell = {}, buy = { { itemID = 2589, upTo = 12, maxUnit = 4500 } } }))
+  GoldForeverDB.settings.auction.list = #GoldForeverDB.settings.auction.lists + 1
+  AP.tab("shop")
+  AP.shopChoose({ itemId = 2589, maxUnit = 4500, upTo = 12 })
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+  AP.shopBuy()
+  assert(calls[#calls] == "start 2589 5", "only what the profile still needs: " .. tostring(calls[#calls]))
+  C_Item.GetItemCount = count
+  GoldForeverDB.settings.auction.profile = nil
+  GoldForeverDB.settings.auction.list = 1
   -- The purchase above is a test's, not one later checks expect to find recorded.
   for _, d in pairs(GoldForeverDB.events) do d.ahBuy = nil end
   -- Cancel undercut: one auction of 10 Linen at 50s; the book's cheapest other is 42s50 (15% under,

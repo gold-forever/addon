@@ -555,13 +555,27 @@ end
 local shopChosen -- the entry in view: { itemId, maxUnit }
 local purchase -- a commodity purchase in progress: { itemId, quantity, expected, quoted, moved }
 
+-- The player's lists (saved), and with them, while a sale profile with buy rules is active, the
+-- profile's buy list after them (not saved: it is the profile's; "up to" counts what this character holds).
 local function lists()
 	local s = settings()
 	if not s.lists or #s.lists == 0 then
 		s.lists = { { name = "My list", entries = {} } }
 	end
-	s.list = math.max(1, math.min(s.list or 1, #s.lists))
-	return s.lists, s.lists[s.list]
+	local shown = {}
+	for i, l in ipairs(s.lists) do
+		shown[i] = l
+	end
+	local p = s.profile and s.profiles and s.profiles[s.profile]
+	if p and #p.buy > 0 then
+		local entries = {}
+		for i, r in ipairs(p.buy) do
+			entries[i] = { itemId = r.itemID, maxUnit = r.maxUnit, upTo = r.upTo }
+		end
+		shown[#shown + 1] = { name = "Profile: " .. p.name, entries = entries, profile = true }
+	end
+	s.list = math.max(1, math.min(s.list or 1, #shown))
+	return s.lists, shown[s.list], shown
 end
 
 -- The deal for an entry from its live book, or nil before a search came back.
@@ -569,6 +583,15 @@ local function shopDeal(e)
 	local l = live[tostring(e.itemId)] or live["item:" .. e.itemId]
 	if not l or not l.levels then
 		return nil, l
+	end
+	if e.upTo then
+		-- A profile's buy rule: up to its target, counting what this character holds (decision 12).
+		local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(e.itemId)) or 0
+		local step = ns.SalePlan.buy({ itemID = e.itemId, upTo = e.upTo, maxUnit = e.maxUnit }, heldHere(e.itemId, inBags), l.levels)
+		if step.quantity == 0 then
+			return nil, l
+		end
+		return { itemId = e.itemId, quantity = step.quantity, total = step.total, topUnit = step.topUnit, limit = e.maxUnit }, l
 	end
 	return ns.Shopping.deal(e, l.levels, ns.Prices.value(e.itemId)), l
 end
@@ -662,7 +685,7 @@ local function buildShop(page)
 	local s = settings()
 	local function names()
 		local out = {}
-		for i, l in ipairs((lists())) do
+		for i, l in ipairs(select(3, lists())) do
 			out[i] = { value = i, label = l.name }
 		end
 		return out
@@ -734,6 +757,10 @@ local function buildShop(page)
 			return
 		end
 		local _, list = lists()
+		if list.profile then
+			page.note:SetText("The profile's buy list follows the profile: change it on the site and import it again.")
+			return
+		end
 		list.entries[#list.entries + 1] = { itemId = id, maxUnit = maxUnit }
 		add:SetText("")
 		add:ClearFocus()
@@ -743,7 +770,9 @@ local function buildShop(page)
 
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
-		{ key = "max", title = "Up to", width = 80, align = "RIGHT", text = function(r) return r.maxUnit and money(r.maxUnit) or "market" end },
+		{ key = "max", title = "Up to", width = 80, align = "RIGHT", text = function(r)
+			return (r.upTo and (r.upTo .. " at ") or "") .. (r.maxUnit and money(r.maxUnit) or "market")
+		end },
 		{ key = "deal", title = "Deal", width = 110, align = "RIGHT", text = function(r)
 			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "—" or "")
 		end },
@@ -768,6 +797,10 @@ local function buildShop(page)
 	page.buy = buy
 	local remove = UI.Button(page, "Remove", function()
 		local _, list = lists()
+		if list.profile then
+			page.note:SetText("The profile's buy list follows the profile: change it on the site and import it again.")
+			return
+		end
 		for i, e in ipairs(list.entries) do
 			if shopChosen and e.itemId == shopChosen.itemId then
 				table.remove(list.entries, i)
@@ -788,7 +821,7 @@ local function buildShop(page)
 		for i, e in ipairs(list.entries) do
 			local quality, _, _, _, name = ns.price.itemInfo(e.itemId)
 			local deal, book = shopDeal(e)
-			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
+			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, upTo = e.upTo, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
 		end
 		tbl:SetRows(shown)
 		local deal = shopChosen and shopDeal(shopChosen)
