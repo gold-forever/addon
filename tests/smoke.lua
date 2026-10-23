@@ -778,6 +778,13 @@ do
     crafting = ns.settings("crafting", { strip = true }), shop = GoldForeverDB.settings.shop, appraiser = GoldForeverDB.settings.appraiser,
     advisor = GoldForeverDB.settings.advisor })
 end
+-- Settings draws its General tab only when it first opens; the others when chosen.
+do
+  local before = #frames
+  SlashCmdList.GOLDFOREVER("look web")
+  SlashCmdList.GOLDFOREVER("ui settings")
+  print("SETTINGS FRAMES at opening: " .. (#frames - before))
+end
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)
