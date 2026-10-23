@@ -12,7 +12,13 @@
 - Key bindings under AddOns in the game's Key Bindings: open or close the window, and switch its look.
 - A third look, **Arcane**: deep indigo lit from within, a cyan glow around the window, runes at its
   corners, a cyan-to-violet line under the title with a light running along it, buttons that softly
-  glow, in Exo 2. `/gf look arcane`, or step through the looks with the title bar's button.
+  glow, in Exo 2. `/gf look arcane`, or step through the looks with the minimap button's right-click.
+- The window is a hub: the Gold Forever emblem and a page search at the top of a sidebar, the pages in
+  groups with an icon each, a large page title over art in the look's colours, and a footer with
+  Reload UI and Close. The sidebar's foot shows the addon's own memory and CPU use.
+- A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
+  any look (also `/gf accent #rrggbb`), the minimap button, the window's size, the loot appraiser, bag
+  advice at vendors, the craft list at the auction house, the big-drop alert and the rare alerts.
 
 ## 0.15.0
 

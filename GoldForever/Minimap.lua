@@ -146,6 +146,8 @@ local function refresh()
 end
 
 ns.on("PLAYER_LOGIN", "minimap", refresh)
+-- The Settings page's switch shows or hides the button at once.
+ns.refreshMinimap = refresh
 
 -- "/gf minimap": hide the button or bring it back.
 ns.commands.minimap = function()

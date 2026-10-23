@@ -46,7 +46,7 @@ function TaxiNodeCost(i) return 50 end
 tailoring = 75
 -- Any widget method not stubbed here is a no-op returning another such widget.
 -- Sizes come back as numbers and text as strings, so the UI kit's layout arithmetic runs.
-local NUMBERS = { GetWidth = 400, GetHeight = 300, GetStringWidth = 60, GetVerticalScroll = 0, GetEffectiveScale = 1, GetScale = 1 }
+local NUMBERS = { GetWidth = 400, GetHeight = 300, GetStringWidth = 60, GetVerticalScroll = 0, GetEffectiveScale = 1, GetScale = 1, GetFrameLevel = 1 }
 local function widget(t)
   return setmetatable(t or {}, { __index = function(_, k)
     if NUMBERS[k] then return function() return NUMBERS[k] end end
@@ -592,6 +592,19 @@ assert(GoldForeverDB.settings.window.look == "arcane", "the arcane look is kept"
 SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui levelling")
 SlashCmdList.GOLDFOREVER("look web")
+SlashCmdList.GOLDFOREVER("ui ledger")
+-- The hub: every page builds in every look, and an accent goes over the look and back.
+for _, look in ipairs({ "classic", "arcane", "web" }) do
+  SlashCmdList.GOLDFOREVER("look " .. look)
+  for _, page in ipairs({ "characters", "ledger", "inventory", "levelling", "mobs", "settings", "design" }) do
+    SlashCmdList.GOLDFOREVER("ui " .. page)
+  end
+end
+SlashCmdList.GOLDFOREVER("accent #2fd1a8")
+assert(GoldForeverDB.settings.window.accent == "#2fd1a8", "the accent is kept")
+assert(ns.Theme.color.accent == "#2fd1a8", "and goes over the look")
+SlashCmdList.GOLDFOREVER("accent")
+assert(GoldForeverDB.settings.window.accent == nil, "/gf accent alone goes back to the look's own")
 SlashCmdList.GOLDFOREVER("ui ledger")
 -- The ways in without a slash command: the compartment's click and the key bindings open and close
 -- the window and switch the look; /gf minimap hides the button and brings it back, and remembers.

@@ -184,20 +184,20 @@ local function classColor(class)
 	return Theme.class[class or ""] or Theme.color.text
 end
 
--- A page's title and the line under it; returns the line, to place what follows.
-local function header(page, title, lede)
-	local t = UI.Text(page, title, { size = "xl" })
-	t:SetPoint("TOPLEFT")
-	local l = UI.Text(page, lede, { size = "sm", tone = "muted", wrap = true })
-	l:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -6)
-	l:SetPoint("RIGHT", page, "RIGHT")
-	return l, t
+-- Where a page's own content starts: the window's header shows its title and the line under it
+-- (PAGES), so this is an empty strip along the page's top edge to place what follows.
+local function header(page)
+	local top = CreateFrame("Frame", nil, page)
+	top:SetPoint("TOPLEFT")
+	top:SetPoint("TOPRIGHT")
+	top:SetHeight(1)
+	return top
 end
 
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
-	local lede = header(page, "Characters", "Every character this save has seen. Rested XP grows while logged out, so it is worked out to now: the one with the most waiting is the one to play next.")
+	local lede = header(page)
 	local gold = UI.StatCard(page, "Gold, all characters", "", "")
 	gold:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	gold:SetWidth(200)
@@ -251,7 +251,7 @@ local SOURCES = {
 }
 
 local function buildLevelling(page)
-	local lede, title = header(page, "Levelling", "This character, from the last two weeks the save keeps. XP an hour counts the time between gains; a break over ten minutes is left out.")
+	local lede = header(page)
 	local progress = UI.Text(page, "", { size = "sm", tone = "muted" })
 	progress:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	local bar = UI.Bar(page, 1, {})
@@ -285,7 +285,7 @@ local function buildLevelling(page)
 		if not me then
 			return
 		end
-		title:SetText(string.format("Levelling · %s%s|r, level %d", Theme.escape(classColor(me.class)), me.name or "?", me.level or 0))
+		page:SetTitle(string.format("Levelling · %s%s|r, level %d", Theme.escape(classColor(me.class)), me.name or "?", me.level or 0))
 		local lv = Views.levelling(Views.rows(db, "level"), Views.rows(db, "xp"), me.ref)
 		local xp = me.xp
 		if xp and xp.max and xp.max > 0 then
@@ -329,19 +329,15 @@ local LEDGER_DAYS = 14
 
 local function buildLedger(page)
 	local whose = settings().ledger or "me"
-	local lede, title = header(page, "Ledger", "Where money came from and went, by the window open when it moved, over the last two weeks the save keeps.")
 	local tabs = UI.TabBar(page, { { key = "me", label = "This character" }, { key = "all", label = "All characters" } }, function(key)
 		whose = key
 		settings().ledger = key
 		page:Refresh()
-	end)
+	end, { variant = "underline" })
+	tabs:SetPoint("TOPLEFT")
 	tabs:SetPoint("TOPRIGHT")
-	tabs:SetWidth(240)
 	tabs:Select(whose)
-	-- The line under the title stops short of the tabs.
-	lede:ClearAllPoints()
-	lede:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-	lede:SetWidth(380)
+	local lede = tabs
 	local gained = UI.StatCard(page, "Money in", "", "")
 	gained:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	gained:SetWidth(150)
@@ -389,11 +385,7 @@ end
 -- Mobs ---------------------------------------------------------------------------------------------------
 
 local function buildMobs(page)
-	local title = UI.Text(page, "Mobs, by what a loot is worth", { size = "xl" })
-	title:SetPoint("TOPLEFT")
-	local lede = UI.Text(page, "Every mob your characters have looted: how often, and what a loot brought in coin and items, priced as on the web.", { size = "sm", tone = "muted", wrap = true })
-	lede:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-	lede:SetPoint("RIGHT", page, "RIGHT")
+	local lede = header(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Mob", flex = 2 },
 		{ key = "loots", title = "Looted", width = 70, align = "RIGHT" },
@@ -425,8 +417,7 @@ end
 -- Inventory ---------------------------------------------------------------------------------------------
 
 local function buildInventory(page)
-	local title = UI.Text(page, "Inventory", { size = "xl" })
-	title:SetPoint("TOPLEFT")
+	local title = header(page)
 	local query = ""
 	local tbl
 	local search = UI.SearchBox(page, "Search items…", function(text)
@@ -479,19 +470,213 @@ local function buildInventory(page)
 	end
 end
 
+-- Settings ------------------------------------------------------------------------------------------------
+
+local isRetail = ns.Realms and ns.Realms.isRetail and ns.Realms.isRetail(select(4, GetBuildInfo()))
+
+-- A card of settings in two columns: a small-caps title over it, each row its label on the left of its
+-- half and its control on the right. rows = { { side = 0|1, label, make = function(parent) -> control,
+-- full = true for a control as wide as the half's right part } }. Returns the card.
+local function settingsCard(page, title, y, rows)
+	local label = UI.Text(page, string.upper(title), { size = "xs", medium = true, tone = "faint" })
+	label:SetPoint("TOPLEFT", 0, y)
+	local count = 0
+	for _, r in ipairs(rows) do
+		count = math.max(count, (r.row or 0) + 1)
+	end
+	local card = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	card:SetPoint("TOPLEFT", 0, y - 18)
+	card:SetPoint("RIGHT", page, "RIGHT")
+	card:SetHeight(count * 50 + 8)
+	local split = UI.solid(card, "BORDER", Theme.color.border)
+	split:SetPoint("TOP", 0, -10)
+	split:SetSize(UI.pixel(), count * 50 - 12)
+	local half = CreateFrame("Frame", nil, card)
+	half:SetPoint("TOPLEFT")
+	half:SetPoint("BOTTOMRIGHT", card, "BOTTOM")
+	for _, r in ipairs(rows) do
+		local cell = CreateFrame("Frame", nil, card)
+		cell:SetHeight(50)
+		cell:SetPoint("TOPLEFT", card, "TOPLEFT", 0, -4 - (r.row or 0) * 50)
+		cell:SetPoint("RIGHT", half, "RIGHT")
+		if r.side == 1 then
+			cell:ClearAllPoints()
+			cell:SetHeight(50)
+			cell:SetPoint("TOPLEFT", half, "TOPRIGHT", 0, -4 - (r.row or 0) * 50)
+			cell:SetPoint("RIGHT", card, "RIGHT")
+		end
+		local text = UI.Text(cell, r.label, { size = "sm" })
+		text:SetPoint("LEFT", 20, 0)
+		local control = r.make(cell)
+		if r.full then
+			control:SetPoint("LEFT", cell, "CENTER", -6, 0)
+			control:SetPoint("RIGHT", -20, 0)
+		else
+			control:SetPoint("RIGHT", -20, 0)
+		end
+		if r.hint then
+			local hint = UI.Text(cell, r.hint, { size = "xs", tone = "faint" })
+			hint:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -3)
+		end
+	end
+	return card
+end
+
+local function buildSettings(page)
+	local window = settings()
+	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "looks", label = "Looks" } }, function(key)
+		page.general:SetShown(key == "general")
+		page.looks:SetShown(key == "looks")
+	end, { variant = "underline" })
+	tabs:SetPoint("TOPLEFT")
+	tabs:SetPoint("TOPRIGHT")
+	page.general = CreateFrame("Frame", nil, page)
+	page.general:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
+	page.general:SetPoint("BOTTOMRIGHT")
+	page.looks = CreateFrame("Frame", nil, page)
+	page.looks:SetAllPoints(page.general)
+	page.looks:Hide()
+
+	-- General: only settings the addon has, each changed at once.
+	local g = page.general
+	local lookOptions = {}
+	for _, name in ipairs(Theme.order) do
+		lookOptions[#lookOptions + 1] = { value = name, label = Theme.skins[name].label }
+	end
+	local appraiser = ns.settings("appraiser", { shown = true })
+	local advisor = ns.settings("advisor", { shown = true })
+	local shop = ns.settings("shop", { shown = true })
+	local rares = ns.settings("rares", { announce = true, mark = true })
+	local minimap = ns.settings("minimap", { angle = 225, hidden = false })
+	settingsCard(g, "Display", 0, {
+		{ side = 0, row = 0, label = "Look", full = true, make = function(cell)
+			return UI.Dropdown(cell, lookOptions, Theme.skin.name, function(v)
+				ns.commands.look(v)
+			end)
+		end },
+		{ side = 0, row = 1, label = "Accent colour", make = function(cell)
+			local row = CreateFrame("Frame", nil, cell)
+			row:SetSize(#Theme.accents * 30 - 6, 24)
+			for k, a in ipairs(Theme.accents) do
+				local sw = UI.Swatch(row, a.hex, function()
+					ns.commands.accent(window.accent == a.hex and "" or a.hex)
+				end)
+				sw:SetPoint("LEFT", (k - 1) * 30, 0)
+				sw:SetOn(window.accent == a.hex)
+			end
+			return row
+		end },
+		{ side = 1, row = 0, label = "Minimap button", make = function(cell)
+			return UI.Switch(cell, not minimap.hidden, function(on)
+				minimap.hidden = not on
+				if ns.refreshMinimap then
+					ns.refreshMinimap()
+				end
+			end)
+		end },
+		{ side = 1, row = 1, label = "Window size", full = true, make = function(cell)
+			return UI.Slider(cell, 70, 130, 5, math.floor((window.scale or 1) * 100 + 0.5), function(v)
+				window.scale = v / 100
+				page:GetParent():GetParent():SetScale(window.scale)
+			end, function(v)
+				return v .. "%"
+			end)
+		end },
+	})
+	settingsCard(g, "Panels and alerts", -146, {
+		{ side = 0, row = 0, label = "Loot appraiser", make = function(cell)
+			return UI.Switch(cell, appraiser.shown, function(on)
+				if on ~= appraiser.shown and ns.commands.appraise then
+					ns.commands.appraise()
+				end
+				appraiser.shown = on
+			end)
+		end },
+		{ side = 0, row = 1, label = "Bag advice at vendors", make = function(cell)
+			return UI.Switch(cell, advisor.shown, function(on)
+				advisor.shown = on
+			end)
+		end },
+		{ side = 0, row = 2, label = "Craft list at the auction house", make = function(cell)
+			return UI.Switch(cell, shop.shown, function(on)
+				shop.shown = on
+			end)
+		end },
+		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
+			return UI.Slider(cell, 0, 50, 1, math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000), function(v)
+				appraiser.bigDrop = v * 10000
+			end, function(v)
+				return v == 0 and "rares" or (v .. "g")
+			end)
+		end },
+		{ side = 1, row = 1, label = isRetail and "Announce rares (off on retail)" or "Announce rares", make = function(cell)
+			local sw = UI.Switch(cell, rares.announce, function(on)
+				rares.announce = on
+			end)
+			if isRetail then
+				sw:Disable()
+				sw:SetAlpha(0.5)
+			end
+			return sw
+		end },
+		{ side = 1, row = 2, label = "Mark rares with a skull", make = function(cell)
+			local sw = UI.Switch(cell, rares.mark, function(on)
+				rares.mark = on
+			end)
+			if isRetail then
+				sw:Disable()
+				sw:SetAlpha(0.5)
+			end
+			return sw
+		end },
+	})
+
+	-- Looks: a card per look; a click switches every window to it, no reload.
+	local l = page.looks
+	for i, name in ipairs(Theme.order) do
+		local skin = Theme.skins[name]
+		local on = name == Theme.skin.name
+		local card = CreateFrame("Button", nil, l)
+		card:SetSize(212, 86)
+		card:SetPoint("TOPLEFT", (i - 1) * 228, 0)
+		UI.surface(card, Theme.color.surfaceRaised, 1, on and Theme.color.accent or Theme.color.border, Theme.skin.radius and Theme.skin.radius.card or 0)
+		local icon = UI.Icon(card, on and "check" or "palette", 18, on and "accent" or "muted")
+		icon:SetPoint("TOPLEFT", 16, -16)
+		local label = UI.Text(card, skin.label, { size = "md", medium = true, tone = on and "accent" or "text" })
+		label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
+		local line = UI.Text(card, on and "In use. Every window draws in it." or "Click to switch: no reload.", { size = "xs", tone = "faint", wrap = true })
+		line:SetPoint("TOPLEFT", 16, -46)
+		line:SetWidth(180)
+		card:SetScript("OnClick", function()
+			ns.commands.look(name)
+		end)
+	end
+	local note = UI.Text(l, "The accent colour (General) goes over any look. Panels opened before a change keep their colours until /reload.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", 0, -106)
+	note:SetPoint("RIGHT", l, "RIGHT")
+end
+
 -- The window ----------------------------------------------------------------------------------------------
 
--- One window per look, built the first time that look opens: frames cannot be restyled in place,
--- and switching should not need a /reload. Both share the saved position, page and sorts.
+-- One window per look and accent, built the first time it opens: frames cannot be restyled in place,
+-- and switching should not need a /reload. All share the saved position, page, scale and sorts.
 local windows = {}
 
 local PAGES = {
-	{ key = "characters", label = "Characters", build = buildCharacters },
-	{ key = "levelling", label = "Levelling", build = buildLevelling },
-	{ key = "ledger", label = "Ledger", build = buildLedger },
-	{ key = "mobs", label = "Mobs", build = buildMobs },
-	{ key = "inventory", label = "Inventory", build = buildInventory },
-	{ key = "design", label = "Design system", build = buildDesign },
+	{ key = "characters", label = "Characters", icon = "users", group = "Overview", build = buildCharacters, title = "Characters",
+		lede = "Every character this save has seen. Rested XP grows while logged out, so it is worked out to now: the one with the most waiting is the one to play next." },
+	{ key = "ledger", label = "Ledger", icon = "book-open", group = "Overview", build = buildLedger, title = "Ledger",
+		lede = "Where money came from and went, by the window open when it moved, over the last two weeks the save keeps." },
+	{ key = "inventory", label = "Inventory", icon = "package", group = "Overview", build = buildInventory, title = "Inventory",
+		lede = "Everything your characters hold, in bags, bank and mail, at the better of auction and vendor." },
+	{ key = "levelling", label = "Levelling", icon = "trending-up", group = "Play", build = buildLevelling, title = "Levelling",
+		lede = "This character, from the last two weeks the save keeps. XP an hour counts the time between gains; a break over ten minutes is left out." },
+	{ key = "mobs", label = "Mobs", icon = "skull", group = "Play", build = buildMobs, title = "Mobs, by what a loot is worth",
+		lede = "Every mob your characters have looted: how often, and what a loot brought in coin and items, priced as on the web." },
+	{ key = "settings", label = "Settings", icon = "settings", group = "Addon", build = buildSettings, title = "Settings",
+		lede = "How Gold Forever looks and behaves. Changes apply at once." },
+	{ key = "design", label = "Design system", icon = "palette", group = "Addon", build = buildDesign, title = "Design system",
+		lede = "Every part of the window kit with example data, in the look in use." },
 }
 
 local function look()
@@ -500,15 +685,16 @@ local function look()
 end
 
 local function windowFor(name)
-	Theme.apply(name)
-	if not windows[name] then
-		windows[name] = UI.Window(name == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. name, "Gold Forever", PAGES, settings(), {
-			onLook = function(other)
-				ns.commands.look(other)
-			end,
+	local accent = settings().accent
+	Theme.apply(name, accent)
+	local key = name .. (accent and string.gsub(accent, "#", "_") or "")
+	if not windows[key] then
+		windows[key] = UI.Window(key == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. key, "Gold Forever", PAGES, settings(), {
+			version = ns.VERSION,
+			look = Theme.skins[name].label,
 		})
 	end
-	return windows[name]
+	return windows[key]
 end
 
 local function shown()
@@ -533,23 +719,39 @@ ns.commands.ui = function(page)
 	end
 end
 
--- "/gf look web" or "/gf look classic": the window's look, kept in the settings. An open window
--- switches in place, on the same page.
-ns.commands.look = function(name)
-	name = string.lower(name or "")
-	if not Theme.skins[name] then
-		print(string.format("Gold Forever: the look is %s. /gf look web · /gf look classic", Theme.skins[look()].label))
-		return
-	end
-	settings().look = name
+-- An open window rebuilt in the look and accent now set, on the same page.
+local function reopen()
 	local open = shown()
 	if open then
 		open:Hide()
-		local window = windowFor(name)
+		local window = windowFor(look())
 		window:Restore()
 		window:Show()
 		window:SelectPage(settings().page or PAGES[1].key)
 	else
-		Theme.apply(name)
+		Theme.apply(look(), settings().accent)
 	end
+end
+
+-- "/gf look web", "/gf look classic" or "/gf look arcane": the window's look, kept in the settings. An
+-- open window switches in place, on the same page.
+ns.commands.look = function(name)
+	name = string.lower(name or "")
+	if not Theme.skins[name] then
+		print(string.format("Gold Forever: the look is %s. /gf look %s", Theme.skins[look()].label, table.concat(Theme.order, " · /gf look ")))
+		return
+	end
+	settings().look = name
+	reopen()
+end
+
+-- "/gf accent #2fd1a8" puts an accent colour over the look; "/gf accent" goes back to the look's own.
+ns.commands.accent = function(hex)
+	hex = string.lower(hex or "")
+	if hex ~= "" and not string.match(hex, "^#%x%x%x%x%x%x$") then
+		print("Gold Forever: /gf accent #rrggbb, or /gf accent alone for the look's own colour.")
+		return
+	end
+	settings().accent = hex ~= "" and hex or nil
+	reopen()
 end

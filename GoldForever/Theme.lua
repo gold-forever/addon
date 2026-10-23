@@ -80,6 +80,11 @@ Theme.text = { xs = 12, sm = 13, md = 14, lg = 16, xl = 20, xxl = 28 }
 local MEDIA = "Interface\\AddOns\\GoldForever\\Media\\"
 Theme.media = { round = MEDIA .. "Round.tga", shadow = MEDIA .. "Shadow.tga", glow = MEDIA .. "Glow.tga", rune = MEDIA .. "Rune.tga", spark = MEDIA .. "Spark.tga" }
 
+-- An icon's file: Lucide's shapes in white (tools/icons.sh), tinted where they are drawn.
+function Theme.icon(name)
+	return MEDIA .. "Icons\\" .. name .. ".tga"
+end
+
 Theme.skins = {
 	web = {
 		name = "web",
@@ -95,6 +100,9 @@ Theme.skins = {
 		windowShadow = true,
 		tabs = "segmented",
 		badgeFill = 0.16,
+		-- The page header's art: a gradient top to bottom and soft lights (Glow, added) at fractions of
+		-- its width and height, sized in pixels.
+		hero = { top = "#171c27", bottom = "#10131a", lights = { { "#e0ac45", 0.22, 0.88, 0, 520, 260 }, { "#3987e5", 0.14, 0.08, 1, 360, 220 } } },
 	},
 	classic = {
 		name = "classic",
@@ -124,6 +132,7 @@ Theme.skins = {
 		highlight = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight",
 		tabs = "tabs",
 		badgeFill = 0,
+		hero = { top = "#1c1c1e", bottom = "#08080a", lights = { { "#ffd100", 0.16, 0.85, 0, 480, 240 } } },
 	},
 	-- Indigo lit from within: a violet light at the top, a cyan glow around the window, runes at its
 	-- corners, a cyan-to-violet rule with a light sweeping along it, gradient buttons that breathe. The
@@ -148,6 +157,12 @@ Theme.skins = {
 		windowShadow = true,
 		tabs = "segmented",
 		badgeFill = 0.14,
+		-- Lights in violet and cyan, and a few stars (Rune points) over them.
+		hero = {
+			top = "#141638", bottom = "#090a1c",
+			lights = { { "#b48cff", 0.4, 0.8, 0.1, 460, 260 }, { "#6ee7ff", 0.25, 0.2, 1, 380, 220 } },
+			stars = { { 0.12, 0.3, "#ffffff" }, { 0.31, 0.62, "#a7f3ff" }, { 0.46, 0.22, "#ffffff" }, { 0.63, 0.7, "#a7f3ff" }, { 0.77, 0.38, "#ffffff" }, { 0.93, 0.64, "#a7f3ff" } },
+		},
 		decor = {
 			-- The window's background, top to bottom, and the light at its top (Glow, added).
 			gradient = { "#10122c", 0.95, "#06070f", 0.97 },
@@ -195,8 +210,29 @@ for k, v in pairs(Theme.text) do
 	BASE_TEXT[k] = v
 end
 
--- Puts a look's tokens into Theme.color and Theme.text and makes it Theme.skin. Unknown names get the web look.
-function Theme.apply(name)
+-- "#rrggbb" a share `t` of the way from `a` to `b`.
+function Theme.mix(a, b, t)
+	local ar, ag, ab = Theme.rgb(a)
+	local br, bg, bb = Theme.rgb(b)
+	local function channel(x, y)
+		return math.floor((x + (y - x) * t) * 255 + 0.5)
+	end
+	return string.format("#%02x%02x%02x", channel(ar, br), channel(ag, bg), channel(ab, bb))
+end
+
+-- The accent colours a player can put over any look (Settings), as the web playground offers them.
+Theme.accents = {
+	{ hex = "#e0ac45", label = "Gold" },
+	{ hex = "#2fd1a8", label = "Teal" },
+	{ hex = "#d6453b", label = "Horde red" },
+	{ hex = "#4a86e8", label = "Alliance blue" },
+	{ hex = "#a77bff", label = "Violet" },
+}
+
+-- Puts a look's tokens into Theme.color and Theme.text and makes it Theme.skin. Unknown names get the
+-- web look. An `accent` ("#rrggbb") goes over the look's own: lighter for its strong shade, mixed into
+-- the background for its soft one.
+function Theme.apply(name, accent)
 	local skin = Theme.skins[name] or Theme.skins.web
 	for k, v in pairs(BASE_COLOR) do
 		Theme.color[k] = skin.color[k] or v
@@ -204,7 +240,14 @@ function Theme.apply(name)
 	for k, v in pairs(BASE_TEXT) do
 		Theme.text[k] = skin.text[k] or v
 	end
+	if accent and string.match(accent, "^#%x%x%x%x%x%x$") then
+		Theme.color.accent = accent
+		Theme.color.accentStrong = Theme.mix(accent, "#ffffff", 0.3)
+		Theme.color.accentSoft = Theme.mix(Theme.color.bg, accent, 0.2)
+		Theme.color.focus = Theme.color.accentStrong
+	end
 	Theme.skin = skin
+	Theme.accent = Theme.color.accent
 	return skin
 end
 

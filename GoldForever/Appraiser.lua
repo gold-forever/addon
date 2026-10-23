@@ -13,6 +13,7 @@ local IDLE_SECONDS = 15 * 60 -- the web app's session split
 local MIN_RATE_SECONDS = 60 -- no gold per hour for the first minute: one lucky drop is not a rate
 local TOP_ITEMS = 4
 local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
+ns.BIG_DROP = BIG_DROP
 
 -- Prices --------------------------------------------------------------------------------------------
 
