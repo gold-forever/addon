@@ -67,5 +67,86 @@ Theme.class = {
 -- The 4-pixel grid.
 Theme.space = { [1] = 4, [2] = 8, [3] = 12, [4] = 16, [5] = 20, [6] = 24, [8] = 32, [10] = 40 }
 
--- Text sizes in points, as the web's rem sizes at 16 px.
-Theme.text = { xs = 11, sm = 12, md = 13, lg = 15, xl = 18, xxl = 24 }
+-- Text sizes in points; the look in use sets them (Theme.apply).
+Theme.text = { xs = 12, sm = 13, md = 14, lg = 16, xl = 20, xxl = 28 }
+
+-- Looks ------------------------------------------------------------------------------------------------
+
+-- Two looks, one setting (design 009; the web playground's Look switch is the reference). A look swaps
+-- the tokens above in place, so code that reads Theme.color and Theme.text needs no change, and tells
+-- UI.lua how to draw: the web's rounded, shadowed cards in a bundled Roboto, or the client's own
+-- dialog boxes, red buttons and Friz Quadrata from files the game ships.
+
+local MEDIA = "Interface\\AddOns\\GoldForever\\Media\\"
+Theme.media = { round = MEDIA .. "Round.tga", shadow = MEDIA .. "Shadow.tga" }
+
+Theme.skins = {
+	web = {
+		name = "web",
+		label = "Web",
+		font = MEDIA .. "Roboto-Regular.ttf",
+		fontMedium = MEDIA .. "Roboto-Medium.ttf",
+		-- The site's rem sizes at 16 px.
+		text = { xs = 12, sm = 13, md = 14, lg = 16, xl = 20, xxl = 28 },
+		color = {},
+		textShadow = false,
+		-- Corner radii in pixels: rounded with the Round texture, cut in nine.
+		radius = { window = 12, card = 8, control = 8, tab = 5, item = 6 },
+		windowShadow = true,
+		tabs = "segmented",
+		badgeFill = 0.16,
+	},
+	classic = {
+		name = "classic",
+		label = "Classic",
+		font = "Fonts\\FRIZQT__.TTF",
+		fontMedium = "Fonts\\FRIZQT__.TTF",
+		-- GameFontNormalSmall 10, GameFontNormal 12, GameFontNormalLarge 16, GameFontNormalHuge 20.
+		text = { xs = 10, sm = 11, md = 12, lg = 14, xl = 16, xxl = 20 },
+		color = {
+			bg = "#000000", surface = "#0a0a0b", surfaceRaised = "#151515", surfaceHover = "#222222", surfaceSunken = "#000000",
+			border = "#4a4a4a", borderStrong = "#8b8b8b",
+			text = "#ffffff", textMuted = "#d8cfb4", textFaint = "#9d9d9d",
+			accent = "#ffd100", accentStrong = "#ffe566", accentSoft = "#3a3000", accentContrast = "#ffd100", focus = "#ffd100",
+			success = "#1eff00", warning = "#ff8000", danger = "#ff2020", info = "#3fc7eb",
+		},
+		textShadow = true,
+		-- The client's own files: the dark dialog background with the tooltip's grey edge, the
+		-- red panel buttons, the quest log's highlight.
+		backdrop = {
+			bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+			edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 32, edgeSize = 16,
+			insets = { left = 4, right = 4, top = 4, bottom = 4 },
+		},
+		buttonTemplate = "UIPanelButtonTemplate",
+		closeTemplate = "UIPanelCloseButton",
+		highlight = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight",
+		tabs = "tabs",
+		badgeFill = 0,
+	},
+}
+
+-- The web's tokens as written above, before any look changed them.
+local BASE_COLOR, BASE_TEXT = {}, {}
+for k, v in pairs(Theme.color) do
+	BASE_COLOR[k] = v
+end
+for k, v in pairs(Theme.text) do
+	BASE_TEXT[k] = v
+end
+
+-- Puts a look's tokens into Theme.color and Theme.text and makes it Theme.skin. Unknown names get the web look.
+function Theme.apply(name)
+	local skin = Theme.skins[name] or Theme.skins.web
+	for k, v in pairs(BASE_COLOR) do
+		Theme.color[k] = skin.color[k] or v
+	end
+	for k, v in pairs(BASE_TEXT) do
+		Theme.text[k] = skin.text[k] or v
+	end
+	Theme.skin = skin
+	return skin
+end
+
+Theme.apply("web")

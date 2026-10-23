@@ -18,6 +18,25 @@ local r, g, b = T.rgb("#e0ac45")
 eq(string.format("%.3f %.3f %.3f", r, g, b), "0.878 0.675 0.271", "accent as floats")
 eq(T.escape("#E0AC45"), "|cffe0ac45", "accent as an escape")
 
+-- Looks: the web's tokens by default; the classic look swaps them in place and back.
+eq(T.skin.name, "web", "the web look by default")
+eq(T.text.md, 14, "the site's text size")
+local colorTable = T.color
+T.apply("classic")
+eq(T.color.accent, "#ffd100", "classic gold")
+eq(T.text.md, 12, "GameFontNormal's size")
+eq(T.color.chart1, "#3987e5", "a token the classic look keeps")
+eq(T.skin.font, "Fonts\\FRIZQT__.TTF", "the client's own font")
+eq(T.color, colorTable, "the same table, changed in place")
+T.apply("web")
+eq(T.color.accent, "#e0ac45", "back to the web's gold")
+eq(T.apply("nonsense").name, "web", "an unknown look is the web's")
+for name, skin in pairs(T.skins) do
+	for key in pairs(skin.color) do
+		eq(T.color[key] ~= nil, true, name .. " overrides a known token: " .. key)
+	end
+end
+
 -- Column widths: fixed as given, the rest shared by weight, never under the minimum.
 local w = L.columnWidths({ { width = 70 }, { flex = 2 }, { flex = 1 }, { width = 100 } }, 470)
 eq(w[1], 70, "fixed width")
@@ -79,5 +98,12 @@ eq(tip[1].title .. ": " .. tip[1].lines[1], "Item: Linen Cloth", "a cut cell sho
 eq(tip[2].lines[1], "13×", "as the column renders it")
 eq(table.concat(tip[3].lines, " / "), "Testchar 6 (bags) / Testchar 2 (bags)", "or the column's own lines")
 eq(L.overflowTip(cols, row, { [3] = true })[1].title, "Where", "only the cut ones")
+
+-- Rounded boxes: a rounded corner is its quarter of the circle, a square one the solid middle.
+local slices = L.nineSlice({ BOTTOMLEFT = true })
+eq(table.concat(slices.TOPLEFT, ","), "0,0.5,0,0.5", "top left quarter")
+eq(table.concat(slices.BOTTOMRIGHT, ","), "0.5,1,0.5,1", "bottom right quarter")
+eq(table.concat(slices.BOTTOMLEFT, ","), "0.49,0.51,0.49,0.51", "a square corner is the middle")
+eq(table.concat(slices.TOP, ","), "0.49,0.51,0,0.5", "the top edge is the middle column's top half")
 
 return checks

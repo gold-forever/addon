@@ -1,5 +1,12 @@
 # Gold Forever
 
+## Unreleased
+
+- The Gold Forever window (`/gf ui`) has two looks. **Web**, the default, looks like gold-forever.app:
+  rounded panels with a soft shadow, the site's colours and text sizes, in Roboto. **Classic** looks
+  like the game's own windows: the dark dialog box, red buttons, gold Friz Quadrata. Switch with the
+  button in the window's title bar or `/gf look web` / `/gf look classic`; no reload needed.
+
 ## 0.15.0
 
 - Prices from everyone's scans in the item tooltip: "Pool: 12s 34c · min buyout 11s 0c · 3 players ·

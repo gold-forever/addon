@@ -58,6 +58,7 @@ local function widget(t)
 end
 function GetPhysicalScreenSize() return 2560, 1440 end
 UISpecialFrames = {}
+BackdropTemplateMixin = {}
 function CreateFrame() local f = widget({ events = {}, shown = false })
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
   function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn end end
@@ -574,6 +575,16 @@ SlashCmdList.GOLDFOREVER("ui inventory")
 SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui characters")
 SlashCmdList.GOLDFOREVER("ui levelling")
+SlashCmdList.GOLDFOREVER("ui ledger")
+-- The classic look: the window of that look opens in place of the web one, on the same page, and the
+-- choice is kept; a name it does not know changes nothing.
+SlashCmdList.GOLDFOREVER("look classic")
+assert(GoldForeverDB.settings.window.look == "classic", "the look is kept in the settings")
+SlashCmdList.GOLDFOREVER("ui design")
+SlashCmdList.GOLDFOREVER("ui inventory")
+SlashCmdList.GOLDFOREVER("look nonsense")
+assert(GoldForeverDB.settings.window.look == "classic", "an unknown look changes nothing")
+SlashCmdList.GOLDFOREVER("look web")
 SlashCmdList.GOLDFOREVER("ui ledger")
 print("UI WINDOW " .. tostring(GoldForeverDB.settings.window and GoldForeverDB.settings.window.page))
 do
