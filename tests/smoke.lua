@@ -655,7 +655,7 @@ SlashCmdList.GOLDFOREVER("ui ledger")
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)
-  for _, page in ipairs({ "home", "characters", "ledger", "inventory", "levelling", "mobs", "settings", "design" }) do
+  for _, page in ipairs({ "home", "characters", "ledger", "inventory", "levelling", "mobs", "companion", "settings", "design" }) do
     SlashCmdList.GOLDFOREVER("ui " .. page)
   end
 end
@@ -668,6 +668,7 @@ assert(GoldForeverDB.settings.window.accent == nil, "/gf accent alone goes back 
 do
   local prices, guid = GoldForever_Prices, UnitGUID("player")
   GoldForever_Prices = nil
+  SlashCmdList.GOLDFOREVER("ui companion") -- the Companion page without the companion's file
   SlashCmdList.GOLDFOREVER("dings on")
   assert(not (GoldForeverDB.dings and GoldForeverDB.dings[guid]), "no choice without the companion")
   GoldForever_Prices = { v = 1, at = now - 60, dings = { webhook = false, characters = {} } }

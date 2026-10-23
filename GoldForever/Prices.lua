@@ -311,6 +311,46 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
+-- The companion's file as the hub's Companion page shows it: state "missing", "version", "broken" or
+-- "ok"; the time it was written; and each market { key, items, mine }, this character's first.
+function Prices.status(data, mine, now)
+	if type(data) ~= "table" then
+		return { state = "missing", markets = {} }
+	end
+	if data.v ~= VERSION then
+		return { state = "version", version = data.v, markets = {} }
+	end
+	if not Prices.loaded(data) then
+		return { state = "broken", markets = {} }
+	end
+	local used = {}
+	for _, key in ipairs(mine or {}) do
+		used[key] = true
+	end
+	local markets = {}
+	for key, items in pairs(data.markets) do
+		markets[#markets + 1] = { key = tostring(key), items = count(items), mine = used[key] or false }
+	end
+	table.sort(markets, function(a, b)
+		if a.mine ~= b.mine then
+			return a.mine
+		end
+		return a.key < b.key
+	end)
+	local missing = {}
+	for _, key in ipairs(mine or {}) do
+		if not data.markets[key] then
+			missing[#missing + 1] = key
+		end
+	end
+	return { state = "ok", at = amount(data.at) and data.at or nil, age = amount(data.at) and ago(data.at, now) or nil, markets = markets, missing = missing }
+end
+
+-- This character's market keys, for the Companion page.
+Prices.mine = function()
+	return mine()
+end
+
 ns.commands.prices = function()
 	local lines = Prices.summary(GoldForever_Prices, mine(), GetServerTime())
 	ns.say(lines[1])

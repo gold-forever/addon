@@ -19,6 +19,9 @@
 - A **Home** page, the hub's first: the next moves (when you can scan, what your bags would sell for,
   the best craft at the latest prices), today's money by where it came from, and the bag items worth
   most.
+- A **Companion** page: whether the companion's prices are loaded and when they were written, its
+  markets with their items (this character's first, and any it has no prices for yet), and this
+  character's Discord dings.
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
   any look (also `/gf accent #rrggbb`), the minimap button, the window's size and the alerts. Its
   **Modules** tab switches each part on or off without a reload: the session HUD, the auction house

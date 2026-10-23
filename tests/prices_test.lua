@@ -230,4 +230,21 @@ eq(summary({ v = 1, markets = "x" }, nil), "the prices file cannot be read. The 
 eq(summary({ v = 1, markets = {} }, nil), "prices file of unknown age · 0 markets", "no time, no markets")
 eq(summary({ v = 1, at = NOW - 4 * DAY, markets = {} }, nil), "prices file written 4d ago · 0 markets", "an old file")
 
+-- The Companion page: the file's state, its age and markets, this character's first, and what it lacks.
+eq(P.status(nil, nil, NOW).state, "missing", "no file")
+eq(P.status({ v = 2 }, nil, NOW).state, "version", "another version")
+eq(P.status({ v = 1, markets = "x" }, nil, NOW).state, "broken", "markets not a table")
+local st = P.status({ v = 1, at = NOW - 2 * 3600, markets = {
+	["forever-EU-normal-alliance"] = { [1] = good },
+	["forever-EU-normal-horde"] = { [1] = good, [2] = good },
+} }, { "forever-EU-normal-horde", "forever-EU-normal-neutral" }, NOW)
+eq(st.state, "ok", "a file read")
+eq(st.age, "2h ago", "its age")
+eq(st.markets[1].key, "forever-EU-normal-horde", "this character's market first")
+eq(st.markets[1].items, 2, "its items")
+eq(st.markets[1].mine, true, "marked")
+eq(st.markets[2].mine, false, "another market")
+eq(#st.missing, 1, "a market of this character's the file lacks")
+eq(st.missing[1], "forever-EU-normal-neutral", "named")
+
 return checks

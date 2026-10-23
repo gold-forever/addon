@@ -340,6 +340,83 @@ local function buildHome(page)
 	end
 end
 
+-- Companion ---------------------------------------------------------------------------------------------------
+
+-- What the addon can know of the companion without the internet (design 009): whether its file loaded,
+-- when it was written, its markets and items, this character's Discord dings, and what is missing.
+local function buildCompanion(page)
+	local status = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	status:SetPoint("TOPLEFT")
+	status:SetPoint("RIGHT", page, "RIGHT")
+	status:SetHeight(76)
+	local icon = UI.Icon(status, "coins", 22, "accent")
+	icon:SetPoint("LEFT", 20, 0)
+	local head = UI.Text(status, "", { size = "md", medium = true })
+	head:SetPoint("TOPLEFT", 58, -18)
+	head:SetPoint("RIGHT", status, "RIGHT", -16, 0)
+	local line = UI.Text(status, "", { size = "xs", tone = "faint", wrap = true })
+	line:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -6)
+	line:SetPoint("RIGHT", status, "RIGHT", -16, 0)
+
+	local cards = {}
+	for i, label in ipairs({ "Prices written", "Markets", "This character's market", "Discord dings" }) do
+		local c = UI.StatCard(page, label, "", "")
+		c:SetWidth(math.floor(((page:GetWidth() and page:GetWidth() > 0 and page:GetWidth() or 708) - 36) / 4))
+		if i == 1 then
+			c:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -12)
+		else
+			c:SetPoint("LEFT", cards[i - 1], "RIGHT", 12, 0)
+		end
+		cards[i] = c
+	end
+	local tbl = UI.Table(page, {
+		{ key = "key", title = "Market", flex = 3 },
+		{ key = "items", title = "Items", width = 90, align = "RIGHT" },
+		{ key = "mine", title = "", width = 140, align = "RIGHT", text = function(r) return r.mine and "this character's" or "" end,
+			color = function() return Theme.color.accent end },
+	}, { pageSize = 6, empty = "No markets in the file." })
+	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	local note = UI.Text(page, "The companion uploads your save whenever the game writes it (at /reload or logout) and brings everyone's prices into the game every hour. It needs nothing from you in game.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+	note:SetPoint("RIGHT", page, "RIGHT")
+
+	function page:Refresh()
+		local st = ns.Prices.status(GoldForever_Prices, ns.Prices.mine(), ns.now())
+		local warn = Theme.escape(Theme.color.warning)
+		if st.state == "ok" then
+			head:SetText("Connected: the companion's prices are loaded")
+			icon:SetTone("accent")
+			line:SetText(#st.missing > 0 and (warn .. "No prices yet for " .. table.concat(st.missing, ", ") .. ": the pool fills as players scan there.|r")
+				or "Everyone's prices show in your tooltips and the auction panel.")
+		elseif st.state == "missing" then
+			head:SetText(warn .. "No companion data in the game|r")
+			icon:SetTone(Theme.color.warning)
+			line:SetText("The companion app writes the GoldForever_Data addon; start it, then restart the game. Get it at gold-forever.app/companion.")
+		elseif st.state == "version" then
+			head:SetText(warn .. "The companion's file is a newer version|r")
+			icon:SetTone(Theme.color.warning)
+			line:SetText("Update the addon to read it.")
+		else
+			head:SetText(warn .. "The companion's file cannot be read|r")
+			icon:SetTone(Theme.color.warning)
+			line:SetText("The companion writes it again at its next update.")
+		end
+		local mine
+		for _, m in ipairs(st.markets) do
+			if m.mine and not mine then
+				mine = m
+			end
+		end
+		cards[1]:Set(st.age or "—", st.state == "ok" and "the prices file" or "")
+		cards[2]:Set(tostring(#st.markets), "in the file")
+		cards[3]:Set(mine and tostring(mine.items) or "—", mine and "items priced" or "none yet")
+		local d = ns.Dings and ns.Dings.current()
+		cards[4]:Set(d and (d.on and "On" or "Off") or "—", d and (d.webhook == false and "no webhook on the site" or d.pending and "waiting for the upload" or d.companion and "this character" or "needs the companion") or "")
+		tbl:SetRows(st.markets)
+	end
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -918,6 +995,8 @@ local PAGES = {
 		lede = "This character, from the last two weeks the save keeps. XP an hour counts the time between gains; a break over ten minutes is left out." },
 	{ key = "mobs", label = "Mobs", icon = "skull", group = "Play", build = buildMobs, title = "Mobs, by what a loot is worth",
 		lede = "Every mob your characters have looted: how often, and what a loot brought in coin and items, priced as on the web." },
+	{ key = "companion", label = "Companion", icon = "rotate-ccw", group = "Addon", build = buildCompanion, title = "Companion",
+		lede = "Everyone's prices in the game, and your save on the site: what the companion app has brought in." },
 	{ key = "settings", label = "Settings", icon = "settings", group = "Addon", build = buildSettings, title = "Settings",
 		lede = "How Gold Forever looks and behaves. Changes apply at once." },
 	{ key = "design", label = "Design system", icon = "palette", group = "Addon", build = buildDesign, title = "Design system",
