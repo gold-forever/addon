@@ -10,6 +10,9 @@
   drag it around the rim. `/gf minimap` hides it (and brings it back). On clients with the addon
   compartment (the minimap's addon list), Gold Forever is there too.
 - Key bindings under AddOns in the game's Key Bindings: open or close the window, and switch its look.
+- A third look, **Arcane**: deep indigo lit from within, a cyan glow around the window, runes at its
+  corners, a cyan-to-violet line under the title with a light running along it, buttons that softly
+  glow, in Exo 2. `/gf look arcane`, or step through the looks with the title bar's button.
 
 ## 0.15.0
 
