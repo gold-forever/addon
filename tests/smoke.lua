@@ -68,6 +68,8 @@ function CreateFrame() local f = widget({ events = {}, shown = false })
   function f:CreateFontString() local fs = widget({}); function fs:SetText(t) self.text = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
 UIParent = widget()
+Minimap = widget()
+function GetCursorPosition() return 0, 0 end
 function strsplit(sep, s) local out = {} for part in (s .. sep):gmatch("([^" .. sep .. "]*)" .. sep) do out[#out + 1] = part end return unpack(out) end
 GameTooltip = widget({ lines = {}, shades = {} }); function GameTooltip:AddLine(t, r) table.insert(self.lines, t); self.shades[t] = r end
 C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end, NewTicker = function(s, fn) ticker = fn end }
@@ -586,6 +588,22 @@ SlashCmdList.GOLDFOREVER("look nonsense")
 assert(GoldForeverDB.settings.window.look == "classic", "an unknown look changes nothing")
 SlashCmdList.GOLDFOREVER("look web")
 SlashCmdList.GOLDFOREVER("ui ledger")
+-- The ways in without a slash command: the compartment's click and the key bindings open and close
+-- the window and switch the look; /gf minimap hides the button and brings it back, and remembers.
+assert(type(GoldForever_OnAddonCompartmentClick) == "function", "the TOC's compartment function exists")
+assert(BINDING_HEADER_GOLDFOREVER and BINDING_NAME_GOLDFOREVER_WINDOW and BINDING_NAME_GOLDFOREVER_LOOK, "Bindings.xml's names are set")
+GoldForever_SwitchLook()
+assert(GoldForeverDB.settings.window.look == "classic", "the look binding switches the look")
+GoldForever_OnAddonCompartmentClick("GoldForever", "RightButton")
+assert(GoldForeverDB.settings.window.look == "web", "a right-click in the compartment switches back")
+GoldForever_ToggleWindow()
+GoldForever_OnAddonCompartmentClick("GoldForever", "LeftButton")
+GoldForever_OnAddonCompartmentEnter("GoldForever", UIParent)
+GoldForever_OnAddonCompartmentLeave()
+SlashCmdList.GOLDFOREVER("minimap")
+assert(GoldForeverDB.settings.minimap.hidden == true, "/gf minimap hides the button")
+SlashCmdList.GOLDFOREVER("minimap")
+assert(GoldForeverDB.settings.minimap.hidden == false, "and brings it back")
 print("UI WINDOW " .. tostring(GoldForeverDB.settings.window and GoldForeverDB.settings.window.page))
 do
   local V, db = ns.Views, GoldForeverDB

@@ -1,0 +1,9 @@
+<!-- Gold Forever's key bindings, under AddOns in the game's Key Bindings (Minimap.lua names them). -->
+<Bindings>
+	<Binding name="GOLDFOREVER_WINDOW" header="GOLDFOREVER" category="ADDONS">
+		GoldForever_ToggleWindow()
+	</Binding>
+	<Binding name="GOLDFOREVER_LOOK" category="ADDONS">
+		GoldForever_SwitchLook()
+	</Binding>
+</Bindings>
