@@ -480,6 +480,27 @@ else
   GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
+-- In a zone with a neutral auction house (Tanaris here), the neutral market's line comes first, on
+-- Forever only; elsewhere it is not shown (design 009 decision 9).
+if INTERFACE < 110000 then
+  local neutralKey = POOL_ALLIANCE:gsub("%-alliance$", "-neutral")
+  GoldForever_Prices.markets[neutralKey] = { [2589] = { 5000, 4500, 2, now } }
+  assert(poolLine(2589, "Neutral AH: ") == nil, "no neutral line outside a neutral zone")
+  local where = C_Map.GetBestMapForUnit
+  C_Map.GetBestMapForUnit = function() return 1446 end
+  fire("ZONE_CHANGED_NEW_AREA")
+  GameTooltip.lines = {}
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
+  local neutralAt, poolAt
+  for k, l in ipairs(GameTooltip.lines) do
+    if l:find("Neutral AH: 50s 0c", 1, true) then neutralAt = k end
+    if l:find("Pool: ", 1, true) then poolAt = k end
+  end
+  assert(neutralAt and poolAt and neutralAt < poolAt, "the neutral line before the faction's in Tanaris: " .. table.concat(GameTooltip.lines, " | "))
+  C_Map.GetBestMapForUnit = where
+  fire("ZONE_CHANGED_NEW_AREA")
+  GoldForever_Prices.markets[neutralKey] = nil
+end
 -- Settings → Modules: prices in tooltips off takes the line away at once, and back.
 do
   local before = poolLine(2589)

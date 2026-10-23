@@ -201,7 +201,7 @@ end
 
 -- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The line and whether it
 -- is stale; nil without a valid price.
-function Prices.line(data, markets, id, now)
+function Prices.line(data, markets, id, now, label)
 	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil
 	end
@@ -212,7 +212,7 @@ function Prices.line(data, markets, id, now)
 	players = math.floor(players)
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	return string.format("Pool: %s · min buyout %s · %d %s · %s", coins(value), coins(minBuyout), players,
+	return string.format("%s: %s · min buyout %s · %d %s · %s", label or "Pool", coins(value), coins(minBuyout), players,
 		players == 1 and "player" or "players", age), stale
 end
 
@@ -297,6 +297,15 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				return
 			end
 			local now = GetServerTime()
+			-- In a zone with a neutral auction house, its market's line first (design 009 decision 9).
+			local neutral = Prices.neutralMarkets()
+			if neutral then
+				local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
+				if nline then
+					local shade = nstale and STALE_SHADE or 1
+					tooltip:AddLine(ns.PREFIX .. " " .. nline, shade, shade, shade)
+				end
+			end
 			local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
 			-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
 			if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
@@ -344,6 +353,18 @@ function Prices.status(data, mine, now)
 		end
 	end
 	return { state = "ok", at = amount(data.at) and data.at or nil, age = amount(data.at) and ago(data.at, now) or nil, markets = markets, missing = missing }
+end
+
+-- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
+function Prices.neutralMarkets()
+	if not (ns.atNeutralZone and ns.atNeutralZone()) then
+		return nil
+	end
+	local client = ns.db().client
+	if not ns.Realms.isForever(client.interface) then
+		return nil
+	end
+	return Prices.markets(ns.market("neutral"), client.interface, client.portal)
 end
 
 -- This character's market keys, for the Companion page.

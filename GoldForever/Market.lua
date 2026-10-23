@@ -41,6 +41,28 @@ local function side()
 	return string.lower(me and me.faction or "?")
 end
 
+-- Whether the player is in a zone with a neutral auction house (Booty Bay, Gadgetzan, Everlook), for the
+-- tooltip's neutral line (design 009 decision 9). Read on zone changes, not per tooltip.
+local neutralHere = false
+local function readNeutral()
+	local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local found = false
+	while map do
+		if NEUTRAL_MAPS[map] then
+			found = true
+			break
+		end
+		local info = C_Map.GetMapInfo(map)
+		map = info and info.parentMapID ~= 0 and info.parentMapID or nil
+	end
+	neutralHere = found
+end
+ns.on("PLAYER_ENTERING_WORLD", "neutral zone", readNeutral)
+ns.on("ZONE_CHANGED_NEW_AREA", "neutral zone", readNeutral)
+function ns.atNeutralZone()
+	return neutralHere
+end
+
 -- Keeps, per market, the newest KEEP_RECENT full scans and the newest of each earlier UTC day, up to
 -- KEEP_MAX; throttled markers from the last day. The web app keeps every scan it was sent, so the
 -- file needs only enough for the in-game prices and for a save that misses an upload or two.

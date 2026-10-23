@@ -247,4 +247,7 @@ eq(st.markets[2].mine, false, "another market")
 eq(#st.missing, 1, "a market of this character's the file lacks")
 eq(st.missing[1], "forever-EU-normal-neutral", "named")
 
+-- A line's label: "Pool" unless named (the neutral auction house's line).
+eq((P.line({ v = 1, at = NOW, markets = { m = { [5] = good } } }, { "m" }, 5, NOW, "Neutral AH") or ""):sub(1, 11), "Neutral AH:", "a named line")
+
 return checks
