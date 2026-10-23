@@ -158,7 +158,38 @@ function UI.layout.nineSlice(square)
 	}
 end
 
+-- Which end of a two-colour gradient each of a rounded box's nine slices takes: the slices along the
+-- start edge the first colour, along the far edge the second, and the band between them the gradient
+-- itself (SetGradient), so a gradient runs across the box unbroken.
+function UI.layout.sliceGradient(orientation)
+	if orientation == "VERTICAL" then
+		return { TOPLEFT = "from", TOP = "from", TOPRIGHT = "from", LEFT = "span", CENTER = "span", RIGHT = "span",
+			BOTTOMLEFT = "to", BOTTOM = "to", BOTTOMRIGHT = "to" }
+	end
+	return { TOPLEFT = "from", LEFT = "from", BOTTOMLEFT = "from", TOP = "span", CENTER = "span", BOTTOM = "span",
+		TOPRIGHT = "to", RIGHT = "to", BOTTOMRIGHT = "to" }
+end
+
 -- Drawing ------------------------------------------------------------------------------------------
+
+-- A texture shaded from one colour to another: top to bottom (VERTICAL) or left to right (HORIZONTAL).
+-- Spec: { fromHex, fromAlpha, toHex, toAlpha }. Without SetGradient's colour objects (older clients) the
+-- texture takes the first colour.
+function UI.gradient(tex, orientation, spec)
+	local fr, fg, fb = Theme.rgb(spec[1])
+	local tr, tg, tb = Theme.rgb(spec[3])
+	if tex.SetGradient and CreateColor then
+		tex:SetVertexColor(1, 1, 1, 1)
+		local from, to = CreateColor(fr, fg, fb, spec[2]), CreateColor(tr, tg, tb, spec[4])
+		if orientation == "VERTICAL" then
+			tex:SetGradient("VERTICAL", to, from) -- the client's vertical gradient runs from the bottom
+		else
+			tex:SetGradient("HORIZONTAL", from, to)
+		end
+	else
+		tex:SetVertexColor(fr, fg, fb, spec[2])
+	end
+end
 
 -- A box: one or more textures recoloured, faded and shown together.
 local function box(parts)
@@ -177,6 +208,28 @@ local function box(parts)
 	function b:SetShown(on)
 		for _, t in pairs(self.parts) do
 			t:SetShown(on)
+		end
+	end
+	-- A gradient across the box: one texture shades whole; a rounded box shades slice by slice.
+	function b:SetGradient(orientation, spec)
+		local ends = UI.layout.sliceGradient(orientation)
+		for key, t in pairs(self.parts) do
+			local role = ends[key] or "span"
+			-- The colour's own alpha, not the region's: SetAlpha stays free to show and hide the box.
+			if role == "from" then
+				local r, g, bl = Theme.rgb(spec[1])
+				t:SetVertexColor(r, g, bl, spec[2])
+			elseif role == "to" then
+				local r, g, bl = Theme.rgb(spec[3])
+				t:SetVertexColor(r, g, bl, spec[4])
+			else
+				UI.gradient(t, orientation, spec)
+			end
+		end
+	end
+	function b:SetBlendMode(mode)
+		for _, t in pairs(self.parts) do
+			t:SetBlendMode(mode)
 		end
 	end
 	return b
@@ -244,7 +297,7 @@ end
 
 -- The web's soft shadow under a window: nine textures from the Shadow texture, spread around the frame
 -- and dropped a little, behind everything the frame draws.
-function UI.shadow(frame, spread, alpha)
+function UI.shadow(frame, spread, alpha, drop)
 	spread = spread or 24
 	local edge = spread / 64
 	local cut = { 0, edge, 1 - edge, 1 }
@@ -257,7 +310,7 @@ function UI.shadow(frame, spread, alpha)
 		t:SetTexCoord(cut[n[2]], cut[n[2] + 1], cut[n[3]], cut[n[3] + 1])
 		p[n[1]] = t
 	end
-	local drop = 8
+	drop = drop or 8
 	p.TOPLEFT:SetPoint("TOPLEFT", -spread, spread - drop)
 	p.TOPRIGHT:SetPoint("TOPRIGHT", spread, spread - drop)
 	p.BOTTOMLEFT:SetPoint("BOTTOMLEFT", -spread, -spread - drop)
@@ -318,7 +371,65 @@ function UI.Panel(parent, opts)
 	if opts.window and skin.windowShadow then
 		f.shadow = UI.shadow(f)
 	end
+	local decor = skin.decor
+	if decor and opts.window then
+		UI.decorate(f, decor)
+	end
 	return f
+end
+
+-- A look's decorations on a window: its background gradient, the light at its top, the glow around it
+-- and its corner runes. Every piece is a texture we ship or the client's own white, coloured.
+function UI.decorate(f, decor)
+	if decor.gradient and f.bg then
+		f.bg:SetGradient("VERTICAL", decor.gradient)
+	end
+	if decor.innerLight then
+		local light = f:CreateTexture(nil, "BACKGROUND", nil, -5)
+		light:SetTexture(Theme.media.glow)
+		light:SetBlendMode("ADD")
+		light:SetPoint("TOPLEFT", 0, 0)
+		light:SetPoint("TOPRIGHT", 0, 0)
+		light:SetHeight(220)
+		light:SetTexCoord(0, 1, 0.5, 1) -- the glow's lower half: brightest along the top edge
+		local r, g, b = Theme.rgb(decor.innerLight[1])
+		light:SetVertexColor(r, g, b, decor.innerLight[2])
+		f.light = light
+	end
+	if decor.glow then
+		f.glow = UI.shadow(f, 22, decor.glow[2], 0)
+		f.glow:SetColor(decor.glow[1], decor.glow[2])
+		f.glow:SetBlendMode("ADD")
+	end
+	if decor.corners == "rune" then
+		f.runes = {}
+		for _, c in ipairs({ { "TOPLEFT", 4, -4 }, { "TOPRIGHT", -4, -4 }, { "BOTTOMLEFT", 4, 4 }, { "BOTTOMRIGHT", -4, 4 } }) do
+			local t = f:CreateTexture(nil, "OVERLAY", nil, 7)
+			t:SetTexture(Theme.media.rune)
+			t:SetBlendMode("ADD")
+			t:SetSize(16, 16)
+			t:SetPoint(c[1], c[2], c[3])
+			t:SetVertexColor(Theme.rgb(Theme.color.accent))
+			f.runes[#f.runes + 1] = t
+		end
+	end
+end
+
+-- A breathing glow: an added texture whose alpha rises and falls for as long as it shows.
+function UI.pulse(frame, hex, low, high, seconds)
+	local t = frame:CreateTexture(nil, "ARTWORK", nil, 1)
+	t:SetTexture(Theme.media.glow)
+	t:SetBlendMode("ADD")
+	t:SetAllPoints()
+	t:SetVertexColor(Theme.rgb(hex))
+	local group = t:CreateAnimationGroup()
+	group:SetLooping("BOUNCE")
+	local a = group:CreateAnimation("Alpha")
+	a:SetFromAlpha(low or 0.15)
+	a:SetToAlpha(high or 0.85)
+	a:SetDuration(seconds or 1.2)
+	group:Play()
+	return t, group
 end
 
 -- Text -----------------------------------------------------------------------------------------------
@@ -338,7 +449,12 @@ function UI.Text(parent, text, opts)
 	local skin = Theme.skin
 	local fs = parent:CreateFontString(nil, "OVERLAY")
 	UI.setFont(fs, opts.medium and skin.fontMedium or skin.font, Theme.text[opts.size or "md"] or Theme.text.md, opts.outline and "OUTLINE" or "")
-	if skin.textShadow then
+	if type(skin.textShadow) == "table" then
+		local sh = skin.textShadow
+		fs:SetShadowOffset(sh[1], sh[2])
+		local r, g, b = Theme.rgb(sh[3])
+		fs:SetShadowColor(r, g, b, sh[4])
+	elseif skin.textShadow then
 		fs:SetShadowOffset(1, -1)
 		fs:SetShadowColor(0, 0, 0, 1)
 	else
@@ -379,14 +495,31 @@ function UI.Button(parent, label, onClick, opts)
 		local edge = (kind == "default" or (kind == "ghost" and not web)) and Theme.color.borderStrong or nil
 		b.bg = surface(b, kind == "ghost" and not web and "#000000" or fill, rest, edge, radius("control"))
 		local tone = kind == "primary" and Theme.color.accentContrast or kind == "ghost" and (web and "muted" or "accent") or "text"
-		b.label = UI.Text(b, label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
+		local decor = skin.decor
+		local gradient = kind == "primary" and decor and decor.primary
+		if gradient then
+			tone = decor.primaryText or tone
+			b.bg:SetGradient("HORIZONTAL", gradient)
+			if decor.pulse then
+				b.pulse = UI.pulse(b, Theme.color.accentStrong)
+			end
+		end
+		b.label = UI.Text(b, skin.titleCaps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
 		b.label:SetPoint("CENTER")
 		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
 		b:SetScript("OnEnter", function(self)
-			self.bg:SetColor(lift, kind == "ghost" and (web and 1 or 0.6) or 1)
+			if gradient then
+				self.bg:SetAlpha(0.85) -- a gradient lifts by fading a little; its colours stay
+			else
+				self.bg:SetColor(lift, kind == "ghost" and (web and 1 or 0.6) or 1)
+			end
 		end)
 		b:SetScript("OnLeave", function(self)
-			self.bg:SetColor(kind == "ghost" and not web and "#000000" or fill, rest)
+			if gradient then
+				self.bg:SetAlpha(1)
+			else
+				self.bg:SetColor(kind == "ghost" and not web and "#000000" or fill, rest)
+			end
 		end)
 	end
 	if onClick then
@@ -534,10 +667,16 @@ function UI.Bar(parent, max, segments, height)
 		end
 		local width = self:GetWidth() or 0
 		local x = 0
+		local decor = Theme.skin.decor
 		for i, s in ipairs(newSegments) do
 			local t = self.fills[i] or solid(self, "ARTWORK", s.color)
 			self.fills[i] = t
-			t:SetVertexColor(Theme.rgb(s.color))
+			-- The look's own fill for an accent segment; others keep their colour (XP, rested, a share).
+			if decor and decor.bar and s.color == Theme.color.accent then
+				UI.gradient(t, "HORIZONTAL", decor.bar)
+			else
+				t:SetVertexColor(Theme.rgb(s.color))
+			end
 			local w = newMax > 0 and math.min(width - x, width * s.value / newMax) or 0
 			t:ClearAllPoints()
 			t:SetPoint("TOPLEFT", x, 0)
@@ -545,6 +684,17 @@ function UI.Bar(parent, max, segments, height)
 			t:SetWidth(math.max(0.001, w))
 			t:SetShown(w > 0)
 			x = x + w
+		end
+		-- A spark where the fill ends: the Spark texture, added.
+		if decor and decor.spark then
+			self.spark = self.spark or self:CreateTexture(nil, "OVERLAY")
+			self.spark:SetTexture(Theme.media.spark)
+			self.spark:SetBlendMode("ADD")
+			self.spark:SetVertexColor(Theme.rgb(Theme.color.accentStrong))
+			self.spark:SetSize(14, (self:GetHeight() or 8) + 8)
+			self.spark:ClearAllPoints()
+			self.spark:SetPoint("CENTER", self, "LEFT", x, 0)
+			self.spark:SetShown(x > 0 and x < width)
 		end
 	end
 	f:SetScript("OnSizeChanged", function(self)
@@ -832,8 +982,12 @@ function UI.Window(name, title, pages, store, opts)
 		local p, _, rel, x, y = w:GetPoint()
 		store.point = { p, rel, x, y }
 	end)
+	local decor = skin.decor
 	if web then
-		bar.bg = surface(bar, Theme.color.surface, 1, nil, radius("window") - 1, { BOTTOMLEFT = true, BOTTOMRIGHT = true })
+		bar.bg = surface(bar, Theme.color.surface, decor and 0 or 1, nil, radius("window") - 1, { BOTTOMLEFT = true, BOTTOMRIGHT = true })
+		if decor and decor.band then
+			bar.bg:SetGradient("HORIZONTAL", decor.band)
+		end
 	else
 		bar.bg = solid(bar, "BACKGROUND", "#000000", 0.35)
 		bar.bg:SetAllPoints()
@@ -842,10 +996,40 @@ function UI.Window(name, title, pages, store, opts)
 	rule:SetPoint("BOTTOMLEFT")
 	rule:SetPoint("BOTTOMRIGHT")
 	rule:SetHeight(UI.pixel())
+	if decor and decor.rule then
+		UI.gradient(rule, "HORIZONTAL", decor.rule)
+	end
+	-- A light sweeping along the rule: the Spark texture, added, moved by a looping Translation, inside
+	-- a strip that clips it to the window's width.
+	if decor and decor.shimmer then
+		local strip = CreateFrame("Frame", nil, bar)
+		strip:SetPoint("BOTTOMLEFT", 0, -1)
+		strip:SetPoint("BOTTOMRIGHT", 0, -1)
+		strip:SetHeight(3)
+		strip:SetClipsChildren(true)
+		local light = strip:CreateTexture(nil, "OVERLAY")
+		light:SetTexture(Theme.media.spark)
+		light:SetBlendMode("ADD")
+		light:SetSize(110, 3)
+		light:SetPoint("RIGHT", strip, "LEFT", 0, 0)
+		local sweep = light:CreateAnimationGroup()
+		sweep:SetLooping("REPEAT")
+		local move = sweep:CreateAnimation("Translation")
+		move:SetOffset((opts.width or 860) + 110, 0)
+		move:SetDuration(3.2)
+		sweep:Play()
+		w.shimmer = sweep
+	end
 	local mark = solid(bar, "ARTWORK", Theme.color.accent)
 	mark:SetSize(10, 10)
 	mark:SetPoint("LEFT", 14, 0)
-	w.title = UI.Text(bar, title, { size = "lg", medium = true, tone = web and "text" or "accent" })
+	if decor and decor.mark == "rune" then
+		mark:SetTexture(Theme.media.rune)
+		mark:SetBlendMode("ADD")
+		mark:SetSize(16, 16)
+		mark:SetPoint("LEFT", 11, 0)
+	end
+	w.title = UI.Text(bar, skin.titleCaps and string.upper(title) or title, { size = "lg", medium = true, tone = web and "text" or "accent" })
 	w.title:SetPoint("LEFT", mark, "RIGHT", 8, 0)
 	local close
 	if skin.closeTemplate then
@@ -859,7 +1043,7 @@ function UI.Window(name, title, pages, store, opts)
 		w:Hide()
 	end)
 	if opts.onLook then
-		local other = web and "classic" or "web"
+		local other = Theme.nextLook(skin.name)
 		local look = UI.Button(bar, Theme.skins[other].label .. " look", function()
 			opts.onLook(other)
 		end, { kind = "ghost", height = 22 })
@@ -927,6 +1111,17 @@ function UI.Window(name, title, pages, store, opts)
 			t:SetBlendMode("ADD")
 			t:SetAllPoints()
 			item.bg = box({ t })
+		elseif decor and decor.selected then
+			-- The accent fading to the right, with a bar at the left edge; shown and hidden together.
+			item.bg = surface(item, Theme.color.accentSoft, 1, nil, radius("item"))
+			item.bg:SetGradient("HORIZONTAL", decor.selected)
+			local edge = item:CreateTexture(nil, "ARTWORK")
+			edge:SetTexture("Interface\\Buttons\\WHITE8X8")
+			edge:SetVertexColor(Theme.rgb(Theme.color.accent))
+			edge:SetPoint("TOPLEFT")
+			edge:SetPoint("BOTTOMLEFT")
+			edge:SetWidth(2)
+			item.bg.parts.edge = edge
 		else
 			item.bg = surface(item, Theme.color.accentSoft, 1, nil, radius("item"))
 		end

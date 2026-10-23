@@ -99,6 +99,24 @@ eq(tip[2].lines[1], "13×", "as the column renders it")
 eq(table.concat(tip[3].lines, " / "), "Testchar 6 (bags) / Testchar 2 (bags)", "or the column's own lines")
 eq(L.overflowTip(cols, row, { [3] = true })[1].title, "Where", "only the cut ones")
 
+-- The arcane look, and the order the looks are stepped through.
+T.apply("arcane")
+eq(T.color.accent, "#6ee7ff", "arcane cyan")
+eq(T.skin.decor.shimmer, true, "a light along the rule")
+eq(T.skin.font:match("Exo2%-Regular%.ttf$") ~= nil, true, "Exo 2, bundled")
+T.apply("web")
+eq(T.nextLook("web"), "classic", "web, then classic")
+eq(T.nextLook("classic"), "arcane", "then arcane")
+eq(T.nextLook("arcane"), "web", "and round again")
+eq(T.nextLook("nonsense"), "web", "an unknown look starts the list")
+
+-- A gradient across a rounded box: the start edge's slices take the first colour, the far edge's the
+-- second, the band between them the gradient.
+local v = L.sliceGradient("VERTICAL")
+eq(v.TOP .. v.CENTER .. v.BOTTOMRIGHT, "fromspanto", "top to bottom")
+local h = L.sliceGradient("HORIZONTAL")
+eq(h.LEFT .. h.TOP .. h.RIGHT, "fromspanto", "left to right")
+
 -- Rounded boxes: a rounded corner is its quarter of the circle, a square one the solid middle.
 local slices = L.nineSlice({ BOTTOMLEFT = true })
 eq(table.concat(slices.TOPLEFT, ","), "0,0.5,0,0.5", "top left quarter")

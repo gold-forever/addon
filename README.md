@@ -157,7 +157,8 @@ ids and tokens are set).
 read what the addon records and does, but it may not be copied, modified or redistributed without
 written permission. Installing and using the released addon is of course fine. See [LICENSE](LICENSE).
 
-Roboto (Apache-2.0, `GoldForever/Media/Roboto-LICENSE.txt`), the web look's font, LibDeflate (zlib,
+Roboto (Apache-2.0, `GoldForever/Media/Roboto-LICENSE.txt`), the web look's font, Exo 2 (SIL Open Font
+License 1.1, `GoldForever/Media/Exo2-OFL.txt`), the arcane look's, LibDeflate (zlib,
 `GoldForever/Libs/LibDeflate/LICENSE.txt`) and LibStub (public domain) keep their
 own licences. World of Warcraft is Blizzard Entertainment's; this addon is not affiliated with or
 endorsed by Blizzard.

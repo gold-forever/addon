@@ -78,7 +78,7 @@ Theme.text = { xs = 12, sm = 13, md = 14, lg = 16, xl = 20, xxl = 28 }
 -- dialog boxes, red buttons and Friz Quadrata from files the game ships.
 
 local MEDIA = "Interface\\AddOns\\GoldForever\\Media\\"
-Theme.media = { round = MEDIA .. "Round.tga", shadow = MEDIA .. "Shadow.tga" }
+Theme.media = { round = MEDIA .. "Round.tga", shadow = MEDIA .. "Shadow.tga", glow = MEDIA .. "Glow.tga", rune = MEDIA .. "Rune.tga", spark = MEDIA .. "Spark.tga" }
 
 Theme.skins = {
 	web = {
@@ -125,7 +125,66 @@ Theme.skins = {
 		tabs = "tabs",
 		badgeFill = 0,
 	},
+	-- Indigo lit from within: a violet light at the top, a cyan glow around the window, runes at its
+	-- corners, a cyan-to-violet rule with a light sweeping along it, gradient buttons that breathe. The
+	-- web playground's Arcane look (/design/addon?look=arcane) is the reference.
+	arcane = {
+		name = "arcane",
+		label = "Arcane",
+		font = MEDIA .. "Exo2-Regular.ttf",
+		fontMedium = MEDIA .. "Exo2-SemiBold.ttf",
+		text = { xs = 11, sm = 12, md = 13, lg = 15, xl = 19, xxl = 26 },
+		color = {
+			bg = "#05060f", surface = "#0c0e22", surfaceRaised = "#141838", surfaceHover = "#1c2150", surfaceSunken = "#070818",
+			border = "#2a2f6a", borderStrong = "#4a52a8",
+			text = "#e6e9ff", textMuted = "#a3a9e0", textFaint = "#6f75b0",
+			accent = "#6ee7ff", accentStrong = "#a7f3ff", accentSoft = "#123048", accentContrast = "#04121a", focus = "#a7f3ff",
+			success = "#5df2b0", warning = "#ffc56b", danger = "#ff6b8a", info = "#b48cff",
+		},
+		-- A FontString's shadow: an offset and a colour, never a blur.
+		textShadow = { 0, -1, "#00001e", 0.8 },
+		titleCaps = true,
+		radius = { window = 10, card = 8, control = 6, tab = 5, item = 6 },
+		windowShadow = true,
+		tabs = "segmented",
+		badgeFill = 0.14,
+		decor = {
+			-- The window's background, top to bottom, and the light at its top (Glow, added).
+			gradient = { "#10122c", 0.95, "#06070f", 0.97 },
+			innerLight = { "#7a5aff", 0.35 },
+			-- The glow around the window: the Shadow texture in cyan, added.
+			glow = { "#6ee7ff", 0.22 },
+			corners = "rune",
+			mark = "rune",
+			-- The title band and its rule, left to right; the light that sweeps along the rule.
+			band = { "#6ee7ff", 0.12, "#b48cff", 0.12 },
+			rule = { "#6ee7ff", 1, "#b48cff", 1 },
+			shimmer = true,
+			-- The primary button, left to right, its text, and the glow that breathes in it.
+			primary = { "#4fd1ff", 1, "#9b6bff", 1 },
+			primaryText = "#04121a",
+			pulse = true,
+			-- A chosen row: the accent fading out to the right, with a bar at its left edge.
+			selected = { "#6ee7ff", 0.24, "#b48cff", 0.04 },
+			-- A bar's fill and the spark at its end.
+			bar = { "#6ee7ff", 1, "#b48cff", 1 },
+			spark = true,
+		},
+	},
 }
+
+-- The looks in the order the window's button and the minimap's right-click step through them.
+Theme.order = { "web", "classic", "arcane" }
+
+-- The look after `name`, round the list.
+function Theme.nextLook(name)
+	for i, n in ipairs(Theme.order) do
+		if n == name then
+			return Theme.order[i % #Theme.order + 1]
+		end
+	end
+	return Theme.order[1]
+end
 
 -- The web's tokens as written above, before any look changed them.
 local BASE_COLOR, BASE_TEXT = {}, {}

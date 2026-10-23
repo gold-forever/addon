@@ -41,8 +41,9 @@ end
 
 -- What a click does, shared by the button, the compartment and the bindings ---------------------------------
 
+-- The next look round the list (Theme.order): what a right-click or the binding switches to.
 local function otherLook()
-	return Theme.skin.name == "web" and "classic" or "web"
+	return Theme.nextLook(Theme.skin.name)
 end
 
 function Minimap_.toggleWindow()
