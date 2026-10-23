@@ -688,7 +688,18 @@ SlashCmdList.GOLDFOREVER("ui ledger")
 -- The ways in without a slash command: the compartment's click and the key bindings open and close
 -- the window and switch the look; /gf minimap hides the button and brings it back, and remembers.
 assert(type(GoldForever_OnAddonCompartmentClick) == "function", "the TOC's compartment function exists")
-assert(BINDING_HEADER_GOLDFOREVER and BINDING_NAME_GOLDFOREVER_WINDOW and BINDING_NAME_GOLDFOREVER_LOOK, "Bindings.xml's names are set")
+assert(BINDING_HEADER_GOLDFOREVER and BINDING_NAME_GOLDFOREVER_WINDOW and BINDING_NAME_GOLDFOREVER_LOOK and BINDING_NAME_GOLDFOREVER_HUD, "Bindings.xml's names are set")
+do
+  GoldForever_ToggleHud()
+  local first = GoldForeverDB.settings.appraiser.shown
+  GoldForever_ToggleHud()
+  assert(GoldForeverDB.settings.appraiser.shown == not first, "the HUD binding toggles the HUD")
+  if not GoldForeverDB.settings.appraiser.shown then GoldForever_ToggleHud() end
+end
+-- Every binding Bindings.xml names calls a function the addon defines.
+for call in io.open(dir .. "/Bindings.xml"):read("*a"):gmatch("([%w_]+)%(%)") do
+  assert(type(_G[call]) == "function", "Bindings.xml calls " .. call)
+end
 GoldForever_SwitchLook()
 assert(GoldForeverDB.settings.window.look == "classic", "the look binding switches the look")
 GoldForever_OnAddonCompartmentClick("GoldForever", "RightButton")

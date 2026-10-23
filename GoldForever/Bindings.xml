@@ -6,4 +6,7 @@
 	<Binding name="GOLDFOREVER_LOOK" category="ADDONS">
 		GoldForever_SwitchLook()
 	</Binding>
+	<Binding name="GOLDFOREVER_HUD" category="ADDONS">
+		GoldForever_ToggleHud()
+	</Binding>
 </Bindings>
