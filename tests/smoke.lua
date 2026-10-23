@@ -457,6 +457,14 @@ else
   GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
+-- Settings → Modules: prices in tooltips off takes the line away at once, and back.
+do
+  local before = poolLine(2589)
+  GoldForeverDB.settings.prices = { tooltip = false }
+  assert(poolLine(2589) == nil, "no pool line with the module off")
+  GoldForeverDB.settings.prices = { tooltip = true }
+  assert(poolLine(2589) == before, "and back as it was with it on")
+end
 if INTERFACE < 110000 then
   -- Older than three days: greyed, the words kept.
   local fresh, freshShade = poolLine(2589)

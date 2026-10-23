@@ -292,6 +292,10 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
 				return
 			end
+			-- Settings → Modules can switch the line off.
+			if ns.settings("prices", { tooltip = true }).tooltip == false then
+				return
+			end
 			local now = GetServerTime()
 			local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
 			-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.

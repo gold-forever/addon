@@ -20,8 +20,10 @@
   the best craft at the latest prices), today's money by where it came from, and the bag items worth
   most.
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
-  any look (also `/gf accent #rrggbb`), the minimap button, the window's size, the loot appraiser, bag
-  advice at vendors, the craft list at the auction house, the big-drop alert and the rare alerts.
+  any look (also `/gf accent #rrggbb`), the minimap button, the window's size and the alerts. Its
+  **Modules** tab switches each part on or off without a reload: the session HUD, the auction house
+  panel, prices in tooltips, bag advice at vendors, the craft list and rare alerts. What the save
+  records stays the same whatever is off.
 - The loot window is now the **session HUD**: one line to drag anywhere with the session's time, gold,
   XP and kills an hour and when you will ding, drawn in the window's look. Click it for the session:
   coin, loot at what it sells for, XP, kills (from kill XP, never the combat log), bags

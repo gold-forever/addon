@@ -670,8 +670,9 @@ end
 
 local function buildSettings(page)
 	local window = settings()
-	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "discord", label = "Discord" }, { key = "looks", label = "Looks" } }, function(key)
+	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "discord", label = "Discord" }, { key = "looks", label = "Looks" } }, function(key)
 		page.general:SetShown(key == "general")
+		page.modules:SetShown(key == "modules")
 		page.discord:SetShown(key == "discord")
 		page.looks:SetShown(key == "looks")
 		if key == "discord" then
@@ -688,6 +689,9 @@ local function buildSettings(page)
 	page.looks:Hide()
 	page.discord = CreateFrame("Frame", nil, page)
 	page.discord:SetAllPoints(page.general)
+	page.modules = CreateFrame("Frame", nil, page)
+	page.modules:SetAllPoints(page.general)
+	page.modules:Hide()
 	page.discord:Hide()
 
 	-- General: only settings the addon has, each changed at once.
@@ -736,48 +740,13 @@ local function buildSettings(page)
 			end)
 		end },
 	})
-	settingsCard(g, "Panels and alerts", -146, {
-		{ side = 0, row = 0, label = "Session HUD", make = function(cell)
-			return UI.Switch(cell, appraiser.shown, function(on)
-				if on ~= appraiser.shown and ns.commands.appraise then
-					ns.commands.appraise()
-				end
-				appraiser.shown = on
-			end)
-		end },
-		{ side = 0, row = 1, label = "Bag advice at vendors", make = function(cell)
-			return UI.Switch(cell, advisor.shown, function(on)
-				advisor.shown = on
-			end)
-		end },
-		{ side = 0, row = 2, label = "Craft list at the auction house", make = function(cell)
-			return UI.Switch(cell, shop.shown, function(on)
-				shop.shown = on
-			end)
-		end },
-		{ side = 0, row = 3, label = "Hide the HUD in combat", make = function(cell)
+	settingsCard(g, "Alerts", -146, {
+		{ side = 0, row = 0, label = "Hide the HUD in combat", make = function(cell)
 			return UI.Switch(cell, appraiser.hideInCombat, function(on)
 				appraiser.hideInCombat = on
 			end)
 		end },
-		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
-			return UI.Slider(cell, 0, 50, 1, math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000), function(v)
-				appraiser.bigDrop = v * 10000
-			end, function(v)
-				return v == 0 and "rares" or (v .. "g")
-			end)
-		end },
-		{ side = 1, row = 1, label = isRetail and "Announce rares (off on retail)" or "Announce rares", make = function(cell)
-			local sw = UI.Switch(cell, rares.announce, function(on)
-				rares.announce = on
-			end)
-			if isRetail then
-				sw:Disable()
-				sw:SetAlpha(0.5)
-			end
-			return sw
-		end },
-		{ side = 1, row = 2, label = "Mark rares with a skull", make = function(cell)
+		{ side = 0, row = 1, label = "Mark rares with a skull", make = function(cell)
 			local sw = UI.Switch(cell, rares.mark, function(on)
 				rares.mark = on
 			end)
@@ -787,7 +756,81 @@ local function buildSettings(page)
 			end
 			return sw
 		end },
+		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
+			return UI.Slider(cell, 0, 50, 1, math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000), function(v)
+				appraiser.bigDrop = v * 10000
+			end, function(v)
+				return v == 0 and "rares" or (v .. "g")
+			end)
+		end },
 	})
+
+	-- Modules: each part of the addon a player sees, on or off at once, no reload. The recorder is not
+	-- one: what the save records stays the same whatever is switched off.
+	local m = page.modules
+	local auction = ns.settings("auction", { rule = {}, duration = 2 })
+	local prices = ns.settings("prices", { tooltip = true })
+	local MODULES = {
+		{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
+			on = function() return appraiser.shown end,
+			set = function(on)
+				if on ~= appraiser.shown and ns.commands.appraise then
+					ns.commands.appraise()
+				end
+				appraiser.shown = on
+			end },
+		{ icon = "gavel", name = "Auction house panel", blurb = "Scan, post and the rule, beside the auction house.",
+			on = function() return not auction.hidden end,
+			set = function(on) auction.hidden = not on end },
+		{ icon = "tag", name = "Prices in tooltips", blurb = "Everyone's price, or your own scan's, under every item.",
+			on = function() return prices.tooltip ~= false end,
+			set = function(on) prices.tooltip = on end },
+		{ icon = "backpack", name = "Bag advice at vendors", blurb = "What to sell, keep or post when a vendor opens.",
+			on = function() return advisor.shown end,
+			set = function(on) advisor.shown = on end },
+		{ icon = "flask-conical", name = "Craft list at the auction house", blurb = "Your recipes that make a profit, and what to buy for them.",
+			on = function() return shop.shown end,
+			set = function(on) shop.shown = on end },
+		{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
+			on = function() return rares.announce end,
+			set = function(on) rares.announce = on end, disabled = isRetail },
+	}
+	local list = UI.Panel(m, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	list:SetPoint("TOPLEFT")
+	list:SetPoint("RIGHT", m, "RIGHT")
+	list:SetHeight(#MODULES * 52 + 8)
+	for i, mod in ipairs(MODULES) do
+		local row = CreateFrame("Frame", nil, list)
+		row:SetHeight(52)
+		row:SetPoint("TOPLEFT", 0, -4 - (i - 1) * 52)
+		row:SetPoint("RIGHT", list, "RIGHT")
+		if i > 1 then
+			local rule = UI.solid(row, "BORDER", Theme.color.border)
+			rule:SetPoint("TOPLEFT", 16, 0)
+			rule:SetPoint("TOPRIGHT", -16, 0)
+			rule:SetHeight(UI.pixel())
+		end
+		local icon = UI.Icon(row, mod.icon, 20, mod.on() and "accent" or "faint")
+		icon:SetPoint("LEFT", 20, 0)
+		local name = UI.Text(row, mod.name, { size = "sm", medium = true, tone = mod.on() and "text" or "muted" })
+		name:SetPoint("TOPLEFT", 56, -10)
+		local blurb = UI.Text(row, mod.blurb, { size = "xs", tone = "faint" })
+		blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -4)
+		blurb:SetPoint("RIGHT", row, "RIGHT", -80, 0)
+		local sw = UI.Switch(row, mod.on(), function(on)
+			mod.set(on)
+			icon:SetTone(on and "accent" or "faint")
+			name:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
+		end)
+		sw:SetPoint("RIGHT", -20, 0)
+		if mod.disabled then
+			sw:Disable()
+			sw:SetAlpha(0.5)
+		end
+	end
+	local note = UI.Text(m, "What the save records stays the same whatever is switched off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -14)
+	note:SetPoint("RIGHT", m, "RIGHT")
 
 	-- Discord: dings for the character online. The webhook is added on the site; the switch needs the
 	-- companion, which carries the choice there and brings the site's side back.
