@@ -108,6 +108,26 @@ eq(P.ruleset("Shen’dralas"), "shene28099dralas", "the typographic apostrophe s
 eq(P.ruleset("Éclat"), "c389clat", "an accented capital as its bytes")
 eq(P.ruleset("Éclat RP-PvP"), "rppvp", "an accented RP-PvP realm")
 eq(#P.ruleset("Пиратская Бухта Свежевателя Душ"), 32, "a long Cyrillic name cut to 32 characters")
+-- The server's own table (backend LaunchMarketsTest.REALM_KEYS, docs/launch-runbook.md), pinned as is.
+local REALM_KEYS = {
+	{ "Гордунни", "d093d0bed180d0b4d183d0bdd0bdd0b8" },
+	{ "Les Sentinelles", "lessentinelles" },
+	{ "Zirkel des Cenarius", "zirkeldescenarius" },
+	{ "Die Aldor", "diealdor" },
+	{ "Shen’dralas", "shene28099dralas" },
+	{ "Shen'dralas", "shendralas" },
+	{ "Éclat", "c389clat" },
+	{ "Ревущий фьорд Азерота", "d0a0d0b5d0b2d183d189d0b8d0b9d184" },
+	{ "Confrérie du Thorium RP-PvP", "rppvp" },
+	{ "Kul Tiras RP-PvP", "rppvp" },
+	{ "Forever PvP", "pvp" },
+	{ "Azeroth", "azeroth" },
+	{ "", "unknown" },
+	{ "’ – ’", "e28099e28093e28099" },
+}
+for _, k in ipairs(REALM_KEYS) do
+	eq(P.ruleset(k[1]), k[2], "server table: " .. k[1])
+end
 eq(P.poolMarket("EU-Some Realm-alliance", RETAIL), nil, "poolMarket is Forever's key only")
 eq(P.poolMarket("EU-Some Realm-alliance", nil), nil, "no interface known")
 eq(P.poolMarket("EU-Some Realm-alliance", 15999), nil, "below Forever's range")
