@@ -372,10 +372,13 @@ do
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
   print("AH POST " .. tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit))
+  AP.duration(3) -- 48 hours for Linen, remembered for it
   AP.post()
   if chosen.suggestion and chosen.suggestion.unit then
     if #posts == 0 then AP.post() end -- a sanity check asked for a second press
     assert(#posts == 1 and posts[1][3] == 7, "one commodity post of the whole stack")
+    assert(posts[1][2] == 3, "for the duration remembered for the item")
+    assert(GoldForeverDB.settings.auction.durations["2589"] == 3 and GoldForeverDB.settings.auction.duration == 2, "kept for Linen, the default unchanged")
     fire("AUCTION_HOUSE_AUCTION_CREATED", 1)
     assert(select(3, AP.state()) == nil, "the post is answered")
   end

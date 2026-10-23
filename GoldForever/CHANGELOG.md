@@ -40,7 +40,7 @@
   else (a live search when you choose it; your own listings left out), with the reason: Undercut, No one
   else, Normal price, At floor or Hold. Click Post, or press Space while the panel shows; it waits for
   the server's answer, then moves to the next item. A post under vendor value or far under the market
-  asks for a second press. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
+  asks for a second press. The duration you choose for an item is remembered for it. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
   as shares of the market value (the pool's, else your own scan), and hold or post at the floor.
 - The pool's prices find the launch realms' markets: the region from a region number or the portal
   when the client gives no name, and the ruleset from the realm's name (Hardcore, RP-PvP, PvP, RP,

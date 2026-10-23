@@ -17,6 +17,7 @@ local CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next
 
 local function settings()
 	local s = ns.settings("auction", { rule = {}, duration = 2 })
+	s.durations = s.durations or {}
 	for k, v in pairs(Post.DEFAULT) do
 		if s.rule[k] == nil then
 			s.rule[k] = v
@@ -192,6 +193,12 @@ end)
 
 local lastArgs -- what the last post sent, for confirming it after the client's warning
 
+-- The duration an item posts for: the one last chosen for it, else the default.
+local function durationOf(r)
+	local s = settings()
+	return r and s.durations[r.key] or s.duration
+end
+
 local function quantity(r)
 	return r.commodity and r.count or 1
 end
@@ -222,7 +229,7 @@ local function post()
 		return
 	end
 	armed = nil
-	local duration = settings().duration
+	local duration = durationOf(r)
 	local loc = r.locations[1]
 	local q = quantity(r)
 	if r.commodity then
@@ -396,10 +403,16 @@ local function buildPost(page)
 		qty:SetWidth(200)
 		listed[i] = { unit = unit, qty = qty }
 	end
+	-- Chosen for the item in view and remembered for it; with no item chosen, the default.
 	local duration = UI.Dropdown(detail, DURATIONS, settings().duration, function(v)
-		settings().duration = v
+		if chosen then
+			settings().durations[chosen.key] = v
+		else
+			settings().duration = v
+		end
 		refresh()
 	end)
+	page.duration = duration
 	duration:SetPoint("BOTTOMLEFT", 14, 12)
 	duration:SetWidth(110)
 	local button = UI.Button(detail, "Post", function()
@@ -423,6 +436,7 @@ local function buildPost(page)
 			return
 		end
 		local r = chosen
+		duration:Set(durationOf(r))
 		local sug = r.suggestion
 		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  ×" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
@@ -673,5 +687,10 @@ ns.AuctionPanel = {
 	end,
 	state = function()
 		return rows, chosen, waiting
+	end,
+	duration = function(v)
+		if panel and panel.post.duration then
+			settings().durations[chosen.key] = v
+		end
 	end,
 }
