@@ -290,8 +290,10 @@ function Views.sessionRates(s, elapsed, value, toLevel)
 			r.dingIn = toLevel / r.xpPerHour * 3600
 		end
 	end
-	if (s.kills or 0) > 0 and (s.killXp or 0) > 0 and toLevel and toLevel > 0 then
-		r.killsToLevel = math.ceil(toLevel / (s.killXp / s.kills))
+	-- XP a kill from the kills that gave XP (grey mobs give none and count only as kills).
+	local xpKills = s.xpKills or s.kills or 0
+	if xpKills > 0 and (s.killXp or 0) > 0 and toLevel and toLevel > 0 then
+		r.killsToLevel = math.ceil(toLevel / (s.killXp / xpKills))
 	end
 	return r
 end
@@ -332,4 +334,19 @@ end
 -- The start of the server's UTC day that `t` falls in, as the saved days are bucketed.
 function Views.dayStart(t)
 	return t - t % 86400
+end
+
+-- Kills in one fight without the combat log (design 009; the playground's killsInFight): when the fight
+-- closes (combat over and a few seconds to loot), the larger of its kill-XP gains and the creature
+-- corpses looted for the first time. A corpse looted again is no new kill; a grey mob gives no XP but its
+-- corpse counts; a chest or herb (not a creature) never does. `seen` (guid -> true) is updated in place.
+function Views.killsInFight(xpKills, corpses, seen)
+	local fresh = 0
+	for _, guid in ipairs(corpses or {}) do
+		if string.find(guid, "^Creature%-") and not seen[guid] then
+			seen[guid] = true
+			fresh = fresh + 1
+		end
+	end
+	return math.max(xpKills or 0, fresh)
 end

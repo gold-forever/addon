@@ -139,4 +139,14 @@ eq(total, 10600, "the total")
 eq(unpriced, 7, "units without a price")
 eq(V.dayStart(86400 * 3 + 5000), 86400 * 3, "the UTC day's start")
 
+-- Kills in a fight, as the playground's killsInFight: the larger of kill XP and fresh creature corpses.
+eq(V.killsInFight(2, { "Creature-0-1-a", "Creature-0-1-b" }, {}), 2, "two kills, two corpses")
+eq(V.killsInFight(1, {}, {}), 1, "killed, not looted")
+eq(V.killsInFight(0, { "Creature-0-1-rat" }, {}), 1, "a grey mob: no XP, a corpse")
+local seenCorpses = {}
+eq(V.killsInFight(1, { "Creature-0-1-a" }, seenCorpses), 1, "the first loot")
+eq(V.killsInFight(0, { "Creature-0-1-a" }, seenCorpses), 0, "a corpse looted again is no new kill")
+eq(V.killsInFight(0, { "GameObject-0-1-chest" }, {}), 0, "a chest is no kill")
+eq(V.sessionRates({ coin = 0, xp = 900, killXp = 900, kills = 5, xpKills = 3 }, 30, 0, 9000).killsToLevel, 30, "XP a kill from the kills that gave XP")
+
 return checks

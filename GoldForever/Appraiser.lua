@@ -209,7 +209,7 @@ local function current()
 		local free = freeSlots()
 		session = {
 			start = now, last = now, coin = 0, items = {},
-			xp = 0, killXp = 0, kills = 0,
+			xp = 0, killXp = 0, kills = 0, xpKills = 0,
 			bagBase = free, bagBaseAt = now, bagFree = free,
 		}
 	end
@@ -239,12 +239,45 @@ local function readXp()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), level = UnitLevel("player") }
 end
 
+-- Kills without the combat log (forbidden on Forever): a fight opens when combat starts and closes a
+-- few seconds after it ends, once its loot is in; its kills are the larger of its kill-XP gains and the
+-- creature corpses looted for the first time (Views.killsInFight), so a grey mob counts too.
+local FIGHT_GRACE = 8 -- seconds after combat for the kill XP (classified 3 s late) and the loot
+local fight -- { xpKills, corpses = { guid } } while one is open
+local corpsesSeen = {} -- corpse GUIDs already counted
+
+local function closeFight()
+	local f = fight
+	fight = nil
+	if f and session then
+		session.kills = session.kills + ns.Views.killsInFight(f.xpKills, f.corpses, corpsesSeen)
+	end
+end
+
+ns.on("PLAYER_REGEN_DISABLED", "session fights", function()
+	closeFight() -- a new pull before the last fight's loot was in
+	fight = { xpKills = 0, corpses = {} }
+end)
+ns.on("PLAYER_REGEN_ENABLED", "session fights", function()
+	local f = fight
+	C_Timer.After(FIGHT_GRACE, function()
+		if fight == f then
+			ns.safely("session fights", closeFight)
+		end
+	end)
+end)
+
 table.insert(ns.xpListeners, function(gained, kind)
 	local s = current()
 	s.xp = s.xp + gained
 	if kind == "kill" or kind == "boss" then
 		s.killXp = s.killXp + gained
-		s.kills = s.kills + 1
+		s.xpKills = (s.xpKills or 0) + 1
+		if fight then
+			fight.xpKills = fight.xpKills + 1
+		else
+			s.kills = s.kills + 1 -- a kill outside any fight (a pet's, a DoT's after combat)
+		end
 	end
 end)
 
@@ -303,8 +336,8 @@ local function text()
 			line = line .. " · " .. number(perHour) .. "/h · level " .. (xpSeen.level + 1) .. " in "
 				.. Encode.duration((xpSeen.max - xpSeen.cur) / perHour * 3600)
 		end
-		if session.kills > 0 then
-			line = line .. string.format(" (~%s kills)", number(math.ceil((xpSeen.max - xpSeen.cur) / (session.killXp / session.kills))))
+		if (session.xpKills or 0) > 0 and session.killXp > 0 then
+			line = line .. string.format(" (~%s kills)", number(math.ceil((xpSeen.max - xpSeen.cur) / (session.killXp / session.xpKills))))
 		end
 		table.insert(lines, line)
 	end
@@ -334,8 +367,11 @@ local function text()
 	return table.concat(lines, "\n")
 end
 
--- The session in words, for /gf session and the tests.
+-- The session in words, for /gf session and the tests; and its kills, for the tests.
 ns.sessionText = text
+ns.sessionKills = function()
+	return session and session.kills
+end
 
 local build
 
@@ -385,7 +421,7 @@ local function refresh()
 	d.values[2]:SetText(UI.layout.money(value) .. (unpriced > 0 and (faint .. string.format("  +%d unpriced", unpriced) .. "|r") or ""))
 	d.values[3]:SetText(UI.layout.money(r.total) .. (r.rated and (faint .. "  · " .. "|r" .. UI.layout.money(r.goldPerHour, "gold") .. faint .. " an hour|r") or ""))
 	d.values[4]:SetText(Views.short(session.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, (xpSeen.level or 0) + 1) .. "|r") or ""))
-	d.values[5]:SetText(session.kills .. faint .. "  from kill XP, never the combat log|r")
+	d.values[5]:SetText(session.kills .. faint .. "  from kill XP and corpses, never the combat log|r")
 	local used = session.bagBase - session.bagFree
 	local filling = GetTime() - session.bagBaseAt
 	local bags = session.bagFree == 0 and (Theme.escape(Theme.color.danger) .. "full|r") or (session.bagFree .. " free")
@@ -652,8 +688,22 @@ local function bigDrops(taken)
 	end
 end
 
-table.insert(ns.lootListeners, function(coin, taken)
+table.insert(ns.lootListeners, function(coin, taken, rows)
 	current()
+	-- Creature corpses looted for the first time: in the open fight, or a fight of their own.
+	local corpses = {}
+	for _, row in ipairs(rows or {}) do
+		if row.first and row.guid then
+			corpses[#corpses + 1] = row.guid
+		end
+	end
+	if fight then
+		for _, guid in ipairs(corpses) do
+			table.insert(fight.corpses, guid)
+		end
+	elseif #corpses > 0 then
+		session.kills = session.kills + ns.Views.killsInFight(0, corpses, corpsesSeen)
+	end
 	ns.safely("big drop", bigDrops, taken)
 	session.coin = session.coin + coin
 	for key, n in pairs(taken) do
@@ -689,6 +739,7 @@ ns.on("PLAYER_LOGOUT", "appraiser", function()
 		xp = session.xp,
 		killXp = session.killXp,
 		kills = session.kills,
+		xpKills = session.xpKills,
 		bagBase = session.bagBase,
 	}
 end)
@@ -713,6 +764,7 @@ local function restore()
 		xp = saved.xp or 0,
 		killXp = saved.killXp or 0,
 		kills = saved.kills or 0,
+		xpKills = saved.xpKills or saved.kills or 0,
 		bagBase = saved.bagBase or freeSlots(),
 		bagBaseAt = now - (saved.sinceBagBase or 0) - gap,
 		bagFree = freeSlots(),

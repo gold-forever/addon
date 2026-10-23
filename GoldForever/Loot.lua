@@ -236,7 +236,8 @@ local function finish(w)
 		end
 		local src = w.sources[guid].src or sourceOf(guid)
 		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items), w.fish))
-		rows[#rows + 1] = { src = src, coin = shares[guid] or 0, items = items }
+		-- guid and first stay in memory, for the session HUD's kill count; the row saved is the one above.
+		rows[#rows + 1] = { src = src, coin = shares[guid] or 0, items = items, guid = guid, first = first }
 	end
 	lastLoot = GetTime()
 	-- The loot window as a whole, for whoever listens (the appraiser): coin and every item taken.

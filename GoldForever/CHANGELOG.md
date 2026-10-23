@@ -26,7 +26,7 @@
   records stays the same whatever is off.
 - The loot window is now the **session HUD**: one line to drag anywhere with the session's time, gold,
   XP and kills an hour and when you will ding, drawn in the window's look. Click it for the session:
-  coin, loot at what it sells for, XP, kills (from kill XP, never the combat log), bags
+  coin, loot at what it sells for, XP, kills (from kill XP and looted corpses, never the combat log), bags
   and the best loot, with Stop and New session. Settings can hide it in combat; `/gf hud` shows or
   hides it, `/gf session` prints it.
 - An **auction house panel** beside the auction house (`/gf ah` hides or brings it back). **Scan**: the

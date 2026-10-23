@@ -527,8 +527,15 @@ GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
 print("MOB " .. tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lines[2]))
 -- One more loot of that mob after its tooltip was built: counted in place, not by reading every row.
+-- It is a fight of its own with no kill XP (a grey mob): its corpse counts as one kill once the fight
+-- closes, and looting it again later counts nothing.
+local killsBefore = ns.sessionKills() or 0
+fire("PLAYER_REGEN_DISABLED")
+fire("PLAYER_REGEN_ENABLED")
 slots = { { kind = 2, sources = { "Creature-0-4620-0-12-1922-000J", 40 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) money = money + 40; fire("PLAYER_MONEY") fire("LOOT_CLOSED")
+wait(10)
+assert(ns.sessionKills() == killsBefore + 1, "a grey mob's corpse is a kill: " .. tostring(ns.sessionKills()) .. " after " .. killsBefore)
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
 print("MOB AFTER LOOT " .. tostring(GameTooltip.lines[1]))
