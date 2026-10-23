@@ -390,6 +390,26 @@ do
     fire("AUCTION_HOUSE_AUCTION_CREATED", 1)
     assert(select(3, AP.state()) == nil, "the post is answered")
   end
+  -- The Shop: a list entry for Linen up to 45s; its book from a search; Buy next quotes, a second press
+  -- confirms; a quote more than 10% dearer than the deal asks again before buying.
+  local calls = {}
+  C_AuctionHouse.MakeItemKey = function(id) return { itemID = id, itemLevel = 0 } end
+  C_AuctionHouse.StartCommoditiesPurchase = function(id, n) calls[#calls + 1] = "start " .. id .. " " .. n end
+  C_AuctionHouse.ConfirmCommoditiesPurchase = function(id, n) calls[#calls + 1] = "confirm " .. id .. " " .. n end
+  GoldForeverDB.settings.auction.lists = { { name = "Mats", entries = { { itemId = 2589, maxUnit = 4500 } } } }
+  AP.tab("shop")
+  AP.shopChoose(GoldForeverDB.settings.auction.lists[1].entries[1])
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589) -- 5 own at 30s (left out), 20 at 42s50
+  AP.shopBuy()
+  assert(calls[#calls] == "start 2589 20", "Buy next asks a quote for the 20 at or under 45s: " .. tostring(calls[#calls]))
+  fire("COMMODITY_PRICE_UPDATED", 4250, 85000)
+  AP.shopBuy()
+  assert(calls[#calls] == "confirm 2589 20", "the second press confirms the quote")
+  fire("COMMODITY_PURCHASE_SUCCEEDED")
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+  AP.shopBuy()
+  fire("COMMODITY_PRICE_UPDATED", 5000, 100000) -- 18% dearer than the deal
+  assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
   AP.tab("scan")
   assert(not AP.bound(), "and is free again off it")
   fire("AUCTION_HOUSE_CLOSED")

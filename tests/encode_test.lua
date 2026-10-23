@@ -151,4 +151,16 @@ for trial = 1, 200 do
 end
 eq(E.marketValueFlat({}), nil, "no listings")
 
+-- Base64, as the site's btoa: RFC 4648's vectors, round trips, and refusals.
+for _, v in ipairs({ { "", "" }, { "f", "Zg==" }, { "fo", "Zm8=" }, { "foo", "Zm9v" }, { "foob", "Zm9vYg==" }, { "fooba", "Zm9vYmE=" }, { "foobar", "Zm9vYmFy" } }) do
+	eq(E.base64(v[1]), v[2], "base64 of " .. v[1])
+	eq(E.unbase64(v[2]), v[1], "back from " .. v[2])
+end
+eq(E.unbase64("Zm9v YmFy\n"), "foobar", "white space ignored")
+eq(E.unbase64("Zm9"), nil, "a bad length")
+eq(E.unbase64("Zm9!"), nil, "a character outside the alphabet")
+eq(E.unbase64("Zg==Zg=="), nil, "padding only at the end")
+local utf = "Guldsm\195\184r \226\128\153 \208\147"
+eq(E.unbase64(E.base64(utf)), utf, "UTF-8 bytes round trip")
+
 return checks

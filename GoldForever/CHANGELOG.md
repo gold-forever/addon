@@ -46,6 +46,11 @@
   asks for a second press. The duration you choose for an item, and how many of a stackable item to
   post (all at first), are remembered for it. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
   as shares of the market value (the pool's, else your own scan), and hold or post at the floor.
+  **Shop**: shopping lists of items with the most you pay a unit (or "under market"); shift-click an
+  item into the field to add it. Choosing one searches it and shows what you can buy at or under your
+  price; **Buy next** asks the auction house for the price, and a second press buys (a price more than
+  10% above the deal is named first). Gear is bought one auction a press. Lists import and export as
+  `GFL1:` strings to share.
 - The pool's prices find the launch realms' markets: the region from a region number or the portal
   when the client gives no name, and the ruleset from the realm's name (Hardcore, RP-PvP, PvP, RP,
   Normal, or the realm's own name), as the server files them now.

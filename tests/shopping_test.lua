@@ -1,0 +1,69 @@
+-- Shopping.lua: the playground's shopping.test.ts cases, in Lua.
+
+local ns = {}
+assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Shopping.lua"], "@Shopping.lua"))("GoldForever", ns)
+local S, E = ns.Shopping, ns.Encode
+
+local checks = 0
+local function eq(actual, expected, what)
+	checks = checks + 1
+	if actual ~= expected then
+		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
+	end
+end
+local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
+
+-- entryLimit
+eq(S.limit({ itemId = 1, maxUnit = 500 }, 900), 500, "its own price")
+eq(S.limit({ itemId = 1 }, 900), 899, "a copper under market")
+eq(S.limit({ itemId = 1 }, nil), nil, "no market, no limit")
+
+-- dealFor
+local d = S.deal({ itemId = 1, maxUnit = 300 }, { lv(250, 20), lv(300, 10, 4), lv(420, 30) }, nil)
+eq(d.quantity, 26, "other players' units at or under the limit")
+eq(d.total, 250 * 20 + 300 * 6, "their cost")
+eq(d.topUnit, 300, "the dearest unit reached")
+eq(d.limit, 300, "the limit")
+eq(S.deal({ itemId = 1, maxUnit = 100 }, { lv(250, 20) }, nil), nil, "nothing cheap enough")
+eq(S.deal({ itemId = 1 }, { lv(250, 20) }, nil), nil, "under market with no market")
+
+-- priceMoved
+eq(S.moved(1000, 1100), false, "10% is fine")
+eq(S.moved(1000, 1101), true, "more is not")
+eq(S.moved(1000, 900), false, "cheaper is fine")
+
+-- The list string
+local lists = {
+	{ name = "Alchemy mats", entries = { { itemId = 13463, maxUnit = 17000 }, { itemId = 8925 } } },
+	{ name = "Snipe", entries = { { itemId = 14344 } } },
+}
+eq(S.text(lists), table.concat({ "list Alchemy mats", "item 13463 max 17000", "item 8925 market", "list Snipe", "item 14344 market" }, "\n"), "plain lines")
+local back = S.decode(S.encode(lists))
+eq(back and S.text(back), S.text(lists), "reads back")
+-- The site's own string for the same lists (btoa of the lines), read as the addon would.
+eq(S.text(S.decode("GFL1:" .. E.base64(S.text(lists)))), S.text(lists), "a string from the site")
+local function wrap(t) return "GFL1:" .. E.base64(t) end
+local _, err = S.decode("GFP1:abc")
+eq(err and err:find("GFL1:", 1, true) ~= nil, true, "names the prefix")
+_, err = S.decode(wrap("item 1 market"))
+eq(err and err:find("Line 1", 1, true) ~= nil, true, "names the line")
+eq((S.decode(wrap("list a\nitem 1 max 0"))), nil, "a zero price")
+eq((S.decode(wrap("list a\nitem 1 cheap"))), nil, "an unknown word")
+eq((S.decode("GFL1:@@@@")), nil, "damaged")
+eq(S.decode(wrap("list |cffff0000Free|r\nitem 1 market"))[1].name, "cffff0000Freer", "the game's escapes stripped")
+
+-- The Shop's field: a link or an ID, then a price in gold or none.
+local link = "|cffffffff|Hitem:2589::::::::30:::::|h[Linen Cloth]|h|r"
+local id, max = S.parseAdd(link .. " 1.5")
+eq(id, 2589, "the link's item")
+eq(max, 15000, "1.5 gold")
+id, max = S.parseAdd(link .. " ")
+eq(id .. tostring(max), "2589nil", "no price: under market")
+id, max = S.parseAdd("2589 0.25g")
+eq(id .. "/" .. max, "2589/2500", "an ID typed, a price with g")
+eq(S.parseAdd("Linen"), nil, "no item")
+id, max = S.parseAdd(link .. " cheap")
+eq(id .. tostring(max), "2589nil", "a price not understood is none")
+
+return checks

@@ -129,14 +129,16 @@ local function search(r, open)
 end
 
 local LISTED = 4 -- the cheapest listings the panel shows
+local LEVELS = 100 -- the cheapest levels of a book the Shop reads
 
 local refresh, show
 
 -- Commodities: the cheapest unit left after the player's own.
 ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction panel", function(itemID)
 	local n = C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
-	local cheapest, list = nil, {}
-	for i = 1, n do
+	local cheapest, list, levels = nil, {}, {}
+	-- The book as the Shop reads it ({ unitPrice, quantity, own }), the cheapest LEVELS of it.
+	for i = 1, math.min(n, LEVELS) do
 		local res = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, i)
 		if res then
 			if not cheapest and (res.quantity or 0) - (res.numOwnerItems or 0) > 0 then
@@ -145,12 +147,10 @@ ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction panel", function(itemID)
 			if #list < LISTED then
 				list[#list + 1] = { unit = res.unitPrice, qty = res.quantity or 0, own = (res.numOwnerItems or 0) > 0 }
 			end
-		end
-		if cheapest and #list >= LISTED then
-			break
+			levels[#levels + 1] = { unitPrice = res.unitPrice, quantity = res.quantity or 0, own = res.numOwnerItems or 0 }
 		end
 	end
-	live[tostring(itemID)] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
+	live[tostring(itemID)] = { cheapest = cheapest, list = list, total = n, levels = levels, commodity = true, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -167,7 +167,8 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
 		if res and res.buyoutAmount and res.buyoutAmount > 0 then
 			local unit = math.floor(res.buyoutAmount / math.max(1, res.quantity or 1) + 0.5)
-			all[#all + 1] = { unit = unit, qty = res.quantity or 1, own = res.containsOwnerItem and true or false }
+			all[#all + 1] = { unit = unit, qty = res.quantity or 1, own = res.containsOwnerItem and true or false,
+				auctionID = res.auctionID, buyout = res.buyoutAmount }
 			if not res.containsOwnerItem then
 				cheapest = cheapest and math.min(cheapest, unit) or unit
 			end
@@ -185,6 +186,12 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
 		end
 	end
+	-- For the Shop: every auction of the item, cheapest first, as levels and with what PlaceBid needs.
+	local levels = {}
+	for i, a in ipairs(all) do
+		levels[i] = { unitPrice = a.unit, quantity = a.qty, own = a.own and a.qty or 0, auctionID = a.auctionID, buyout = a.buyout }
+	end
+	live["item:" .. itemKey.itemID] = { cheapest = cheapest, levels = levels, commodity = false, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -291,8 +298,9 @@ ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 end)
 ns.on("UI_ERROR_MESSAGE", "auction panel", function(_, message)
 	if waiting and panel then
+		local note = string.find(waiting.key, "^shop:") and panel.shop.note or panel.post.note
 		waiting = nil
-		panel.post.note:SetText(Theme.escape(Theme.color.danger) .. tostring(message or "The post failed.") .. "|r")
+		note:SetText(Theme.escape(Theme.color.danger) .. tostring(message or "The post failed.") .. "|r")
 	end
 end)
 
@@ -494,6 +502,275 @@ local function buildPost(page)
 	end
 end
 
+-- Shop --------------------------------------------------------------------------------------------------------
+
+-- Shopping lists (design 009, Shop): items with the most to pay a unit, or "under market". Choosing an
+-- entry searches it; Buy next buys what its deal covers: a commodity in the client's two steps (a quote,
+-- then a second press confirms it; a quote 10% dearer than the deal asks again), an item one auction a
+-- press. Lists travel as GFL1 strings. Buying only ever happens on a press.
+local shopChosen -- the entry in view: { itemId, maxUnit }
+local purchase -- a commodity purchase in progress: { itemId, quantity, expected, quoted, moved }
+
+local function lists()
+	local s = settings()
+	if not s.lists or #s.lists == 0 then
+		s.lists = { { name = "My list", entries = {} } }
+	end
+	s.list = math.max(1, math.min(s.list or 1, #s.lists))
+	return s.lists, s.lists[s.list]
+end
+
+-- The deal for an entry from its live book, or nil before a search came back.
+local function shopDeal(e)
+	local l = live[tostring(e.itemId)] or live["item:" .. e.itemId]
+	if not l or not l.levels then
+		return nil, l
+	end
+	return ns.Shopping.deal(e, l.levels, ns.Prices.value(e.itemId)), l
+end
+
+local function searchEntry(e)
+	if not (e and C_AuctionHouse.MakeItemKey and C_AuctionHouse.SendSearchQuery) then
+		return
+	end
+	local key = C_AuctionHouse.MakeItemKey(e.itemId)
+	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
+	C_AuctionHouse.SendSearchQuery(key, sorts, true)
+end
+
+-- One press of Buy next.
+local function buyNext()
+	local e = shopChosen
+	if not e or waiting then
+		return
+	end
+	local deal, book = shopDeal(e)
+	local note = panel.shop.note
+	if purchase and purchase.itemId == e.itemId and purchase.quoted then
+		-- The second press: confirm the quote the client gave (as its own Buy button does).
+		local p = purchase
+		purchase = nil
+		C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
+		waiting = { key = "shop:" .. p.itemId, at = GetTime() }
+		note:SetText("Buying…")
+		return
+	end
+	if not deal then
+		note:SetText(book and "Nothing at or under your price now." or "Searching…")
+		searchEntry(e)
+		return
+	end
+	if book.commodity then
+		purchase = { itemId = e.itemId, quantity = deal.quantity, expected = deal.total }
+		C_AuctionHouse.StartCommoditiesPurchase(e.itemId, deal.quantity)
+		note:SetText("Asking the auction house for a price…")
+	else
+		-- The cheapest auction by someone else at or under the limit: one a press.
+		for _, a in ipairs(book.levels) do
+			if a.own == 0 and a.unitPrice <= deal.limit and a.auctionID then
+				C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
+				waiting = { key = "shop:" .. e.itemId, at = GetTime() }
+				note:SetText("Buying one for " .. money(a.buyout) .. "…")
+				return
+			end
+		end
+		note:SetText("Nothing at or under your price now.")
+	end
+end
+
+ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
+	if not purchase or not panel then
+		return
+	end
+	purchase.quoted = total
+	purchase.moved = ns.Shopping.moved(purchase.expected, total)
+	local text = string.format("%d for %s", purchase.quantity, money(total))
+	panel.shop.note:SetText(purchase.moved and (Theme.escape(Theme.color.warning) .. "The price moved: " .. text .. " (the deal was " .. money(purchase.expected) .. "). Press again to buy anyway.|r")
+		or ("Press again to buy " .. text .. "."))
+	refresh()
+end)
+local function bought(ok, why)
+	if not panel then
+		return
+	end
+	waiting, purchase = nil, nil
+	panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
+	if shopChosen then
+		live[tostring(shopChosen.itemId)], live["item:" .. shopChosen.itemId] = nil, nil
+		searchEntry(shopChosen)
+	end
+	refresh()
+end
+ns.on("COMMODITY_PURCHASE_SUCCEEDED", "auction shop", function()
+	bought(true)
+end)
+ns.on("COMMODITY_PURCHASE_FAILED", "auction shop", function()
+	bought(false, "The purchase failed: the price or the stock changed.")
+end)
+ns.on("COMMODITY_PRICE_UNAVAILABLE", "auction shop", function()
+	bought(false, "No price: the stock changed. Search again.")
+end)
+ns.on("AUCTION_HOUSE_PURCHASE_COMPLETED", "auction shop", function()
+	bought(true)
+end)
+
+local function buildShop(page)
+	local s = settings()
+	local function names()
+		local out = {}
+		for i, l in ipairs((lists())) do
+			out[i] = { value = i, label = l.name }
+		end
+		return out
+	end
+	local listPick
+	local function rebuildPick()
+		if listPick then
+			listPick:Hide()
+		end
+		listPick = UI.Dropdown(page, names(), s.list or 1, function(v)
+			s.list = v
+			shopChosen = nil
+			refresh()
+		end)
+		listPick:SetPoint("TOPLEFT")
+		listPick:SetWidth(170)
+	end
+	rebuildPick()
+	page.rebuildPick = rebuildPick
+	local newList = UI.Button(page, "New", function()
+		local all = lists()
+		all[#all + 1] = { name = "List " .. (#all + 1), entries = {} }
+		s.list = #all
+		rebuildPick()
+		refresh()
+	end, { kind = "ghost", width = 54, height = 28 })
+	newList:SetPoint("LEFT", page, "TOPLEFT", 178, -14)
+
+	-- Import and export: one field, the GFL1 string in or out.
+	local field = UI.SearchBox(page, "Paste a GFL1: string, or press Export", nil)
+	field:SetPoint("TOPLEFT", 0, -36)
+	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
+	local import = UI.Button(page, "Import", function()
+		local got, err = ns.Shopping.decode(field:GetText())
+		if not got then
+			page.note:SetText(Theme.escape(Theme.color.danger) .. err .. "|r")
+			return
+		end
+		local all = lists()
+		for _, l in ipairs(got) do
+			all[#all + 1] = l
+		end
+		s.list = #all
+		field:SetText("")
+		rebuildPick()
+		page.note:SetText(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"))
+		refresh()
+	end, { kind = "ghost", width = 70, height = 28 })
+	import:SetPoint("LEFT", field, "RIGHT", 6, 0)
+	local export = UI.Button(page, "Export", function()
+		local _, list = lists()
+		field:SetText(ns.Shopping.encode({ list }))
+		field:SetFocus()
+		field:HighlightText()
+		page.note:SetText("Copy it with Ctrl+C; anyone with Gold Forever can import it.")
+	end, { kind = "ghost", width = 70, height = 28 })
+	export:SetPoint("LEFT", import, "RIGHT", 4, 0)
+
+	-- Adding: shift-click an item into the field (or type its ID), then a price in gold, or none for
+	-- "under market".
+	local add = UI.SearchBox(page, "Shift-click an item, then a gold price (or none)", nil)
+	add:SetPoint("TOPLEFT", 0, -72)
+	add:SetPoint("RIGHT", page, "RIGHT", -82, 0)
+	page.add = add
+	local addButton = UI.Button(page, "Add", function()
+		local id, maxUnit = ns.Shopping.parseAdd(add:GetText())
+		if not id then
+			page.note:SetText(Theme.escape(Theme.color.warning) .. "Shift-click an item into the field first.|r")
+			return
+		end
+		local _, list = lists()
+		list.entries[#list.entries + 1] = { itemId = id, maxUnit = maxUnit }
+		add:SetText("")
+		add:ClearFocus()
+		refresh()
+	end, { width = 76, height = 28 })
+	addButton:SetPoint("LEFT", add, "RIGHT", 6, 0)
+
+	local tbl = UI.Table(page, {
+		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "max", title = "Up to", width = 80, align = "RIGHT", text = function(r) return r.maxUnit and money(r.maxUnit) or "market" end },
+		{ key = "deal", title = "Deal", width = 110, align = "RIGHT", text = function(r)
+			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "—" or "")
+		end },
+	}, {
+		pageSize = 6,
+		rowHeight = 24,
+		empty = "No items yet: shift-click one into the field above.",
+		isSelected = function(r) return shopChosen and r.itemId == shopChosen.itemId end,
+		onRowClick = function(r)
+			shopChosen, purchase = r.entry, nil
+			searchEntry(r.entry)
+			refresh()
+		end,
+	})
+	tbl:SetPoint("TOPLEFT", add, "BOTTOMLEFT", 0, -10)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	page.table = tbl
+	local buy = UI.Button(page, "Buy next", function()
+		ns.safely("auction shop", buyNext)
+	end, { kind = "primary", width = 200, height = 30 })
+	buy:SetPoint("TOPRIGHT", tbl, "BOTTOMRIGHT", 0, -10)
+	page.buy = buy
+	local remove = UI.Button(page, "Remove", function()
+		local _, list = lists()
+		for i, e in ipairs(list.entries) do
+			if shopChosen and e.itemId == shopChosen.itemId then
+				table.remove(list.entries, i)
+				shopChosen = nil
+				break
+			end
+		end
+		refresh()
+	end, { kind = "ghost", width = 90, height = 30 })
+	remove:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
+	page.note:SetPoint("TOPLEFT", remove, "BOTTOMLEFT", 0, -10)
+	page.note:SetPoint("RIGHT", page, "RIGHT")
+
+	function page:Refresh()
+		local _, list = lists()
+		local shown = {}
+		for i, e in ipairs(list.entries) do
+			local quality, _, _, _, name = ns.price.itemInfo(e.itemId)
+			local deal, book = shopDeal(e)
+			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
+		end
+		tbl:SetRows(shown)
+		local deal = shopChosen and shopDeal(shopChosen)
+		local label = purchase and purchase.quoted and ("Confirm: " .. purchase.quantity .. " for " .. money(purchase.quoted))
+			or (deal and ("Buy " .. deal.quantity .. " for " .. money(deal.total))) or "Buy next"
+		buy.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
+		local can = shopChosen and not waiting
+		if can then
+			buy:Enable()
+			buy:SetAlpha(1)
+		else
+			buy:Disable()
+			buy:SetAlpha(0.5)
+		end
+	end
+end
+
+-- Shift-clicking an item while the Shop's field has focus puts its link there, as in the chat box.
+if hooksecurefunc and ChatEdit_InsertLink then
+	hooksecurefunc("ChatEdit_InsertLink", function(link)
+		if panel and panel.shop and panel.shop.add and panel.shop.add:HasFocus() and link then
+			panel.shop.add:Insert(link .. " ")
+		end
+	end)
+end
+
 local function buildRule(page)
 	local s = settings()
 	local function row(y, label, control)
@@ -555,7 +832,7 @@ local function build()
 	local title = UI.Text(p, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "lg", medium = true })
 	title:SetPoint("LEFT", mark, "RIGHT", 8, 0)
 	local pages = {}
-	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "rule", label = "Rule" } }, function(key)
+	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "shop", label = "Shop" }, { key = "rule", label = "Rule" } }, function(key)
 		for k, f in pairs(pages) do
 			f:SetShown(k == key)
 		end
@@ -565,7 +842,7 @@ local function build()
 	end, { variant = "underline" })
 	tabs:SetPoint("TOPLEFT", 16, -42)
 	tabs:SetPoint("TOPRIGHT", -16, -42)
-	for _, key in ipairs({ "scan", "post", "rule" }) do
+	for _, key in ipairs({ "scan", "post", "shop", "rule" }) do
 		local f = CreateFrame("Frame", nil, p)
 		f:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
 		f:SetPoint("BOTTOMRIGHT", -20, 16)
@@ -574,8 +851,9 @@ local function build()
 	end
 	buildScan(pages.scan)
 	buildPost(pages.post)
+	buildShop(pages.shop)
 	buildRule(pages.rule)
-	p.scan, p.post, p.tabs, p.pages = pages.scan, pages.post, tabs, pages
+	p.scan, p.post, p.shop, p.tabs, p.pages = pages.scan, pages.post, pages.shop, tabs, pages
 	p:SetScript("OnShow", bindSpace)
 	p:SetScript("OnHide", bindSpace)
 	panel = p
@@ -616,6 +894,8 @@ refresh = function()
 		end
 		panel.post.table:SetRows(rows)
 		panel.post:Refresh()
+	elseif panel.tab == "shop" then
+		panel.shop:Refresh()
 	end
 end
 
@@ -734,5 +1014,16 @@ ns.AuctionPanel = {
 	end,
 	quantity = function(v)
 		settings().quantities[chosen.key] = v
+	end,
+	shopChoose = function(e)
+		shopChosen, purchase = e, nil
+		searchEntry(e)
+		refresh()
+	end,
+	shopBuy = function()
+		buyNext()
+	end,
+	shopNote = function()
+		return panel and panel.shop.note.text
 	end,
 }

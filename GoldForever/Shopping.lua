@@ -1,0 +1,148 @@
+-- Gold Forever: shopping lists' rules (design 009, Shop; the web playground's shopping.ts, line for line
+-- with its tests): the most a list pays, what a list can buy from the book, when a quote moved too much,
+-- and the GFL1 string players share. Pure Lua 5.1 with no game API, so it is tested outside the client.
+
+local _, ns = ...
+ns = ns or {}
+local Encode = ns.Encode
+
+local Shopping = {}
+ns.Shopping = Shopping
+
+Shopping.PREFIX = "GFL1:"
+local MAX_STRING, MAX_ENTRIES, MAX_COPPER = 16384, 200, 10000000000
+
+-- The most an entry pays a unit: its own price, or a copper under market value ("under market").
+function Shopping.limit(entry, market)
+	if entry.maxUnit then
+		return entry.maxUnit
+	end
+	return market and math.max(1, market - 1) or nil
+end
+
+-- What an entry can buy from a book of levels { unitPrice, quantity, own }: every unit by other players
+-- at or under its limit, cheapest first. Returns { itemId, quantity, total, topUnit, limit } or nil.
+function Shopping.deal(entry, levels, market)
+	local limit = Shopping.limit(entry, market)
+	if not limit then
+		return nil
+	end
+	local sorted = {}
+	for i, l in ipairs(levels or {}) do
+		sorted[i] = l
+	end
+	table.sort(sorted, function(a, b)
+		return a.unitPrice < b.unitPrice
+	end)
+	local quantity, total, top = 0, 0, nil
+	for _, l in ipairs(sorted) do
+		if l.unitPrice > limit then
+			break
+		end
+		local n = (l.quantity or 0) - (l.own or 0)
+		if n > 0 then
+			quantity = quantity + n
+			total = total + n * l.unitPrice
+			top = l.unitPrice
+		end
+	end
+	if quantity == 0 or not top then
+		return nil
+	end
+	return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
+end
+
+-- A quote dearer than the deal by more than `pct` percent (10 by default): Buy next asks again.
+function Shopping.moved(expected, quoted, pct)
+	return quoted > expected * (1 + (pct or 10) / 100)
+end
+
+-- The lists as plain lines: "list <name>", then "item <id> max <copper>" or "item <id> market".
+function Shopping.text(lists)
+	local lines = {}
+	for _, l in ipairs(lists) do
+		lines[#lines + 1] = "list " .. l.name
+		for _, e in ipairs(l.entries) do
+			lines[#lines + 1] = "item " .. e.itemId .. " " .. (e.maxUnit and ("max " .. e.maxUnit) or "market")
+		end
+	end
+	return table.concat(lines, "\n")
+end
+
+function Shopping.encode(lists)
+	-- What the Shop's field holds: an item (a shift-clicked link, or an ID typed) and, after it, a price in
+-- gold ("12", "1.5", "0.25g"); returns the item ID and the price in copper, or nil for "under market".
+function Shopping.parseAdd(text)
+	text = text or ""
+	local id, rest = string.match(text, "|Hitem:(%d+)[^|]*|h.-|h|r(.*)$")
+	if not id then
+		id, rest = string.match(text, "^%s*(%d+)(.*)$")
+	end
+	if not id then
+		return nil
+	end
+	local gold = tonumber(string.match(rest or "", "^%s*([%d%.]+)%s*g?%s*$") or "")
+	local copper = gold and math.floor(gold * 10000 + 0.5) or nil
+	return tonumber(id), (copper and copper > 0) and copper or nil
+end
+
+return Shopping.PREFIX .. Encode.base64(Shopping.text(lists))
+end
+
+-- Reads a list string someone shared: untrusted, so bounded and stripped of the game's "|" escapes.
+-- Returns lists, or nil and what is wrong.
+function Shopping.decode(input)
+	local s = string.match(input or "", "^%s*(.-)%s*$")
+	if string.sub(s, 1, #Shopping.PREFIX) ~= Shopping.PREFIX then
+		return nil, "Not a shopping list string: it starts with " .. Shopping.PREFIX
+	end
+	if #s > MAX_STRING then
+		return nil, "Too long for shopping lists"
+	end
+	local text = Encode.unbase64(string.sub(s, #Shopping.PREFIX + 1))
+	if not text then
+		return nil, "The string is damaged (copy it again, all of it)"
+	end
+	local lists, entries, n = {}, 0, 0
+	for raw in string.gmatch(text .. "\n", "([^\n]*)\n") do
+		n = n + 1
+		local line = string.match(raw, "^%s*(.-)%s*$")
+		if line ~= "" then
+			local function bad()
+				return nil, string.format("Line %d is not understood: \"%s\"", n, string.sub(line, 1, 60))
+			end
+			if string.sub(line, 1, 5) == "list " then
+				local name = string.match(string.sub(string.gsub(string.sub(line, 6), "|", ""), 1, 40), "^%s*(.-)%s*$")
+				lists[#lists + 1] = { name = name ~= "" and name or "Unnamed", entries = {} }
+			else
+				local id, rest = string.match(line, "^item (%d+) (.+)$")
+				local list = lists[#lists]
+				if not id or not list or #id > 8 then
+					return bad()
+				end
+				local maxUnit
+				if rest ~= "market" then
+					local m = string.match(rest, "^max (%d+)$")
+					if not m or #m > 11 then
+						return bad()
+					end
+					maxUnit = tonumber(m)
+					if maxUnit == 0 or maxUnit > MAX_COPPER then
+						return bad()
+					end
+				end
+				if tonumber(id) == 0 then
+					return bad()
+				end
+				entries = entries + 1
+				if entries > MAX_ENTRIES then
+					return nil, "More than " .. MAX_ENTRIES .. " items"
+				end
+				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit }
+			end
+		end
+	end
+	return lists
+end
+
+return Shopping
