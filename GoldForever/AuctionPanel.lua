@@ -495,6 +495,21 @@ local function buildRule(page)
 	note:SetPoint("RIGHT", page, "RIGHT")
 end
 
+-- Space posts only while the Post tab shows: an override binding on a named button, set and cleared as
+-- the tab and the panel change (never in combat, when bindings cannot change). Elsewhere it jumps.
+local function bindSpace(p)
+	if (InCombatLockdown and InCombatLockdown()) or not SetOverrideBindingClick then
+		return
+	end
+	local want = p:IsShown() and p.tab == "post"
+	if want and not p.spaceBound then
+		SetOverrideBindingClick(p, true, "SPACE", "GoldForeverPostKey")
+	elseif not want and p.spaceBound then
+		ClearOverrideBindings(p)
+	end
+	p.spaceBound = want
+end
+
 local function build()
 	if ns.applyLook then
 		ns.applyLook()
@@ -517,6 +532,7 @@ local function build()
 			f:SetShown(k == key)
 		end
 		p.tab = key
+		bindSpace(p)
 		refresh()
 	end, { variant = "underline" })
 	tabs:SetPoint("TOPLEFT", 16, -42)
@@ -532,17 +548,8 @@ local function build()
 	buildPost(pages.post)
 	buildRule(pages.rule)
 	p.scan, p.post, p.tabs, p.pages = pages.scan, pages.post, tabs, pages
-	-- Space posts while the panel shows: an override binding on a named button, never in combat.
-	p:SetScript("OnShow", function(self)
-		if not InCombatLockdown() and SetOverrideBindingClick then
-			SetOverrideBindingClick(self, true, "SPACE", "GoldForeverPostKey")
-		end
-	end)
-	p:SetScript("OnHide", function(self)
-		if not InCombatLockdown() and ClearOverrideBindings then
-			ClearOverrideBindings(self)
-		end
-	end)
+	p:SetScript("OnShow", bindSpace)
+	p:SetScript("OnHide", bindSpace)
 	panel = p
 	built = Theme.key
 	tabs:Select("scan")
@@ -679,8 +686,12 @@ ns.AuctionPanel = {
 				f:SetShown(k == key)
 			end
 			panel.tab = key
+			bindSpace(panel)
 			refresh()
 		end
+	end,
+	bound = function()
+		return panel and panel.spaceBound
 	end,
 	post = function()
 		post()

@@ -364,9 +364,13 @@ do
   C_AuctionHouse.PostCommodity = function(...) posts[#posts + 1] = { ... } end
   fire("AUCTION_HOUSE_SHOW")
   local AP = ns.AuctionPanel
+  function SetOverrideBindingClick() end
+  function ClearOverrideBindings() end
   AP.tab("scan")
+  assert(not AP.bound(), "Space is free on the Scan tab")
   AP.tab("rule")
   AP.tab("post")
+  assert(AP.bound(), "Space posts on the Post tab")
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   local rows, chosen = AP.state()
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
@@ -382,6 +386,8 @@ do
     fire("AUCTION_HOUSE_AUCTION_CREATED", 1)
     assert(select(3, AP.state()) == nil, "the post is answered")
   end
+  AP.tab("scan")
+  assert(not AP.bound(), "and is free again off it")
   fire("AUCTION_HOUSE_CLOSED")
   AuctionHouseFrame = nil
 end
