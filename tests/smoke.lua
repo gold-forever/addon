@@ -420,6 +420,8 @@ do
   -- Cancel undercut: one auction of 10 Linen at 50s; the book's cheapest other is 42s50 (15% under,
   -- past the 5% tolerance), so Cancel next cancels it.
   local cancelled
+  local saved = {}
+  for _, k in ipairs({ "QueryOwnedAuctions", "GetNumOwnedAuctions", "GetOwnedAuctionInfo", "GetItemKeyInfo", "GetCancelCost", "CancelAuction" }) do saved[k] = C_AuctionHouse[k] end
   C_AuctionHouse.QueryOwnedAuctions = function() end
   C_AuctionHouse.GetNumOwnedAuctions = function() return 1 end
   C_AuctionHouse.GetOwnedAuctionInfo = function() return { auctionID = 777, itemKey = { itemID = 2589, itemLevel = 0 }, status = 0, quantity = 10, buyoutAmount = 5000 } end
@@ -439,6 +441,8 @@ do
   fire("AUCTION_CANCELED", 777)
   assert(#(AP.owned()) == 0, "and it leaves the list")
   for _, d in pairs(GoldForeverDB.events) do d.auctionEnd = nil end
+  for k, f in pairs(saved) do C_AuctionHouse[k] = f end
+  for _, k in ipairs({ "QueryOwnedAuctions", "GetNumOwnedAuctions", "GetOwnedAuctionInfo", "GetItemKeyInfo", "GetCancelCost" }) do if not saved[k] then C_AuctionHouse[k] = nil end end
   AP.tab("scan")
   assert(not AP.bound(), "and is free again off it")
   fire("AUCTION_HOUSE_CLOSED")
