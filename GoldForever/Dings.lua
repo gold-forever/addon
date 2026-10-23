@@ -2,8 +2,9 @@
 -- is added on the site (gold-forever.app/settings), never in the game: the addon cannot reach the
 -- internet. The switch writes the choice into the save, GoldForeverDB.dings[guid] = { on, t }, and the
 -- companion app uploads it; the server takes it when it is newer than the site's own choice. The
--- companion brings the site's side back in its data file (GoldForever_Prices.dings: whether a webhook
--- is connected, and each character's choice), so without the companion there is nothing to change.
+-- companion brings the site's side back in its data file (GoldForever_Prices.dings: when it last
+-- changed, whether a webhook is connected, and each character's choice), so without the companion there
+-- is nothing to change.
 
 local _, ns = ...
 ns = ns or {}
@@ -14,7 +15,7 @@ ns.Dings = Dings
 -- What the switch shows for a character, from its choice in the save (`mine`: { on, t } or nil), the
 -- companion's data file (`data`: GoldForever_Prices, or nil without the companion) and its guid.
 -- Returns { companion, webhook (true, false, or nil when the file does not say), on, pending }: pending
--- when the choice in the save is newer than the file, so the site has not had it yet.
+-- when the choice in the save is newer than the site's ding state (dings.at), so the site has not had it.
 function Dings.state(mine, data, guid)
 	local companion = type(data) == "table"
 	local site = companion and type(data.dings) == "table" and data.dings or nil
@@ -23,7 +24,9 @@ function Dings.state(mine, data, guid)
 		webhook = site.webhook
 	end
 	local siteOn = site and type(site.characters) == "table" and site.characters[guid] == true or false
-	local at = companion and type(data.at) == "number" and data.at or nil
+	-- When the site's ding state last changed (the companion rewrites the file for it alone, keeping the
+	-- prices' `at`); an older file without it falls back to the file's own time.
+	local at = site and type(site.at) == "number" and site.at or (companion and type(data.at) == "number" and data.at) or nil
 	local choice = type(mine) == "table" and type(mine.on) == "boolean" and type(mine.t) == "number" and mine or nil
 	if choice and (not at or choice.t > at) then
 		return { companion = companion, webhook = webhook, on = choice.on, pending = true }

@@ -49,6 +49,16 @@ s = D.state({ on = false, t = 900 }, file, ME)
 eq(s.on, true, "the site's newer answer")
 eq(s.pending, false, "nothing waiting")
 
+-- The site's own time for its ding state: the companion rewrites the file for dings alone, keeping the
+-- prices' older `at`, so a choice the site has taken stops waiting.
+local rewritten = { at = 1000, dings = { at = 1600, webhook = true, characters = { [ME] = false } } }
+s = D.state({ on = false, t = 1500 }, rewritten, ME)
+eq(s.pending, false, "the site's state is newer than the choice: taken")
+eq(s.on, false, "as the site has it")
+s = D.state({ on = true, t = 1700 }, rewritten, ME)
+eq(s.pending, true, "a choice after the site's last change still waits")
+eq(s.on, true, "and shows")
+
 -- Anything malformed in either place counts as nothing.
 s = D.state({ on = "yes", t = 2000 }, { at = "soon", dings = { webhook = "maybe", characters = "all" } }, ME)
 eq(s.on, false, "a malformed choice and file read as off")
