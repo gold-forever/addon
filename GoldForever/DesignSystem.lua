@@ -203,7 +203,7 @@ local function buildHome(page)
 	local GAP = 16
 	local cardW = math.floor((W - GAP * 2) / 3)
 	local actions = {}
-	for i, a in ipairs({ { icon = "search", go = nil }, { icon = "package", go = "inventory" }, { icon = "trending-up", go = nil } }) do
+	for i, a in ipairs({ { icon = "search", go = nil }, { icon = "package", go = "inventory" }, { icon = "flask-conical", go = "crafting" } }) do
 		local card = CreateFrame("Button", nil, page)
 		card:SetSize(cardW, 72)
 		card:SetPoint("TOPLEFT", (i - 1) * (cardW + GAP), 0)
