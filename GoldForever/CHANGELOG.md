@@ -19,6 +19,9 @@
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
   any look (also `/gf accent #rrggbb`), the minimap button, the window's size, the loot appraiser, bag
   advice at vendors, the craft list at the auction house, the big-drop alert and the rare alerts.
+- **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
+  for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
+  needs the companion app, which carries the choice to the site at the next upload.
 
 ## 0.15.0
 

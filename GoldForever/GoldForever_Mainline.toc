@@ -42,5 +42,6 @@ Rares.lua
 Shop.lua
 Auctions.lua
 Levelling.lua
+Dings.lua
 DesignSystem.lua
 Minimap.lua

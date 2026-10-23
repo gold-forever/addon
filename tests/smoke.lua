@@ -605,6 +605,22 @@ assert(GoldForeverDB.settings.window.accent == "#2fd1a8", "the accent is kept")
 assert(ns.Theme.color.accent == "#2fd1a8", "and goes over the look")
 SlashCmdList.GOLDFOREVER("accent")
 assert(GoldForeverDB.settings.window.accent == nil, "/gf accent alone goes back to the look's own")
+-- Discord dings: changed in game only with the companion's file, and only once the site has a webhook.
+do
+  local prices, guid = GoldForever_Prices, UnitGUID("player")
+  GoldForever_Prices = nil
+  SlashCmdList.GOLDFOREVER("dings on")
+  assert(not (GoldForeverDB.dings and GoldForeverDB.dings[guid]), "no choice without the companion")
+  GoldForever_Prices = { v = 1, at = now - 60, dings = { webhook = false, characters = {} } }
+  SlashCmdList.GOLDFOREVER("dings on")
+  assert(not (GoldForeverDB.dings and GoldForeverDB.dings[guid]), "no choice without a webhook on the site")
+  GoldForever_Prices.dings.webhook = true
+  SlashCmdList.GOLDFOREVER("dings on")
+  assert(GoldForeverDB.dings[guid].on == true and GoldForeverDB.dings[guid].t == now, "the choice is saved with the time")
+  SlashCmdList.GOLDFOREVER("ui settings")
+  SlashCmdList.GOLDFOREVER("dings")
+  GoldForever_Prices = prices
+end
 SlashCmdList.GOLDFOREVER("ui ledger")
 -- The ways in without a slash command: the compartment's click and the key bindings open and close
 -- the window and switch the look; /gf minimap hides the button and brings it back, and remembers.
