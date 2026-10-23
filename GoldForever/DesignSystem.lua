@@ -1261,7 +1261,10 @@ local function buildSettings(page)
 			card:SetScript("OnClick", function()
 				ns.commands.look(name)
 			end)
-	
+		end
+		local note = UI.Text(l, "The accent colour (General) goes over any look. Panels opened before a change keep their colours until /reload.", { size = "xs", tone = "faint", wrap = true })
+		note:SetPoint("TOPLEFT", 0, -106)
+		note:SetPoint("RIGHT", l, "RIGHT")
 	end
 	function page.ensure(key)
 		local f = page[key]
@@ -1271,7 +1274,6 @@ local function buildSettings(page)
 		end
 	end
 	page.ensure("general")
-end
 end
 
 -- The window ----------------------------------------------------------------------------------------------
@@ -1430,6 +1432,11 @@ local function shown()
 			return w
 		end
 	end
+end
+
+-- For the smoke test: the window open now.
+ns.hubWindow = function()
+	return shown()
 end
 
 ns.commands.ui = function(page)

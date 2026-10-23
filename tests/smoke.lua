@@ -791,6 +791,14 @@ for _, look in ipairs({ "classic", "arcane", "web" }) do
   for _, page in ipairs({ "home", "ledger", "characters", "inventory", "money", "sales", "crafting", "session", "now", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
     SlashCmdList.GOLDFOREVER("ui " .. page)
   end
+  -- Every Settings tab, drawn as a click would.
+  local w = ns.hubWindow()
+  local settingsPage = w and w.pages.settings
+  assert(settingsPage and settingsPage.ensure, "the Settings page is open")
+  for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do
+    settingsPage.ensure(tab)
+    assert(settingsPage[tab].built, "Settings tab drawn: " .. tab)
+  end
 end
 -- The Session page's This session tab reads the HUD's figures.
 do
