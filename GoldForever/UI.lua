@@ -804,6 +804,13 @@ function UI.Slider(parent, min, max, step, value, onChange, format)
 		readout.text:SetText(format(UI.layout.step(v, min, max, step)))
 		quiet = false
 	end
+	-- A new range (the units of the item in view), without calling onChange.
+	function f:SetRange(newMin, newMax)
+		min, max = newMin, math.max(newMin, newMax)
+		quiet = true
+		s:SetMinMaxValues(min, max)
+		quiet = false
+	end
 	f.slider = s
 	f:Set(value)
 	return f

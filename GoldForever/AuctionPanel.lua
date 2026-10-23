@@ -18,6 +18,7 @@ local CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next
 local function settings()
 	local s = ns.settings("auction", { rule = {}, duration = 2 })
 	s.durations = s.durations or {}
+	s.quantities = s.quantities or {}
 	for k, v in pairs(Post.DEFAULT) do
 		if s.rule[k] == nil then
 			s.rule[k] = v
@@ -127,7 +128,7 @@ local function search(r, open)
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
 end
 
-local LISTED = 5 -- the cheapest listings the panel shows
+local LISTED = 4 -- the cheapest listings the panel shows
 
 local refresh, show
 
@@ -199,8 +200,14 @@ local function durationOf(r)
 	return r and s.durations[r.key] or s.duration
 end
 
+-- How many to post: of a commodity, the number chosen for it (all at first), never more than held;
+-- other items one at a time.
 local function quantity(r)
-	return r.commodity and r.count or 1
+	if not r.commodity then
+		return 1
+	end
+	local chosen = settings().quantities[r.key]
+	return math.max(1, math.min(r.count, chosen or r.count))
 end
 
 -- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
@@ -363,7 +370,7 @@ local function buildPost(page)
 		{ key = "post", title = "Post at", width = 86, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "—" end,
 			sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
-		pageSize = 6,
+		pageSize = 5,
 		rowHeight = 24,
 		empty = "Nothing in your bags the auction house takes.",
 		isSelected = function(r) return chosen and r.key == chosen.key end,
@@ -380,7 +387,7 @@ local function buildPost(page)
 	local detail = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
 	detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
 	detail:SetPoint("RIGHT", page, "RIGHT")
-	detail:SetHeight(214)
+	detail:SetHeight(252)
 	local name = UI.Text(detail, "", { size = "md", medium = true })
 	name:SetPoint("TOPLEFT", 14, -12)
 	name:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
@@ -414,6 +421,20 @@ local function buildPost(page)
 	end)
 	page.duration = duration
 	duration:SetPoint("BOTTOMLEFT", 14, 12)
+	-- How many of a commodity to post, remembered for it; hidden for gear (one at a time).
+	local qtyLabel = UI.Text(detail, "Post", { size = "sm", tone = "muted" })
+	qtyLabel:SetPoint("BOTTOMLEFT", 14, 56)
+	local qty = UI.Slider(detail, 1, 2, 1, 1, function(v)
+		if chosen then
+			settings().quantities[chosen.key] = v
+			refresh()
+		end
+	end, function(v)
+		return tostring(v)
+	end)
+	qty:SetPoint("LEFT", qtyLabel, "RIGHT", 12, 0)
+	qty:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
+	page.quantity = qty
 	duration:SetWidth(110)
 	local button = UI.Button(detail, "Post", function()
 		ns.safely("auction post", post)
@@ -437,6 +458,13 @@ local function buildPost(page)
 		end
 		local r = chosen
 		duration:Set(durationOf(r))
+		local many = r.commodity and r.count > 1
+		qtyLabel:SetShown(many)
+		qty:SetShown(many)
+		if many then
+			qty:SetRange(1, r.count)
+			qty:Set(quantity(r))
+		end
 		local sug = r.suggestion
 		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  ×" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
@@ -703,5 +731,8 @@ ns.AuctionPanel = {
 		if panel and panel.post.duration then
 			settings().durations[chosen.key] = v
 		end
+	end,
+	quantity = function(v)
+		settings().quantities[chosen.key] = v
 	end,
 }
