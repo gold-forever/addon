@@ -1214,6 +1214,14 @@ function UI.Table(parent, columns, opts)
 			local row = shown.rows[n]
 			l.row = row
 			l:SetShown(row ~= nil)
+			-- The chosen row (opts.isSelected) lit in the accent's soft shade.
+			if row and opts.isSelected and opts.isSelected(row) then
+				l.bg:SetVertexColor(Theme.rgb(Theme.color.accentSoft))
+				l.bg:SetAlpha(1)
+			else
+				l.bg:SetVertexColor(Theme.rgb(Theme.color.surfaceHover))
+				l.bg:SetAlpha(n % 2 == 0 and Theme.skin.radius and 0.45 or 0)
+			end
 			if row then
 				for i, c in ipairs(self.columns) do
 					local cell = l.cells[i]

@@ -117,6 +117,7 @@ local function finish(s, buckets, n)
 	prune()
 	-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
 	ns.scanVersion = (ns.scanVersion or 0) + 1
+	ns.lastScan = { t = s.t, kind = record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
 	ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
 	scan = nil
 end
@@ -128,6 +129,7 @@ local function read()
 	end
 	s.reading = true
 	local n = C_AuctionHouse.GetNumReplicateItems()
+	s.total = n
 	local buckets, i = {}, 0
 	-- On retail, each distinct item's class and stack size, read now: the catalogue loads in the
 	-- background and a /reload can come first.
@@ -158,6 +160,7 @@ local function read()
 			end
 		end
 		i = stop
+		s.done = i
 		if i < n then
 			ns.after(0, "scan", batch)
 		else
@@ -225,6 +228,21 @@ ns.on("AUCTION_HOUSE_CLOSED", "scan", auctionClosed)
 ns.on("REPLICATE_ITEM_LIST_UPDATE", "scan", function()
 	ns.after(1, "scan", read)
 end)
+
+-- Where the scan stands, for the auction panel: "asking" (the server has not answered), "reading"
+-- (done of total), or "idle"; the seconds until the next full scan may start (0 when it may now).
+function ns.scanState()
+	local wait = math.max(0, ((ns.db() and ns.db().lastReplicate) or 0) + COOLDOWN - ns.now())
+	if scan then
+		return { phase = scan.reading and "reading" or "asking", done = scan.done or 0, total = scan.total or 0, wait = wait }
+	end
+	return { phase = "idle", wait = wait, last = ns.lastScan }
+end
+
+-- A scan the player asked for (the panel's button, /gf scan).
+function ns.startScan()
+	start(true)
+end
 
 ns.commands.scan = function()
 	if not auctionOpen then

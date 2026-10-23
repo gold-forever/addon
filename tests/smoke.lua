@@ -338,6 +338,39 @@ GoldForeverDB.catalogue.items[2996] = "Bolt of Linen Cloth,1,10,7,5,10,25,0,1328
 GoldForeverDB.catalogue.tooltips[2996] = "Bolt of Linen Cloth"
 fire("AUCTION_HOUSE_SHOW")
 print("SHOP\n" .. tostring(appraiserText))
+-- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
+do
+  AuctionHouseFrame = widget()
+  ItemLocation = { CreateFromBagAndSlot = function(_, bag, slot) return { bag = bag, slot = slot } end }
+  C_Item.DoesItemExist = function() return true end
+  local posts = {}
+  C_AuctionHouse.IsSellItemValid = function() return true end
+  C_AuctionHouse.GetItemCommodityStatus = function() return 2 end
+  C_AuctionHouse.GetItemKeyFromItem = function() return { itemID = 2589, itemLevel = 0 } end
+  C_AuctionHouse.SendSearchQuery = function() end
+  C_AuctionHouse.GetNumCommoditySearchResults = function() return 2 end
+  C_AuctionHouse.GetCommoditySearchResultInfo = function(_, i) return ({ { unitPrice = 3000, quantity = 5, numOwnerItems = 5 }, { unitPrice = 4250, quantity = 20, numOwnerItems = 0 } })[i] end
+  C_AuctionHouse.PostCommodity = function(...) posts[#posts + 1] = { ... } end
+  fire("AUCTION_HOUSE_SHOW")
+  local AP = ns.AuctionPanel
+  AP.tab("scan")
+  AP.tab("rule")
+  AP.tab("post")
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+  local rows, chosen = AP.state()
+  assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
+  assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
+  print("AH POST " .. tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit))
+  AP.post()
+  if chosen.suggestion and chosen.suggestion.unit then
+    if #posts == 0 then AP.post() end -- a sanity check asked for a second press
+    assert(#posts == 1 and posts[1][3] == 7, "one commodity post of the whole stack")
+    fire("AUCTION_HOUSE_AUCTION_CREATED", 1)
+    assert(select(3, AP.state()) == nil, "the post is answered")
+  end
+  fire("AUCTION_HOUSE_CLOSED")
+  AuctionHouseFrame = nil
+end
 -- A quest starter drops: recorded, alerted; the mob's tooltip names it.
 GoldForeverDB.catalogue.items[1357] = "Captain Sander's Treasure Map,1,15,12,0,1,0,1,134269"
 GoldForeverDB.catalogue.tooltips[1357] = "Captain Sander's Treasure Map\nThis Item Begins a Quest"

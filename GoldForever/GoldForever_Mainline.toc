@@ -43,5 +43,7 @@ Shop.lua
 Auctions.lua
 Levelling.lua
 Dings.lua
+Post.lua
+AuctionPanel.lua
 DesignSystem.lua
 Minimap.lua

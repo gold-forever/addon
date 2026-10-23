@@ -178,6 +178,22 @@ local function mine()
 	return me and Prices.markets(ns.market(string.lower(me.faction or "?")), ns.db().client.interface)
 end
 
+-- An item's market value for the character being played: the pool's when the companion's file has it,
+-- else the own latest full scan's. Returns value and where it came from ("pool" or "scan"), or nil.
+function Prices.value(id)
+	local markets = mine()
+	if markets and Prices.loaded(GoldForever_Prices) then
+		local value = entry(GoldForever_Prices, markets, id)
+		if value then
+			return value, "pool"
+		end
+	end
+	local own = ns.price and ns.price.market(id)
+	if own then
+		return own, "scan"
+	end
+end
+
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("pool tooltip", function()

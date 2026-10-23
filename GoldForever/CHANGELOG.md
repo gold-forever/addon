@@ -24,6 +24,14 @@
   coin, loot at what it sells for, XP, kills (from kill XP, never the combat log), bags
   and the best loot, with Stop and New session. Settings can hide it in combat; `/gf hud` shows or
   hides it, `/gf session` prints it.
+- An **auction house panel** beside the auction house (`/gf ah` hides or brings it back). **Scan**: the
+  full scan made visible, asking, reading N of M, the cooldown and the last result. **Post**: the items
+  in your bags the auction house takes, each priced by your rule against the cheapest listing by someone
+  else (a live search when you choose it; your own listings left out), with the reason: Undercut, No one
+  else, Normal price, At floor or Hold. Click Post, or press Space while the panel shows; it waits for
+  the server's answer, then moves to the next item. A post under vendor value or far under the market
+  asks for a second press. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
+  as shares of the market value (the pool's, else your own scan), and hold or post at the floor.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.
