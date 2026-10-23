@@ -165,8 +165,8 @@ function GetMerchantItemInfo() return "Water", 0, 25, 5, -1, true, true, false e
 C_AuctionHouse = { PostItem = function() end, PostCommodity = function() end, ConfirmPostCommodity = function() end, ReplicateItems = function() end, GetNumReplicateItems = function() return 3 end,
   GetReplicateItemInfo = function(i) local c = ({5, 10, 1})[i+1]; return "x", 0, c, 1, true, 1, 0, 1, 1, ({500, 1000, 9000})[i+1], 0, false, "Bidder", "Owner", "Owner-Realm", 0, ({2589, 2589, 14047})[i+1], true end,
   GetReplicateItemLink = function() return nil end,
-  -- Time-left bands per replicate row (data gap D1): the two Linen auctions in different bands.
-  GetReplicateItemTimeLeft = function(i) return ({ 0, 3, 3 })[i + 1] end,
+  -- Time-left per replicate row (data gap D1), as the client answers it, 1–4: the two Linen auctions in different bands.
+  GetReplicateItemTimeLeft = function(i) return ({ 1, 4, 4 })[i + 1] end,
   -- Buying and cancelling (data gap D7).
   ConfirmCommoditiesPurchase = function() end, PlaceBid = function() end, CancelAuction = function() end,
   GetAuctionInfoByID = function(id) if id == 77 then return { itemLink = "|Hitem:10221::::::::30|h[Gloves]|h", buyoutAmount = 25000, quantity = 1 } end end,
@@ -276,6 +276,7 @@ do -- the scan's market names the realm on WoW: Forever, the connected group on 
   -- D1: rows grouped by time-left band too: the two Linen auctions at one price, in two bands.
   local rows = table.concat(scan.rows or {}, ";")
   assert(rows:find("2589,100,5,1,0", 1, true) and rows:find("2589,100,10,1,3", 1, true), "scan rows with time left: " .. rows)
+  assert(scan.bands == 0, "the scan says its bands start at 0")
   -- Retail records each distinct item's class and stack; WoW: Forever's scan keeps its shape.
   if INTERFACE >= 110000 then
     local items = table.concat(scan.items or {}, ";")

@@ -10,6 +10,9 @@ local Encode = ns.Encode
 -- left: the auctions' time-left band (Enum.AuctionHouseTimeLeftBand: 0 under 30 minutes, 1 under 2 hours,
 -- 2 under 12 hours, 3 longer), so a listing that vanishes can be told sold from expired (data gap D1).
 -- Rows are grouped by item, unit price and band; empty on a client without the call.
+-- GetReplicateItemTimeLeft answers 1–4 (the owner's retail scan, 2026-10-23: 1, 2, 3 and 4, never 0), so
+-- the band is its answer less one; anything else is left empty. A scan written this way says so with
+-- `bands = 0` (the band numbering starts at 0); scans before it wrote the raw 1–4.
 ns.FIELDS.scan = "item,unit,qty,auctions,left"
 -- Retail only: each distinct item a scan names, for telling commodities from gear (Realms.itemRow).
 ns.FIELDS.scanItem = "item,class,subclass,stack"
@@ -85,6 +88,7 @@ local function finish(s, buckets, n)
 		t = s.t,
 		market = s.market,
 		kind = n > 0 and "full" or "throttled",
+		bands = 0,
 		auctions = n,
 		map = s.map,
 		zone = s.zone,
@@ -147,7 +151,7 @@ local function read()
 			if itemID and buyout and buyout > 0 and count and count > 0 then
 				local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
 				local unit = math.floor(buyout / count + 0.5)
-				local left = timeLeft and timeLeft(index)
+				local left = timeLeft and Encode.band(timeLeft(index))
 				local bucket = key .. "|" .. unit .. "|" .. tostring(left)
 				local b = buckets[bucket]
 				if not b then
