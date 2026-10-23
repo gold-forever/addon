@@ -350,3 +350,28 @@ function Views.killsInFight(xpKills, corpses, seen)
 	end
 	return math.max(xpKills or 0, fresh)
 end
+
+-- The rares seen, one row each from the rare stream's rows ({ t, npc, map, x, y, how }): how often, the
+-- last sighting's time, place and how it was seen; the latest first.
+function Views.rares(rows)
+	local by, out = {}, {}
+	for _, r in ipairs(rows or {}) do
+		local npc = tonumber(r.npc)
+		if npc then
+			local e = by[npc]
+			if not e then
+				e = { npc = npc, seen = 0, last = 0 }
+				by[npc] = e
+				out[#out + 1] = e
+			end
+			e.seen = e.seen + 1
+			if r.t >= e.last then
+				e.last, e.map, e.x, e.y, e.how = r.t, tonumber(r.map), tonumber(r.x), tonumber(r.y), r.how
+			end
+		end
+	end
+	table.sort(out, function(a, b)
+		return a.last > b.last
+	end)
+	return out
+end

@@ -19,6 +19,8 @@
 - A **Home** page, the hub's first: the next moves (when you can scan, what your bags would sell for,
   the best craft at the latest prices), today's money by where it came from, and the bag items worth
   most.
+- A **Rares** page: every rare your characters have seen, how often, when and where last, how it was
+  seen, and what a loot of one has been worth.
 - A **Companion** page: whether the companion's prices are loaded and when they were written, its
   markets with their items (this character's first, and any it has no prices for yet), and this
   character's Discord dings.

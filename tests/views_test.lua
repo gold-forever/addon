@@ -149,4 +149,17 @@ eq(V.killsInFight(0, { "Creature-0-1-a" }, seenCorpses), 0, "a corpse looted aga
 eq(V.killsInFight(0, { "GameObject-0-1-chest" }, {}), 0, "a chest is no kill")
 eq(V.sessionRates({ coin = 0, xp = 900, killXp = 900, kills = 5, xpKills = 3 }, 30, 0, 9000).killsToLevel, 30, "XP a kill from the kills that gave XP")
 
+-- Rares: one row a rare, how often seen, the last sighting's place and how, the latest first.
+local rares = V.rares({
+	{ t = 100, npc = "61", map = "1429", x = "412", y = "679", how = "nameplate" },
+	{ t = 300, npc = "79", map = "1433", x = "100", y = "200", how = "minimap" },
+	{ t = 200, npc = "61", map = "1429", x = "500", y = "600", how = "target" },
+	{ t = 400, npc = "x" },
+})
+eq(#rares, 2, "two rares, a bad row left out")
+eq(rares[1].npc, 79, "the latest first")
+eq(rares[2].seen, 2, "seen twice")
+eq(rares[2].how, "target", "the last sighting's way")
+eq(rares[2].x, 500, "and place")
+
 return checks

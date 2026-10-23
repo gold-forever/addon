@@ -417,6 +417,60 @@ local function buildCompanion(page)
 	end
 end
 
+-- Rares ------------------------------------------------------------------------------------------------------
+
+local function mapName(id)
+	local info = id and C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(id)
+	return info and info.name or (id and ("map " .. id)) or "?"
+end
+
+-- Every rare the characters have seen (Rares.lua's log): how often, when and where last, how it was
+-- seen, and what a loot of it has been worth.
+local function buildRares(page)
+	local note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT")
+	note:SetPoint("RIGHT", page, "RIGHT")
+	local tbl = UI.Table(page, {
+		{ key = "name", title = "Rare", flex = 2 },
+		{ key = "seen", title = "Seen", width = 50, align = "RIGHT" },
+		{ key = "last", title = "Last", width = 80, align = "RIGHT", text = function(r) return Views.ago(r.last, ns.now()) end },
+		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end },
+		{ key = "how", title = "How", width = 80, color = function() return Theme.color.textFaint end },
+		{ key = "value", title = "A loot", width = 90, align = "RIGHT", text = function(r) return r.value and UI.layout.amount(r.value) or "—" end,
+			sort = function(r) return r.value or -1 end },
+	}, { pageSize = 14, empty = "No rare seen yet: they are logged when a nameplate, the target or the minimap shows one.", sort = sortOf("rares", 3) })
+	tbl:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -10)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	function page:Refresh()
+		local retail = ns.Realms.isRetail(select(4, GetBuildInfo()))
+		note:SetText(retail and "Rare alerts are off on retail (its cities are full of markers taken for rares); sightings from WoW: Forever show here."
+			or "Logged from nameplates, your target and the minimap. Settings → Modules switches the alerts.")
+		local names = ns.db().catalogue.npcs
+		local mobs, worth = ns.mobStats and ns.mobStats()
+		local rows = {}
+		for _, r in ipairs(Views.rares(Views.rows(ns.db(), "rare"))) do
+			local m = mobs and mobs[r.npc]
+			local value
+			if m and m.loots > 0 then
+				value = m.coin
+				for item, d in pairs(m.items) do
+					value = value + (worth(item) or 0) * d.units
+				end
+				value = value / m.loots
+			end
+			rows[#rows + 1] = {
+				name = (names[r.npc] and string.match(names[r.npc], "^([^,]+)")) or ("NPC " .. r.npc),
+				seen = r.seen,
+				last = r.last,
+				where = mapName(r.map) .. (r.x and string.format("  %.1f, %.1f", r.x / 10, r.y / 10) or ""),
+				how = r.how or "",
+				value = value,
+			}
+		end
+		tbl:SetRows(rows)
+	end
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -995,6 +1049,8 @@ local PAGES = {
 		lede = "This character, from the last two weeks the save keeps. XP an hour counts the time between gains; a break over ten minutes is left out." },
 	{ key = "mobs", label = "Mobs", icon = "skull", group = "Play", build = buildMobs, title = "Mobs, by what a loot is worth",
 		lede = "Every mob your characters have looted: how often, and what a loot brought in coin and items, priced as on the web." },
+	{ key = "rares", label = "Rares", icon = "skull", group = "Play", build = buildRares, title = "Rares",
+		lede = "Every rare your characters have seen, where and when last, and what a loot of one has been worth." },
 	{ key = "companion", label = "Companion", icon = "rotate-ccw", group = "Addon", build = buildCompanion, title = "Companion",
 		lede = "Everyone's prices in the game, and your save on the site: what the companion app has brought in." },
 	{ key = "settings", label = "Settings", icon = "settings", group = "Addon", build = buildSettings, title = "Settings",

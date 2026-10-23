@@ -655,7 +655,7 @@ SlashCmdList.GOLDFOREVER("ui ledger")
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)
-  for _, page in ipairs({ "home", "characters", "ledger", "inventory", "levelling", "mobs", "companion", "settings", "design" }) do
+  for _, page in ipairs({ "home", "characters", "ledger", "inventory", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
     SlashCmdList.GOLDFOREVER("ui " .. page)
   end
 end
