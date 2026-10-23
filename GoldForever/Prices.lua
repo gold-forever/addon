@@ -63,17 +63,42 @@ function Prices.region(raw, portal)
 	return code == "" and "UNKNOWN" or ("X" .. code)
 end
 
--- Backend Markets.ruleset: from the realm name's words (letters and digits, any case): Hardcore; RP and
--- PvP together (or "rppvp") RP-PvP; PvP; RP, Roleplay(ing) or "Role Play"; PvE or Normal. A name saying
--- none of these is a market of its own, keyed by its words joined ("shendralas"). Bytes above ASCII
--- count as letters, so a name in another script stays one word.
+-- A realm name's words as the server reads them, byte by byte over its UTF-8: A–Z lowercased, a–z and
+-- 0–9 kept, any byte from 0x80 up written as its two lowercase hex digits (so "Гордунни" is one ASCII
+-- word, and ’ joins its word as "e28099"), any other byte a separator.
+function Prices.words(realm)
+	local words, word = {}, {}
+	local function close()
+		if #word > 0 then
+			words[#words + 1] = table.concat(word)
+			word = {}
+		end
+	end
+	for i = 1, #realm do
+		local b = string.byte(realm, i)
+		if b >= 65 and b <= 90 then
+			word[#word + 1] = string.char(b + 32)
+		elseif (b >= 97 and b <= 122) or (b >= 48 and b <= 57) then
+			word[#word + 1] = string.char(b)
+		elseif b >= 128 then
+			word[#word + 1] = string.format("%02x", b)
+		else
+			close()
+		end
+	end
+	close()
+	return words
+end
+
+-- Backend Markets.ruleset: from the realm name's words (Prices.words): Hardcore; RP and PvP together (or
+-- "rppvp") RP-PvP; PvP; RP, Roleplay(ing) or "Role Play"; PvE or Normal. A name saying none of these is
+-- a market of its own, keyed by its words joined and cut to 32 characters ("shendralas").
 function Prices.ruleset(realm)
 	if type(realm) ~= "string" then
 		return "normal"
 	end
-	local words, has = {}, {}
-	for w in string.gmatch(string.lower(realm), "[%w\128-\255]+") do
-		words[#words + 1] = w
+	local words, has = Prices.words(realm), {}
+	for _, w in ipairs(words) do
 		has[w] = true
 	end
 	local rp = has.rp or has.roleplay or has.roleplaying or has.rppvp
