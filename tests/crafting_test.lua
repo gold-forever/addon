@@ -52,4 +52,14 @@ eq(C.margin({ profit = -30, cost = 200 }), -15, "a loss")
 eq(C.margin({ profit = nil, cost = 200 }), nil, "no profit known")
 eq(C.margin({ profit = 10, cost = 0 }), nil, "nothing to buy: no margin")
 
+-- "I have these": only what is still to buy counts against the sale.
+eq(C.profitHeld({ revenue = 1000, cash = 300, ownedValue = 200 }), 700, "held reagents cost nothing")
+eq(C.profitHeld({ revenue = nil, cash = 300 }), nil, "no sale price")
+-- Margin bands.
+eq(C.band(-5), "loss", "a loss")
+eq(C.band(9), "thin", "under 10%")
+eq(C.band(10), "fair", "from 10%")
+eq(C.band(30), "good", "from 30%")
+eq(C.band(nil), nil, "unknown")
+
 return checks

@@ -80,4 +80,28 @@ function Crafting.margin(q)
 	return math.floor(q.profit / q.cost * 100 + 0.5)
 end
 
+-- Profit with "I have these": what the player holds costs nothing, only what is still to buy does.
+function Crafting.profitHeld(q)
+	if not q or not q.revenue or not q.cash then
+		return nil
+	end
+	return q.revenue - q.cash
+end
+
+-- The margin band a profit falls in (design 009, Crafting): "loss" (under 0), "thin" (under 10%), "fair",
+-- "good" (from 30%), or nil when unknown.
+function Crafting.band(margin)
+	if not margin then
+		return nil
+	end
+	if margin < 0 then
+		return "loss"
+	elseif margin < 10 then
+		return "thin"
+	elseif margin < 30 then
+		return "fair"
+	end
+	return "good"
+end
+
 return Crafting

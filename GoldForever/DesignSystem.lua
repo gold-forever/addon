@@ -521,6 +521,105 @@ local function buildSales(page)
 	end
 end
 
+-- Crafting -----------------------------------------------------------------------------------------------------
+
+-- Every recipe the characters know that makes an item (design 009, Crafting module), by profit: what the
+-- reagents cost (the cheaper of auction house and vendor), what it sells for after the cut, profit and
+-- margin in bands; the chosen one's reagents below. "I have these" counts what you hold at no cost.
+local BAND_COLOR = { loss = "danger", thin = "textFaint", fair = "text", good = "success" }
+
+local function buildCrafting(page)
+	local held = settings().craftHeld or false
+	local chosen
+	local switchLabel = UI.Text(page, "I have these: reagents you hold cost nothing", { size = "sm", tone = "muted" })
+	switchLabel:SetPoint("TOPLEFT", 0, -2)
+	local sw = UI.Switch(page, held, function(on)
+		held = on
+		settings().craftHeld = on
+		page:Refresh()
+	end)
+	sw:SetPoint("TOPRIGHT", 0, 0)
+	local money = function(c)
+		return c and UI.layout.amount(c) or (Theme.escape(Theme.color.textFaint) .. "unknown|r")
+	end
+	local tbl = UI.Table(page, {
+		{ key = "name", title = "Recipe", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "cost", title = "Cost", width = 84, align = "RIGHT", text = function(r) return money(r.cost) end, sort = function(r) return r.cost or -1 end },
+		{ key = "revenue", title = "Sells for", width = 84, align = "RIGHT", text = function(r) return money(r.revenue) end, sort = function(r) return r.revenue or -1 end },
+		{ key = "profit", title = "Profit", width = 84, align = "RIGHT", text = function(r) return money(r.profit) end, sort = function(r) return r.profit or -math.huge end },
+		{ key = "margin", title = "Margin", width = 64, align = "RIGHT", text = function(r) return r.margin and (r.margin .. "%") or "—" end,
+			color = function(r) return Theme.color[BAND_COLOR[ns.Crafting.band(r.margin)] or "textFaint"] end, sort = function(r) return r.margin or -math.huge end },
+	}, {
+		pageSize = 8,
+		empty = "No priced recipe yet: open your professions once, and scan the auction house.",
+		sort = sortOf("crafting", 4),
+		isSelected = function(r) return chosen and r.id == chosen end,
+		onRowClick = function(r)
+			chosen = r.id
+			page:Refresh()
+		end,
+	})
+	tbl:SetPoint("TOPLEFT", 0, -30)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	local detail = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+	detail:SetPoint("RIGHT", page, "RIGHT")
+	detail:SetHeight(112)
+	local head = UI.Text(detail, "", { size = "sm", medium = true })
+	head:SetPoint("TOPLEFT", 14, -10)
+	local lines = {}
+	for i = 1, 4 do
+		local l = UI.Text(detail, "", { size = "xs" })
+		l:SetPoint("TOPLEFT", 14, -30 - (i - 1) * 18)
+		l:SetWidth(360)
+		local v = UI.Text(detail, "", { size = "xs", align = "RIGHT", tone = "muted" })
+		v:SetPoint("TOPRIGHT", -14, -30 - (i - 1) * 18)
+		v:SetWidth(260)
+		lines[i] = { name = l, value = v }
+	end
+	function page:Refresh()
+		local rows = {}
+		for _, q in ipairs(ns.allCraftQuotes and ns.allCraftQuotes() or {}) do
+			local r = q.recipe
+			local profit = held and ns.Crafting.profitHeld(q) or q.profit
+			local cost = held and q.cash or q.cost
+			rows[#rows + 1] = {
+				id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "× ") or "") .. itemName(r.output), quality = itemQuality(r.output),
+				cost = cost, revenue = q.revenue, profit = profit,
+				margin = profit and cost and cost > 0 and math.floor(profit / cost * 100 + 0.5) or nil,
+			}
+		end
+		tbl:SetRows(rows)
+		local sel
+		for _, r in ipairs(rows) do
+			if r.id == chosen then
+				sel = r
+			end
+		end
+		sel = sel or rows[1]
+		if not sel then
+			head:SetText("")
+			for _, l in ipairs(lines) do
+				l.name:SetText("")
+				l.value:SetText("")
+			end
+			return
+		end
+		chosen = sel.id
+		head:SetText(sel.name .. Theme.escape(Theme.color.textFaint) .. "  · reagents|r")
+		for i, l in ipairs(lines) do
+			local x = sel.q.lines[i]
+			if x then
+				l.name:SetText(x.needed .. "× " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  (" .. x.owned .. " held)|r") or ""))
+				l.value:SetText(x.unit and (UI.layout.amount(x.unit) .. " each, " .. (x.from == "vendor" and "vendor" or "AH")) or "no price")
+			else
+				l.name:SetText(i == 1 and "No reagents" or "")
+				l.value:SetText("")
+			end
+		end
+	end
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -1150,6 +1249,8 @@ local PAGES = {
 			{ key = "inventory", label = "Inventory", build = buildInventory },
 			{ key = "sales", label = "Auction sales", build = buildSales },
 		}) },
+	{ key = "crafting", label = "Crafting", icon = "flask-conical", group = "Trading", build = buildCrafting, title = "Crafting",
+		lede = "Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut." },
 	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
 		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
 		build = tabbed("session", {

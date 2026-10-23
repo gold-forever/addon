@@ -757,9 +757,14 @@ end
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)
-  for _, page in ipairs({ "home", "ledger", "characters", "inventory", "money", "sales", "session", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
+  for _, page in ipairs({ "home", "ledger", "characters", "inventory", "money", "sales", "crafting", "session", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
     SlashCmdList.GOLDFOREVER("ui " .. page)
   end
+end
+-- The Crafting page's recipes: the known Bolt of Linen, quoted.
+do
+  local quotes = ns.allCraftQuotes()
+  assert(#quotes >= 1 and quotes[1].recipe.output == 2996, "the known recipe is on the Crafting page")
 end
 -- Pages folded into tabs (design 009 decision 2): an old key opens its page on its tab.
 SlashCmdList.GOLDFOREVER("ui levelling")

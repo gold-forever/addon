@@ -86,6 +86,32 @@ end
 -- For the hub's Home page: the best crafts now.
 ns.profitableCrafts = profitable
 
+-- For the hub's Crafting page: every known recipe that makes an item, each with its quote and name.
+function ns.allCraftQuotes()
+	local me = ns.me()
+	if not me or not ns.price then
+		return {}
+	end
+	local cols, held = columns("recipe"), stock()
+	local have = function(id)
+		return held[id] or 0
+	end
+	local out, seen = {}, {}
+	for _, prof in pairs(me.prof or {}) do
+		for id in string.gmatch(prof.recipes or "", "%d+") do
+			id = tonumber(id)
+			local r = not seen[id] and recipe(id, cols)
+			seen[id] = true
+			if r then
+				local q = ns.Crafting.quote(r, ns.price, have, ns.price.cut)
+				q.recipe = r
+				out[#out + 1] = q
+			end
+		end
+	end
+	return out
+end
+
 -- For the crafting strip: one recipe's quote from the catalogue, with what this character holds; nil
 -- for a recipe the catalogue lacks or one that makes no item (an enchant).
 function ns.quoteRecipe(id)
