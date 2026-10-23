@@ -46,26 +46,27 @@ local function latestScan()
 	return latest
 end
 
--- Reads one chunk of rows into listings: item ID -> { { unit, qty } }.
+-- Reads one chunk of rows into listings: item ID -> { unit1, qty1, unit2, qty2, … }, a flat list an item
+-- (one table an item, not one a row) and no string a row: the pattern reads the columns in place.
 local function readChunk(chunk, listings)
-	for row in string.gmatch(chunk, "[^;]+") do
-		local key, unit, qty = string.match(row, "^([^,]+),(%d+),(%d+)")
+	for key, unit, qty in string.gmatch(chunk, "([^,;]+),(%d+),(%d+)[^;]*") do
 		local id = Encode.itemId(key)
 		if id then
-			listings[id] = listings[id] or {}
-			table.insert(listings[id], { unit = tonumber(unit), qty = tonumber(qty) })
+			local l = listings[id]
+			if not l then
+				l = {}
+				listings[id] = l
+			end
+			l[#l + 1] = tonumber(unit)
+			l[#l + 1] = tonumber(qty)
 		end
 	end
 end
 
 -- One item's market value and cheapest unit into the tables given.
 local function priceItem(id, l, into, low)
-	into[id] = Encode.marketValue(l)
-	local cheapestUnit
-	for _, x in ipairs(l) do
-		cheapestUnit = cheapestUnit and math.min(cheapestUnit, x.unit) or x.unit
-	end
-	low[id] = cheapestUnit
+	into[id] = Encode.marketValueFlat(l)
+	low[id] = Encode.cheapestFlat(l)
 end
 
 local function buildPrices()

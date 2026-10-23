@@ -134,4 +134,21 @@ eq(E.duration(80 * 60), "1h 20m", "hours")
 eq(E.day(1792368000), "2026-10-19", "start of a UTC day")
 eq(E.day(1792454399), "2026-10-19", "end of the same UTC day")
 
+-- The flat market value agrees with the listing one, on many random scans.
+math.randomseed(7)
+for trial = 1, 200 do
+	local list, flat = {}, {}
+	for k = 1, math.random(1, 30) do
+		local unit, qty = math.random(1, 50000), math.random(0, 200)
+		list[k] = { unit = unit, qty = qty }
+		flat[#flat + 1] = unit
+		flat[#flat + 1] = qty
+	end
+	eq(E.marketValueFlat(flat), E.marketValue(list), "flat and listing market values agree, trial " .. trial)
+	local low
+	for _, l in ipairs(list) do low = (not low or l.unit < low) and l.unit or low end
+	eq(E.cheapestFlat(flat), low, "the cheapest unit, trial " .. trial)
+end
+eq(E.marketValueFlat({}), nil, "no listings")
+
 return checks

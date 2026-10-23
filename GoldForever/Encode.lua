@@ -176,6 +176,48 @@ function Encode.marketValue(listings)
 	return math.floor(copper / units)
 end
 
+-- The same market value from a flat list { unit1, qty1, unit2, qty2, … }: one table an item instead of one a
+-- listing, for reading a whole scan (a retail scan has ~110,000 rows).
+function Encode.marketValueFlat(flat)
+	local n = #flat / 2
+	local total = 0
+	local order = {}
+	for k = 1, n do
+		order[k] = k
+		total = total + flat[2 * k]
+	end
+	if total == 0 then
+		return nil
+	end
+	if n > 1 then
+		table.sort(order, function(a, b)
+			return flat[2 * a - 1] < flat[2 * b - 1]
+		end)
+	end
+	local wanted = math.max(1, math.ceil(total * 0.15))
+	local units, copper = 0, 0
+	for _, k in ipairs(order) do
+		local take = math.min(wanted - units, flat[2 * k])
+		units = units + take
+		copper = copper + take * flat[2 * k - 1]
+		if units >= wanted then
+			break
+		end
+	end
+	return math.floor(copper / units)
+end
+
+-- The cheapest unit in a flat list.
+function Encode.cheapestFlat(flat)
+	local low
+	for k = 1, #flat, 2 do
+		if not low or flat[k] < low then
+			low = flat[k]
+		end
+	end
+	return low
+end
+
 -- "1g 23s 4c", "23s 4c", "4c": copper as text, for where coin icons cannot go.
 function Encode.money(copper)
 	copper = math.floor(copper + 0.5)
