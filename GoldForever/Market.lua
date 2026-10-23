@@ -47,6 +47,14 @@ end
 -- A full scan is about 90 KB on the beta: ten a market for three markets made a save of 2.7 MB, of
 -- which these rules keep about a third.
 local function prune()
+	-- Retail: one auction house per connected realm group whichever side's auctioneer opened it, and a
+	-- full scan of ~300,000 auctions is ~2 MB of the save: only the newest per group is kept, so the save
+	-- stays under the server's upload limit (10 MiB). The server keeps every scan it was sent.
+	local retail = ns.Realms.isRetail(ns.db().client and ns.db().client.interface)
+	local keepRecent, keepMax = retail and 1 or KEEP_RECENT, retail and 1 or KEEP_MAX
+	local function group(market)
+		return retail and (string.match(market or "", "^(.*)%-[^-]+$") or market) or market
+	end
 	local scans = {}
 	for i, s in ipairs(ns.db().scans) do
 		scans[i] = s
@@ -58,10 +66,11 @@ local function prune()
 	for i = #scans, 1, -1 do
 		local s = scans[i]
 		if s.kind == "full" then
-			local n = full[s.market] or 0
-			local day = s.market .. "@" .. Encode.day(s.t or 0)
-			if n < KEEP_RECENT or (n < KEEP_MAX and not days[day]) then
-				full[s.market] = n + 1
+			local g = group(s.market)
+			local n = full[g] or 0
+			local day = g .. "@" .. Encode.day(s.t or 0)
+			if n < keepRecent or (n < keepMax and not days[day]) then
+				full[g] = n + 1
 				days[day] = true
 				table.insert(kept, 1, s)
 			end
