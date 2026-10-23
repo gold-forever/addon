@@ -73,7 +73,10 @@ Minimap = widget()
 function GetCursorPosition() return 0, 0 end
 function strsplit(sep, s) local out = {} for part in (s .. sep):gmatch("([^" .. sep .. "]*)" .. sep) do out[#out + 1] = part end return unpack(out) end
 GameTooltip = widget({ lines = {}, shades = {} }); function GameTooltip:AddLine(t, r) table.insert(self.lines, t); self.shades[t] = r end
-C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end, NewTicker = function(s, fn) ticker = fn end }
+C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end, NewTicker = function(s, fn) ticker = fn; local t = { every = s, fn = fn, Cancel = function(self) self.cancelled = true end }; liveTickers[#liveTickers + 1] = t; return t end }
+liveTickers = {}
+-- Tickers of `every` seconds still running.
+function running(every) local n = 0 for _, t in ipairs(liveTickers) do if t.every == every and not t.cancelled then n = n + 1 end end return n end
 local function runTimers(upto) local i = 0 while #timers > 0 and i < 5000 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
 function fire(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end runTimers() end
 -- An event without running the timers due, for orderings within a second.
@@ -716,6 +719,14 @@ do
   GoldForever_ToggleHud()
   assert(GoldForeverDB.settings.appraiser.shown == not first, "the HUD binding toggles the HUD")
   if not GoldForeverDB.settings.appraiser.shown then GoldForever_ToggleHud() end
+end
+-- Performance budget: no once-a-second ticker while the HUD is hidden (the auction panel's is closed).
+do
+  if GoldForeverDB.settings.appraiser.shown then GoldForever_ToggleHud() end
+  for _, t in ipairs(liveTickers) do if t.every == 1 and not t.cancelled then t.fn() end end
+  assert(running(1) == 0, "no ticker once the HUD is hidden: " .. running(1))
+  GoldForever_ToggleHud()
+  assert(running(1) == 1, "one while it shows")
 end
 -- Every binding Bindings.xml names calls a function the addon defines.
 for call in io.open(dir .. "/Bindings.xml"):read("*a"):gmatch("([%w_]+)%(%)") do

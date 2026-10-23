@@ -637,6 +637,8 @@ local function tucked()
 	return settings().hideInCombat and InCombatLockdown and InCombatLockdown()
 end
 
+local startTicker
+
 local function show()
 	if not hud then
 		build()
@@ -646,6 +648,7 @@ local function show()
 	end
 	hud:Show()
 	refresh()
+	startTicker()
 end
 
 ns.on("PLAYER_REGEN_DISABLED", "appraiser", function()
@@ -657,6 +660,7 @@ ns.on("PLAYER_REGEN_ENABLED", "appraiser", function()
 	if hud and settings().shown and settings().hideInCombat and session then
 		hud:Show()
 		refresh()
+		startTicker()
 	end
 end)
 
@@ -789,12 +793,24 @@ ns.on("BAG_UPDATE_DELAYED", "appraiser", function()
 	refresh()
 end)
 
--- The clock and the item names (they load a moment after the loot) keep the text current.
-ns.on("PLAYER_LOGIN", "appraiser", function()
-	C_Timer.NewTicker(1, function()
-		ns.safely("appraiser", refresh)
-	end)
-end)
+-- The clock and the item names (they load a moment after the loot) keep the text current: once a second
+-- while the HUD shows, and no ticker at all while it is hidden (design 009, Performance budget).
+local ticker
+local function tick()
+	if not hud or not hud:IsShown() then
+		if ticker and ticker.Cancel then
+			ticker:Cancel()
+		end
+		ticker = nil
+		return
+	end
+	ns.safely("appraiser", refresh)
+end
+startTicker = function()
+	if not ticker then
+		ticker = C_Timer.NewTicker(1, tick)
+	end
+end
 
 ns.commands.appraise = function()
 	local s = settings()
