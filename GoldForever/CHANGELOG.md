@@ -51,6 +51,9 @@
 - A **crafting strip** beside the profession window: for the recipe you choose, what its reagents
   cost (each at the cheaper of the auction house and a vendor), what the item sells for after the cut,
   the profit and margin, and what you still have to buy. Settings → Modules switches it off.
+- A **first-run card** for new installs (never in combat): what Gold Forever records and shares, a
+  preset to start with (Prices only, Trader, Everything) and the companion app's address. An install
+  that already has characters never sees it; `/gf welcome` shows it again.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.

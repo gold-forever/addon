@@ -655,6 +655,21 @@ SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui levelling")
 SlashCmdList.GOLDFOREVER("look web")
 SlashCmdList.GOLDFOREVER("ui ledger")
+-- The first-run card: due on this fresh save, shown after login, and a preset sets the modules.
+do
+  assert(GoldForeverDB.settings.firstRun.due == true, "a save with no characters at load is a new install")
+  local card = ns.FirstRun.card()
+  assert(card and card:IsShown(), "the card shows after login")
+  card.show(2)
+  card.choose("prices")
+  card.finish(false)
+  assert(GoldForeverDB.settings.firstRun.done == true and not card:IsShown(), "done, and closed")
+  assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
+  -- Back to everything on, for the rest of the run.
+  ns.FirstRun.apply("everything", { prices = GoldForeverDB.settings.prices, auction = GoldForeverDB.settings.auction,
+    crafting = ns.settings("crafting", { strip = true }), shop = GoldForeverDB.settings.shop, appraiser = GoldForeverDB.settings.appraiser,
+    advisor = GoldForeverDB.settings.advisor })
+end
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)

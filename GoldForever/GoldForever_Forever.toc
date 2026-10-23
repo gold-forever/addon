@@ -43,5 +43,6 @@ Dings.lua
 Post.lua
 AuctionPanel.lua
 CraftingStrip.lua
+FirstRun.lua
 DesignSystem.lua
 Minimap.lua
