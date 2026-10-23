@@ -22,14 +22,19 @@ local cheapestPrices -- item ID -> the cheapest unit listed in that scan
 local pricedFrom -- ns.scanVersion when prices were built; a new scan (Market.lua) rebuilds them
 local pricedAt -- when that scan was taken
 
-local function buildPrices()
-	prices = {}
-	cheapestPrices = {}
+-- A scan this size or smaller is read into prices at once; a bigger one over several frames, the prices
+-- before it staying in use until it is done (design 009, Performance budget: a retail scan's ~110,000
+-- rows took ~100 ms to read in one go, a hitch at the first tooltip after a scan or a login).
+local SYNC_CHUNKS = 10 -- of Encode.ROWS_PER_CHUNK (500) rows: 5,000 rows
+local CHUNKS_PER_FRAME = 2
+local ITEMS_PER_FRAME = 500
+local building -- the scan version a build in progress is for
+
+-- The newest full scan of the character's market, or nil.
+local function latestScan()
 	local db, me = ns.db(), ns.me()
-	pricedFrom = ns.scanVersion or 0
-	pricedAt = nil
 	if not me then
-		return
+		return nil
 	end
 	local market = ns.market(string.lower(me.faction or "?"))
 	local latest
@@ -38,29 +43,82 @@ local function buildPrices()
 			latest = scan
 		end
 	end
-	if not latest then
+	return latest
+end
+
+-- Reads one chunk of rows into listings: item ID -> { { unit, qty } }.
+local function readChunk(chunk, listings)
+	for row in string.gmatch(chunk, "[^;]+") do
+		local key, unit, qty = string.match(row, "^([^,]+),(%d+),(%d+)")
+		local id = Encode.itemId(key)
+		if id then
+			listings[id] = listings[id] or {}
+			table.insert(listings[id], { unit = tonumber(unit), qty = tonumber(qty) })
+		end
+	end
+end
+
+-- One item's market value and cheapest unit into the tables given.
+local function priceItem(id, l, into, low)
+	into[id] = Encode.marketValue(l)
+	local cheapestUnit
+	for _, x in ipairs(l) do
+		cheapestUnit = cheapestUnit and math.min(cheapestUnit, x.unit) or x.unit
+	end
+	low[id] = cheapestUnit
+end
+
+local function buildPrices()
+	local version = ns.scanVersion or 0
+	local latest = latestScan()
+	local chunks = latest and latest.rows or {}
+	if #chunks <= SYNC_CHUNKS then
+		local listings, newPrices, newLow = {}, {}, {}
+		for _, chunk in ipairs(chunks) do
+			readChunk(chunk, listings)
+		end
+		for id, l in pairs(listings) do
+			priceItem(id, l, newPrices, newLow)
+		end
+		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest and latest.t
 		return
 	end
-	pricedAt = latest.t
-	local listings = {}
-	for _, chunk in ipairs(latest.rows or {}) do
-		for row in string.gmatch(chunk, "[^;]+") do
-			local key, unit, qty = string.match(row, "^([^,]+),(%d+),(%d+)")
-			local id = Encode.itemId(key)
-			if id then
-				listings[id] = listings[id] or {}
-				table.insert(listings[id], { unit = tonumber(unit), qty = tonumber(qty) })
+	if building == version then
+		return
+	end
+	building = version
+	prices, cheapestPrices = prices or {}, cheapestPrices or {}
+	local listings, newPrices, newLow, i = {}, {}, {}, 0
+	local ids, j
+	local function step()
+		if building ~= version then
+			return -- a newer scan started its own build
+		end
+		if i < #chunks then
+			for k = i + 1, math.min(i + CHUNKS_PER_FRAME, #chunks) do
+				readChunk(chunks[k], listings)
+			end
+			i = math.min(i + CHUNKS_PER_FRAME, #chunks)
+		else
+			if not ids then
+				ids, j = {}, 0
+				for id in pairs(listings) do
+					ids[#ids + 1] = id
+				end
+			end
+			for k = j + 1, math.min(j + ITEMS_PER_FRAME, #ids) do
+				priceItem(ids[k], listings[ids[k]], newPrices, newLow)
+			end
+			j = math.min(j + ITEMS_PER_FRAME, #ids)
+			if j >= #ids then
+				prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
+				building = nil
+				return
 			end
 		end
+		ns.after(0, "prices", step)
 	end
-	for id, l in pairs(listings) do
-		prices[id] = Encode.marketValue(l)
-		local low
-		for _, x in ipairs(l) do
-			low = low and math.min(low, x.unit) or x.unit
-		end
-		cheapestPrices[id] = low
-	end
+	step()
 end
 
 local function market(id)

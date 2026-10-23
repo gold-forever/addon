@@ -811,7 +811,11 @@ do
   C_AuctionHouse.GetReplicateItemLink = function(i) return "|Hitem:" .. (2000 + i % 3000) .. "::::::::30|h[x]|h" end
   C_AuctionHouse.GetReplicateItemTimeLeft = function(i) return 1 + i % 4 end
   if jit then jit.off() end
+  -- At an Alliance auctioneer, so the scan is this character's market and its prices are rebuilt.
+  local factionOf = UnitFactionGroup
+  UnitFactionGroup = function(u) if u == "npc" then return "Alliance" end return factionOf(u) end
   GoldForeverDB.lastReplicate = 0
+  now = 1792600000 -- after every scan in the file, so this one is the newest
   fire("AUCTION_HOUSE_SHOW")
   wait(2)
   local frames, worst, total = 0, 0, 0
@@ -838,6 +842,20 @@ do
     if ms > worst then worst = ms end
     clock = clock + 0.001
   end
+  -- The first price asked after the scan rebuilds the prices from it (Appraiser.lua), over frames too.
+  -- (The addon was reloaded above: ns2 is the one running now.)
+  local rframes, rworst = 0, 0
+  ns2.price.market(2001)
+  while #timers > 0 and rframes < 400 do
+    local ms = step()
+    rframes = rframes + 1
+    if ms > rworst then rworst = ms end
+    clock = clock + 0.001
+  end
+  print(string.format("PRICE REBUILD after a %d-auction scan: %d frames, worst %.2f ms", N, rframes, rworst))
+  assert(ns2.price.market(2001) and ns2.price.cheapest(2001), "the big scan's prices arrive")
+  assert(rworst < 20, string.format("a frame of the price rebuild took %.2f ms", rworst))
+  UnitFactionGroup = factionOf
   if jit then jit.on() end
   print(string.format("SCAN BUDGET %d auctions in %d frames: worst %.2f ms, mean %.2f ms a frame; slowest step %.2f ms at %s", N, frames, worst, total / frames, slowest.ms or 0, tostring(slowest.where)))
   -- A frame averages under the budget; the worst may hold a garbage-collection step, so it fails only
