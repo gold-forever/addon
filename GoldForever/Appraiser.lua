@@ -385,7 +385,7 @@ local function refresh()
 	d.values[2]:SetText(UI.layout.money(value) .. (unpriced > 0 and (faint .. string.format("  +%d unpriced", unpriced) .. "|r") or ""))
 	d.values[3]:SetText(UI.layout.money(r.total) .. (r.rated and (faint .. "  · " .. "|r" .. UI.layout.money(r.goldPerHour, "gold") .. faint .. " an hour|r") or ""))
 	d.values[4]:SetText(Views.short(session.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, (xpSeen.level or 0) + 1) .. "|r") or ""))
-	d.values[5]:SetText(session.kills .. faint .. "  counted from XP and corpses, never the combat log|r")
+	d.values[5]:SetText(session.kills .. faint .. "  from kill XP, never the combat log|r")
 	local used = session.bagBase - session.bagFree
 	local filling = GetTime() - session.bagBaseAt
 	local bags = session.bagFree == 0 and (Theme.escape(Theme.color.danger) .. "full|r") or (session.bagFree .. " free")
