@@ -42,6 +42,7 @@ Levelling.lua
 Dings.lua
 Post.lua
 Shopping.lua
+SalePlan.lua
 AuctionPanel.lua
 CraftingStrip.lua
 FirstRun.lua

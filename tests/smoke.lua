@@ -379,6 +379,14 @@ do
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
   print("AH POST " .. tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit))
+  -- A sale profile for Linen: keep 2, undercut 1 copper, floor 50%: the Post tab follows it.
+  AP.importProfile(ns.SalePlan.encode({ name = "Cloth", author = "Test", sell = { { itemID = 2589, keep = 2, price = { kind = "undercut", by = 1 }, floorPct = 50 } }, buy = {} }))
+  AP.tab("post")
+  local sug = AP.suggestion()
+  assert(sug and sug.reason == "plan" and sug.quantity == 5, "the profile's plan prices Linen and keeps 2: " .. tostring(sug and sug.label) .. " " .. tostring(sug and sug.quantity))
+  assert(sug.unit and sug.unit % 100 == 0, "in whole silver")
+  GoldForeverDB.settings.auction.profile = nil -- back to the rule for the rest of the run
+  AP.tab("post")
   AP.duration(3) -- 48 hours for Linen, remembered for it
   AP.quantity(5) -- 5 of the 7 held, remembered for it
   AP.post()

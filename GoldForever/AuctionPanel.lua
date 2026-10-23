@@ -83,6 +83,44 @@ local function sellable()
 end
 
 -- A row priced: market value, the cheapest other listing (live or from the scan) and the suggestion.
+-- The active sale profile (Rule tab), or nil.
+local function activeProfile()
+	local s = settings()
+	return s.profile and s.profiles and s.profiles[s.profile] or nil
+end
+
+-- What this character holds of an item, bags and bank (decision 12: keep counts per character).
+local function heldHere(id, bags)
+	local me = ns.me()
+	local bank = me and me.bank and ns.Encode.parseItems(me.bank.items)[id] or 0
+	return (bags or 0) + bank
+end
+
+-- A sale plan's step as the Post tab's suggestion: posts in whole silver; "ask" posts the plan's price
+-- after a second press; hold and skip post nothing.
+local PLAN_REASONS = {
+	undercut = "Undercut (plan)", fixed = "Fixed price (plan)", percentile = "Percentile (plan)", ["no-competition"] = "No one else (plan)",
+	["market-moved"] = "The market moved (plan)", ["under-floor"] = "Hold: under the plan's floor", keeping = "Keeping", ["no-price"] = "No price yet",
+}
+Post.REASONS.plan = "Plan"
+
+local function planned(r, rule, market)
+	local book = live[r.commodity and tostring(r.id) or ("item:" .. r.id)]
+	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market)
+	local unit = step.unitPrice or (step.choices and step.choices.plan)
+	local label = PLAN_REASONS[step.reason] or step.reason
+	if step.reason == "keeping" then
+		label = "Keeping " .. rule.keep
+	end
+	return {
+		unit = unit and Post.silver(unit) or nil,
+		reason = "plan", label = label, plan = step,
+		floor = step.floor or 0, normal = unit or 0,
+		ask = step.action == "ask" or nil,
+		quantity = step.quantity,
+	}
+end
+
 local function price(r)
 	local market, from = ns.Prices.value(r.id)
 	r.market, r.marketFrom = market, from
@@ -93,7 +131,10 @@ local function price(r)
 		r.cheapest, r.cheapestFrom = ns.price.cheapest(r.id), "scan"
 	end
 	r.vendor = ns.price.vendor(r.id)
-	if market then
+	local rule = ns.SalePlan.ruleFor(activeProfile(), r.id)
+	if rule then
+		r.suggestion = planned(r, rule, market)
+	elseif market then
 		r.suggestion = Post.suggest(settings().rule, market, r.cheapest)
 	elseif r.cheapest then
 		-- No market value: the cheapest other listing stands in for it.
@@ -214,7 +255,9 @@ local function quantity(r)
 		return 1
 	end
 	local chosen = settings().quantities[r.key]
-	return math.max(1, math.min(r.count, chosen or r.count))
+	-- A sale plan's quantity (what is over its keep) unless the player chose a number.
+	local default = r.suggestion and r.suggestion.quantity or r.count
+	return math.max(1, math.min(r.count, chosen or default))
 end
 
 -- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
@@ -237,6 +280,7 @@ local function post()
 		return
 	end
 	local warning = Post.check(unit, r.market, r.vendor, ns.price.cut)
+		or (r.suggestion.ask and "at the plan's fixed price though the market moved")
 	if warning and armed ~= r.key then
 		armed = r.key
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "Press again to post " .. warning .. ".|r")
@@ -476,7 +520,7 @@ local function buildPost(page)
 		local sug = r.suggestion
 		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  ×" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
-		reason:SetText(Theme.escape(tone) .. (sug and Post.REASONS[sug.reason] or "No price yet: scan first") .. "|r"
+		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or "No price yet: scan first") .. "|r"
 			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. " each|r") or ""))
 		local cheapest = r.cheapest and (money(r.cheapest) .. faint .. (r.cheapestFrom == "live" and " (live)" or " (last scan, yours included)") .. "|r") or (faint .. "none|r")
 		facts:SetText(string.format("Cheapest other %s · market %s%s · floor %s · normal %s", cheapest,
@@ -979,9 +1023,79 @@ local function buildRule(page)
 	row(-150, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold" }, { value = "floor", label = "Post at the floor" } }, s.rule.belowFloor, function(v)
 		s.rule.belowFloor = v
 	end))
-	local note = UI.Text(page, "Floor and normal price are shares of the market value: the pool's from the companion, else your own last scan. Prices are whole silver.", { size = "xs", tone = "faint", wrap = true })
-	note:SetPoint("TOPLEFT", 0, -200)
+	local note = UI.Text(page, "Floor and normal price are shares of the market value: the pool's from the companion, else your own last scan. Prices are whole silver. An item in the sale profile follows the profile instead.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", 0, -190)
 	note:SetPoint("RIGHT", page, "RIGHT")
+
+	-- Sale profiles (GFP1 strings from the site or other players): one active at a time.
+	s.profiles = s.profiles or {}
+	local head = UI.Text(page, "SALE PROFILE", { size = "xs", medium = true, tone = "faint" })
+	head:SetPoint("TOPLEFT", 0, -236)
+	local pick
+	local summary = UI.Text(page, "", { size = "xs", tone = "muted", wrap = true })
+	local function options()
+		local out = { { value = 0, label = "None: the rule above" } }
+		for i, p in ipairs(s.profiles) do
+			out[#out + 1] = { value = i, label = p.name }
+		end
+		return out
+	end
+	local function describe()
+		local p = activeProfile()
+		summary:SetText(p and string.format("%s by %s: %d items to sell, %d to buy.", p.name, p.author ~= "" and p.author or "?", #p.sell, #p.buy)
+			or "No profile: every item follows the rule above.")
+	end
+	local function rebuild()
+		if pick then
+			pick:Hide()
+		end
+		pick = UI.Dropdown(page, options(), s.profile or 0, function(v)
+			s.profile = v ~= 0 and v or nil
+			describe()
+		end)
+		pick:SetPoint("TOPLEFT", 0, -254)
+		pick:SetWidth(220)
+		summary:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -8)
+		summary:SetPoint("RIGHT", page, "RIGHT")
+		describe()
+	end
+	rebuild()
+	local field = UI.SearchBox(page, "Paste a GFP1: profile string", nil)
+	field:SetPoint("TOPLEFT", 0, -308)
+	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
+	local message = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
+	message:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -6)
+	message:SetPoint("RIGHT", page, "RIGHT")
+	local function doImport(text)
+		local p, err = ns.SalePlan.decode(text or field:GetText())
+		if not p then
+			message:SetText(Theme.escape(Theme.color.danger) .. err .. "|r")
+			return
+		end
+		-- Decision 11: each profile has an id and an edited time, so a later sync keeps the newest.
+		p.id = p.id or string.format("%d-%d", ns.now(), math.random(100000, 999999))
+		p.edited = ns.now()
+		s.profiles[#s.profiles + 1] = p
+		s.profile = #s.profiles
+		field:SetText("")
+		rebuild()
+		message:SetText("Imported and in use.")
+	end
+	local import = UI.Button(page, "Import", function()
+		doImport()
+	end, { kind = "ghost", width = 70, height = 28 })
+	import:SetPoint("LEFT", field, "RIGHT", 6, 0)
+	local export = UI.Button(page, "Export", function()
+		local p = activeProfile()
+		if p then
+			field:SetText(ns.SalePlan.encode(p))
+			field:SetFocus()
+			field:HighlightText()
+			message:SetText("Copy it with Ctrl+C.")
+		end
+	end, { kind = "ghost", width = 70, height = 28 })
+	export:SetPoint("LEFT", import, "RIGHT", 4, 0)
+	page.importProfile = doImport
 end
 
 -- Space posts only while the Post tab shows: an override binding on a named button, set and cleared as
@@ -1221,5 +1335,11 @@ ns.AuctionPanel = {
 	end,
 	owned = function()
 		return owned, checking
+	end,
+	importProfile = function(text)
+		panel.pages.rule.importProfile(text)
+	end,
+	suggestion = function()
+		return chosen and chosen.suggestion
 	end,
 }

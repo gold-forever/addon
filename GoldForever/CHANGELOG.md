@@ -57,6 +57,10 @@
   **Cancel**: checks your auctions one by one against other players' listings (a single cheap unit far
   under the rest is ignored) and lists those undercut past your tolerance (5% at first); **Cancel next**
   cancels the most undercut one a press, showing the cancel cost. The items come back by mail.
+  **Sale profiles** (Rule tab): import a `GFP1:` string (from the site or a creator) and its rules price
+  the items it names in Post: keep this many, undercut, a fixed price (asking when the market moved) or
+  a point in the supply, with a floor; a single cheap unit far under the rest is ignored. Export shares
+  yours.
 - The pool's prices find the launch realms' markets: the region from a region number or the portal
   when the client gives no name, and the ruleset from the realm's name (Hardcore, RP-PvP, PvP, RP,
   Normal, or the realm's own name), as the server files them now.
