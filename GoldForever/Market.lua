@@ -86,49 +86,64 @@ ns.on("PLAYER_LOGIN", "scans", function()
 	ns.safely("scans", prune)
 end)
 
+-- Rows written per frame when a scan is saved: like reading, spread so no frame stalls (design 009,
+-- Performance budget). A retail scan has ~110,000 rows; written at once they took a frame of their own.
+local ENCODE = 2000
+
 local function finish(s, buckets, n)
-	local record = {
-		t = s.t,
-		market = s.market,
-		kind = n > 0 and "full" or "throttled",
-		auctions = n,
-		map = s.map,
-		zone = s.zone,
-		npc = s.npc,
-		npcFaction = s.npcFaction,
-		rows = {},
-	}
+	-- Rows in no particular order: nothing reads them by position, and sorting ~110,000 keys took a frame.
 	local keys = {}
 	for key in pairs(buckets) do
 		keys[#keys + 1] = key
 	end
-	table.sort(keys)
-	local rows = {}
-	for i, key in ipairs(keys) do
-		local b = buckets[key]
-		rows[i] = Encode.row(b.item, b.unit, b.qty, b.auctions)
-	end
-	record.rows = Encode.chunks(rows)
-	if s.items then
-		local ids = {}
-		for id in pairs(s.items) do
-			ids[#ids + 1] = id
+	local rows, i = {}, 0
+	local function store()
+		local record = {
+			t = s.t,
+			market = s.market,
+			kind = n > 0 and "full" or "throttled",
+			auctions = n,
+			map = s.map,
+			zone = s.zone,
+			npc = s.npc,
+			npcFaction = s.npcFaction,
+			rows = Encode.chunks(rows),
+		}
+		if s.items then
+			local ids = {}
+			for id in pairs(s.items) do
+				ids[#ids + 1] = id
+			end
+			table.sort(ids)
+			local items = {}
+			for k, id in ipairs(ids) do
+				items[k] = s.items[id]
+			end
+			record.items = Encode.chunks(items)
 		end
-		table.sort(ids)
-		local items = {}
-		for k, id in ipairs(ids) do
-			items[k] = s.items[id]
-		end
-		record.items = Encode.chunks(items)
+		local scans = ns.db().scans
+		scans[#scans + 1] = record
+		prune()
+		-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
+		ns.scanVersion = (ns.scanVersion or 0) + 1
+		ns.lastScan = { t = s.t, kind = record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
+		ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
+		scan = nil
 	end
-	local scans = ns.db().scans
-	scans[#scans + 1] = record
-	prune()
-	-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
-	ns.scanVersion = (ns.scanVersion or 0) + 1
-	ns.lastScan = { t = s.t, kind = record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
-	ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
-	scan = nil
+	local function encode()
+		local stop = math.min(i + ENCODE, #keys)
+		for k = i + 1, stop do
+			local b = buckets[keys[k]]
+			rows[k] = Encode.row(b.item, b.unit, b.qty, b.auctions)
+		end
+		i = stop
+		if i < #keys then
+			ns.after(0, "scan", encode)
+		else
+			store()
+		end
+	end
+	encode()
 end
 
 local function read()

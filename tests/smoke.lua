@@ -799,3 +799,50 @@ local function dump(v, indent)
   return "{\n" .. table.concat(out, ",\n") .. "\n" .. indent .. "}"
 end
 print("GoldForeverDB = " .. dump(GoldForeverDB))
+-- Performance budget (design 009): a 30,000-auction scan read 500 a frame stays under ~2 ms a frame.
+-- Measured with the JIT off, closer to the game's own Lua; printed always.
+do
+  local N = 30000
+  C_AuctionHouse.GetNumReplicateItems = function() return N end
+  C_AuctionHouse.GetReplicateItemInfo = function(i)
+    local id = 2000 + i % 3000
+    return "x", 0, 1 + i % 20, 1, true, 1, 0, 1, 1, 100 + (i % 97) * 37, 0, false, nil, nil, nil, 0, id, true
+  end
+  C_AuctionHouse.GetReplicateItemLink = function(i) return "|Hitem:" .. (2000 + i % 3000) .. "::::::::30|h[x]|h" end
+  C_AuctionHouse.GetReplicateItemTimeLeft = function(i) return 1 + i % 4 end
+  if jit then jit.off() end
+  GoldForeverDB.lastReplicate = 0
+  fire("AUCTION_HOUSE_SHOW")
+  wait(2)
+  local frames, worst, total = 0, 0, 0
+  local before = #timers
+  local slowest = {}
+  local function step()
+    local start = os.clock()
+    table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end)
+    while #timers > 0 and timers[1].at <= clock + 0.001 do
+      local t = table.remove(timers, 1)
+      local t0 = os.clock()
+      t.fn()
+      local one = (os.clock() - t0) * 1000
+      if one > (slowest.ms or 0) then local info = debug.getinfo(t.fn, "S"); slowest = { ms = one, where = info.short_src .. ":" .. info.linedefined } end
+    end
+    return (os.clock() - start) * 1000
+  end
+  fireNow("REPLICATE_ITEM_LIST_UPDATE")
+  clock = clock + 1
+  while #timers > 0 and frames < 200 do
+    local ms = step()
+    frames = frames + 1
+    total = total + ms
+    if ms > worst then worst = ms end
+    clock = clock + 0.001
+  end
+  if jit then jit.on() end
+  print(string.format("SCAN BUDGET %d auctions in %d frames: worst %.2f ms, mean %.2f ms a frame; slowest step %.2f ms at %s", N, frames, worst, total / frames, slowest.ms or 0, tostring(slowest.where)))
+  -- A frame averages under the budget; the worst may hold a garbage-collection step, so it fails only
+  -- far above it (saving the scan in one frame took ~100 ms here before it was spread).
+  assert(total / frames < 2, string.format("scan frames average %.2f ms (budget ~2 ms)", total / frames))
+  assert(worst < 20, string.format("a frame of the scan took %.2f ms", worst))
+  fire("AUCTION_HOUSE_CLOSED")
+end
