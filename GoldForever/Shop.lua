@@ -83,6 +83,9 @@ local function profitable()
 	return out
 end
 
+-- For the hub's Home page: the best crafts now.
+ns.profitableCrafts = profitable
+
 local function name(id)
 	local _, _, _, _, n = ns.price.itemInfo(id)
 	return n or ("item " .. id)

@@ -129,4 +129,14 @@ eq(V.short(12345), "12.3k", "thousands")
 eq(V.short(2500000), "2.5m", "millions")
 eq(V.short(240.4), "240", "whole below a thousand")
 
+-- The Home page: bags by worth, most first, unpriced counted apart.
+local worths = { [1] = 100, [2] = 5000, [3] = nil, [4] = 100 }
+local list, total, unpriced = V.worthList({ [1] = 3, [2] = 2, [3] = 7, [4] = 3 }, function(id) return worths[id] end)
+eq(#list, 3, "priced items listed")
+eq(list[1].id, 2, "the most valuable first")
+eq(list[2].id, 1, "ties by item id")
+eq(total, 10600, "the total")
+eq(unpriced, 7, "units without a price")
+eq(V.dayStart(86400 * 3 + 5000), 86400 * 3, "the UTC day's start")
+
 return checks

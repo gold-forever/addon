@@ -306,3 +306,30 @@ function Views.short(n)
 	end
 	return tostring(math.floor(n + 0.5))
 end
+
+-- What a set of held items is worth, most first: held = { [id] = count }, worth(id) -> one unit's copper
+-- or nil. Returns the list { id, count, value }, the total, and how many units have no price.
+function Views.worthList(held, worth)
+	local list, total, unpriced = {}, 0, 0
+	for id, n in pairs(held or {}) do
+		local w = worth(id)
+		if w then
+			list[#list + 1] = { id = id, count = n, value = w * n }
+			total = total + w * n
+		else
+			unpriced = unpriced + n
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.value ~= b.value then
+			return a.value > b.value
+		end
+		return a.id < b.id
+	end)
+	return list, total, unpriced
+end
+
+-- The start of the server's UTC day that `t` falls in, as the saved days are bucketed.
+function Views.dayStart(t)
+	return t - t % 86400
+end

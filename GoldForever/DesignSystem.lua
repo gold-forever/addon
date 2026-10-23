@@ -194,6 +194,152 @@ local function header(page)
 	return top
 end
 
+-- Home ------------------------------------------------------------------------------------------------------
+
+-- The next moves, from the save and the prices: scan, sell what the bags hold, the best craft; today's
+-- money by where it came from; and the bag items worth most.
+local function buildHome(page)
+	local W = (page:GetWidth() and page:GetWidth() > 0) and page:GetWidth() or 708
+	local GAP = 16
+	local cardW = math.floor((W - GAP * 2) / 3)
+	local actions = {}
+	for i, a in ipairs({ { icon = "search", go = nil }, { icon = "package", go = "inventory" }, { icon = "trending-up", go = nil } }) do
+		local card = CreateFrame("Button", nil, page)
+		card:SetSize(cardW, 72)
+		card:SetPoint("TOPLEFT", (i - 1) * (cardW + GAP), 0)
+		UI.surface(card, Theme.color.surfaceRaised, 1, Theme.color.border, Theme.skin.radius and Theme.skin.radius.card or 0)
+		local box = CreateFrame("Frame", nil, card)
+		box:SetSize(38, 38)
+		box:SetPoint("LEFT", 14, 0)
+		UI.surface(box, Theme.color.accentSoft, 1, nil, Theme.skin.radius and 6 or 0)
+		local icon = UI.Icon(box, a.icon, 20, "accent")
+		icon:SetPoint("CENTER")
+		card.title = UI.Text(card, "", { size = "sm", medium = true })
+		card.title:SetPoint("TOPLEFT", 64, -18)
+		card.title:SetWidth(cardW - 76)
+		card.line = UI.Text(card, "", { size = "xs", tone = "faint" })
+		card.line:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -5)
+		card.line:SetWidth(cardW - 76)
+		if a.go then
+			card:SetScript("OnClick", function()
+				local w = page:GetParent() and page:GetParent():GetParent()
+				if w and w.SelectPage then
+					w:SelectPage(a.go)
+				end
+			end)
+		end
+		actions[i] = card
+	end
+
+	local half = math.floor((W - GAP) / 2)
+	local function column(x, title, rows, rowH)
+		local label = UI.Text(page, title, { size = "xs", medium = true, tone = "faint" })
+		label:SetPoint("TOPLEFT", x, -92)
+		local card = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+		card:SetPoint("TOPLEFT", x, -110)
+		card:SetSize(half, rows * rowH + 16)
+		card.rows = {}
+		for i = 1, rows do
+			local r = CreateFrame("Frame", nil, card)
+			r:SetHeight(rowH)
+			r:SetPoint("TOPLEFT", 8, -8 - (i - 1) * rowH)
+			r:SetPoint("RIGHT", card, "RIGHT", -8, 0)
+			card.rows[i] = r
+		end
+		card.empty = UI.Text(card, "", { size = "sm", tone = "faint", wrap = true })
+		card.empty:SetPoint("TOPLEFT", 16, -16)
+		card.empty:SetPoint("RIGHT", card, "RIGHT", -16, 0)
+		return card, label
+	end
+
+	local today, todayLabel = column(0, "TODAY", 7, 36)
+	for _, r in ipairs(today.rows) do
+		r.icon = UI.Icon(r, "trending-up", 15, "muted")
+		r.icon:SetPoint("LEFT", 8, 0)
+		r.label = UI.Text(r, "", { size = "sm" })
+		r.label:SetPoint("LEFT", 34, 0)
+		r.value = UI.Text(r, "", { size = "sm", align = "RIGHT" })
+		r.value:SetPoint("RIGHT", -8, 0)
+		r.value:SetWidth(150)
+	end
+	local sell = column(half + GAP, "WORTH SELLING NOW", 5, 50)
+	for _, r in ipairs(sell.rows) do
+		r.icon = r:CreateTexture(nil, "ARTWORK")
+		r.icon:SetSize(28, 28)
+		r.icon:SetPoint("LEFT", 6, 0)
+		r.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+		r.name = UI.Text(r, "", { size = "sm" })
+		r.name:SetPoint("TOPLEFT", 44, -9)
+		r.name:SetWidth(half - 190)
+		r.hint = UI.Text(r, "", { size = "xs", tone = "faint" })
+		r.hint:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -4)
+		r.value = UI.Text(r, "", { size = "md", align = "RIGHT" })
+		r.value:SetPoint("RIGHT", -8, 0)
+		r.value:SetWidth(120)
+	end
+
+	function page:Refresh()
+		local db, me, now = ns.db(), ns.me(), ns.now()
+		local faint = Theme.escape(Theme.color.textFaint)
+		-- Scan: the cooldown, or how long ago the last one was.
+		local st = ns.scanState and ns.scanState() or { wait = 0 }
+		local last
+		for _, s in ipairs(db.scans or {}) do
+			if s.kind == "full" and (not last or s.t > last) then
+				last = s.t
+			end
+		end
+		actions[1].title:SetText("Scan the auction house")
+		actions[1].line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60)
+			or (last and ("Last scan " .. Views.ago(last, now) .. ": scan again") or "No scan yet: open the auction house"))
+		-- The bags: what they would sell for.
+		local held = me and Encode.parseItems(me.bags and me.bags.items) or {}
+		local list, total, unpriced = Views.worthList(held, function(id)
+			return ns.price and ns.price.worth(id)
+		end)
+		actions[2].title:SetText("Sell your bags")
+		actions[2].line:SetText(#list > 0 and string.format("%d items, about %s", #list, UI.layout.money(total, "gold")) or "Nothing priced in your bags")
+		-- The best craft at the latest prices.
+		local crafts = ns.profitableCrafts and ns.profitableCrafts() or {}
+		local best = crafts[1]
+		actions[3].title:SetText(best and ("Craft " .. itemName(best.recipe.output)) or "Craft for profit")
+		actions[3].line:SetText(best and (UI.layout.money(best.profit, "gold") .. " profit a craft") or "No priced recipe makes a profit yet")
+
+		-- Today's money for this character, by where it came from.
+		local ledger = me and Views.ledger(Views.rows(db, "money"), Views.rows(db, "flight"), me.ref, Views.dayStart(now)) or { categories = {}, net = 0 }
+		table.sort(ledger.categories, function(a, b)
+			return math.abs(a.net) > math.abs(b.net)
+		end)
+		todayLabel:SetText(#ledger.categories > 0 and ("TODAY · NET " .. string.upper(UI.layout.money(ledger.net, "gold"))) or "TODAY")
+		for i, r in ipairs(today.rows) do
+			local c = ledger.categories[i]
+			r:SetShown(c ~= nil)
+			if c then
+				r.icon:SetTexture(Theme.icon(c.net >= 0 and "trending-up" or "coins"))
+				r.icon:SetTone(c.net >= 0 and Theme.color.success or "faint")
+				r.label:SetText(c.label or c.key)
+				r.value:SetText(c.net >= 0 and UI.layout.money(c.net, "gold") or (Theme.escape(Theme.color.danger) .. "-|r" .. UI.layout.money(-c.net, "gold")))
+			end
+		end
+		today.empty:SetText(#ledger.categories == 0 and "No money has moved today on this character." or "")
+
+		-- The bag items worth most.
+		for i, r in ipairs(sell.rows) do
+			local it = list[i]
+			r:SetShown(it ~= nil)
+			if it then
+				local quality = itemQuality(it.id)
+				local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.id) or (GetItemIcon and GetItemIcon(it.id))
+				r.icon:SetTexture(icon or 134400)
+				r.name:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. itemName(it.id) .. "|r" .. faint .. " ×" .. it.count .. "|r")
+				r.hint:SetText("at the better of auction and vendor")
+				r.value:SetText(UI.layout.money(it.value, "gold"))
+			end
+		end
+		sell.empty:SetText(#list == 0 and ("Nothing priced in your bags" .. (unpriced > 0 and string.format(" (%d unpriced)", unpriced) or "") .. ". Scan the auction house for prices.") or "")
+	end
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -713,6 +859,8 @@ end
 local windows = {}
 
 local PAGES = {
+	{ key = "home", label = "Home", icon = "coins", group = "Overview", build = buildHome, title = "Home",
+		lede = "Your next moves, from everyone's prices and your own bags." },
 	{ key = "characters", label = "Characters", icon = "users", group = "Overview", build = buildCharacters, title = "Characters",
 		lede = "Every character this save has seen. Rested XP grows while logged out, so it is worked out to now: the one with the most waiting is the one to play next." },
 	{ key = "ledger", label = "Ledger", icon = "book-open", group = "Overview", build = buildLedger, title = "Ledger",

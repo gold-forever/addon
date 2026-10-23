@@ -16,6 +16,9 @@
 - The window is a hub: the Gold Forever emblem and a page search at the top of a sidebar, the pages in
   groups with an icon each, a large page title over art in the look's colours, and a footer with
   Reload UI and Close. The sidebar's foot shows the addon's own memory and CPU use.
+- A **Home** page, the hub's first: the next moves (when you can scan, what your bags would sell for,
+  the best craft at the latest prices), today's money by where it came from, and the bag items worth
+  most.
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
   any look (also `/gf accent #rrggbb`), the minimap button, the window's size, the loot appraiser, bag
   advice at vendors, the craft list at the auction house, the big-drop alert and the rare alerts.
