@@ -394,8 +394,13 @@ do
   -- confirms; a quote more than 10% dearer than the deal asks again before buying.
   local calls = {}
   C_AuctionHouse.MakeItemKey = function(id) return { itemID = id, itemLevel = 0 } end
-  C_AuctionHouse.StartCommoditiesPurchase = function(id, n) calls[#calls + 1] = "start " .. id .. " " .. n end
-  C_AuctionHouse.ConfirmCommoditiesPurchase = function(id, n) calls[#calls + 1] = "confirm " .. id .. " " .. n end
+  -- Recorded around whatever the stand-in has (other files hook these: keep their hooks).
+  local function around(name, label)
+    local inner = C_AuctionHouse[name] or function() end
+    C_AuctionHouse[name] = function(id, n, ...) calls[#calls + 1] = label .. " " .. id .. " " .. n return inner(id, n, ...) end
+  end
+  around("StartCommoditiesPurchase", "start")
+  around("ConfirmCommoditiesPurchase", "confirm")
   GoldForeverDB.settings.auction.lists = { { name = "Mats", entries = { { itemId = 2589, maxUnit = 4500 } } } }
   AP.tab("shop")
   AP.shopChoose(GoldForeverDB.settings.auction.lists[1].entries[1])
@@ -410,6 +415,8 @@ do
   AP.shopBuy()
   fire("COMMODITY_PRICE_UPDATED", 5000, 100000) -- 18% dearer than the deal
   assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
+  -- The purchase above is a test's, not one later checks expect to find recorded.
+  for _, d in pairs(GoldForeverDB.events) do d.ahBuy = nil end
   AP.tab("scan")
   assert(not AP.bound(), "and is free again off it")
   fire("AUCTION_HOUSE_CLOSED")
