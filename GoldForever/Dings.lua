@@ -34,7 +34,7 @@ end
 -- The line under the switch: what it does, or what is missing before it can.
 function Dings.hint(state)
 	if not state.companion then
-		return "Needs the companion app: it carries this choice to the site. gold-forever.app/companion"
+		return "No companion data in the game (the GoldForever_Data addon). Needs a companion app that brings prices into the game: it carries this choice to the site."
 	elseif state.webhook == false then
 		return "No Discord webhook yet. Add one at gold-forever.app/settings (Discord), then switch this on."
 	elseif state.pending then
