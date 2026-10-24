@@ -12,11 +12,18 @@ ns.Shopping = Shopping
 Shopping.PREFIX = "GFL1:"
 -- MAX_LISTS is the site's too (MAX_SHARED_ITEMS): a pasted string cannot fill the save with lists.
 local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, 10000000000, 50
+-- A share of the market value (owner's answer, 2026-10-24: "% of market"), and how many to hold.
+local MAX_PCT, MAX_UPTO = 1000, 1000000
 
--- The most an entry pays a unit: its own price, or a copper under market value ("under market").
+-- An entry: { itemId, maxUnit? (copper), pct? (of market value), upTo? (units to hold) }; with neither
+-- price, "under market". The most it pays a unit: its own price, its share of the market value, or a
+-- copper under the market value.
 function Shopping.limit(entry, market)
 	if entry.maxUnit then
 		return entry.maxUnit
+	end
+	if entry.pct then
+		return market and math.max(1, math.floor(market * entry.pct / 100)) or nil
 	end
 	return market and math.max(1, market - 1) or nil
 end
@@ -58,13 +65,20 @@ function Shopping.moved(expected, quoted, pct)
 	return quoted > expected * (1 + (pct or 10) / 100)
 end
 
--- The lists as plain lines: "list <name>", then "item <id> max <copper>" or "item <id> market".
+-- One entry's line: "item <id> max <copper>", "item <id> pct <n>" or "item <id> market", then
+-- " upto <n>" when it holds a number to buy up to. A list with neither pct nor upto reads as before.
+function Shopping.line(e)
+	local price = e.maxUnit and ("max " .. e.maxUnit) or e.pct and ("pct " .. e.pct) or "market"
+	return "item " .. e.itemId .. " " .. price .. (e.upTo and (" upto " .. e.upTo) or "")
+end
+
+-- The lists as plain lines: "list <name>", then an entry's line each.
 function Shopping.text(lists)
 	local lines = {}
 	for _, l in ipairs(lists) do
 		lines[#lines + 1] = "list " .. l.name
 		for _, e in ipairs(l.entries) do
-			lines[#lines + 1] = "item " .. e.itemId .. " " .. (e.maxUnit and ("max " .. e.maxUnit) or "market")
+			lines[#lines + 1] = Shopping.line(e)
 		end
 	end
 	return table.concat(lines, "\n")
@@ -108,14 +122,31 @@ function Shopping.decode(input)
 				if not id or not list or #id > 8 then
 					return bad()
 				end
-				local maxUnit
-				if rest ~= "market" then
-					local m = string.match(rest, "^max (%d+)$")
-					if not m or #m > 11 then
+				local maxUnit, pct, upTo
+				local price, u = string.match(rest, "^(.-) upto (%d+)$")
+				if price then
+					if #u > 7 then
 						return bad()
 					end
-					maxUnit = tonumber(m)
-					if maxUnit == 0 or maxUnit > MAX_COPPER then
+					upTo, rest = tonumber(u), price
+					if upTo == 0 or upTo > MAX_UPTO then
+						return bad()
+					end
+				end
+				if rest ~= "market" then
+					local m = string.match(rest, "^max (%d+)$")
+					local p = string.match(rest, "^pct (%d+)$")
+					if m and #m <= 11 then
+						maxUnit = tonumber(m)
+						if maxUnit == 0 or maxUnit > MAX_COPPER then
+							return bad()
+						end
+					elseif p and #p <= 4 then
+						pct = tonumber(p)
+						if pct == 0 or pct > MAX_PCT then
+							return bad()
+						end
+					else
 						return bad()
 					end
 				end
@@ -126,7 +157,7 @@ function Shopping.decode(input)
 				if entries > MAX_ENTRIES then
 					return nil, "More than " .. MAX_ENTRIES .. " items"
 				end
-				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit }
+				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit, pct = pct, upTo = upTo }
 			end
 		end
 	end
@@ -147,6 +178,31 @@ function Shopping.parseAdd(text)
 	local gold = tonumber(string.match(rest or "", "^%s*([%d%.]+)%s*g?%s*$") or "")
 	local copper = gold and math.floor(gold * 10000 + 0.5) or nil
 	return tonumber(id), (copper and copper > 0) and copper or nil
+end
+
+-- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c"; copper, or nil when it is none.
+function Shopping.parseGold(text)
+	text = string.lower(string.match(text or "", "^%s*(.-)%s*$"))
+	if text == "" then
+		return nil
+	end
+	local copper
+	if string.find(text, "^[%d%.,]+$") then
+		local gold = tonumber((string.gsub(text, ",", ".")))
+		copper = gold and math.floor(gold * 10000 + 0.5)
+	else
+		local g, s, c, rest = 0, 0, 0, text
+		for n, unit in string.gmatch(text, "(%d+)%s*([gsc])") do
+			n = tonumber(n)
+			if unit == "g" then g = n elseif unit == "s" then s = n else c = n end
+		end
+		rest = string.gsub(text, "%d+%s*[gsc]", "")
+		if string.find(rest, "%S") then
+			return nil
+		end
+		copper = g * 10000 + s * 100 + c
+	end
+	return copper and copper > 0 and copper <= MAX_COPPER and copper or nil
 end
 
 -- The entries listed at or under their price in a scan: cheapest(id) is the scan's cheapest unit and

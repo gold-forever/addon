@@ -25,13 +25,16 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
     vendor value or far under the market asks for a second press. The duration and the quantity you
     choose are remembered for each item. Alt-click an item in your bags to choose it; its tooltip says
     what Post would ask.
-  - **Buy**: shopping lists of items with the most you pay a unit (or "under market"); shift-click an
-    item into the field to add it. **Buy next** asks the auction house for the price and a second press
-    buys; a price more than 10% above the deal is named first. Lists import and export as `GFL1:`
-    strings.
+  - **Buy**: a shopping list's items with what can be bought at your price; click one to see its
+    listings. **Buy next** asks the auction house for the price and a second press buys; a price more
+    than 10% above the deal is named first. **Edit lists ›** opens the Shopping lists page.
   - **Auctions**: checks your auctions against other players' listings and cancels the most undercut
     one a press, past your tolerance (5% at first), showing the cancel cost. Click one to see its
     listings in Blizzard's window.
+- **Shopping lists**, a page of the window (Trading → Shopping lists): make, rename, delete, import and
+  export lists (`GFL1:` strings); add an item by dropping it on the slot or shift-clicking it anywhere;
+  for each, the most you pay (under market, a fixed price, or a share of the market value) and how many
+  you want in all, bags and bank counted. The craft queue's list is there too, its prices set the same way.
 - **Selling rules**, a page of the window (Trading → Selling rules; **Rule ›** on the Sell tab opens it
   for the item in view): undercut by 1 silver or a percentage, a floor and a normal price as shares of
   the market value, and hold or post at the floor, each with a line saying what it does, and beside them
