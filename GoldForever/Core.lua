@@ -69,8 +69,33 @@ function ns.fail(name, err)
 end
 
 -- Runs fn(...) and records an error instead of raising it.
+-- The outermost call in flight and the frame it began in. The client stops a script that runs too long
+-- without an error the addon can catch ("has exceeded its execution time limit", no stack): that call
+-- never returns, so the next one, in a later frame, finds it still marked and records it under
+-- db.stopped[name] (manual test run 001: 112 of them in a delve, no name). /gf check lists them.
+local running, runningAt, depth = nil, nil, 0
+local function stoppedBefore(now)
+	if depth > 0 and runningAt ~= now then
+		local db = ns.db and ns.db()
+		if db then
+			db.stopped = db.stopped or {}
+			local e = db.stopped[running] or { n = 0 }
+			e.n, e.t = e.n + 1, GetServerTime and GetServerTime() or 0
+			db.stopped[running] = e
+		end
+		depth = 0
+	end
+end
+
 function ns.safely(name, fn, ...)
+	local now = GetTime and GetTime() or 0
+	stoppedBefore(now)
+	if depth == 0 then
+		running, runningAt = name, now
+	end
+	depth = depth + 1
 	local ok, err = pcall(fn, ...)
+	depth = depth - 1
 	if not ok then
 		ns.fail(name, err)
 	end
@@ -207,7 +232,7 @@ local function init()
 	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
 	-- none, so what the player and the site see is only from the build running.
 	if db.addon ~= VERSION then
-		db.errors = nil
+		db.errors, db.stopped = nil, nil
 	end
 	db.addon = VERSION
 	db.fields = db.fields or {}
@@ -455,6 +480,9 @@ local function printStatus()
 	end
 	for name, e in pairs(db.errors) do
 		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
+	end
+	for name, e in pairs(db.stopped or {}) do
+		print(string.format("  |cffe8615a%s|r stopped by the client for running too long %d×", name, e.n))
 	end
 	print("  The file is written at logout and /reload.")
 end

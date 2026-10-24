@@ -496,6 +496,7 @@ ns.sessionKills = function()
 end
 
 local build
+local startTicker -- set below; the HUD's OnShow starts it
 
 -- The seconds the session has run: an ended one stops its clock at its last loot (or at Stop).
 local function elapsed()
@@ -792,6 +793,13 @@ build = function()
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
 	hud.details = d
 	built = Theme.key
+	-- The clock runs whenever the HUD shows, however it came back (after combat, a loading screen, a new
+	-- look): manual test run 001, the HUD stood still at "1m · warming up…" in a delve until a /reload.
+	hud:HookScript("OnShow", function()
+		if startTicker then
+			startTicker()
+		end
+	end)
 	huds[built] = hud
 end
 
@@ -799,8 +807,6 @@ end
 local function tucked()
 	return settings().hideInCombat and InCombatLockdown and InCombatLockdown()
 end
-
-local startTicker
 
 local function show()
 	if not hud then
