@@ -484,6 +484,28 @@ do
   C_Item.GetItemCount = count
   GoldForeverDB.settings.auction.profile = nil
   GoldForeverDB.settings.auction.list = 1
+  -- The craft queue: 3 Bolts of Linen need 6 Linen; with none in the bags the Shop's "Craft queue" list
+  -- buys what the bank does not hold.
+  ns.queueAdd(2963, 3)
+  assert(ns.queueNeeds()[2589] == 6, "the queue needs 6 Linen")
+  C_Item.GetItemCount = function() return 0 end
+  -- A market value above the listings (the queue's list buys under market).
+  local value = ns.Prices.value
+  ns.Prices.value = function(id) if id == 2589 then return 5000, "pool" end return value(id) end
+  calls[#calls + 1] = "-"
+  local all = { unpack(GoldForeverDB.settings.auction.lists) }
+  GoldForeverDB.settings.auction.list = #all + 1
+  AP.tab("shop")
+  AP.shopChoose({ itemId = 2589, upTo = 6 })
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+  AP.shopBuy()
+  local me = ns.me()
+  local inBank = me and me.bank and ns.Encode.parseItems(me.bank.items)[2589] or 0
+  assert(calls[#calls] == "start 2589 " .. (6 - inBank), "the queue's missing Linen, the bank's counted: " .. tostring(calls[#calls]))
+  ns.queueClear()
+  ns.Prices.value = value
+  C_Item.GetItemCount = count
+  GoldForeverDB.settings.auction.list = 1
   -- The purchase above is a test's, not one later checks expect to find recorded.
   for _, d in pairs(GoldForeverDB.events) do d.ahBuy = nil end
   -- Cancel undercut: one auction of 10 Linen at 50s; the book's cheapest other is 42s50 (15% under,

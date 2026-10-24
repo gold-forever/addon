@@ -564,9 +564,26 @@ local function buildCrafting(page)
 	local detail = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
 	detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
 	detail:SetPoint("RIGHT", page, "RIGHT")
-	detail:SetHeight(112)
+	detail:SetHeight(140)
 	local head = UI.Text(detail, "", { size = "sm", medium = true })
 	head:SetPoint("TOPLEFT", 14, -10)
+	-- The craft queue: this recipe added, and the queue's size; the Shop buys what it still needs.
+	local queued = UI.Text(detail, "", { size = "xs", tone = "faint" })
+	queued:SetPoint("BOTTOMLEFT", 14, 12)
+	local clear = UI.Button(detail, "Clear queue", function()
+		ns.queueClear()
+		page:Refresh()
+	end, { kind = "ghost", width = 100, height = 22 })
+	clear:SetPoint("BOTTOMRIGHT", -14, 8)
+	for i, n in ipairs({ 5, 1 }) do
+		local b = UI.Button(detail, "Queue " .. n, function()
+			if chosen then
+				ns.queueAdd(chosen, n)
+				page:Refresh()
+			end
+		end, { width = 74, height = 22 })
+		b:SetPoint("TOPRIGHT", -14 - (i - 1) * 80, -8)
+	end
 	local lines = {}
 	for i = 1, 4 do
 		local l = UI.Text(detail, "", { size = "xs" })
@@ -607,6 +624,11 @@ local function buildCrafting(page)
 		end
 		chosen = sel.id
 		head:SetText(sel.name .. Theme.escape(Theme.color.textFaint) .. "  · reagents|r")
+		local crafts = 0
+		for _, q in ipairs(ns.queueList()) do
+			crafts = crafts + q.count
+		end
+		queued:SetText(crafts > 0 and string.format("In the queue: %d %s. The Shop's \"Craft queue\" list buys what is missing.", crafts, crafts == 1 and "craft" or "crafts") or "The queue is empty.")
 		for i, l in ipairs(lines) do
 			local x = sel.q.lines[i]
 			if x then

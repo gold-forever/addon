@@ -588,6 +588,18 @@ local function lists()
 		shown[i] = l
 	end
 	local p = s.profile and s.profiles and s.profiles[s.profile]
+	-- The craft queue's missing reagents, at under market value (Crafting page and strip).
+	local needs = ns.queueNeeds and ns.queueNeeds() or {}
+	if next(needs) then
+		local entries = {}
+		for id, n in pairs(needs) do
+			entries[#entries + 1] = { itemId = id, upTo = n }
+		end
+		table.sort(entries, function(a, b)
+			return a.itemId < b.itemId
+		end)
+		shown[#shown + 1] = { name = "Craft queue", entries = entries, profile = true }
+	end
 	if p and #p.buy > 0 then
 		local entries = {}
 		for i, r in ipairs(p.buy) do
@@ -608,11 +620,15 @@ local function shopDeal(e)
 	if e.upTo then
 		-- A profile's buy rule: up to its target, counting what this character holds (decision 12).
 		local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(e.itemId)) or 0
-		local step = ns.SalePlan.buy({ itemID = e.itemId, upTo = e.upTo, maxUnit = e.maxUnit }, heldHere(e.itemId, inBags), l.levels)
+		local limit = ns.Shopping.limit(e, ns.Prices.value(e.itemId))
+		if not limit then
+			return nil, l
+		end
+		local step = ns.SalePlan.buy({ itemID = e.itemId, upTo = e.upTo, maxUnit = limit }, heldHere(e.itemId, inBags), l.levels)
 		if step.quantity == 0 then
 			return nil, l
 		end
-		return { itemId = e.itemId, quantity = step.quantity, total = step.total, topUnit = step.topUnit, limit = e.maxUnit }, l
+		return { itemId = e.itemId, quantity = step.quantity, total = step.total, topUnit = step.topUnit, limit = limit }, l
 	end
 	return ns.Shopping.deal(e, l.levels, ns.Prices.value(e.itemId)), l
 end
@@ -800,7 +816,7 @@ local function buildShop(page)
 		end
 		local _, list = lists()
 		if list.profile then
-			page.note:SetText("The profile's buy list follows the profile: change it on the site and import it again.")
+			page.note:SetText("This list follows the profile or the craft queue; change those instead.")
 			return
 		end
 		list.entries[#list.entries + 1] = { itemId = id, maxUnit = maxUnit }
@@ -841,7 +857,7 @@ local function buildShop(page)
 	local remove = UI.Button(page, "Remove", function()
 		local _, list = lists()
 		if list.profile then
-			page.note:SetText("The profile's buy list follows the profile: change it on the site and import it again.")
+			page.note:SetText("This list follows the profile or the craft queue; change those instead.")
 			return
 		end
 		for i, e in ipairs(list.entries) do

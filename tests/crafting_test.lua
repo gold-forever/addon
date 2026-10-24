@@ -62,4 +62,11 @@ eq(C.band(10), "fair", "from 10%")
 eq(C.band(30), "good", "from 30%")
 eq(C.band(nil), nil, "unknown")
 
+-- A craft queue's reagents in all.
+local recipes = { [1] = { reagents = { { id = 2589, count = 2 } } }, [2] = { reagents = { { id = 2589, count = 1 }, { id = 2320, count = 3 } } } }
+local need = C.queueReagents({ { recipe = 1, count = 5 }, { recipe = 2, count = 2 }, { recipe = 9, count = 1 } }, function(id) return recipes[id] end)
+eq(need[2589], 12, "5 × 2 + 2 × 1 Linen")
+eq(need[2320], 6, "2 × 3 thread")
+eq(next(C.queueReagents({}, function() end)), nil, "an empty queue needs nothing")
+
 return checks

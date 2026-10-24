@@ -70,6 +70,14 @@ local function build()
 		v:SetWidth(96)
 		f.lines[i] = { name = l, value = v }
 	end
+	-- Queue one of the recipe in view; the Shop's "Craft queue" list buys what the queue needs.
+	f.queue = UI.Button(f, "Queue 1", function()
+		if recipeID and ns.queueAdd then
+			ns.queueAdd(recipeID, 1)
+			f.note:SetText("Queued. The Shop's \"Craft queue\" list buys what is missing.")
+		end
+	end, { kind = "ghost", width = 70, height = 22 })
+	f.queue:SetPoint("TOPRIGHT", -12, -12)
 	f.note = UI.Text(f, "", { size = "xs", tone = "faint", wrap = true })
 	f.note:SetPoint("BOTTOMLEFT", 14, 12)
 	f.note:SetWidth(W - 28)

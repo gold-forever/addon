@@ -83,6 +83,40 @@ local function profitable()
 	return out
 end
 
+-- The craft queue (owner's answer, 2026-10-24): recipes and how many of each, kept in the settings;
+-- the Shop lists the reagents still missing for all of it.
+local function queue()
+	local s = ns.settings("crafting", { strip = true })
+	s.queue = s.queue or {}
+	return s.queue
+end
+function ns.queueAdd(recipeId, n)
+	local q = queue()
+	for _, x in ipairs(q) do
+		if x.recipe == recipeId then
+			x.count = x.count + n
+			return
+		end
+	end
+	q[#q + 1] = { recipe = recipeId, count = n }
+end
+function ns.queueClear()
+	local s = ns.settings("crafting", { strip = true })
+	s.queue = {}
+end
+function ns.queueList()
+	return queue()
+end
+-- The queue's reagents in all: item ID -> units.
+function ns.queueNeeds()
+	return ns.Crafting.queueReagents(queue(), ns.recipeOf)
+end
+
+-- A recipe from the catalogue (output, yield, reagents), for the craft queue.
+function ns.recipeOf(id)
+	return recipe(id, columns("recipe"))
+end
+
 -- For the hub's Home page: the best crafts now.
 ns.profitableCrafts = profitable
 

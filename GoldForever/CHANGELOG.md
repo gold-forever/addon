@@ -24,7 +24,8 @@
   most.
 - A **Crafting** page: every recipe your characters know, by profit, with cost, price after the cut and
   margin (grey under 10%, green from 30%), the chosen recipe's reagents, and "I have these" to count what
-  you hold at no cost.
+  you hold at no cost. **Queue** 1 or 5 of a recipe (also from the crafting strip): the Shop gets a
+  "Craft queue" list that buys only the reagents still missing for the whole queue.
 - A **Rares** page: every rare your characters have seen, how often, when and where last, how it was
   seen, and what a loot of one has been worth.
 - When everyone's prices in the game are more than a day old, one line at login asks whether the

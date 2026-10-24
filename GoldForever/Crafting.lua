@@ -104,4 +104,17 @@ function Crafting.band(margin)
 	return "good"
 end
 
+-- The reagents a craft queue needs in all ({ { recipe = id, count = n } }; recipeOf(id) gives the
+-- recipe with its reagents): item ID -> units. A recipe the catalogue lacks needs nothing.
+function Crafting.queueReagents(queue, recipeOf)
+	local need = {}
+	for _, q in ipairs(queue or {}) do
+		local r = recipeOf(q.recipe)
+		for _, x in ipairs(r and r.reagents or {}) do
+			need[x.id] = (need[x.id] or 0) + x.count * (q.count or 1)
+		end
+	end
+	return need
+end
+
 return Crafting
