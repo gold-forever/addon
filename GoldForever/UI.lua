@@ -1215,9 +1215,13 @@ function UI.Table(parent, columns, opts)
 		return l
 	end
 
-	function t:SetRows(rows)
+	-- New rows from page 1, or with keepPage on the page shown (a refresh while reading, as a click on a
+	-- row or a ticker does; past the end it is the last page).
+	function t:SetRows(rows, keepPage)
 		self.all = rows or {}
-		self.page = 1
+		if not keepPage then
+			self.page = 1
+		end
 		self:Refresh()
 	end
 

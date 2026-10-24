@@ -515,7 +515,7 @@ local function buildRares(page)
 				name = (names[r.npc] and string.match(names[r.npc], "^([^,]+)")) or ("NPC " .. r.npc),
 				seen = r.seen,
 				last = r.last,
-				where = mapName(r.map) .. (r.x and string.format("  %.1f, %.1f", r.x / 10, r.y / 10) or ""),
+				where = mapName(r.map) .. ((r.x and r.y) and string.format("  %.1f, %.1f", r.x / 10, r.y / 10) or ""),
 				how = r.how or "",
 				value = value,
 			}
@@ -662,7 +662,7 @@ local function buildCrafting(page)
 				margin = profit and cost and cost > 0 and math.floor(profit / cost * 100 + 0.5) or nil,
 			}
 		end
-		tbl:SetRows(rows)
+		tbl:SetRows(rows, true) -- a click or the ticker keeps the page
 		local sel
 		for _, r in ipairs(rows) do
 			if r.id == chosen then
@@ -762,7 +762,7 @@ local function buildSessionNow(page)
 			local quality, name = ns.sessionItem(it.id)
 			rows[i] = { name = name or ("item " .. it.id), quality = quality or 1, n = it.n, value = it.value }
 		end
-		tbl:SetRows(rows)
+		tbl:SetRows(rows, true) -- a click or the ticker keeps the page
 		note:SetText("A big drop (" .. UI.layout.money(sum.bigDrop, "gold") .. " or more, or rare and better) gets a message and a sound; change it in Settings → General.")
 	end
 	-- Once a second while shown, and no ticker otherwise.
