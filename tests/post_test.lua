@@ -63,4 +63,16 @@ eq(P.honestCheapest({ lv(1900, 1), lv(2000, 20) }), 1900, "one unit close to the
 eq(P.honestCheapest({ lv(1500, 5, 5), lv(2000, 20) }), 2000, "the player's own units are left out")
 eq(P.honestCheapest({}), nil, "an empty book")
 
+-- Overrides: an item's over its category's over the default; only the fields an override holds change.
+local base = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" }
+local overrides = { items = { [2589] = { floor = 50 } }, classes = { [7] = { undercut = "5%", normal = 150 } } }
+local r, from = P.resolve(base, overrides, 2589, 7)
+eq(from .. r.floor .. r.undercut .. r.normal, "item501s120", "the item's override, the rest the default's")
+r, from = P.resolve(base, overrides, 2592, 7)
+eq(from .. r.undercut .. r.normal .. r.floor, "category5%15080", "the category's")
+r, from = P.resolve(base, overrides, 1, 2)
+eq(from, "default", "no override")
+eq(r, base, "the default itself")
+eq(P.resolve(base, nil, 1, nil), base, "no overrides at all")
+
 return checks

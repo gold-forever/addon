@@ -388,6 +388,15 @@ do
   assert(sug and sug.reason == "plan" and sug.quantity == 5, "the profile's plan prices Linen and keeps 2: " .. tostring(sug and sug.label) .. " " .. tostring(sug and sug.quantity))
   assert(sug.unit and sug.unit % 100 == 0, "in whole silver")
   GoldForeverDB.settings.auction.profile = nil -- back to the rule for the rest of the run
+  -- An override for the item chosen in Post (Rule → Rule for → + The item): Post names it.
+  AP.ruleScope("add-item")
+  AP.ruleSet("normal", 200)
+  assert(GoldForeverDB.settings.auction.overrides.items[2589].normal == 200, "the item's override holds what it changes")
+  AP.tab("post")
+  local over = AP.suggestion()
+  assert(over and tostring(over.label):find("(item rule)", 1, true), "Post names the item's rule: " .. tostring(over and over.label))
+  GoldForeverDB.settings.auction.overrides.items[2589] = nil
+  AP.ruleScope("default")
   AP.tab("post")
   AP.duration(3) -- 48 hours for Linen, remembered for it
   AP.quantity(5) -- 5 of the 7 held, remembered for it

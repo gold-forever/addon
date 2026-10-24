@@ -57,6 +57,9 @@
   **Cancel**: checks your auctions one by one against other players' listings (a single cheap unit far
   under the rest is ignored) and lists those undercut past your tolerance (5% at first); **Cancel next**
   cancels the most undercut one a press, showing the cancel cost. The items come back by mail.
+  **Overrides** (Rule tab): "Rule for" picks the default, or adds a rule for the item chosen in Post
+  or its whole category; the controls then change only that rule, and Post says "(item rule)" or
+  "(category rule)" where one priced it.
   **Sale profiles** (Rule tab): import a `GFP1:` string (from the site or a creator) and its rules price
   the items it names in Post: keep this many, undercut, a fixed price (asking when the market moved) or
   a point in the supply, with a floor; a single cheap unit far under the rest is ignored. Its buy rules

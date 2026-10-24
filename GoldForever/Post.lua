@@ -113,3 +113,25 @@ function Post.honestCheapest(levels, units, pct)
 	end
 	return nil
 end
+
+-- The rule an item posts by (design 009: one default, overridable per item category and per item): the
+-- default with an item's override over it, else its category's; each override holds only what it
+-- changes. Returns the rule and where it came from: "item", "category" or "default".
+function Post.resolve(base, overrides, itemID, classID)
+	overrides = overrides or {}
+	local over, from = overrides.items and overrides.items[itemID], "item"
+	if not over then
+		over, from = classID and overrides.classes and overrides.classes[classID], "category"
+	end
+	if not over then
+		return base, "default"
+	end
+	local rule = {}
+	for k, v in pairs(base) do
+		rule[k] = v
+	end
+	for k, v in pairs(over) do
+		rule[k] = v
+	end
+	return rule, from
+end

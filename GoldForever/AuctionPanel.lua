@@ -134,13 +134,21 @@ local function price(r)
 	local rule = ns.SalePlan.ruleFor(activeProfile(), r.id)
 	if rule then
 		r.suggestion = planned(r, rule, market)
-	elseif market then
-		r.suggestion = Post.suggest(settings().rule, market, r.cheapest)
-	elseif r.cheapest then
-		-- No market value: the cheapest other listing stands in for it.
-		r.suggestion = Post.suggest(settings().rule, r.cheapest, r.cheapest)
 	else
-		r.suggestion = nil
+		-- The rule: an override for the item, or its category, over the default.
+		local _, _, class = ns.price.itemInfo(r.id)
+		local postRule, from = Post.resolve(settings().rule, settings().overrides, r.id, class)
+		if market then
+			r.suggestion = Post.suggest(postRule, market, r.cheapest)
+		elseif r.cheapest then
+			-- No market value: the cheapest other listing stands in for it.
+			r.suggestion = Post.suggest(postRule, r.cheapest, r.cheapest)
+		else
+			r.suggestion = nil
+		end
+		if r.suggestion and from ~= "default" then
+			r.suggestion.label = (Post.REASONS[r.suggestion.reason] or "") .. (from == "item" and " (item rule)" or " (category rule)")
+		end
 	end
 	return r
 end
@@ -1037,36 +1045,133 @@ end
 
 local function buildRule(page)
 	local s = settings()
+	s.overrides = s.overrides or { items = {}, classes = {} }
+	s.overrides.items = s.overrides.items or {}
+	s.overrides.classes = s.overrides.classes or {}
+	-- Which rule the controls below edit: the default, or an override (only the fields it changes).
+	local scope = "default"
+	local function className(class)
+		local name = C_Item and C_Item.GetItemClassInfo and C_Item.GetItemClassInfo(class) or (GetItemClassInfo and GetItemClassInfo(class))
+		return name or ("category " .. class)
+	end
+	local function target()
+		local kind, id = string.match(scope, "^(%a+):(%d+)$")
+		if kind == "item" then
+			return s.overrides.items[tonumber(id)]
+		elseif kind == "class" then
+			return s.overrides.classes[tonumber(id)]
+		end
+		return s.rule
+	end
+	-- The values the controls show: the default's with the override's over them.
+	local function shown()
+		local t, out = target(), {}
+		for k, v in pairs(s.rule) do
+			out[k] = v
+		end
+		if t ~= s.rule then
+			for k, v in pairs(t or {}) do
+				out[k] = v
+			end
+		end
+		return out
+	end
+	local function set(field, v)
+		local t = target()
+		if t then
+			t[field] = v
+		end
+	end
 	local function row(y, label, control)
 		local l = UI.Text(page, label, { size = "sm" })
 		l:SetPoint("TOPLEFT", 0, y)
 		control:SetPoint("TOPLEFT", 160, y + 6)
 		control:SetPoint("RIGHT", page, "RIGHT")
+		return control
 	end
 	local undercuts = {}
 	for _, u in ipairs(Post.UNDERCUTS) do
 		undercuts[#undercuts + 1] = { value = u.value, label = u.label }
 	end
-	row(0, "Undercut by", UI.Dropdown(page, undercuts, s.rule.undercut, function(v)
-		s.rule.undercut = v
-	end))
-	row(-50, "Never under", UI.Slider(page, 50, 100, 5, s.rule.floor, function(v)
-		s.rule.floor = v
-	end, function(v) return v .. "%" end))
-	row(-100, "Normal price", UI.Slider(page, 100, 200, 5, s.rule.normal, function(v)
-		s.rule.normal = v
-	end, function(v) return v .. "%" end))
-	row(-150, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold" }, { value = "floor", label = "Post at the floor" } }, s.rule.belowFloor, function(v)
-		s.rule.belowFloor = v
-	end))
+	local v = shown()
+	local controls = {
+		undercut = row(-40, "Undercut by", UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end)),
+		floor = row(-90, "Never under", UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end)),
+		normal = row(-140, "Normal price", UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end)),
+		belowFloor = row(-190, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold" }, { value = "floor", label = "Post at the floor" } }, v.belowFloor, function(x) set("belowFloor", x) end)),
+	}
+	local scopePick, removeButton
+	local function pickOptions()
+		local out = { { value = "default", label = "Default: every item" } }
+		for id in pairs(s.overrides.items) do
+			local _, _, _, _, name = ns.price.itemInfo(id)
+			out[#out + 1] = { value = "item:" .. id, label = "Item: " .. (name or id) }
+		end
+		for class in pairs(s.overrides.classes) do
+			out[#out + 1] = { value = "class:" .. class, label = "Category: " .. className(class) }
+		end
+		out[#out + 1] = { value = "add-item", label = "+ The item chosen in Post" }
+		out[#out + 1] = { value = "add-class", label = "+ Its category" }
+		return out
+	end
+	local rebuildPick
+	local function choose(value)
+		if value == "add-item" or value == "add-class" then
+			if not chosen then
+				value = "default"
+			elseif value == "add-item" then
+				s.overrides.items[chosen.id] = s.overrides.items[chosen.id] or {}
+				value = "item:" .. chosen.id
+			else
+				local _, _, class = ns.price.itemInfo(chosen.id)
+				if class then
+					s.overrides.classes[class] = s.overrides.classes[class] or {}
+					value = "class:" .. class
+				else
+					value = "default"
+				end
+			end
+		end
+		scope = value
+		local now = shown()
+		for field, c in pairs(controls) do
+			c:Set(now[field])
+		end
+		removeButton:SetShown(scope ~= "default")
+		rebuildPick()
+	end
+	rebuildPick = function()
+		if scopePick then
+			scopePick:Hide()
+		end
+		scopePick = UI.Dropdown(page, pickOptions(), scope, choose)
+		scopePick:SetPoint("TOPLEFT", 160, 6)
+		scopePick:SetPoint("RIGHT", page, "RIGHT", -96, 0)
+	end
+	local pickLabel = UI.Text(page, "Rule for", { size = "sm" })
+	pickLabel:SetPoint("TOPLEFT", 0, 0)
+	removeButton = UI.Button(page, "Remove", function()
+		local kind, id = string.match(scope, "^(%a+):(%d+)$")
+		if kind == "item" then
+			s.overrides.items[tonumber(id)] = nil
+		elseif kind == "class" then
+			s.overrides.classes[tonumber(id)] = nil
+		end
+		choose("default")
+	end, { kind = "ghost", width = 86, height = 28 })
+	removeButton:SetPoint("TOPRIGHT", 0, 6)
+	removeButton:Hide()
+	rebuildPick()
+	page.chooseScope = choose
+	page.setField = set
 	local note = UI.Text(page, "Floor and normal price are shares of the market value: the pool's from the companion, else your own last scan. Prices are whole silver. An item in the sale profile follows the profile instead.", { size = "xs", tone = "faint", wrap = true })
-	note:SetPoint("TOPLEFT", 0, -190)
+	note:SetPoint("TOPLEFT", 0, -230)
 	note:SetPoint("RIGHT", page, "RIGHT")
 
 	-- Sale profiles (GFP1 strings from the site or other players): one active at a time.
 	s.profiles = s.profiles or {}
 	local head = UI.Text(page, "SALE PROFILE", { size = "xs", medium = true, tone = "faint" })
-	head:SetPoint("TOPLEFT", 0, -236)
+	head:SetPoint("TOPLEFT", 0, -270)
 	local pick
 	local summary = UI.Text(page, "", { size = "xs", tone = "muted", wrap = true })
 	local function options()
@@ -1089,7 +1194,7 @@ local function buildRule(page)
 			s.profile = v ~= 0 and v or nil
 			describe()
 		end)
-		pick:SetPoint("TOPLEFT", 0, -254)
+		pick:SetPoint("TOPLEFT", 0, -288)
 		pick:SetWidth(220)
 		summary:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -8)
 		summary:SetPoint("RIGHT", page, "RIGHT")
@@ -1097,7 +1202,7 @@ local function buildRule(page)
 	end
 	rebuild()
 	local field = UI.SearchBox(page, "Paste a GFP1: profile string", nil)
-	field:SetPoint("TOPLEFT", 0, -308)
+	field:SetPoint("TOPLEFT", 0, -340)
 	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
 	local message = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
 	message:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -6)
@@ -1382,6 +1487,13 @@ ns.AuctionPanel = {
 	end,
 	importProfile = function(text)
 		panel.pages.rule.importProfile(text)
+	end,
+	ruleScope = function(value)
+		panel.ensure("rule")
+		panel.pages.rule.chooseScope(value)
+	end,
+	ruleSet = function(field, value)
+		panel.pages.rule.setField(field, value)
 	end,
 	suggestion = function()
 		return chosen and chosen.suggestion
