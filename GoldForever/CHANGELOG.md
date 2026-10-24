@@ -61,6 +61,8 @@
   **Overrides** (Rule tab): "Rule for" picks the default, or adds a rule for the item chosen in Post
   or its whole category; the controls then change only that rule, and Post says "(item rule)" or
   "(category rule)" where one priced it.
+  Lists and profiles carry an id and an edit time; with a companion that brings them from the site,
+  they merge in at login (the newer edit wins, the other kept as an older copy).
   **Sale profiles** (Rule tab): import a `GFP1:` string (from the site or a creator) and its rules price
   the items it names in Post: keep this many, undercut, a fixed price (asking when the market moved) or
   a point in the supply, with a floor; a single cheap unit far under the rest is ignored. Its buy rules

@@ -550,6 +550,25 @@ do
   print("MAIL " .. m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil))
 end
 print("BUYER KEPT " .. tostring((table.concat(day.sale or {}, ";")):find("SomeBuyer") ~= nil))
+-- Lists and profiles carried from the site (Data.lua's `shared`): merged into the save, newest wins.
+do
+  local prices = GoldForever_Prices
+  local site = ns.Shopping.encode({ { name = "From the site", entries = { { itemId = 2589, maxUnit = 3000 } } } })
+  local profile = ns.SalePlan.encode({ name = "Site profile", author = "Me", sell = {}, buy = { { itemID = 2589, upTo = 10, maxUnit = 3000 } } })
+  GoldForever_Prices = { v = 1, at = now, markets = {}, shared = { at = 77, lists = { { id = "s1", edited = 100, string = site } }, profiles = { { id = "p1", edited = 100, string = profile } } } }
+  ns.mergeShared()
+  local auction = ns.settings("auction", { rule = {}, duration = 2 })
+  local found
+  for _, l in ipairs(auction.lists) do if l.id == "s1" then found = l end end
+  assert(found and found.name == "From the site" and found.entries[1].maxUnit == 3000, "the site's list is in the save")
+  local p1
+  for _, p in ipairs(auction.profiles) do if p.id == "p1" then p1 = p end end
+  assert(p1 and p1.buy[1].upTo == 10, "and its profile")
+  local count = #auction.lists
+  ns.mergeShared()
+  assert(#auction.lists == count, "the same file is not merged twice")
+  GoldForever_Prices = prices
+end
 -- The mail helper: one press opens the auction mails in turn (a player's letter and a COD mail stay),
 -- the next when the inbox has changed.
 do

@@ -164,4 +164,59 @@ function Shopping.underPrice(lists, cheapest, market)
 	return out
 end
 
+-- Merges items carried from elsewhere (the site, by the companion) into the game's (design 009, Lists and
+-- profiles carried by the companion; decision 11): by id, the newer `edited` wins; the loser is kept once
+-- as "<name> (older copy)" with a new id (newId()), so nothing is silently lost; an id only one side has
+-- is added. Returns the merged list and how many changed.
+function Shopping.merge(mine, incoming, newId)
+	local out, byId, changed = {}, {}, 0
+	for i, m in ipairs(mine or {}) do
+		out[i] = m
+		if m.id then
+			byId[m.id] = i
+		end
+	end
+	local function kept(loser)
+		for _, x in ipairs(out) do
+			if x.copyOf == loser.id and x.copyEdited == loser.edited then
+				return true
+			end
+		end
+		return false
+	end
+	local function copyOf(loser)
+		local c = {}
+		for k, v in pairs(loser) do
+			c[k] = v
+		end
+		c.id, c.copyOf, c.copyEdited = newId(), loser.id, loser.edited
+		c.name = (loser.name or "Unnamed") .. " (older copy)"
+		return c
+	end
+	for _, inc in ipairs(incoming or {}) do
+		local at = inc.id and byId[inc.id]
+		if not at then
+			out[#out + 1] = inc
+			if inc.id then
+				byId[inc.id] = #out
+			end
+			changed = changed + 1
+		else
+			local m = out[at]
+			local a, b = m.edited or 0, inc.edited or 0
+			if b > a then
+				if not kept(m) then
+					out[#out + 1] = copyOf(m)
+				end
+				out[at] = inc
+				changed = changed + 1
+			elseif a > b and not kept(inc) then
+				out[#out + 1] = copyOf(inc)
+				changed = changed + 1
+			end
+		end
+	end
+	return out, changed
+end
+
 return Shopping

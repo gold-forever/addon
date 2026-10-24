@@ -566,12 +566,22 @@ end
 local shopChosen -- the entry in view: { itemId, maxUnit }
 local purchase -- a commodity purchase in progress: { itemId, quantity, expected, quoted, moved }
 
+-- An id for a list or profile made here, and its edited time stamped (design 009, decision 11).
+local function newId()
+	return string.format("g%x%06x", ns.now(), math.random(0, 0xffffff))
+end
+local function stamp(item)
+	item.id = item.id or newId()
+	item.edited = ns.now()
+	return item
+end
+
 -- The player's lists (saved), and with them, while a sale profile with buy rules is active, the
 -- profile's buy list after them (not saved: it is the profile's; "up to" counts what this character holds).
 local function lists()
 	local s = settings()
 	if not s.lists or #s.lists == 0 then
-		s.lists = { { name = "My list", entries = {} } }
+		s.lists = { stamp({ name = "My list", entries = {} }) }
 	end
 	local shown = {}
 	for i, l in ipairs(s.lists) do
@@ -739,7 +749,7 @@ local function buildShop(page)
 	page.rebuildPick = rebuildPick
 	local newList = UI.Button(page, "New", function()
 		local all = lists()
-		all[#all + 1] = { name = "List " .. (#all + 1), entries = {} }
+		all[#all + 1] = stamp({ name = "List " .. (#all + 1), entries = {} })
 		s.list = #all
 		rebuildPick()
 		refresh()
@@ -758,7 +768,7 @@ local function buildShop(page)
 		end
 		local all = lists()
 		for _, l in ipairs(got) do
-			all[#all + 1] = l
+			all[#all + 1] = stamp(l)
 		end
 		s.list = #all
 		field:SetText("")
@@ -794,6 +804,7 @@ local function buildShop(page)
 			return
 		end
 		list.entries[#list.entries + 1] = { itemId = id, maxUnit = maxUnit }
+		stamp(list)
 		add:SetText("")
 		add:ClearFocus()
 		refresh()
@@ -836,6 +847,7 @@ local function buildShop(page)
 		for i, e in ipairs(list.entries) do
 			if shopChosen and e.itemId == shopChosen.itemId then
 				table.remove(list.entries, i)
+				stamp(list)
 				shopChosen = nil
 				break
 			end
@@ -1235,8 +1247,7 @@ local function buildRule(page)
 			return
 		end
 		-- Decision 11: each profile has an id and an edited time, so a later sync keeps the newest.
-		p.id = p.id or string.format("%d-%d", ns.now(), math.random(100000, 999999))
-		p.edited = ns.now()
+		stamp(p)
 		s.profiles[#s.profiles + 1] = p
 		s.profile = #s.profiles
 		field:SetText("")
@@ -1520,3 +1531,40 @@ ns.AuctionPanel = {
 		return chosen and chosen.suggestion
 	end,
 }
+
+-- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
+-- by id, the newer edit wins and the loser is kept once as an older copy (Shopping.merge). A file
+-- already merged is not merged again.
+local function mergeShared()
+	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
+	local s = settings()
+	if not shared or shared.at == s.sharedAt then
+		return
+	end
+	local lists, profiles = {}, {}
+	for _, x in ipairs(type(shared.lists) == "table" and shared.lists or {}) do
+		local got = type(x) == "table" and type(x.string) == "string" and ns.Shopping.decode(x.string)
+		if got and got[1] and type(x.id) == "string" then
+			got[1].id, got[1].edited = x.id, tonumber(x.edited) or 0
+			lists[#lists + 1] = got[1]
+		end
+	end
+	for _, x in ipairs(type(shared.profiles) == "table" and shared.profiles or {}) do
+		local p = type(x) == "table" and type(x.string) == "string" and ns.SalePlan.decode(x.string)
+		if p and type(x.id) == "string" then
+			p.id, p.edited = x.id, tonumber(x.edited) or 0
+			profiles[#profiles + 1] = p
+		end
+	end
+	local a, b
+	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, newId)
+	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, newId)
+	s.sharedAt = shared.at
+	if a + b > 0 then
+		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))
+	end
+end
+ns.on("PLAYER_LOGIN", "shared lists", function()
+	mergeShared()
+end)
+ns.mergeShared = mergeShared

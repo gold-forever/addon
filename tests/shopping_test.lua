@@ -15,7 +15,7 @@ end
 local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
 
 -- Every function is there as soon as the file loads (one was once defined inside encode by mistake).
-for _, name in ipairs({ "limit", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice" }) do
+for _, name in ipairs({ "limit", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge" }) do
 	eq(type(S[name]), "function", "defined at load: " .. name)
 end
 
@@ -79,5 +79,23 @@ local under = S.underPrice({
 	{ entries = { { itemId = 1, maxUnit = 950 }, { itemId = 4, maxUnit = 99 } } },
 }, function(id) return scan[id] end, function(id) return market[id] end)
 eq(table.concat(under, ","), "1,3", "under the max, under market; once each; unlisted items left out")
+
+-- Merging what the companion carries (decision 11): by id, the newer wins, the loser kept once.
+local n = 0
+local function newId() n = n + 1 return "new" .. n end
+local mine = { { id = "a", edited = 100, name = "Mats" }, { id = "b", edited = 300, name = "Snipe" } }
+local merged, changed = S.merge(mine, {
+	{ id = "a", edited = 200, name = "Mats v2" }, -- newer from the site: replaces, the game's kept as a copy
+	{ id = "b", edited = 250, name = "Snipe old" }, -- older from the site: the game's stays, the site's kept as a copy
+	{ id = "c", edited = 50, name = "Herbs" }, -- new: added
+}, newId)
+local names = {}
+for i, l in ipairs(merged) do names[i] = l.name end
+eq(table.concat(names, "|"), "Mats v2|Snipe|Mats (older copy)|Snipe old (older copy)|Herbs", "replaced, kept, copied, added")
+eq(changed, 3, "three changes")
+local again, changedAgain = S.merge(merged, { { id = "b", edited = 250, name = "Snipe old" } }, newId)
+eq(#again .. ":" .. changedAgain, "5:0", "a loser already kept is not kept twice")
+local same, none = S.merge({ { id = "a", edited = 100, name = "x" } }, { { id = "a", edited = 100, name = "x" } }, newId)
+eq(#same .. ":" .. none, "1:0", "the same edit: nothing")
 
 return checks
