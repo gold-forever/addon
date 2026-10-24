@@ -32,6 +32,15 @@ local built -- Theme.key it was drawn under
 local panels = {} -- Theme.key -> panel
 local rows, chosen = {}, nil -- the Post tab's rows and the chosen one
 local live = {} -- item key -> { cheapest, at }: the last live search's cheapest other listing
+
+-- An item's book in `live`: a commodity's by its id; other items' by id and item level, as one gear item
+-- at two item levels is two books with two prices.
+local function bookKey(itemID, commodity, itemLevel)
+	if commodity then
+		return tostring(itemID)
+	end
+	return "item:" .. itemID .. ":" .. (itemLevel or 0)
+end
 local waits = {} -- an action sent, by kind ("post", "shop", "cancel"), waiting for its answer: { key, at }
 local armed -- a post that needs a second press: the row's key
 local confirm -- the client warned about a commodity or item price: the next press confirms { key, args }
@@ -137,7 +146,8 @@ local PLAN_REASONS = {
 }
 
 local function planned(r, rule, market)
-	local book = live[r.commodity and tostring(r.id) or ("item:" .. r.id)]
+	-- Gear's book is known once the row was searched, at its own item level.
+	local book = (r.commodity or r.itemKey) and live[bookKey(r.id, r.commodity, r.itemKey and r.itemKey.itemLevel)]
 	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market, nil, Post.silver)
 	local unit = step.unitPrice or (step.choices and step.choices.plan)
 	local label = PLAN_REASONS[step.reason] or step.reason
@@ -385,7 +395,7 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
 		end
 	end
-	live["item:" .. itemKey.itemID] = { cheapest = cheapest, levels = levels, commodity = false, at = GetTime() }
+	live[bookKey(itemKey.itemID, false, itemKey.itemLevel)] = { cheapest = cheapest, levels = levels, commodity = false, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -836,7 +846,8 @@ end
 
 -- The deal for an entry from its live book, or nil before a search came back.
 local function shopDeal(e)
-	local l = live[tostring(e.itemId)] or live["item:" .. e.itemId]
+	-- A list entry is an item id: searched with its plain item key (searchEntry), item level 0.
+	local l = live[tostring(e.itemId)] or live[bookKey(e.itemId, false, 0)]
 	if not l or not l.levels then
 		return nil, l
 	end
@@ -998,7 +1009,7 @@ local function bought(ok, why)
 	waits.shop, purchase = nil, nil
 	panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
 	if shopChosen then
-		live[tostring(shopChosen.itemId)], live["item:" .. shopChosen.itemId] = nil, nil
+		live[tostring(shopChosen.itemId)], live[bookKey(shopChosen.itemId, false, 0)] = nil, nil
 		searchEntry(shopChosen)
 	end
 	refresh()
@@ -1141,7 +1152,7 @@ end
 
 -- The cheapest other listing for an owned auction, from the last search of its item.
 local function cheapestFor(a)
-	local book = live[a.commodity and tostring(a.itemID) or ("item:" .. a.itemID)]
+	local book = live[bookKey(a.itemID, a.commodity, a.itemKey and a.itemKey.itemLevel)]
 	return book and book.cheapest or nil, book ~= nil
 end
 
@@ -1224,6 +1235,10 @@ local function searched(what)
 	end
 	local id = type(what) == "table" and what.itemID or what
 	if id ~= a.itemID then
+		return
+	end
+	-- Gear: the answer for its own item level (two auctions of one item may be checked in turn).
+	if type(what) == "table" and what.itemLevel and a.itemKey and a.itemKey.itemLevel and what.itemLevel ~= a.itemKey.itemLevel then
 		return
 	end
 	a.answered = true

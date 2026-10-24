@@ -1044,6 +1044,37 @@ do
   AP.cancelCheck()
   fire("OWNED_AUCTIONS_UPDATED")
   assert(select(2, AP.owned()) == nil and AP.panel().cancel.note:GetText() == "You have no auctions up.", "none up: " .. tostring(AP.panel().cancel.note:GetText()))
+  -- Gear: two own auctions of one item at item levels 590 and 610, each judged against its own book
+  -- (review B-5, T-9). At 590 others ask 90g and up (10% under the 100g one); at 610, 210g and up (over
+  -- the 200g one).
+  do
+    local GLOVES = 4321
+    local mine = { { auctionID = 801, itemKey = { itemID = GLOVES, itemLevel = 590 }, status = 0, quantity = 1, buyoutAmount = 1000000 },
+      { auctionID = 802, itemKey = { itemID = GLOVES, itemLevel = 610 }, status = 0, quantity = 1, buyoutAmount = 2000000 } }
+    local books = { [590] = { 1000000, 900000, 910000, 920000 }, [610] = { 2000000, 2100000, 2150000, 2200000 } }
+    local keep = { C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo }
+    C_AuctionHouse.GetNumOwnedAuctions = function() return #mine end
+    C_AuctionHouse.GetOwnedAuctionInfo = function(i) return mine[i] end
+    C_AuctionHouse.GetItemKeyInfo = function() return { isCommodity = false, itemName = "Gloves" } end
+    C_AuctionHouse.GetNumItemSearchResults = function(key) return #books[key.itemLevel] end
+    C_AuctionHouse.GetItemSearchResultInfo = function(key, i)
+      return { auctionID = 900 + i, quantity = 1, buyoutAmount = books[key.itemLevel][i], containsOwnerItem = i == 1 }
+    end
+    AP.cancelCheck()
+    fire("OWNED_AUCTIONS_UPDATED")
+    fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = GLOVES, itemLevel = 590 })
+    fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = GLOVES, itemLevel = 610 })
+    wait(1)
+    local owned, checking = AP.owned()
+    assert(not checking and #owned == 2, "both checked")
+    assert(owned[1].cheapest == 900000 and owned[1].under == 10, "590 against its own book: " .. tostring(owned[1].cheapest) .. " " .. tostring(owned[1].under))
+    assert(owned[2].cheapest == 2100000 and owned[2].under == 0, "610 against its own: " .. tostring(owned[2].cheapest) .. " " .. tostring(owned[2].under))
+    cancelled = nil
+    AP.cancelNext()
+    assert(cancelled == 801, "Cancel next cancels the 590 one: " .. tostring(cancelled))
+    fire("AUCTION_CANCELED", 801)
+    C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo = keep[1], keep[2]
+  end
   for _, d in pairs(GoldForeverDB.events) do d.auctionEnd = nil end
   for k, f in pairs(saved) do C_AuctionHouse[k] = f end
   for _, k in ipairs({ "QueryOwnedAuctions", "GetNumOwnedAuctions", "GetOwnedAuctionInfo", "GetItemKeyInfo", "GetCancelCost" }) do if not saved[k] then C_AuctionHouse[k] = nil end end
