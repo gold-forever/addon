@@ -742,7 +742,7 @@ local function buildCrafting(page)
 		for _, q in ipairs(ns.queueList()) do
 			crafts = crafts + q.count
 		end
-		queued:SetText(crafts > 0 and string.format("In the queue: %d %s. The Shop's \"Craft queue\" list buys what is missing.", crafts, crafts == 1 and "craft" or "crafts") or "The queue is empty.")
+		queued:SetText(crafts > 0 and string.format("In the queue: %d %s. The Buy tab's \"Craft queue\" list buys what is missing.", crafts, crafts == 1 and "craft" or "crafts") or "The queue is empty.")
 		for i, l in ipairs(lines) do
 			local x = sel.q.lines[i]
 			if x then
@@ -851,10 +851,10 @@ end
 -- and the commands. Every command named here exists (the tests check GUIDE_COMMANDS).
 local GUIDE = {
 	{ "Getting started", "Gold Forever records your characters, money, loot and auction scans for your pages on gold-forever.app, and brings everyone's prices into the game. Install the free companion app (gold-forever.app/companion): it uploads your save when the game writes it and brings prices in every hour. /gf opens this window; the minimap coin does too (right-click switches the look)." },
-	{ "At the auction house", "A panel opens beside the auction house. Scan shows the full scan (one every 15 minutes). Post lists what your bags can sell, priced by your rule against the cheapest listing by someone else; alt-click an item in your bags to choose it, then click Post or press Space. A price far under the market or a vendor's asks for a second press. Your bag items' tooltips say what Post would ask; the panel's top line says what your bank and mail hold worth posting." },
-	{ "Shop and Cancel", "Shop keeps lists of items with the most you pay: shift-click an item into the field, add a gold price or none for \"under market\". Choose one and Buy next asks the auction house for a price; a second press buys. Cancel checks your auctions and cancels the most undercut one a press (the item comes back by mail)." },
-	{ "Rules and profiles", "Rule sets how you undercut, the floor and the normal price; \"Rule for\" adds a rule for one item or a whole category. A sale profile (a GFP1 string, made at gold-forever.app/me/lists or shared by others) prices the items it names: keep so many, undercut, a fixed price or a point in the supply." },
-	{ "Crafting", "The Crafting page lists your recipes by profit; \"I have these\" counts what you hold at no cost. Queue crafts there or on the strip beside the profession window, and the Shop's \"Craft queue\" list buys only what is missing." },
+	{ "At the auction house", "A panel opens beside the auction house. Its tabs follow Blizzard's. Scan runs a full scan when you press Scan now (one every 15 minutes; switch on \"Scan when I open the auction house\" to have it start by itself). Sell lists what your bags can sell, priced by your selling rules against the cheapest listing by someone else; alt-click an item in your bags to choose it, then click Post or press Space. A price far under the market or a vendor's asks for a second press. Your bag items' tooltips say what Sell would ask; the panel's top line says what your bank and mail hold worth posting." },
+	{ "Buy and Auctions", "Buy keeps lists of items with the most you pay: shift-click an item into the field, add a gold price or none for \"under market\". Choose one and Buy next asks the auction house for a price; a second press buys. Auctions checks your auctions and cancels the most undercut one a press (the item comes back by mail); click one to see its listings." },
+	{ "Selling rules and profiles", "The Selling rules page sets how you undercut, the floor and the normal price, and shows what that does to an item worth 10g; \"Rule for\" adds a rule for one item or a whole category (Rule › on the Sell tab opens it for the item in view). A sale profile (a GFP1 string, made at gold-forever.app/me/lists or shared by others) prices the items it names: keep so many, undercut, a fixed price or a point in the supply." },
+	{ "Crafting", "The Crafting page lists your recipes by profit; \"I have these\" counts what you hold at no cost. Queue crafts there or on the strip beside the profession window, and the Buy tab's \"Craft queue\" list buys only what is missing." },
 	{ "While you play", "The session HUD shows gold, XP and kills an hour; click it for the session. Big drops and rares get a message. The mail helper beside the mailbox opens auction mail a batch a press. Settings → Modules switches any part off; what the save records stays the same." },
 	{ "Discord", "Add a Discord webhook at gold-forever.app/settings, then switch \"Announce dings\" on in Settings → Discord for the character you play: each level-up posts a picture and a public page." },
 }
@@ -1295,7 +1295,6 @@ local function buildSettings(page)
 
 	local appraiser = ns.settings("appraiser", { shown = true })
 	local advisor = ns.settings("advisor", { shown = true })
-	local shop = ns.settings("shop", { shown = true })
 	local rares = ns.settings("rares", { announce = true, mark = true })
 	local minimap = ns.settings("minimap", { angle = 225, hidden = false })
 	-- Each tab drawn the first time it is chosen (General when the page opens).
@@ -1415,9 +1414,6 @@ local function buildSettings(page)
 		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
 				on = function() return crafting.strip ~= false end,
 				set = function(on) crafting.strip = on end },
-			{ icon = "flask-conical", name = "Craft list at the auction house", blurb = "Your recipes that make a profit, and what to buy for them.",
-				on = function() return shop.shown end,
-				set = function(on) shop.shown = on end },
 			{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
 				on = function() return rares.announce end,
 				set = function(on) rares.announce = on end, disabled = isRetail },
@@ -1615,6 +1611,11 @@ local PAGES = {
 		tabs = LEDGER_TABS, build = tabbed("ledger", LEDGER_TABS) },
 	{ key = "crafting", label = "Crafting", icon = "flask-conical", group = "Trading", build = buildCrafting, title = "Crafting",
 		lede = "Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut." },
+	{ key = "rules", label = "Selling rules", icon = "tag", group = "Trading", title = "Selling rules",
+		lede = "How the auction panel's Sell tab prices your items: by these rules, or a sale profile.",
+		build = function(page)
+			ns.buildSellingRules(page)
+		end },
 	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
 		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
 		tabs = SESSION_TABS, build = tabbed("session", SESSION_TABS) },

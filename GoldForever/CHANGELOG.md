@@ -28,11 +28,13 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   - **Auctions**: checks your auctions against other players' listings and cancels the most undercut
     one a press, past your tolerance (5% at first), showing the cancel cost. Click one to see its
     listings in Blizzard's window.
-  - **Rule**: undercut by 1 silver or a percentage, a floor and a normal price as shares of the market
-    value, and hold or post at the floor; **Rule for** adds a rule for one item or a whole category.
-    **Sale profiles** (`GFP1:` strings, made at gold-forever.app/me/lists or shared by others) price the
-    items they name: keep this many, undercut, a fixed price or a point in the supply, with a floor;
-    their buy rules become a list in the Shop.
+- **Selling rules**, a page of the window (Trading → Selling rules; **Rule ›** on the Sell tab opens it
+  for the item in view): undercut by 1 silver or a percentage, a floor and a normal price as shares of
+  the market value, and hold or post at the floor, each with a line saying what it does, and beside them
+  what the rule does to an item worth 10g. **Rule for** adds a rule for one item or a whole category.
+  **Sale profiles** (`GFP1:` strings, made at gold-forever.app/me/lists or shared by others) price the
+  items they name: keep this many, undercut, a fixed price or a point in the supply, with a floor; their
+  buy rules become a list in the Buy tab.
 - With the companion app, lists and profiles you keep on gold-forever.app come into the game (the
   newer edit wins).
 - Prices are whole silver unless the auction house takes copper (the addon asks the game). A single cheap
@@ -54,8 +56,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 - **Ledger**: Money, Characters, **Inventory** (filter by character, place and quality) and **Auction
   sales** (what sold, for how much, after the cut).
 - **Crafting**: every recipe your characters know, by profit, with cost, price after the cut and margin;
-  "I have these" counts what you hold at no cost. **Queue** a recipe and the Shop's "Craft queue" list
-  buys only the reagents still missing.
+  "I have these" counts what you hold at no cost. **Queue** a recipe and the Buy tab's "Craft queue" list
+  buys only the reagents still missing. `/gf shop` opens it; the old floating "crafts to make" window at
+  the auction house is gone.
 - **Session**: This session (the HUD at full size, with its loot), Levelling and Mobs.
 - **Rares**: every rare your characters have seen, how often, when and where, and what a loot has been
   worth.

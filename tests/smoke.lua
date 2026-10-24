@@ -348,9 +348,11 @@ if SAVE then
   local AP = ns.AuctionPanel
   AuctionHouseFrame = widget()
   timed("auction house: open", function() fire("AUCTION_HOUSE_SHOW") end)
-  for _, tab in ipairs({ "scan", "post", "shop", "cancel", "rule" }) do
+  for _, tab in ipairs({ "scan", "post", "shop", "cancel" }) do
     timed("auction house: " .. tab, function() AP.tab(tab) end)
   end
+  timed("selling rules page", function() SlashCmdList.GOLDFOREVER("ui rules") end)
+  SlashCmdList.GOLDFOREVER("ui")
   timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
   timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
   -- Each item tooltip hook on its own, over every catalogued item, so its share shows.
@@ -659,7 +661,6 @@ do
   _, picked = AP.state()
   assert(picked and picked.id == 2589, "by link where no slot is given")
   AP.tab("scan")
-  AP.tab("rule")
   AP.tab("post")
   assert(AP.bound(), "Space posts on the Post tab")
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
@@ -1350,7 +1351,7 @@ do
   assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
   -- Back to everything on, for the rest of the run.
   ns.FirstRun.apply("everything", { prices = GoldForeverDB.settings.prices, auction = GoldForeverDB.settings.auction,
-    crafting = ns.settings("crafting", { strip = true }), shop = GoldForeverDB.settings.shop, appraiser = GoldForeverDB.settings.appraiser,
+    crafting = ns.settings("crafting", { strip = true }), appraiser = GoldForeverDB.settings.appraiser,
     advisor = GoldForeverDB.settings.advisor })
 end
 -- Settings draws its General tab only when it first opens; the others when chosen.

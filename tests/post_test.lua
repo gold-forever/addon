@@ -89,4 +89,14 @@ eq(P.trendHint(-15), "falling", "well under")
 eq(P.trendHint(9), nil, "near the average: no advice")
 eq(P.trendHint(nil), nil, "no trend known")
 
+-- What a rule does, in sentences for an item worth 10g (manual test run 001: the rule was hard to read).
+local ex = P.examples(P.DEFAULT, function(c) return c .. "c" end)
+eq(#ex, 4, "four situations")
+eq(ex[1], "Someone lists it at 95000c: you post at 94900c (undercut)", "a little under the market")
+eq(ex[2], "No one else lists it: you post at 120000c (no one else)", "alone")
+eq(ex[3], "The cheapest is 50000c: you hold it, as it is under your floor", "under the floor, held")
+eq(ex[4], "The cheapest is 200000c: you post at 120000c (normal price)", "far over")
+local atFloor = P.examples({ undercut = "1s", floor = 80, normal = 120, belowFloor = "floor" }, function(c) return c .. "c" end)
+eq(atFloor[3], "The cheapest is 50000c: you post at 80000c (at floor)", "or posted at the floor")
+
 return checks

@@ -1,16 +1,9 @@
--- Gold Forever: a craft shopping list at the auction house. The recipes the character knows that
--- make a profit at the latest scan, best first, and what to buy for them, where, and at what price.
--- The same rules as the web app's Crafting view ("use what I have"): Crafting.lua.
+-- Gold Forever: the recipes the character knows, quoted at the latest prices (the same rules as the
+-- web app's Crafting view, "use what I have": Crafting.lua), and the craft queue, for the hub's Home and
+-- Crafting pages, the crafting strip and the Buy tab's "Craft queue" list. The floating "crafts to make"
+-- window at the auction house is gone (manual test run 001): the Crafting page shows the same, and more.
 
 local _, ns = ...
-
-local SHOWN = 8 -- recipes listed
-
-local frame, body
-
-local function settings()
-	return ns.settings("shop", { shown = true })
-end
 
 local Encode = ns.Encode
 local itemList = Encode.parseItems
@@ -164,95 +157,7 @@ function ns.quoteRecipe(id)
 	return q
 end
 
-local function name(id)
-	local _, _, _, _, n = ns.price.itemInfo(id)
-	return n or ("item " .. id)
-end
-
-local function text()
-	local coins = ns.price.coins
-	local list = profitable()
-	if #list == 0 then
-		return "None of your recipes makes a profit at the latest scan."
-	end
-	local lines = {}
-	for i = 1, math.min(SHOWN, #list) do
-		local q = list[i]
-		local r = q.recipe
-		if i > 1 then
-			table.insert(lines, " ")
-		end
-		table.insert(lines, string.format("|cffffffff%s%s|r · |cff56c98f+%s|r a craft", r.yield ~= 1 and (r.yield .. "× ") or "", name(r.output), coins(q.profit)))
-		local buys = {}
-		for _, l in ipairs(q.lines) do
-			if l.toBuy > 0 then
-				local where = l.from == "vendor" and "vendor" or "AH"
-				buys[#buys + 1] = string.format("%d× %s (%s, %s each)", l.toBuy, name(l.id), where, coins(l.unit))
-			end
-		end
-		if #buys > 0 then
-			table.insert(lines, "|cffaaaaaabuy " .. table.concat(buys, ", ") .. "|r")
-		end
-		if q.fromStock > 0 then
-			table.insert(lines, string.format("|cffaaaaaayour stock makes %d now|r", q.fromStock))
-		end
-	end
-	if #list > SHOWN then
-		table.insert(lines, " ")
-		table.insert(lines, string.format("|cff999999and %d more profitable recipes on the web app's Crafting page|r", #list - SHOWN))
-	end
-	return table.concat(lines, "\n")
-end
-
-local function refresh()
-	if frame and frame:IsShown() then
-		body:SetText(text())
-		frame:SetHeight(body:GetStringHeight() + 40)
-	end
-end
-
-local function show()
-	if not frame then
-		frame, body = ns.makeWindow("GoldForeverShop", "Gold Forever · crafts to make", settings(), { "LEFT", 60, -120 }, nil)
-		frame:SetWidth(380)
-		body:SetWidth(360)
-	end
-	frame:Show()
-	refresh()
-end
-
-local function hide()
-	if frame then
-		frame:Hide()
-	end
-end
-
-ns.on("AUCTION_HOUSE_SHOW", "shop", function()
-	if settings().shown then
-		show()
-	end
-end)
-ns.on("AUCTION_HOUSE_CLOSED", "shop", hide)
--- A new scan gives new prices; bought reagents change the stock.
-ns.on("REPLICATE_ITEM_LIST_UPDATE", "shop", function()
-	ns.after(5, "shop", refresh)
-end)
-ns.on("BAG_UPDATE_DELAYED", "shop", function()
-	ns.after(1, "shop", refresh)
-end)
-
--- /gf shop shows or hides it; hidden at the auction house, it stops opening there.
+-- /gf shop: the Crafting page, recipes by profit.
 ns.commands.shop = function()
-	if frame and frame:IsShown() then
-		hide()
-		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
-			settings().shown = false
-			ns.say("the craft list no longer opens at the auction house; /gf shop there turns it back on.")
-		end
-	else
-		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
-			settings().shown = true
-		end
-		show()
-	end
+	ns.openPage("crafting")
 end
