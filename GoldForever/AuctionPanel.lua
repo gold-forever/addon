@@ -32,19 +32,23 @@ local built -- Theme.key it was drawn under
 local panels = {} -- Theme.key -> panel
 local rows, chosen = {}, nil -- the Post tab's rows and the chosen one
 local live = {} -- item key -> { cheapest, at }: the last live search's cheapest other listing
-local waiting -- a post sent, waiting for its answer: { key, at }
+local waits = {} -- an action sent, by kind ("post", "shop", "cancel"), waiting for its answer: { key, at }
 local armed -- a post that needs a second press: the row's key
 local confirm -- the client warned about a commodity or item price: the next press confirms { key, args }
 
 -- An action sent (a post, a buy, a cancel): the panel waits for its answer before the next press, and
 -- never longer than CONFIRM_TIMEOUT, so a failure the client reports nowhere the panel hears cannot
--- leave Post, Shop and Cancel disabled. `note` is the tab's line for the timeout.
-local function await(key, note)
+-- leave Post, Shop and Cancel disabled. Each kind waits apart, so one kind's answer never ends
+-- another's wait. `note` is the tab's line for the timeout; `onTimeout` lets go of what the action held.
+local function await(kind, key, note, onTimeout)
 	local w = { key = key, at = GetTime() }
-	waiting = w
+	waits[kind] = w
 	C_Timer.After(CONFIRM_TIMEOUT, function()
-		if waiting == w then
-			waiting = nil
+		if waits[kind] == w then
+			waits[kind] = nil
+			if onTimeout then
+				onTimeout()
+			end
 			if note then
 				note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check it before trying again.|r")
 			end
@@ -53,6 +57,11 @@ local function await(key, note)
 			end
 		end
 	end)
+end
+
+-- Whether any action waits for its answer: a press of Post, Buy next or Cancel next waits for it.
+local function busy()
+	return waits.post or waits.shop or waits.cancel
 end
 
 -- Gold and silver: a price rounded to the gold read as wrong beside the auction house's own (8g for 8g 69s).
@@ -407,7 +416,7 @@ end
 -- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
 local function post()
 	local r = chosen
-	if not r or waiting or not r.suggestion then
+	if not r or busy() or not r.suggestion then
 		return
 	end
 	local unit, forced = r.suggestion.unit, false
@@ -435,7 +444,7 @@ local function post()
 		elseif C_AuctionHouse.ConfirmPostItem then
 			C_AuctionHouse.ConfirmPostItem(unpack(args, 1, args.n))
 		end
-		await(r.key, panel.post.note)
+		await("post", r.key, panel.post.note)
 		panel.post.note:SetText("Posting…")
 		return
 	end
@@ -467,16 +476,16 @@ local function post()
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
 		return
 	end
-	await(r.key, panel.post.note)
+	await("post", r.key, panel.post.note)
 	panel.post.note:SetText("Posting…")
 end
 
 local function posted()
-	if not waiting then
-		return
+	if not waits.post then
+		return -- not the panel's post (Blizzard's own Sell window)
 	end
-	local key = waiting.key
-	waiting = nil
+	local key = waits.post.key
+	waits.post = nil
 	live[key] = nil
 	-- The next row; the bags update a moment later and the list follows.
 	local next
@@ -506,21 +515,21 @@ local function closeBlizzardWarning()
 	end)
 end
 ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
-	if waiting and lastArgs then
-		confirm = { key = waiting.key, args = lastArgs }
+	if waits.post and lastArgs then
+		confirm = { key = waits.post.key, args = lastArgs }
 		closeBlizzardWarning()
 	elseif confirm then
 		closeBlizzardWarning()
 	end
-	waiting = nil
+	waits.post = nil
 	if panel and panel.post.note then
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
 	end
 end)
 -- A post the server refused: say so at once rather than after the wait.
 ns.on("AUCTION_HOUSE_POST_ERROR", "auction panel", function()
-	if waiting and not string.find(waiting.key, "^shop:") and not string.find(waiting.key, "^cancel:") then
-		waiting = nil
+	if waits.post then
+		waits.post = nil
 		if panel and panel.post.note then
 			panel.post.note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused the post.|r")
 		end
@@ -738,7 +747,7 @@ local function buildPost(page)
 			line.qty:SetText(x and ("×" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
 		end
 		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
-		local can = sug and (sug.unit or r.anyway) and not waiting
+		local can = sug and (sug.unit or r.anyway) and not busy()
 		if can then
 			local label = sug.unit and ("Post " .. quantity(r) .. " × " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " × " .. money(r.anyway))
 			button.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
@@ -880,10 +889,15 @@ local function searchEntry(e, open)
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
 end
 
+-- A purchase with no answer is let go: a later purchase in Blizzard's own window is not recorded as it.
+local function letGo()
+	buying, purchase = nil, nil
+end
+
 -- One press of Buy next.
 local function buyNext()
 	local e = shopChosen
-	if not e or waiting then
+	if not e or busy() then
 		return
 	end
 	local deal, book = shopDeal(e)
@@ -894,7 +908,7 @@ local function buyNext()
 		purchase = nil
 		C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
 		buying = { id = p.itemId, n = p.quantity }
-		await("shop:" .. p.itemId, note)
+		await("shop", "shop:" .. p.itemId, note, letGo)
 		note:SetText("Buying…")
 		return
 	end
@@ -922,7 +936,7 @@ local function buyNext()
 			if a.own == 0 and a.unitPrice <= deal.limit and a.auctionID then
 				C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
 				buying = { id = e.itemId, n = a.quantity or 1 }
-				await("shop:" .. e.itemId, note)
+				await("shop", "shop:" .. e.itemId, note, letGo)
 				note:SetText("Buying one for " .. money(a.buyout) .. "…")
 				return
 			end
@@ -974,7 +988,7 @@ local function bought(ok, why)
 		recordBought(buying)
 	end
 	buying = nil
-	waiting, purchase = nil, nil
+	waits.shop, purchase = nil, nil
 	panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
 	if shopChosen then
 		live[tostring(shopChosen.itemId)], live["item:" .. shopChosen.itemId] = nil, nil
@@ -1092,7 +1106,7 @@ local function buildShop(page)
 		local label = purchase and purchase.quoted and ("Confirm: " .. purchase.quantity .. " for " .. money(purchase.quoted))
 			or (deal and ("Buy " .. deal.quantity .. " for " .. money(deal.total))) or "Buy next"
 		buy.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
-		local can = shopChosen and not waiting
+		local can = shopChosen and not busy()
 		if can then
 			buy:Enable()
 			buy:SetAlpha(1)
@@ -1217,7 +1231,7 @@ local function undercut()
 end
 
 local function cancelNext()
-	if waiting then
+	if busy() then
 		return
 	end
 	local a = undercut()[1]
@@ -1226,13 +1240,13 @@ local function cancelNext()
 		return
 	end
 	C_AuctionHouse.CancelAuction(a.auctionID)
-	await("cancel:" .. a.auctionID, panel.cancel.note)
+	await("cancel", "cancel:" .. a.auctionID, panel.cancel.note)
 	panel.cancel.note:SetText("Cancelling " .. a.name .. "…")
 end
 
 ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
-	if waiting and waiting.key == "cancel:" .. tostring(auctionID) then
-		waiting = nil
+	if waits.cancel and waits.cancel.key == "cancel:" .. tostring(auctionID) then
+		waits.cancel = nil
 	end
 	for i, a in ipairs(owned) do
 		if a.auctionID == auctionID then
@@ -1298,7 +1312,7 @@ local function buildCancel(page)
 		else
 			go.label:SetText("Cancel next")
 		end
-		local can = first and not checking and not waiting
+		local can = first and not checking and not busy()
 		if can then
 			go:Enable()
 			go:SetAlpha(1)
@@ -2355,9 +2369,13 @@ end
 -- the panel takes the next press. Other game errors (mana, cooldowns) are not the action's answer and
 -- leave the wait to its timeout.
 ns.on("AUCTION_HOUSE_SHOW_ERROR", "auction panel", function()
-	if waiting and panel then
-		local note = string.find(waiting.key, "^shop:") and panel.shop.note or string.find(waiting.key, "^cancel:") and panel.cancel.note or panel.post.note
-		waiting, purchase = nil, nil
+	local kind = waits.shop and "shop" or waits.cancel and "cancel" or waits.post and "post"
+	if kind and panel then
+		local note = panel[kind].note
+		waits[kind], purchase = nil, nil
+		if kind == "shop" then
+			buying = nil
+		end
 		if note then
 			note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused it.|r")
 		end
@@ -2375,8 +2393,9 @@ local function hide()
 		ticker:Cancel()
 	end
 	ticker = nil
-	-- Nothing in flight outlives the auction house: a warned post, a quoted purchase, a check.
-	live, waiting, armed, confirm, purchase, checking = {}, nil, nil, nil, nil, nil
+	-- Nothing in flight outlives the auction house: a warned post, a quoted or sent purchase, a check.
+	live, waits, armed, confirm, purchase, checking = {}, {}, nil, nil, nil, nil
+	buying, overArmed = nil, nil
 end
 
 -- A panel hidden in combat could not clear its binding then: set it right when the fight ends.
@@ -2643,7 +2662,7 @@ ns.AuctionPanel = {
 		post()
 	end,
 	state = function()
-		return rows, chosen, waiting
+		return rows, chosen, busy()
 	end,
 	duration = function(v)
 		if panel and panel.post.duration then

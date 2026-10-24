@@ -891,11 +891,29 @@ do
   fire("COMMODITY_PRICE_UPDATED", 4250, 85000)
   AP.shopBuy()
   assert(calls[#calls] == "confirm 2589 20", "the second press confirms the quote")
+  -- A post from Blizzard's own Sell window meanwhile is not the purchase's answer (review B-10).
+  do
+    local postNote = AP.panel().post.note:GetText()
+    fire("AUCTION_HOUSE_AUCTION_CREATED", 2)
+    assert(select(3, AP.state()) ~= nil, "the purchase still waits for its own answer")
+    assert(AP.panel().post.note:GetText() == postNote, "and Sell says no false Posted.: " .. tostring(AP.panel().post.note:GetText()))
+  end
   fire("COMMODITY_PURCHASE_SUCCEEDED")
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   AP.shopBuy()
   fire("COMMODITY_PRICE_UPDATED", 5000, 100000) -- 18% dearer than the deal
   assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
+  -- Pressed again, the purchase is sent; no answer comes, and a later purchase in Blizzard's own window
+  -- is not taken for it (review B-8).
+  do
+    local before = #(GoldForeverDB.settings.auction.bought or {})
+    AP.shopBuy()
+    assert(calls[#calls]:find("^confirm 2589") and select(3, AP.state()), "sent, waiting: " .. tostring(calls[#calls]))
+    wait(6)
+    assert(not select(3, AP.state()), "the wait timed out")
+    fire("AUCTION_HOUSE_PURCHASE_COMPLETED")
+    assert(#(GoldForeverDB.settings.auction.bought or {}) == before, "no phantom purchase recorded")
+  end
   -- A profile's buy rule (up to 12 Linen at 45s at most) is the Shop's last list: holding 7, Buy next
   -- asks for the 5 still needed, not every cheap unit.
   -- The 20 bought above count as held until the mailbox is read: they are in it now.
