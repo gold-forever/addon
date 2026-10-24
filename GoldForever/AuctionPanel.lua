@@ -1479,6 +1479,13 @@ local function hide()
 	live, waiting, armed = {}, nil, nil
 end
 
+-- A panel hidden in combat could not clear its binding then: set it right when the fight ends.
+ns.on("PLAYER_REGEN_ENABLED", "auction panel", function()
+	if panel then
+		bindSpace(panel)
+	end
+end)
+
 -- The named button the Space binding clicks (SetOverrideBindingClick takes a global name): a key press
 -- is a hardware event, as a click is.
 local key = CreateFrame("Button", "GoldForeverPostKey", UIParent)

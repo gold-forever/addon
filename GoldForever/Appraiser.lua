@@ -1059,6 +1059,9 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				return
 			end
 			local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
+			if ns.secret(guid) then
+				return -- a unit the client keeps secret: nothing to look up
+			end
 			local npc = Encode.npcId(guid)
 			if not npc then
 				return

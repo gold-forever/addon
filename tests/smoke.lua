@@ -333,6 +333,21 @@ if INTERFACE >= 110000 then
 else
   assert(#raidNotices == 1 and marks.nameplate3 == 8, "WoW: Forever: the rare is announced once and marked")
 end
+-- A marker the client keeps secret (newer clients): never compared, the rare still marked once.
+do
+  local SECRET = {}
+  function issecretvalue(v) return v == SECRET end
+  local index = GetRaidTargetIndex
+  GetRaidTargetIndex = function() return SECRET end
+  UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC9" end return unitGUID(u) end
+  marks.nameplate3 = nil
+  fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+  if INTERFACE < 110000 then
+    assert(marks.nameplate3 == 8, "marked without reading the secret marker")
+  end
+  GetRaidTargetIndex = index
+  issecretvalue = nil
+end
 -- "Tell my party": nothing in chat while it is off (the default); on and in a party, one line a spawn.
 do
   local said = {}
@@ -653,6 +668,20 @@ do
   wait(2)
   assert(#opened == 2 and opened[1]:find("expired") and opened[2]:find("successful"), "the two auction mails, in order: " .. table.concat(opened, " | "))
   assert(#inbox == 2 and inbox[1][2] == "Hello", "the letter and the COD mail stay")
+  -- While the server still works on a mail nothing is taken; a refusal stops the batch.
+  local pending = true
+  C_Mail = C_Mail or {}
+  C_Mail.IsCommandPending = function() return pending end
+  table.insert(inbox, { "Alliance Auction House", "Auction successful: Silk", 500, 0, 0 })
+  local before = #opened
+  ns.Mail.press()
+  wait(1)
+  assert(#opened == before, "nothing taken while a command is pending")
+  pending = false
+  wait(1)
+  assert(#opened == before + 1, "taken once the server is free")
+  fire("MAIL_FAILED")
+  C_Mail.IsCommandPending = nil
   fire("MAIL_CLOSED")
   GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
   MailFrame = nil

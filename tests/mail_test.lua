@@ -15,7 +15,7 @@ end
 local P = M.patterns()
 eq(M.isAuction("Auction successful: Wool Cloth", P), true, "sold")
 eq(M.isAuction("Auction expired: Linen Cloth (20)", P), true, "expired, with a stack in brackets")
-eq(M.isAuction("Auction cancelled: Silk Cloth", P), true, "cancelled")
+eq(M.isAuction("Auction canceled: Silk Cloth", P), true, "canceled, as the client spells it")
 eq(M.isAuction("Auction won: Iron Ore", P), true, "won")
 eq(M.isAuction("Outbid on Copper Bar", P), true, "outbid")
 eq(M.isAuction("Re: Auction successful: lol", P), false, "a player's reply is not")

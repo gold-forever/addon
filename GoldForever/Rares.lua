@@ -29,8 +29,12 @@ end
 local function alert(text)
 	ns.alert(text)
 	local s = settings()
-	if s.party and SendChatMessage and IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) then
-		SendChatMessage(Encode.chatLine(text), "PARTY")
+	if s.party and IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) then
+		-- C_ChatInfo.SendChatMessage where the client has it; the global is its older name.
+		local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
+		if send then
+			send(Encode.chatLine(text), "PARTY")
+		end
 	end
 end
 
@@ -63,7 +67,11 @@ local function seeUnit(unit, how)
 	end
 	-- Marked once, when its unit is first seen (a minimap marker has no unit to mark): marking again on
 	-- every mouseover would move the skull back from whatever the group marked since, or between rares.
-	if not marked[guid] and s.mark and mayMark() and GetRaidTargetIndex(unit) ~= SKULL then
+	-- The marker it has is compared only where the client lets us read it (a secret value on newer
+	-- clients); otherwise once a spawn is enough.
+	local index = GetRaidTargetIndex(unit)
+	local skulled = not ns.secret(index) and index == SKULL
+	if not marked[guid] and s.mark and mayMark() and not skulled then
 		marked[guid] = true
 		pcall(SetRaidTarget, unit, SKULL)
 	end

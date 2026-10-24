@@ -10,6 +10,7 @@ local Mail = {}
 ns.Mail = Mail
 
 Mail.BATCH = 10 -- mails a press
+local GAP = 0.3 -- seconds at least between two mails, and between checks while the server is busy
 
 -- The auction house's subjects as the client words them ("Auction successful: %s"), English fallbacks
 -- for the tests; as Lua patterns that match the whole subject.
@@ -17,7 +18,7 @@ function Mail.patterns(formats)
 	formats = formats or {
 		AUCTION_SOLD_MAIL_SUBJECT or "Auction successful: %s",
 		AUCTION_EXPIRED_MAIL_SUBJECT or "Auction expired: %s",
-		AUCTION_REMOVED_MAIL_SUBJECT or "Auction cancelled: %s",
+		AUCTION_REMOVED_MAIL_SUBJECT or "Auction canceled: %s",
 		AUCTION_WON_MAIL_SUBJECT or "Auction won: %s",
 		AUCTION_OUTBID_MAIL_SUBJECT or "Outbid on %s",
 	}
@@ -131,15 +132,24 @@ local function step()
 		refresh()
 		return
 	end
+	-- One mail at a time, as Blizzard's Open All does: not while the server still works on the last.
+	if C_Mail and C_Mail.IsCommandPending and C_Mail.IsCommandPending() then
+		C_Timer.After(GAP, function()
+			ns.safely("mail helper", step)
+		end)
+		return
+	end
 	run.left = run.left - 1
 	run.waiting = true
 	if AutoLootMailItem then
 		AutoLootMailItem(index)
 	else
 		TakeInboxMoney(index)
-		local _, _, _, _, _, _, _, items = GetInboxHeaderInfo(index)
-		for a = 1, (items or 0) do
-			TakeInboxItem(index, a)
+		-- Attachment slots can have gaps: every slot, from the last.
+		for a = ATTACHMENTS_MAX_RECEIVE or 16, 1, -1 do
+			if not HasInboxItem or HasInboxItem(index, a) then
+				TakeInboxItem(index, a)
+			end
 		end
 	end
 	-- Next when the inbox changes, or after a moment if it does not say.
@@ -152,10 +162,21 @@ local function step()
 	end)
 end
 
+-- The server refused a take (a full bag, a busy inbox): the batch stops and says so.
+ns.on("MAIL_FAILED", "mail helper", function()
+	if run then
+		run = nil
+		if panel then
+			panel.note:SetText("The mailbox refused that one; press again in a moment.")
+		end
+		refresh()
+	end
+end)
+
 ns.on("MAIL_INBOX_UPDATE", "mail helper", function()
 	if run and run.waiting then
 		run.waiting = false
-		C_Timer.After(0.2, function()
+		C_Timer.After(GAP, function()
 			ns.safely("mail helper", step)
 		end)
 	end

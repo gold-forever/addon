@@ -1395,15 +1395,16 @@ function UI.Window(name, title, pages, store, opts)
 	version:SetPoint("BOTTOMLEFT", 20, 32)
 	local perf = UI.Text(side, "", { size = "xs", tone = "faint" })
 	perf:SetPoint("BOTTOMLEFT", 20, 14)
-	-- The footprint every two seconds while the window shows, and never while it is closed.
+	-- The footprint every ten seconds while the window shows, and never while it is closed.
 	local ticker
 	local function measure()
 		perf:SetText(footprint(opts.addon or "GoldForever"))
 	end
 	w:SetScript("OnShow", function()
 		measure()
+		-- UpdateAddOnMemoryUsage measures every addon loaded, so not too often: every 10 seconds.
 		if C_Timer and C_Timer.NewTicker then
-			ticker = C_Timer.NewTicker(2, measure)
+			ticker = C_Timer.NewTicker(10, measure)
 		end
 	end)
 	w:SetScript("OnHide", function()

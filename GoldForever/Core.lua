@@ -25,6 +25,12 @@ function ns.db()
 	return db
 end
 
+-- Whether the client handed us a "secret" value (newer clients hide some unit and marker values from
+-- addons): such a value may be passed back to the client but not compared or read here.
+function ns.secret(v)
+	return issecretvalue ~= nil and issecretvalue(v) or false
+end
+
 function ns.me()
 	return me
 end
