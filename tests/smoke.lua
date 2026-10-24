@@ -1036,6 +1036,14 @@ do
   assert(cancelled == 777, "Cancel next cancels it")
   fire("AUCTION_CANCELED", 777)
   assert(#(AP.owned()) == 0, "and it leaves the list")
+  -- The list of auctions never coming: the check ends after the wait; none up: the note says so (review B-9).
+  AP.cancelCheck()
+  wait(6)
+  assert(select(2, AP.owned()) == nil, "no answer: the check ends")
+  C_AuctionHouse.GetNumOwnedAuctions = function() return 0 end
+  AP.cancelCheck()
+  fire("OWNED_AUCTIONS_UPDATED")
+  assert(select(2, AP.owned()) == nil and AP.panel().cancel.note:GetText() == "You have no auctions up.", "none up: " .. tostring(AP.panel().cancel.note:GetText()))
   for _, d in pairs(GoldForeverDB.events) do d.auctionEnd = nil end
   for k, f in pairs(saved) do C_AuctionHouse[k] = f end
   for _, k in ipairs({ "QueryOwnedAuctions", "GetNumOwnedAuctions", "GetOwnedAuctionInfo", "GetItemKeyInfo", "GetCancelCost" }) do if not saved[k] then C_AuctionHouse[k] = nil end end

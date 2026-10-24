@@ -1132,7 +1132,8 @@ end
 -- (CancelAuction is a hardware event, and costs the deposit). The items come back by mail.
 local TOLERANCES = { { value = 1, label = "1%" }, { value = 5, label = "5%" }, { value = 10, label = "10%" } }
 local owned = {} -- { auctionID, itemID, key, name, quality, quantity, unit, commodity, cheapest, under }
-local checking -- the index of the auction being searched, while a check runs
+local checking -- the index of the auction being searched, while a check runs (0: reading the auctions)
+local checkRun -- the check running, so a timer of an earlier one leaves it be
 
 local function tolerance()
 	return settings().tolerance or 5
@@ -1191,6 +1192,18 @@ local function startCheck()
 	end
 	checking = 0
 	panel.cancel.note:SetText("Reading your auctions…")
+	-- The list never coming (throttled, the auction house closing) does not leave the check running.
+	local run = {}
+	checkRun = run
+	C_Timer.After(CONFIRM_TIMEOUT, function()
+		if checking == 0 and checkRun == run then
+			checking = nil
+			if panel and panel.cancel.note then
+				panel.cancel.note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check again in a moment.|r")
+			end
+			refresh()
+		end
+	end)
 end
 
 ns.on("OWNED_AUCTIONS_UPDATED", "auction cancel", function()
@@ -1311,8 +1324,10 @@ local function buildCancel(page)
 		end
 		tbl:SetRows(owned)
 		local first = list[1]
-		if checking then
-			go.label:SetText(string.format("Checking %d of %d…", math.max(1, checking), #owned))
+		if checking == 0 then
+			go.label:SetText("Reading…")
+		elseif checking then
+			go.label:SetText(string.format("Checking %d of %d…", checking, #owned))
 		elseif first then
 			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
 			go.label:SetText("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
@@ -1327,8 +1342,9 @@ local function buildCancel(page)
 			go:Disable()
 			go:SetAlpha(0.5)
 		end
-		if not checking and #owned > 0 and page.note:GetText() == "Reading your auctions…" then
-			page.note:SetText(string.format("%d of your %d auctions are undercut past %d%%.", #list, #owned, tolerance()))
+		if not checking and page.note:GetText() == "Reading your auctions…" then
+			page.note:SetText(#owned == 0 and "You have no auctions up."
+				or string.format("%d of your %d auctions are undercut past %d%%.", #list, #owned, tolerance()))
 		end
 	end
 end
