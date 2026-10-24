@@ -73,6 +73,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   and the best loot. `/gf hud` shows or hides it; Settings can hide it in combat.
 - A **crafting strip** beside the profession window: the chosen recipe's reagent cost, what the item
   sells for after the cut, the profit and margin, and what you still have to buy.
+- **Sell junk** at a vendor, where the merchant window has no button for it (WoW: Forever): the loot
+  advisor's button says how many and for how much, and a second press sells them with the game's own
+  call, so they stay in the buyback tab.
 - Rare alerts can **tell your party** (Settings → General, off at first; WoW: Forever).
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`), with the
   webhook added at gold-forever.app/settings and the companion app installed.

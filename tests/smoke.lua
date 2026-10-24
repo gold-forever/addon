@@ -481,8 +481,29 @@ GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
 print("SASH TOOLTIP " .. table.concat(GameTooltip.lines, " / "))
 bagsFull = true
+-- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
+-- Blizzard's own call: the first press says what, the second sells, once.
+local sold = 0
+MerchantFrame = widget({ shown = true })
+function MerchantFrame:IsShown() return true end
+C_MerchantFrame = { GetNumJunkItems = function() return 3 end, IsSellAllJunkEnabled = function() return true end,
+  SellAllJunkItems = function() sold = sold + 1 end }
 fire("MERCHANT_SHOW")
 print("ADVISOR\n" .. tostring(appraiserText))
+do
+  local sell = ns.Advisor.sellButton()
+  assert(sell and sell:IsShown() and (sell.label.text or ""):find("Sell junk: 3 items", 1, true), "Sell junk shows: " .. tostring(sell and sell.label.text))
+  sell.scripts.OnClick(sell)
+  assert(sold == 0 and (sell.label.text or ""):find("Press again", 1, true), "the first press only asks")
+  sell.scripts.OnClick(sell)
+  assert(sold == 1, "the second press sells")
+  -- A client whose merchant window has Blizzard's own button: none of ours.
+  MerchantSellAllJunkButton = widget()
+  fire("BAG_UPDATE_DELAYED")
+  assert(not sell:IsShown(), "no second junk button beside Blizzard's")
+  MerchantSellAllJunkButton = nil
+end
+MerchantFrame, C_MerchantFrame = nil, nil
 -- A rare on a nameplate: announced once, recorded, marked with a skull.
 raidNotices = {}
 marks = {}
