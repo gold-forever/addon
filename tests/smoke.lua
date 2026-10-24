@@ -1653,6 +1653,9 @@ do
   GetStatisticsCategoryList, GetCategoryNumAchievements, debugprofilestop, GetStatistic = lists[1], lists[2], lists[3], stat
 end
 
+-- A scan read only in part (the auction house closed mid-read) is no market: stored without rows.
+assert(ns.Market.partial(1000, 500, false) and ns.Market.partial(1000, 1000, true), "half read, or cut short: partial")
+assert(not ns.Market.partial(1000, 950, false) and not ns.Market.partial(0, 0, false), "nearly all read: full; none announced: not partial")
 -- A call the client stops for running too long never returns, and the next call in a later frame records
 -- it (Core.lua). The stand-in cannot stop a call; this checks only that calls which return or error are
 -- never recorded as stopped.
@@ -1792,4 +1795,28 @@ do
   assert(total / frames < 2, string.format("scan frames average %.2f ms (budget ~2 ms)", total / frames))
   assert(worst < 20, string.format("a frame of the scan took %.2f ms", worst))
   fire("AUCTION_HOUSE_CLOSED")
+end
+-- A scan whose listings stop coming part-way (what the client does once the auction house is closed
+-- mid-read) is stored without rows as partial, and the full scan before it stays the market.
+do
+  local scans = GoldForeverDB.scans
+  local before = #scans
+  local info = C_AuctionHouse.GetReplicateItemInfo
+  C_AuctionHouse.GetReplicateItemInfo = function(i)
+    if i >= 10000 then return nil end -- the rest never comes
+    return info(i)
+  end
+  GoldForeverDB.lastReplicate = 0
+  now = now + 3600
+  fire("AUCTION_HOUSE_SHOW")
+  wait(2)
+  fire("REPLICATE_ITEM_LIST_UPDATE")
+  wait(5)
+  local rec = scans[#scans]
+  assert(#scans == before + 1 and rec.kind == "throttled" and rec.partial == true, "a scan read in part is stored as partial: " .. tostring(rec.kind) .. " " .. tostring(rec.partial))
+  local rows = 0
+  for _, c in ipairs(rec.rows or {}) do rows = rows + #c end
+  assert(rows == 0, "with no rows")
+  fire("AUCTION_HOUSE_CLOSED")
+  C_AuctionHouse.GetReplicateItemInfo = info
 end
