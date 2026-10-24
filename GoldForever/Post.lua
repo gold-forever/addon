@@ -70,6 +70,21 @@ function Post.suggest(rule, market, cheapest)
 	return { unit = nil, reason = "hold", floor = floor, normal = normal }
 end
 
+-- Advice from the market's trend against its 7-day average (owner's answer, 2026-10-24), in percent:
+-- 10% or more above it, "rising: maybe wait"; 10% or more under, "falling"; else nil. Advice only.
+Post.TREND_HINT = 10
+function Post.trendHint(pct)
+	if not pct then
+		return nil
+	end
+	if pct >= Post.TREND_HINT then
+		return "rising: maybe wait"
+	elseif pct <= -Post.TREND_HINT then
+		return "falling"
+	end
+	return nil
+end
+
 -- What each reason says in the panel.
 Post.REASONS = {
 	undercut = "Undercut",

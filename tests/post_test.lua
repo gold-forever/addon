@@ -82,4 +82,11 @@ eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9
 P.copper = false
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9500, "whole silver otherwise")
 
+-- The trend's advice: rising at 10% over the 7-day average, falling at 10% under, else none.
+eq(P.trendHint(12), "rising: maybe wait", "well over the week's average")
+eq(P.trendHint(10), "rising: maybe wait", "at the threshold")
+eq(P.trendHint(-15), "falling", "well under")
+eq(P.trendHint(9), nil, "near the average: no advice")
+eq(P.trendHint(nil), nil, "no trend known")
+
 return checks
