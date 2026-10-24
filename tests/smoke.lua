@@ -244,6 +244,11 @@ if SAVE then
   UnitName = function() return me.name or "Saved", nil end
   UnitFactionGroup = function(u) if u == "npc" then return nil end return me.faction or "Horde" end
   GetNormalizedRealmName = function() return (realm:gsub("[%s%-]", "")) end
+  -- The realm's connected realms as the client lists them (GF_SMOKE_CONNECTED="Aszune,Shadowsong"),
+  -- else the realm alone: on retail they name the market.
+  local connected = {}
+  for name in (os.getenv("GF_SMOKE_CONNECTED") or realm):gmatch("[^,]+") do connected[#connected + 1] = name end
+  C_AutoComplete = { GetAutoCompleteRealms = function() return connected end }
   GetRealmName = function() return realm end
   now = math.max(now, GoldForeverDB.writtenAt or now)
 end
@@ -305,6 +310,19 @@ if SAVE then
       for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do p.ensure(tab) end
     end)
     timed(look .. ": revisit every page", function() for _, page in ipairs(pages) do SlashCmdList.GOLDFOREVER("ui " .. page) end end)
+  end
+  -- The character's own latest scan gives prices: an item of it is priced.
+  do
+    local latest
+    for _, sc in ipairs(GoldForeverDB.scans or {}) do if sc.kind == "full" and (not latest or sc.t > latest.t) then latest = sc end end
+    local id = latest and latest.rows[1] and tonumber(latest.rows[1]:match("^(%d+)"))
+    if id then
+      local value = ns.price.market(id)
+      wait(5)
+      value = ns.price.market(id)
+      rows[#rows + 1] = string.format("%-34s %s (scan %s, item %d)", "own scan prices", value and "yes" or "NO", latest.market, id)
+      if not value then failedSteps = (failedSteps or 0) + 1 end
+    end
   end
   timed("HUD on and off", function() GoldForever_ToggleHud() wait(1) GoldForever_ToggleHud() end)
   local AP = ns.AuctionPanel
