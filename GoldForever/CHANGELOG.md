@@ -104,6 +104,8 @@
   save). They exist to keep WoW: Forever's knowledge; a Forever save keeps everything.
 - **Price trend**: with prices from the companion, an item's pool line and Post's market say how the price
   stands against its 7-day average ("+12% vs 7-day avg", "steady" within 1%), once the server sends it.
+- **Held counts in tooltips**: how many each of your characters holds of an item, in bags, bank and mail
+  ("Held 12: Zerie 10 (bags 8, bank 2), Zeripala 2 (mail)"). Settings → Modules switches it off.
 - **Crafting**: Cost, Profit and Margin share one base: the reagents still to buy plus the held ones at
   what they would sell for.
 - Recorded errors are of the version that recorded them: a new addon version starts with none.

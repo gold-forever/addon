@@ -476,6 +476,64 @@ function Views.inventory(characters, parse, worth, quality, name, filter)
 	return rows, totals
 end
 
+-- What every character holds of each item, for the tooltip's "Held" line (owner's answer, 2026-10-24):
+-- { [id] = { total, by = { { name, bags, bank, mail, total }, … most first } } } from the characters'
+-- saved places, each read by parse.
+function Views.holdings(characters, parse)
+	local index = {}
+	for _, c in pairs(characters or {}) do
+		local mine = {}
+		for _, place in ipairs(Views.PLACES) do
+			for id, n in pairs(parse(c[place] and c[place].items)) do
+				local h = mine[id]
+				if not h then
+					h = { name = c.name or "?", bags = 0, bank = 0, mail = 0, total = 0 }
+					mine[id] = h
+					local e = index[id] or { total = 0, by = {} }
+					index[id] = e
+					e.by[#e.by + 1] = h
+				end
+				h[place] = h[place] + n
+				h.total = h.total + n
+				index[id].total = index[id].total + n
+			end
+		end
+	end
+	for _, e in pairs(index) do
+		table.sort(e.by, function(a, b)
+			if a.total ~= b.total then
+				return a.total > b.total
+			end
+			return a.name < b.name
+		end)
+	end
+	return index
+end
+
+-- The "Held" line for one item's holdings: "Held 12: Zerie 10 (bags 8, bank 2), Zeripala 2 (mail)",
+-- at most `most` characters (3) and "+N more"; nil when nobody holds any.
+function Views.heldText(entry, most)
+	if not entry or entry.total == 0 then
+		return nil
+	end
+	most = most or 3
+	local parts = {}
+	for i, h in ipairs(entry.by) do
+		if i > most then
+			parts[#parts + 1] = string.format("+%d more", #entry.by - most)
+			break
+		end
+		local where = {}
+		for _, place in ipairs(Views.PLACES) do
+			if h[place] > 0 then
+				where[#where + 1] = h[place] == h.total and place or (place .. " " .. h[place])
+			end
+		end
+		parts[#parts + 1] = string.format("%s %d (%s)", h.name, h.total, table.concat(where, ", "))
+	end
+	return string.format("Held %d: %s", entry.total, table.concat(parts, ", "))
+end
+
 -- A gold goal on Home: gold now (copper, all characters) against goal = { gold (copper), by (Unix time) }.
 -- Returns { pct (0–100), left (copper still to make), daysLeft, perDay (copper a day to make it, nil once
 -- reached or past), reached, late }.
