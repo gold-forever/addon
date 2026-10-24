@@ -239,7 +239,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		end
 		local line = ns.Views.heldText(held[data.id])
 		if line then
-			tooltip:AddLine(ns.PREFIX .. " " .. line, 0.8, 0.8, 0.8, true)
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)

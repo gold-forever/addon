@@ -285,9 +285,16 @@ local function questDone(quest)
 	return completed and completed(quest) or false
 end
 
+-- Money with the game's coin icons, as its own Sell Price line; from a gold up, gold and silver only.
+-- Retail has the function under C_CurrencyInfo (manual test run 001: the tooltips showed plain text).
+local coinTexture = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
 local function coins(copper)
-	if GetCoinTextureString then
-		return GetCoinTextureString(math.floor(copper + 0.5))
+	copper = math.floor(copper + 0.5)
+	if copper >= 10000 then
+		copper = math.floor(copper / 100) * 100
+	end
+	if coinTexture then
+		return coinTexture(copper)
 	end
 	return Encode.money(copper)
 end
@@ -1236,7 +1243,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		end
 		local summary, drops, starters = mobLines(npc)
 		if summary then
-			tooltip:AddLine(ns.PREFIX .. " " .. summary, 1, 1, 1)
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. summary, 1, 1, 1)
 			if drops then
 				tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
 			end
@@ -1265,13 +1272,13 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		end
 		local parts = {}
 		if m then
-			parts[#parts + 1] = "AH " .. coins(m) .. " (" .. coins(math.floor(m * (1 - CUT))) .. " after cut)"
+			parts[#parts + 1] = "Your scan " .. coins(m)
 		end
 		if v then
-			parts[#parts + 1] = "vendor " .. coins(v)
+			parts[#parts + 1] = (m and "vendor " or "Vendor ") .. coins(v)
 		end
 		if #parts > 0 then
-			tooltip:AddLine(ns.PREFIX .. " " .. table.concat(parts, " · "), 1, 1, 1)
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. table.concat(parts, " · "), 1, 1, 1)
 		end
 		if de and de > 0 then
 			local sale = worth(data.id) or 0

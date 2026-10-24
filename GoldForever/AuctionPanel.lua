@@ -2311,9 +2311,9 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				price(r)
 				local sug = r.suggestion
 				if sug and sug.unit then
-					tooltip:AddLine(string.format("%s Post at %s · %s", ns.PREFIX, money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
+					tooltip:AddLine(string.format("%sPost at %s · %s", ns.tipPrefix(tooltip), money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
 				elseif sug then
-					tooltip:AddLine(ns.PREFIX .. " " .. (sug.label or Post.REASONS[sug.reason] or "Hold"), 0.6, 0.6, 0.6)
+					tooltip:AddLine(ns.tipPrefix(tooltip) .. (sug.label or Post.REASONS[sug.reason] or "Hold"), 0.6, 0.6, 0.6)
 				end
 				return
 			end

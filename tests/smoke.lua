@@ -1145,9 +1145,9 @@ print("TOOLTIP " .. tostring(GameTooltip.lines[1]))
 local function poolLine(id, label)
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id }) end
-  for _, l in ipairs(GameTooltip.lines) do if l:find(label or "Pool: ", 1, true) then return l, GameTooltip.shades[l] end end
+  for _, l in ipairs(GameTooltip.lines) do if l:find(label or "Market ", 1, true) then return l, GameTooltip.shades[l] end end
 end
-assert(poolLine(2589) == nil and poolLine(2589, "Your scan: ") == nil, "no pool line without GoldForever_Prices, nor the own scan's (the appraiser shows it)")
+assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
 -- Held: how many each character holds, from the saved bags, bank and mail; Settings → Modules switches it.
 do
   local line = poolLine(2589, "Held ")
@@ -1173,14 +1173,14 @@ GoldForever_Prices = { v = 1, at = now, markets = { [POOL_MINE] = { [2589] = { 1
 local pool = poolLine(2589)
 print("POOL " .. tostring(pool))
 if INTERFACE < 110000 then
-  assert(pool and pool:find("Pool: 12s 34c · min buyout 11s 0c · 3 players · scanned 2h ago", 1, true), "the pool line")
+  assert(pool and pool:find("Market 12s 34c · min 11s 0c", 1, true), "the pool line")
 else
   assert(pool == nil, "no Forever market on retail")
   -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.
   GoldForever_Prices.markets = { ["retail-EU-AnotherRealm"] = { [2589] = { 100, 90, 2, now } },
     ["retail-EU"] = { [2589] = { 500, 490, 9, now }, [2590] = { 200, 190, 4, now } } }
-  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min buyout 90c · 2 players", 1, true), "retail: the group's price first")
-  assert((poolLine(2590) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "retail: the region's commodity price")
+  assert((poolLine(2589) or ""):find("Market 1s 0c · min 90c", 1, true), "retail: the group's price first")
+  assert((poolLine(2590) or ""):find("Market 2s 0c · min 1s 90c", 1, true), "retail: the region's commodity price")
   assert(poolLine(2591) == nil, "retail: neither market has it")
   GoldForever_Prices.markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now } } }
 end
@@ -1198,7 +1198,7 @@ assert(poolLine(2590) == nil, "no pool line for an item without a price")
 if INTERFACE < 110000 then
   local neutralKey = POOL_MINE:gsub("%-" .. side .. "$", "-neutral")
   GoldForever_Prices.markets[neutralKey] = { [2589] = { 5000, 4500, 2, now } }
-  assert(poolLine(2589, "Neutral AH: ") == nil, "no neutral line outside a neutral zone")
+  assert(poolLine(2589, "Neutral AH ") == nil, "no neutral line outside a neutral zone")
   local where = C_Map.GetBestMapForUnit
   C_Map.GetBestMapForUnit = function() return 1446 end
   fire("ZONE_CHANGED_NEW_AREA")
@@ -1206,8 +1206,8 @@ if INTERFACE < 110000 then
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   local neutralAt, poolAt
   for k, l in ipairs(GameTooltip.lines) do
-    if l:find("Neutral AH: 50s 0c", 1, true) then neutralAt = k end
-    if l:find("Pool: ", 1, true) then poolAt = k end
+    if l:find("Neutral AH 50s 0c", 1, true) then neutralAt = k end
+    if l:find("Market ", 1, true) then poolAt = k end
   end
   assert(neutralAt and poolAt and neutralAt < poolAt, "the neutral line before the faction's in Tanaris: " .. table.concat(GameTooltip.lines, " | "))
   C_Map.GetBestMapForUnit = where
@@ -1231,11 +1231,16 @@ if INTERFACE < 110000 then
   assert(old:find("scanned 3d ago", 1, true) and oldShade < 1, "a price older than three days is greyed: " .. tostring(oldShade))
   GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400
   assert(select(2, poolLine(2589)) == 1, "three days old is not greyed yet")
-  -- The file lacks the item: the player's own latest scan, labelled as theirs.
-  assert(poolLine(2589, "Your scan: ") == nil, "no own-scan line when the file has the item")
-  local own = poolLine(2996, "Your scan: ")
-  print("OWN " .. tostring(own))
-  assert(own and own:find("Your scan: 2s 0c · min buyout 2s 0c · scanned", 1, true), "the own scan's fallback")
+  -- One line names the addon; the own scan has the appraiser's line, never a second one (manual test run
+  -- 001: three named lines were hard to read).
+  GameTooltip.lines = {}
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
+  local named, scans = 0, 0
+  for _, l in ipairs(GameTooltip.lines) do
+    if l:find("Gold Forever", 1, true) then named = named + 1 end
+    if l:find("Your scan", 1, true) then scans = scans + 1 end
+  end
+  assert(named <= 1 and scans <= 1, "one line named, one own-scan line: " .. table.concat(GameTooltip.lines, " | "))
   -- /gf prices with a file: its age, each market's item count, this character's marked.
   said = {}
   local saved = print
@@ -1262,11 +1267,11 @@ if INTERFACE < 110000 then
   local me, client = ns.me(), ns.db().client
   local faction, region = me.faction, client.region
   me.faction = "Alliance"
-  assert((poolLine(2589) or ""):find("Pool: 1s 0c · min buyout 90c · 2 players", 1, true), "the Alliance character reads its market")
+  assert((poolLine(2589) or ""):find("Market 1s 0c · min 90c", 1, true), "the Alliance character reads its market")
   me.faction = "Horde"
-  assert((poolLine(2589) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "a Horde character reads its market")
+  assert((poolLine(2589) or ""):find("Market 2s 0c · min 1s 90c", 1, true), "a Horde character reads its market")
   client.region = "US"
-  assert((poolLine(2589) or ""):find("Pool: 3s 0c · min buyout 2s 90c · 6 players", 1, true), "a Horde character in NA reads NA's")
+  assert((poolLine(2589) or ""):find("Market 3s 0c · min 2s 90c", 1, true), "a Horde character in NA reads NA's")
   me.faction = "Alliance"
   assert(poolLine(2589) == nil, "an Alliance character in NA has no market in the file")
   me.faction, client.region = faction, region
