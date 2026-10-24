@@ -1785,6 +1785,14 @@ function ns.applyLook()
 	Theme.apply(look(), accent())
 end
 
+-- The saved look, whichever was drawn last (the minimap's right-click steps on from it).
+ns.currentLook = look
+
+-- In the saved look from login, before anything is drawn.
+ns.on("PLAYER_LOGIN", "look", function()
+	ns.applyLook()
+end)
+
 local function windowFor(name)
 	-- A page saved before the pages were folded opens as its tab.
 	local folded = FOLDED[settings().page or ""]

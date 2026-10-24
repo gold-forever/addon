@@ -26,4 +26,17 @@ for _, a in ipairs({ 0, 33, 135, 225, 300 }) do
 	near(M.angle(10 + dx, 10 + dy, 10, 10), a, "an angle survives a round trip: " .. a)
 end
 
+-- A right-click steps on from the saved look, whichever look was drawn last.
+do
+	local asked
+	ns.commands.look = function(name) asked = name end
+	ns.currentLook = function() return "arcane" end
+	ns.Theme.apply("web")
+	M.switchLook()
+	eq(asked, "web", "saved Arcane, drawn Web: on to Web, round the list")
+	ns.currentLook = function() return "web" end
+	M.switchLook()
+	eq(asked, "classic", "saved Web: on to Classic")
+end
+
 return checks()
