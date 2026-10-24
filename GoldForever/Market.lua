@@ -223,11 +223,16 @@ local function read()
 	batch()
 end
 
+-- A scan still in hand after this long failed partway (an error in reading or saving it ends the step,
+-- not the scan); a real one is read and saved within two minutes, so the next may start.
+local ABANDONED = 600
+
 local function start(manual)
 	local db = ns.db()
-	if scan then
+	if scan and ns.now() - scan.t < ABANDONED then
 		return
 	end
+	scan = nil
 	local wait = (db.lastReplicate or 0) + COOLDOWN - ns.now()
 	if wait > 0 then
 		if manual then

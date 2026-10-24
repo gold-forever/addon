@@ -82,10 +82,12 @@ local function refreshStatistics()
 end
 
 -- Every achievement: the catalogue, and which ones are earned (account-wide), with the date.
+local readingAchievements -- when a read started: one at a time (every loading screen asks), let go after a minute
 local function readAchievements()
-	if not GetCategoryList then
+	if not GetCategoryList or (readingAchievements and GetTime() - readingAchievements < 60) then
 		return
 	end
+	readingAchievements = GetTime()
 	local db = ns.db()
 	local catalogue = db.catalogue.achievements
 	local earned = {}
@@ -103,6 +105,7 @@ local function readAchievements()
 			end
 		end
 	end, function()
+		readingAchievements = nil
 		table.sort(earned)
 		db.account = db.account or {}
 		-- "id:YYYY-MM-DD", comma-joined.

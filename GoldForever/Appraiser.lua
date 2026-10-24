@@ -1023,7 +1023,20 @@ local function buildMobs()
 	end
 	countingRows = {}
 	local counted, i = {}, 0
-	local function step()
+	local step
+	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
+	-- them again, rather than showing part of them for the session.
+	local function failed(err)
+		mobs, countingRows, built = nil, nil, {}
+		ns.fail("mob counts", err)
+	end
+	local function guarded()
+		local ok, err = pcall(step)
+		if not ok then
+			failed(err)
+		end
+	end
+	step = function()
 		local saved = mobs
 		mobs = counted
 		for _ = 1, CHUNKS_A_FRAME do
@@ -1042,9 +1055,7 @@ local function buildMobs()
 		end
 		if i < #chunks then
 			mobs = saved
-			C_Timer.After(0, function()
-				ns.safely("mob counts", step)
-			end)
+			C_Timer.After(0, guarded)
 			return
 		end
 		for _, rows in ipairs(countingRows) do
@@ -1056,7 +1067,7 @@ local function buildMobs()
 		end
 		built = {}
 	end
-	step()
+	guarded()
 end
 ns.on("PLAYER_ENTERING_WORLD", "mob counts", function()
 	if not mobs then
@@ -1127,9 +1138,13 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			if tooltip ~= GameTooltip or not data or not ns.db() then
 				return
 			end
+			-- A unit the client keeps secret: nothing to look up (tested before any other use of the value).
+			if ns.secret(data.guid) then
+				return
+			end
 			local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
 			if ns.secret(guid) then
-				return -- a unit the client keeps secret: nothing to look up
+				return
 			end
 			local npc = Encode.npcId(guid)
 			if not npc then
