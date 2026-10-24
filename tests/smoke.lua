@@ -891,6 +891,16 @@ do
   ns.AuctionPanel.tab("shop")
   ns.AuctionPanel.shopChoose({ itemId = 2589 })
   assert(browsed == 2 and p.tab == "shop", "chosen on Buy: its listings in Blizzard's window")
+  -- A browse result carries a price, as Blizzard's list hands it; one Blizzard refuses falls back to its
+  -- search bar.
+  local given
+  function f:SelectBrowseResult(r) given = r; error("refused") end
+  local typed, searched
+  f.SearchBar = { SearchBox = { SetText = function(_, t) typed = t end }, StartSearch = function() searched = true end }
+  C_Item.GetItemNameByID = C_Item.GetItemNameByID or function() return "Linen Cloth" end
+  ns.AuctionPanel.shopChoose({ itemId = 2589 })
+  assert(given and type(given.minPrice) == "number", "the browse result has a price")
+  assert(typed and searched and p.tab == "shop", "refused: the name searched in Blizzard's search bar")
   C_AuctionHouse.GetItemKeyInfo = keyInfo
   fire("AUCTION_HOUSE_CLOSED")
   AuctionHouseFrame, AuctionHouseFrameDisplayMode = nil, nil
