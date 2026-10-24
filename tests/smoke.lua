@@ -9,9 +9,12 @@ function GetTime() return clock end
 function debugprofilestop() return os.clock() * 1000 end
 function date(f, t) return os.date(f, t) end
 function print(...) io.write("[chat] ", table.concat({...}, " "), "\n") end
+-- As the client's: the hook runs after the original with the same arguments, and every value the
+-- original returns is passed on (a hooked C_Item.GetItemInfo still gives its sell price, the 11th).
+local function after(hook, args, ...) hook(unpack(args, 1, args.n)); return ... end
 function hooksecurefunc(a, b, c)
-  if type(a) == "string" then local orig = _G[a]; _G[a] = function(...) local r = orig(...); b(...); return r end
-  else local orig = a[b]; a[b] = function(...) local r = orig(...); c(...); return r end end
+  if type(a) == "string" then local orig = _G[a]; _G[a] = function(...) return after(b, { n = select("#", ...), ... }, orig(...)) end
+  else local orig = a[b]; a[b] = function(...) return after(c, { n = select("#", ...), ... }, orig(...)) end end
 end
 function TakeTaxiNode(slot) end
 tooltipHooks = {}
@@ -205,7 +208,21 @@ function GetMerchantItemID() return 159 end
 function GetMerchantItemInfo() return "Water", 0, 25, 5, -1, true, true, false end
 C_AuctionHouse = { PostItem = function() end, PostCommodity = function() end, ConfirmPostCommodity = function() end, ReplicateItems = function() end, GetNumReplicateItems = function() return 3 end,
   GetReplicateItemInfo = function(i) local c = ({5, 10, 1})[i+1]; return "x", 0, c, 1, true, 1, 0, 1, 1, ({500, 1000, 9000})[i+1], 0, false, "Bidder", "Owner", "Owner-Realm", 0, ({2589, 2589, 14047})[i+1], true end,
-  GetReplicateItemLink = function() return nil end }
+  GetReplicateItemLink = function() return nil end,
+  -- Time-left per replicate row (data gap D1), as the client answers it, 1–4: the two Linen auctions in different bands.
+  GetReplicateItemTimeLeft = function(i) return ({ 1, 4, 4 })[i + 1] end,
+  -- Buying and cancelling (data gap D7).
+  ConfirmCommoditiesPurchase = function() end, PlaceBid = function() end, CancelAuction = function() end,
+  GetAuctionInfoByID = function(id) if id == 77 then return { itemLink = "|Hitem:10221::::::::30|h[Gloves]|h", buyoutAmount = 25000, quantity = 1 } end end,
+  GetNumOwnedAuctions = function() return 1 end,
+  GetOwnedAuctionInfo = function(i) return { auctionID = 501, itemKey = { itemID = 2592 }, quantity = 20, buyoutAmount = 2100 } end }
+-- Vendor trade (data gap D4): the calls the addon hooks, and the buyback list.
+C_Container.UseContainerItem = function() end
+function BuyMerchantItem() end
+function BuybackItem() end
+function GetMerchantItemLink() return "|Hitem:159::::::::30|h[Water]|h" end
+function GetBuybackItemInfo(i) return "Linen", 0, 91, 7 end
+function GetBuybackItemLink(i) return "|Hitem:2589::::::::30|h[Linen]|h" end
 function GetNumSkillLines() return 0 end
 function GetSkillLineInfo() end
 
@@ -412,6 +429,10 @@ do -- the scan's market names the realm on WoW: Forever, the connected group on 
   local scan = GoldForeverDB.scans[#GoldForeverDB.scans]
   local want = INTERFACE >= 110000 and "-AnotherRealm-" or "-Classic Beta PvE 2-"
   assert(scan and scan.market and scan.market:find(want, 1, true), "scan market: " .. tostring(scan and scan.market))
+  -- D1: rows grouped by time-left band too: the two Linen auctions at one price, in two bands.
+  local rows = table.concat(scan.rows or {}, ";")
+  assert(rows:find("2589,100,5,1,0", 1, true) and rows:find("2589,100,10,1,3", 1, true), "scan rows with time left: " .. rows)
+  assert(scan.bands == 0, "the scan says its bands start at 0")
   -- Retail records each distinct item's class and stack; WoW: Forever's scan keeps its shape.
   if INTERFACE >= 110000 then
     local items = table.concat(scan.items or {}, ";")
@@ -824,6 +845,51 @@ do
   print("MAIL " .. m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil))
 end
 print("BUYER KEPT " .. tostring((table.concat(day.sale or {}, ";")):find("SomeBuyer") ~= nil))
+-- D7: expired auctions from the "expired" mails above (two alike mails, two rows; read again, still two).
+fire("MAIL_INBOX_UPDATE") wait(2)
+do
+  local ends = table.concat(day.auctionEnd or {}, ";")
+  local _, n = ends:gsub("expired", "")
+  assert(n == 2 and ends:find(",2592,20,,expired", 1, true), "expired auctions: " .. ends)
+end
+-- D4: at a merchant, a stack sold from the bags, five bought, one bought back; away from it, nothing.
+fire("MERCHANT_SHOW") wait(1)
+C_Container.UseContainerItem(0, 1)
+BuyMerchantItem(1, 5)
+BuybackItem(1)
+fire("MERCHANT_CLOSED")
+C_Container.UseContainerItem(0, 1)
+do
+  local trades = table.concat(day.merchantTrade or {}, ";")
+  assert(trades:find(",sell,2589,7,91,", 1, true), "vendor sale: " .. trades)
+  assert(trades:find(",buy,159,5,25,", 1, true), "vendor purchase: " .. trades)
+  assert(trades:find(",buyback,2589,7,91,", 1, true), "buyback: " .. trades)
+  local _, n = trades:gsub(",sell,", "")
+  assert(n == 1, "a sale away from the merchant: " .. trades)
+  print("TRADES " .. trades)
+end
+-- D7: purchases count only when the server confirms them; a cancel when the server confirms it.
+fire("AUCTION_HOUSE_SHOW")
+fire("COMMODITY_PRICE_UPDATED", 280, 5600)
+C_AuctionHouse.ConfirmCommoditiesPurchase(2589, 20)
+fire("COMMODITY_PURCHASE_FAILED")
+fire("COMMODITY_PRICE_UPDATED", 300, 6000)
+C_AuctionHouse.ConfirmCommoditiesPurchase(2589, 20)
+fire("COMMODITY_PURCHASE_SUCCEEDED")
+C_AuctionHouse.PlaceBid(77, 10000) -- a bid under the buyout: not a purchase
+fire("AUCTION_HOUSE_PURCHASE_COMPLETED", 77)
+C_AuctionHouse.PlaceBid(77, 25000)
+fire("AUCTION_HOUSE_PURCHASE_COMPLETED", 77)
+C_AuctionHouse.CancelAuction(501)
+fire("AUCTION_CANCELED", 501)
+do
+  local buys = table.concat(day.ahBuy or {}, ";")
+  local _, n = buys:gsub("[^;]+", "")
+  assert(n == 2 and buys:find(",2589,20,6000,1", 1, true) and buys:find(",10221,1,25000,", 1, true), "AH purchases: " .. buys)
+  local ends = table.concat(day.auctionEnd or {}, ";")
+  assert(ends:find(",2592,20,2100,cancelled", 1, true), "cancelled auction: " .. ends)
+  print("AH BUYS " .. buys)
+end
 -- Lists and profiles carried from the site (Data.lua's `shared`): merged into the save, newest wins.
 do
   local prices = GoldForever_Prices

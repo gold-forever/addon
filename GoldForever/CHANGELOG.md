@@ -98,6 +98,12 @@
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.
+- Records three new things for your pages on the site and the shared prices:
+  - each auction scan now notes how long the listings have left, so the site can tell a sale from an
+    auction that simply ran out;
+  - what you sell to and buy from vendors (item, how many, for how much);
+  - what you buy on the auction house, and your auctions that expire or that you cancel.
+  As before, nothing about other players is kept: no buyer or seller names.
 
 - **Retail saves are lean**: on a retail client the item tooltip text, the achievement catalogue and the
   map art are no longer recorded, and an existing retail save drops them at load (about 5 MB on a busy
