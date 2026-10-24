@@ -176,8 +176,8 @@ function Prices.markets(market, interface, portal)
 end
 
 -- The first market's valid entry for the item: value, minimum buyout, players, scan time.
--- An item's entry: { market value, min buyout, players, scanned at[, the mean market value of the 7 days
--- before] }. The fifth is new (owner's answer, 2026-10-24: a trend at launch); a file without it, or
+-- An item's entry: { market value, min buyout, players, scanned at[, week: the mean of its daily values
+-- over the 7 full days before the scan's day, absent with fewer than 3 or in a reset] }. The fifth is new (owner's answer, 2026-10-24: a trend at launch); a file without it, or
 -- with it unusable, shows no trend.
 local function entry(data, markets, id)
 	for _, market in ipairs(markets) do
@@ -196,15 +196,16 @@ function Prices.trend(value, week)
 	return math.floor((value - week) / week * 100 + 0.5)
 end
 
--- " · +8% on 7 days", " · steady on 7 days" within 1%, or "" without a trend.
+-- " · +8% vs 7-day avg", " · steady vs 7-day avg" within 1%, or "" without a trend. The average is the
+-- mean of the item's daily values over the 7 full days before its scan (the server's `week`).
 function Prices.trendText(pct)
 	if not pct then
 		return ""
 	end
 	if math.abs(pct) < 1 then
-		return " · steady on 7 days"
+		return " · steady vs 7-day avg"
 	end
-	return string.format(" · %s%d%% on 7 days", pct > 0 and "+" or "-", math.abs(pct))
+	return string.format(" · %s%d%% vs 7-day avg", pct > 0 and "+" or "-", math.abs(pct))
 end
 
 -- Whether data is a prices file this addon reads.

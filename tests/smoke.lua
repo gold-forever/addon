@@ -892,7 +892,7 @@ end
 if INTERFACE < 110000 then
   local e = GoldForever_Prices.markets[POOL_ALLIANCE][2589]
   e[5] = 1100
-  assert((poolLine(2589) or ""):find("12s 34c · +12% on 7 days", 1, true), "the pool line with its trend: " .. tostring(poolLine(2589)))
+  assert((poolLine(2589) or ""):find("12s 34c · +12% vs 7-day avg", 1, true), "the pool line with its trend: " .. tostring(poolLine(2589)))
   assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
   e[5] = nil
 end
