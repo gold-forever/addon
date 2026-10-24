@@ -1577,6 +1577,11 @@ local function buildLists(page)
 			return
 		end
 		self.armed = nil
+		-- Remembered, so the site's copy of it does not bring it back (it is not deleted there).
+		if list.id then
+			s.removedShared = s.removedShared or {}
+			s.removedShared[list.id] = ns.now()
+		end
 		table.remove(mine, i)
 		s.list, chosenItem = math.max(1, i - 1), nil
 		page.note:SetText("Deleted.")
@@ -2469,16 +2474,27 @@ ns.AuctionPanel = {
 -- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
 -- by id, the newer edit wins and the other is dropped (Shopping.merge; no copies since 2026-10-24). A file
 -- already merged is not merged again.
+-- A copy the site kept: marked so by the server, or named so by an earlier merge.
+local function copyMark(x, name)
+	if type(x.copyOf) == "string" then
+		return x.copyOf
+	end
+	return type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
+end
+
 local function mergeShared()
 	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
 	local s = settings()
-	-- Once: the "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up).
-	if not s.copiesDropped then
-		s.copiesDropped = true
-		local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
-		if n > 0 then
-			ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
+	-- The "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up),
+	-- marked or only named so.
+	for _, items in ipairs({ s.lists or {}, s.profiles or {} }) do
+		for _, x in ipairs(items) do
+			x.copyOf = x.copyOf or copyMark({}, x.name)
 		end
+	end
+	local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
+	if n > 0 then
+		ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
 	end
 	if not shared or shared.at == s.sharedAt then
 		return
@@ -2488,6 +2504,7 @@ local function mergeShared()
 		local got = type(x) == "table" and type(x.string) == "string" and ns.Shopping.decode(x.string)
 		if got and got[1] and type(x.id) == "string" then
 			got[1].id, got[1].edited = x.id, tonumber(x.edited) or 0
+			got[1].copyOf = copyMark(x, got[1].name)
 			lists[#lists + 1] = got[1]
 		end
 	end
@@ -2495,12 +2512,14 @@ local function mergeShared()
 		local p = type(x) == "table" and type(x.string) == "string" and ns.SalePlan.decode(x.string)
 		if p and type(x.id) == "string" then
 			p.id, p.edited = x.id, tonumber(x.edited) or 0
+			p.copyOf = copyMark(x, p.name)
 			profiles[#profiles + 1] = p
 		end
 	end
 	local a, b
-	s.lists, a = ns.Shopping.merge(s.lists or {}, lists)
-	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles)
+	s.removedShared = s.removedShared or {}
+	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, s.removedShared)
+	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, s.removedShared)
 	s.sharedAt = shared.at
 	if a + b > 0 then
 		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))
