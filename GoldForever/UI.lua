@@ -384,6 +384,16 @@ function UI.Panel(parent, opts)
 		-- name behind the auction panel).
 		f:SetBackdropColor(1, 1, 1, opts.alpha or 1)
 		f:SetBackdropBorderColor(Theme.rgb(Theme.color.borderStrong))
+		-- The dialog background file is itself see-through: a solid layer under it, inside the edge, so
+		-- what lies behind (the auction panel under the hub, the world's names) never shows.
+		if not opts.alpha then
+			local base = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+			base:SetTexture(WHITE)
+			base:SetVertexColor(Theme.rgb(Theme.color.bg))
+			local inset = skin.backdrop.insets and skin.backdrop.insets.left or 4
+			base:SetPoint("TOPLEFT", inset, -inset)
+			base:SetPoint("BOTTOMRIGHT", -inset, inset)
+		end
 		return f
 	end
 	local edge = opts.border ~= false and (opts.borderColor or Theme.color.border) or nil
