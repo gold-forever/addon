@@ -1171,10 +1171,14 @@ local function buildInventory(page)
 	end)
 	search:SetPoint("TOPRIGHT")
 	search:SetPoint("LEFT", quality, "RIGHT", 8, 0)
+	-- Four cards across the page; the fourth holds the soulbound switch (manual test run 001: the switch
+	-- beside the cards looked out of place).
+	local W = (page:GetWidth() and page:GetWidth() > 0) and page:GetWidth() or 708
+	local cardW = math.floor((W - 36) / 4)
 	local cards = {}
-	for i, label in ipairs({ "Worth", "Items", "Units" }) do
+	for i, label in ipairs({ "Worth", "Items", "Units", "Soulbound" }) do
 		local c = UI.StatCard(page, label, "", "")
-		c:SetWidth(160)
+		c:SetWidth(cardW)
 		if i == 1 then
 			c:SetPoint("TOPLEFT", who, "BOTTOMLEFT", 0, -12)
 		else
@@ -1182,13 +1186,13 @@ local function buildInventory(page)
 		end
 		cards[i] = c
 	end
-	-- Tradeable only: soulbound units left out (they count at a vendor's price otherwise).
-	local tradeable = UI.Switch(page, false, function(on)
+	-- Leave out: soulbound units hidden (they count at a vendor's price otherwise).
+	local tradeable = UI.Switch(cards[4], false, function(on)
 		filter.tradeable = on or nil
 		refresh()
 	end)
-	tradeable:SetPoint("LEFT", cards[3], "RIGHT", 16, 0)
-	local tradeableLabel = UI.Text(page, "Tradeable only", { size = "sm", tone = "muted" })
+	tradeable:SetPoint("TOPLEFT", cards[4].label, "BOTTOMLEFT", 0, -10)
+	local tradeableLabel = UI.Text(cards[4], "Leave out", { size = "sm", tone = "muted" })
 	tradeableLabel:SetPoint("LEFT", tradeable, "RIGHT", 8, 0)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 2, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
@@ -1197,7 +1201,7 @@ local function buildInventory(page)
 			end },
 		{ key = "held", title = "Held", width = 60, align = "RIGHT" },
 		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end, tooltip = function(r) return r.holders end },
-		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
+		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value, "silver") end, sort = function(r) return r.value end },
 	}, {
 		pageSize = 9,
 		empty = "Nothing matches.",
@@ -1220,7 +1224,8 @@ local function buildInventory(page)
 		end, itemQuality, itemName, filter, function(id)
 			return ns.price and ns.price.vendor(id)
 		end)
-		cards[1]:Set(UI.layout.money(totals.worth, "gold"), filter.place == "gear" and "equipped: not counted" or "bound items at a vendor's price")
+		cards[1]:Set(UI.layout.money(totals.worth, "gold"), filter.place == "gear" and "equipped: not counted" or "bound at vendor price")
+		cards[4]:Set("", "") -- the switch stands where a value would
 		cards[2]:Set(tostring(totals.items), "different items")
 		cards[3]:Set(tostring(totals.units), "in all")
 		tbl:SetRows(rows)
