@@ -434,6 +434,23 @@ do
   GoldForeverDB.settings.auction.overrides.items[2589] = nil
   AP.ruleScope("default")
   AP.tab("post")
+  -- A post the client says needs confirming: nothing is waited for, the next press confirms it with the
+  -- same four arguments.
+  do
+    local postInner, confirmed, asked = C_AuctionHouse.PostCommodity, nil, false
+    C_AuctionHouse.PostCommodity = function() asked = true return true end
+    C_AuctionHouse.ConfirmPostCommodity = function(...) confirmed = { n = select("#", ...), ... } end
+    AP.post()
+    if not asked then AP.post() end -- a sanity check's second press first, if one was asked
+    assert(asked and not confirmed, "posted, the client asked to confirm")
+    assert(select(3, AP.state()) == nil, "nothing waited for when the client asks to confirm")
+    AP.post()
+    assert(confirmed and confirmed.n == 4 and confirmed[3] >= 1 and confirmed[4] and confirmed[4] % 100 == 0, "confirmed with the post's four arguments")
+    -- A refused post clears the wait at once (AUCTION_HOUSE_POST_ERROR), the item still chosen.
+    fire("AUCTION_HOUSE_POST_ERROR")
+    assert(select(3, AP.state()) == nil, "the refusal ends the wait")
+    C_AuctionHouse.PostCommodity = postInner
+  end
   AP.duration(3) -- 48 hours for Linen, remembered for it
   AP.quantity(5) -- 5 of the 7 held, remembered for it
   AP.post()
@@ -523,6 +540,9 @@ do
   AP.tab("cancel")
   AP.cancelCheck()
   fire("OWNED_AUCTIONS_UPDATED")
+  fire("COMMODITY_SEARCH_RESULTS_UPDATED", 1234) -- another item's search: the check waits for its own
+  local _, stillChecking = AP.owned()
+  assert(stillChecking == 1, "another search does not move the check on")
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   wait(1)
   local mine, checking = AP.owned()

@@ -279,10 +279,11 @@ local function post()
 	if confirm and confirm.key == r.key then
 		local args = confirm.args
 		confirm = nil
+		-- The arguments as posted, a nil bid included (unpack stops at a hole without the count).
 		if r.commodity and C_AuctionHouse.ConfirmPostCommodity then
-			C_AuctionHouse.ConfirmPostCommodity(unpack(args))
+			C_AuctionHouse.ConfirmPostCommodity(unpack(args, 1, args.n))
 		elseif C_AuctionHouse.ConfirmPostItem then
-			C_AuctionHouse.ConfirmPostItem(unpack(args))
+			C_AuctionHouse.ConfirmPostItem(unpack(args, 1, args.n))
 		end
 		waiting = { key = r.key, at = GetTime() }
 		return
@@ -298,12 +299,20 @@ local function post()
 	local duration = durationOf(r)
 	local loc = r.locations[1]
 	local q = quantity(r)
+	-- The client says at once whether the post needs confirming (a price far from the going one); then
+	-- the next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
+	local needs
 	if r.commodity then
-		C_AuctionHouse.PostCommodity(loc, duration, q, unit)
-		lastArgs = { loc, duration, q, unit }
+		lastArgs = { n = 4, loc, duration, q, unit }
+		needs = C_AuctionHouse.PostCommodity(loc, duration, q, unit)
 	else
-		C_AuctionHouse.PostItem(loc, duration, q, nil, unit * q)
-		lastArgs = { loc, duration, q, nil, unit * q }
+		lastArgs = { n = 5, loc, duration, q, nil, unit * q }
+		needs = C_AuctionHouse.PostItem(loc, duration, q, nil, unit * q)
+	end
+	if needs then
+		confirm = { key = r.key, args = lastArgs }
+		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
+		return
 	end
 	waiting = { key = r.key, at = GetTime() }
 	panel.post.note:SetText("Posting…")
@@ -346,6 +355,15 @@ ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 	waiting = nil
 	if panel and panel.post.note then
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
+	end
+end)
+-- A post the server refused: say so at once rather than after the wait.
+ns.on("AUCTION_HOUSE_POST_ERROR", "auction panel", function()
+	if waiting and not string.find(waiting.key, "^shop:") and not string.find(waiting.key, "^cancel:") then
+		waiting = nil
+		if panel and panel.post.note then
+			panel.post.note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused the post.|r")
+		end
 	end
 end)
 ns.on("UI_ERROR_MESSAGE", "auction panel", function(_, message)
@@ -900,12 +918,17 @@ local function buildShop(page)
 end
 
 -- Shift-clicking an item while the Shop's field has focus puts its link there, as in the chat box.
-if hooksecurefunc and ChatEdit_InsertLink then
-	hooksecurefunc("ChatEdit_InsertLink", function(link)
-		if panel and panel.shop and panel.shop.add and panel.shop.add:HasFocus() and link then
-			panel.shop.add:Insert(link .. " ")
-		end
-	end)
+-- The client's own path for that is ChatFrameUtil.InsertLink (HandleModifiedItemClick calls it);
+-- ChatEdit_InsertLink is its older name, still on some clients.
+local function insertLink(link)
+	if panel and panel.shop and panel.shop.add and panel.shop.add:HasFocus() and link then
+		panel.shop.add:Insert(link .. " ")
+	end
+end
+if hooksecurefunc and ChatFrameUtil and ChatFrameUtil.InsertLink then
+	hooksecurefunc(ChatFrameUtil, "InsertLink", insertLink)
+elseif hooksecurefunc and ChatEdit_InsertLink then
+	hooksecurefunc("ChatEdit_InsertLink", insertLink)
 end
 
 -- Cancel undercut ----------------------------------------------------------------------------------------------
@@ -976,12 +999,23 @@ ns.on("OWNED_AUCTIONS_UPDATED", "auction cancel", function()
 	end
 end)
 -- A search answered moves the check to the next auction (both kinds of results).
-local function searched()
-	if checking and checking > 0 then
-		C_Timer.After(0.3, function()
-			ns.safely("auction cancel", checkNext)
-		end)
+-- Only the answer for the auction being checked moves it on, once (other searches, the panel's or
+-- Blizzard's, and repeated events for the same item do not); 0.7 s apart keeps the check under the
+-- search limit of 100 a minute.
+local CHECK_GAP = 0.7
+local function searched(what)
+	local a = checking and checking > 0 and owned[checking]
+	if not a or a.answered then
+		return
 	end
+	local id = type(what) == "table" and what.itemID or what
+	if id ~= a.itemID then
+		return
+	end
+	a.answered = true
+	C_Timer.After(CHECK_GAP, function()
+		ns.safely("auction cancel", checkNext)
+	end)
 end
 ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction cancel", searched)
 ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction cancel", searched)
