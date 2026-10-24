@@ -852,7 +852,7 @@ end
 local GUIDE = {
 	{ "Getting started", "Gold Forever records your characters, money, loot and auction scans for your pages on gold-forever.app, and brings everyone's prices into the game. Install the free companion app (gold-forever.app/companion): it uploads your save when the game writes it and brings prices in every hour. /gf opens this window; the minimap coin does too (right-click switches the look)." },
 	{ "At the auction house", "A panel opens beside the auction house. Its tabs follow Blizzard's. Scan runs a full scan when you press Scan now (one every 15 minutes; switch on \"Scan when I open the auction house\" to have it start by itself). Sell lists what your bags can sell, priced by your selling rules against the cheapest listing by someone else; alt-click an item in your bags to choose it, then click Post or press Space. A price far under the market or a vendor's asks for a second press. Your bag items' tooltips say what Sell would ask; the panel's top line says what your bank and mail hold worth posting." },
-	{ "Buy and Auctions", "Buy keeps lists of items with the most you pay: shift-click an item into the field, add a gold price or none for \"under market\". Choose one and Buy next asks the auction house for a price; a second press buys. Auctions checks your auctions and cancels the most undercut one a press (the item comes back by mail); click one to see its listings." },
+	{ "Buy and Auctions", "Buy buys from a shopping list: choose a list, click an item to see its listings, and Buy next asks the auction house for a price; a second press buys. Lists are made on the Shopping lists page (Edit lists ›): drop an item on its slot or shift-click it anywhere, then set the most you pay (under market, a fixed price or a share of the market value) and how many you want. Auctions checks your auctions and cancels the most undercut one a press (the item comes back by mail); click one to see its listings." },
 	{ "Selling rules and profiles", "The Selling rules page sets how you undercut, the floor and the normal price, and shows what that does to an item worth 10g; \"Rule for\" adds a rule for one item or a whole category (Rule › on the Sell tab opens it for the item in view). A sale profile (a GFP1 string, made at gold-forever.app/me/lists or shared by others) prices the items it names: keep so many, undercut, a fixed price or a point in the supply." },
 	{ "Crafting", "The Crafting page lists your recipes by profit; \"I have these\" counts what you hold at no cost. Queue crafts there or on the strip beside the profession window, and the Buy tab's \"Craft queue\" list buys only what is missing." },
 	{ "While you play", "The session HUD shows gold, XP and kills an hour; click it for the session. Big drops and rares get a message. The mail helper beside the mailbox opens auction mail a batch a press. Settings → Modules switches any part off; what the save records stays the same." },
@@ -1611,6 +1611,11 @@ local PAGES = {
 		tabs = LEDGER_TABS, build = tabbed("ledger", LEDGER_TABS) },
 	{ key = "crafting", label = "Crafting", icon = "flask-conical", group = "Trading", build = buildCrafting, title = "Crafting",
 		lede = "Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut." },
+	{ key = "lists", label = "Shopping lists", icon = "backpack", group = "Trading", title = "Shopping lists",
+		lede = "What the auction panel's Buy tab buys: your lists, their items, the most you pay and how many.",
+		build = function(page)
+			ns.buildShoppingLists(page)
+		end },
 	{ key = "rules", label = "Selling rules", icon = "tag", group = "Trading", title = "Selling rules",
 		lede = "How the auction panel's Sell tab prices your items: by these rules, or a sale profile.",
 		build = function(page)
