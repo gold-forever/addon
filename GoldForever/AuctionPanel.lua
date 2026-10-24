@@ -786,11 +786,16 @@ function ns.announceDeals()
 		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", …" or ""))
 end
 
-local function searchEntry(e)
+-- `open`: chosen by the player, so Blizzard's window shows its listings too (manual test run 001); the
+-- panel's own search still reads the book for the deal.
+local function searchEntry(e, open)
 	if not (e and C_AuctionHouse.MakeItemKey and C_AuctionHouse.SendSearchQuery) then
 		return
 	end
 	local key = C_AuctionHouse.MakeItemKey(e.itemId)
+	if open then
+		browse(key)
+	end
 	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
 end
@@ -955,7 +960,7 @@ local function buildShop(page)
 		isSelected = function(r) return shopChosen and r.itemId == shopChosen.itemId end,
 		onRowClick = function(r)
 			shopChosen, purchase = r.entry, nil
-			searchEntry(r.entry)
+			searchEntry(r.entry, true)
 			refresh()
 		end,
 	})
@@ -1967,7 +1972,7 @@ ns.AuctionPanel = {
 	end,
 	shopChoose = function(e)
 		shopChosen, purchase = e, nil
-		searchEntry(e)
+		searchEntry(e, true)
 		refresh()
 	end,
 	shopBuy = function()
