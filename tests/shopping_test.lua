@@ -40,6 +40,11 @@ eq(S.decode(S.encode({ { name = "Raid", entries = { { itemId = 7, lowest = 120, 
 eq((S.decode("GFL1:" .. E.base64("list a\nitem 1 lowest 0"))), nil, "lowest 0")
 eq(S.parseGold("4.5"), 45000, "gold with a point")
 eq(S.parseGold("4,5"), 45000, "or a comma")
+eq(S.parseGold("4,50"), 45000, "a comma before two digits")
+-- A thousands separator is not a decimal point (review B-37).
+eq(S.parseGold("1,000"), 10000000, "a thousand gold")
+eq(S.parseGold("1,000,5"), 10005000, "thousands, then a decimal comma")
+eq(S.parseGold("1,000.5"), 10005000, "thousands, then a decimal point")
 eq(S.parseGold("4g 50s"), 45000, "gold and silver")
 eq(S.parseGold("45s"), 4500, "silver")
 eq(S.parseGold("1g2s3c"), 10203, "all three")

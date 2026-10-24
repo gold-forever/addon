@@ -221,7 +221,9 @@ function Shopping.parseAdd(text)
 	return tonumber(id), (copper and copper > 0) and copper or nil
 end
 
--- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c"; copper, or nil when it is none.
+-- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c"; copper, or nil when it is none. A
+-- comma is a decimal point only before one or two digits at the end ("4,5", "4,50"); else it separates
+-- thousands ("1,000" is a thousand gold, not one).
 function Shopping.parseGold(text)
 	text = string.lower(string.match(text or "", "^%s*(.-)%s*$"))
 	if text == "" then
@@ -229,7 +231,11 @@ function Shopping.parseGold(text)
 	end
 	local copper
 	if string.find(text, "^[%d%.,]+$") then
-		local gold = tonumber((string.gsub(text, ",", ".")))
+		local whole, cents = string.match(text, "^(.-),(%d%d?)$")
+		if whole then
+			text = whole .. "." .. cents
+		end
+		local gold = tonumber((string.gsub(text, ",", "")))
 		copper = gold and math.floor(gold * 10000 + 0.5)
 	else
 		local g, s, c, rest = 0, 0, 0, text
