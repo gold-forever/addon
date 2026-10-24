@@ -25,20 +25,20 @@ local function data(entry, market)
 end
 local good = { 1234, 1100, 3, NOW - 3 * 3600 }
 
-eq(P.line(data(good), { MARKET }, 2589, NOW), "Pool: 12s 34c · min buyout 11s 0c · 3 players · scanned 3h ago", "the item's line")
-eq(P.line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Pool: 12s 34c · min buyout 11s 0c · 1 player · scanned just now", "one player")
+eq(P.line(data(good), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "the item's line")
+eq(P.line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "one player")
 
-eq(P.line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Pool: 12s 34c · min buyout 11s 0c · 2 players · scanned just now", "a fractional count is not an error")
+eq(P.line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "a fractional count is not an error")
 
 -- The week's trend, when the file carries the mean of the 7 days before (a fifth field).
-eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Pool: 12s 34c · +12% vs 7-day avg · min buyout 11s 0c · 1 player · scanned just now", "up on the week")
-eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · -20% vs 7-day avg · min buyout 9s 0c · 1 player · scanned just now", "down on the week")
-eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · steady vs 7-day avg · min buyout 9s 0c · 1 player · scanned just now", "within 1%")
-eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Pool: 10s 0c · min buyout 9s 0c · 1 player · scanned just now", "an unusable week shows no trend")
+eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Market 12s 34c · +12% vs 7-day avg · min 11s 0c", "up on the week")
+eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Market 10s 0c · -20% vs 7-day avg · min 9s 0c", "down on the week")
+eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Market 10s 0c · steady vs 7-day avg · min 9s 0c", "within 1%")
+eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "an unusable week shows no trend")
 -- Sell measures against the 7-day average where there is one.
 eq(table.concat({ P.sellBase(128300, "pool", 90000) }, " "), "90000 7-day avg", "the week's average")
 eq(table.concat({ P.sellBase(128300, "pool", nil) }, " "), "128300 pool", "else the value")
-eq(P.line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · min buyout 9s 0c · 1 player · scanned just now", "nor a zero one")
+eq(P.line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "nor a zero one")
 eq(P.trend(nil, 1000), nil, "no value, no trend")
 
 -- Absent: no table, no market, no item.
@@ -157,9 +157,9 @@ local several = { v = 1, at = NOW, markets = {
 	["forever-NA-pvp-horde"] = { [2589] = { 300, 290, 6, NOW } },
 } }
 local function mine(market) return P.line(several, P.markets(market, FOREVER), 2589, NOW) end
-eq(mine("EU-Some PvE Realm-horde"), "Pool: 2s 0c · min buyout 1s 90c · 4 players · scanned just now", "Horde in EU")
-eq(mine("EU-Some PvE Realm-alliance"), "Pool: 1s 0c · min buyout 90c · 2 players · scanned just now", "Alliance in EU")
-eq(mine("US-Grim PvP-horde"), "Pool: 3s 0c · min buyout 2s 90c · 6 players · scanned just now", "Horde on an NA PvP realm")
+eq(mine("EU-Some PvE Realm-horde"), "Market 2s 0c · min 1s 90c", "Horde in EU")
+eq(mine("EU-Some PvE Realm-alliance"), "Market 1s 0c · min 90c", "Alliance in EU")
+eq(mine("US-Grim PvP-horde"), "Market 3s 0c · min 2s 90c", "Horde on an NA PvP realm")
 eq(mine("US-Grim PvP-alliance"), nil, "Alliance in NA: not in the file")
 
 -- The server's keys to read, in order: Forever its one market, retail the realm group's then the region's
@@ -193,12 +193,12 @@ local retail = { v = 1, at = NOW, markets = {
 	["retail-NA-Area52"] = { [2] = { 300, 290, 6, NOW } },
 } }
 local group = P.markets("EU-ArgentDawn-horde", RETAIL)
-eq(P.line(retail, group, 1, NOW), "Pool: 1s 0c · min buyout 90c · 2 players · scanned just now", "the group's price before the commodity's")
-eq(P.line(retail, group, 2, NOW), "Pool: 2s 0c · min buyout 1s 90c · 4 players · scanned just now", "the region's commodity price")
+eq(P.line(retail, group, 1, NOW), "Market 1s 0c · min 90c", "the group's price before the commodity's")
+eq(P.line(retail, group, 2, NOW), "Market 2s 0c · min 1s 90c", "the region's commodity price")
 eq(P.line(retail, group, 3, NOW), nil, "neither has the item")
 eq(P.line(retail, P.markets("EU-ArgentDawn-horde", FOREVER), 1, NOW), nil, "Forever never reads retail's markets")
 retail.markets["retail-EU-ArgentDawn"][1] = { "x" }
-eq(P.line(retail, group, 1, NOW), "Pool: 5s 0c · min buyout 4s 90c · 9 players · scanned just now", "a malformed group entry falls through to the commodity's")
+eq(P.line(retail, group, 1, NOW), "Market 5s 0c · min 4s 90c", "a malformed group entry falls through to the commodity's")
 
 -- Stale: a price scanned more than three days ago is greyed (the second value).
 local DAY = 86400
@@ -206,11 +206,11 @@ local function stale(scannedAt) return select(2, P.line(data({ 1234, 1100, 3, sc
 eq(stale(NOW - 3 * DAY), false, "three days old is not stale yet")
 eq(stale(NOW - 3 * DAY - 1), true, "older than three days is stale")
 eq(stale(NOW), false, "a fresh price")
-eq(P.line(data({ 1234, 1100, 3, NOW - 4 * DAY }), { MARKET }, 2589, NOW), "Pool: 12s 34c · min buyout 11s 0c · 3 players · scanned 4d ago", "a stale line keeps its words")
+eq(P.line(data({ 1234, 1100, 3, NOW - 4 * DAY }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c · scanned 4d ago", "a stale line keeps its words")
 
 -- The player's own scans when the file lacks the item, labelled as theirs.
-eq(P.ownLine(1234, 1100, NOW - 2 * 3600, NOW), "Your scan: 12s 34c · min buyout 11s 0c · scanned 2h ago", "the player's own scan")
-eq(P.ownLine(1234, nil, NOW, NOW), "Your scan: 12s 34c · scanned just now", "no cheapest known")
+eq(P.ownLine(1234, 1100, NOW - 2 * 3600, NOW), "Your scan 12s 34c · min 11s 0c", "the player's own scan")
+eq(P.ownLine(1234, nil, NOW, NOW), "Your scan 12s 34c", "no cheapest known")
 eq(select(2, P.ownLine(1234, 1100, NOW - 4 * DAY, NOW)), true, "an old own scan is stale too")
 eq(select(2, P.ownLine(1234, 1100, NOW, NOW)), false, "a fresh own scan")
 eq(P.ownLine(nil, 1100, NOW, NOW), nil, "no own price")
@@ -259,7 +259,7 @@ eq(#st.missing, 1, "a market of this character's the file lacks")
 eq(st.missing[1], "forever-EU-normal-neutral", "named")
 
 -- A line's label: "Pool" unless named (the neutral auction house's line).
-eq((P.line({ v = 1, at = NOW, markets = { m = { [5] = good } } }, { "m" }, 5, NOW, "Neutral AH") or ""):sub(1, 11), "Neutral AH:", "a named line")
+eq((P.line({ v = 1, at = NOW, markets = { m = { [5] = good } } }, { "m" }, 5, NOW, "Neutral AH") or ""):sub(1, 11), "Neutral AH ", "a named line")
 
 -- The stale-file warning at login: over a day old, at most once a day; nothing without a file.
 eq(P.staleWarning(nil, NOW, nil), nil, "no file, no warning")

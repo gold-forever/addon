@@ -242,11 +242,11 @@ function Prices.line(data, markets, id, now, label)
 	if not value then
 		return nil
 	end
-	players = math.floor(players)
+	-- Short (manual test run 001): the value, the trend, the cheapest; the age only once it is old.
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	return string.format("%s: %s%s · min buyout %s · %d %s · %s", label or "Pool", coins(value), Prices.trendText(Prices.trend(value, week)),
-		coins(minBuyout), players, players == 1 and "player" or "players", age), stale
+	return string.format("%s %s%s · min %s%s", label or "Market", coins(value), Prices.trendText(Prices.trend(value, week)),
+		coins(minBuyout), stale and (" · " .. age) or ""), stale
 end
 
 -- The player's own latest scan (the appraiser's prices), for an item the file lacks.
@@ -256,8 +256,8 @@ function Prices.ownLine(value, cheapest, scannedAt, now)
 	end
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	local min = cheapest and (" · min buyout " .. coins(cheapest)) or ""
-	return "Your scan: " .. coins(value) .. min .. " · " .. age, stale
+	local min = cheapest and (" · min " .. coins(cheapest)) or ""
+	return "Your scan " .. coins(value) .. min .. (stale and (" · " .. age) or ""), stale
 end
 
 local function count(t)
@@ -349,18 +349,14 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
 			if nline then
 				local shade = nstale and STALE_SHADE or 1
-				tooltip:AddLine(ns.PREFIX .. " " .. nline, shade, shade, shade)
+				tooltip:AddLine(ns.tipPrefix(tooltip) .. nline, shade, shade, shade)
 			end
 		end
+		-- The own scan has its own line (Appraiser.lua): only the pool's here.
 		local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
-		-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
-		if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
-			local value, cheapest, scannedAt = ns.ownPrice(data.id)
-			line, stale = Prices.ownLine(value, cheapest, scannedAt, now)
-		end
 		if line then
 			local shade = stale and STALE_SHADE or 1
-			tooltip:AddLine(ns.PREFIX .. " " .. line, shade, shade, shade)
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, shade, shade, shade)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)

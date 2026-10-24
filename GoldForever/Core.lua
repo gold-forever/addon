@@ -117,6 +117,24 @@ function ns.frameSpent(started, done, fallback, ms)
 	return done >= fallback
 end
 
+-- "Gold Forever " on the first of the addon's lines in a tooltip, nothing on the rest (manual test run
+-- 001: three lines each with the name were hard to read). The mark goes when the tooltip is cleared.
+local prefixed = setmetatable({}, { __mode = "k" })
+local clearedHook = setmetatable({}, { __mode = "k" })
+function ns.tipPrefix(tooltip)
+	if prefixed[tooltip] then
+		return ""
+	end
+	prefixed[tooltip] = true
+	if not clearedHook[tooltip] and tooltip.HookScript then
+		clearedHook[tooltip] = true
+		tooltip:HookScript("OnTooltipCleared", function(self)
+			prefixed[self] = nil
+		end)
+	end
+	return ns.PREFIX .. " "
+end
+
 -- Panels outside the hub (the auction panel, the crafting strip, the mail helper, the HUD) redraw in a
 -- new look while they show (manual test run 001: the crafting strip stayed arcane after a switch to
 -- classic). ns.onLook(fn) adds one; ns.lookChanged() calls them.
