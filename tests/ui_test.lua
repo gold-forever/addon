@@ -124,4 +124,60 @@ eq(table.concat(slices.BOTTOMRIGHT, ","), "0.5,1,0.5,1", "bottom right quarter")
 eq(table.concat(slices.BOTTOMLEFT, ","), "0.49,0.51,0.49,0.51", "a square corner is the middle")
 eq(table.concat(slices.TOP, ","), "0.49,0.51,0,0.5", "the top edge is the middle column's top half")
 
+-- The hub's sidebar: headings for the groups with a page left, pages by label or title, any case.
+local pages = {
+	{ key = "characters", label = "Characters", group = "Overview" },
+	{ key = "ledger", label = "Ledger", group = "Overview" },
+	{ key = "mobs", label = "Mobs", title = "Mobs, by what a loot is worth", group = "Play" },
+	{ key = "settings", label = "Settings", group = "Addon" },
+}
+local function nav(query)
+	local out = {}
+	for _, r in ipairs(L.navRows(pages, query)) do
+		out[#out + 1] = r.head and ("#" .. r.head) or r.page.key
+	end
+	return table.concat(out, " ")
+end
+eq(nav(""), "#Overview characters ledger #Play mobs #Addon settings", "every group and page")
+eq(nav("LED"), "#Overview ledger", "a match keeps only its group")
+eq(nav("loot"), "#Play mobs", "the title counts too")
+eq(nav("zzz"), "", "nothing matches")
+
+-- The footprint line, with and without the profiler.
+eq(L.footprint(2048, 0.0125), "Memory 2.0 MB · CPU 0.013 ms", "memory and CPU")
+eq(L.footprint(512), "Memory 0.5 MB", "memory only")
+
+-- A slider's value: on a step, inside its range.
+eq(L.step(87, 70, 130, 5), 85, "down to the nearer step")
+eq(L.step(88, 70, 130, 5), 90, "up to the nearer step")
+eq(L.step(200, 70, 130, 5), 130, "held at the top")
+eq(L.step(-3, 0, 50, 1), 0, "held at the bottom")
+
+-- An accent over a look: the chosen colour, a lighter strong shade, a soft one mixed into the background.
+eq(T.mix("#000000", "#ffffff", 0.5), "#808080", "half way")
+eq(T.mix("#e0ac45", "#e0ac45", 0.3), "#e0ac45", "a colour mixed with itself")
+T.apply("arcane", "#2fd1a8")
+eq(T.color.accent, "#2fd1a8", "the accent goes over the look's")
+eq(T.color.accentStrong, T.mix("#2fd1a8", "#ffffff", 0.3), "a lighter strong shade")
+eq(T.color.accentSoft, T.mix("#05060f", "#2fd1a8", 0.2), "a soft shade in the look's background")
+eq(T.color.text, "#e6e9ff", "the look's other colours stay")
+T.apply("arcane", "not a colour")
+eq(T.color.accent, "#6ee7ff", "a bad accent is ignored")
+T.apply("web")
+eq(T.color.accent, "#e0ac45", "and a look without one has its own")
+
+-- Arcane with a chosen accent: its cyan becomes the accent in the decor and header art, its violet stays,
+-- and the look's own tables are not changed; without an accent it is the look itself.
+local arcane = T.skins.arcane
+local skin = T.apply("arcane", "#d6453b")
+eq(skin.decor.rule[1], "#d6453b", "the rule's cyan is the accent")
+eq(skin.decor.rule[3], "#b48cff", "its violet stays")
+eq(skin.decor.primary[1], "#d6453b", "the button's brighter cyan too")
+eq(skin.decor.glow[1], "#d6453b", "the glow")
+eq(skin.hero.lights[2][1], "#d6453b", "the header art's cyan light")
+eq(skin.hero.stars[2][3], T.color.accentStrong, "the light stars take the strong shade")
+eq(arcane.decor.rule[1], "#6ee7ff", "the look's own table untouched")
+eq(T.apply("arcane"), arcane, "no accent: the look itself")
+T.apply("web")
+
 return checks

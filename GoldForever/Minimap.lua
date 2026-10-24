@@ -146,6 +146,8 @@ local function refresh()
 end
 
 ns.on("PLAYER_LOGIN", "minimap", refresh)
+-- The Settings page's switch shows or hides the button at once.
+ns.refreshMinimap = refresh
 
 -- "/gf minimap": hide the button or bring it back.
 ns.commands.minimap = function()
@@ -183,6 +185,13 @@ function GoldForever_SwitchLook()
 	ns.safely("binding", Minimap_.switchLook)
 end
 
+function GoldForever_ToggleHud()
+	ns.safely("binding", function()
+		ns.commands.hud()
+	end)
+end
+
 BINDING_HEADER_GOLDFOREVER = "Gold Forever"
 BINDING_NAME_GOLDFOREVER_WINDOW = "Open or close the window"
 BINDING_NAME_GOLDFOREVER_LOOK = "Switch the window's look"
+BINDING_NAME_GOLDFOREVER_HUD = "Show or hide the session HUD"

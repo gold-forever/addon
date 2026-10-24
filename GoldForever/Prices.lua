@@ -14,6 +14,10 @@ local VERSION = 1 -- the GoldForever_Prices layout this addon reads
 local STALE_SECONDS = 3 * 86400 -- a price scanned longer ago than this is greyed
 local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
 local REGIONS = { US = "NA", NA = "NA", EU = "EU", KR = "KR", TW = "TW", CN = "CN" }
+-- GetCurrentRegion's ids, which the addon writes when GetCurrentRegionName answers "".
+local REGION_IDS = { ["1"] = "NA", ["2"] = "KR", ["3"] = "EU", ["4"] = "TW", ["5"] = "CN" }
+local BETA_REGION, BETA_PORTAL = "110", "test"
+local MAX_REGION_CODE, MAX_RULESET = 8, 32
 
 local function amount(x)
 	return type(x) == "number" and x >= 0 and x < math.huge
@@ -24,18 +28,105 @@ local function field(t, key)
 	return type(value) == "table" and value or nil
 end
 
-local function ruleset(realm)
-	if string.find(string.lower(realm), "%f[%w]pvp%f[%W]") then
-		return "pvp"
-	elseif string.find(realm, "%f[%w]RP%f[%W]") then
-		return "rp"
+local function trim(x)
+	return (string.gsub(x, "^%s*(.-)%s*$", "%1"))
+end
+
+-- A live region's key for a raw region name or id, else nil.
+local function live(raw)
+	if type(raw) ~= "string" then
+		return nil
 	end
-	return "normal"
+	local r = string.upper(trim(raw))
+	return REGIONS[r] or REGION_IDS[r]
+end
+
+-- Backend Markets.region: as the client named it, else as the portal CVar does; the beta's "110" and
+-- portal "test" are the beta ("110" wins over a live portal). Anything else is a market of its own:
+-- "X" and its code ("X41"), or UNKNOWN with none; never the beta.
+function Prices.region(raw, portal)
+	local r = live(raw)
+	if r then
+		return r
+	end
+	if type(raw) == "string" and trim(raw) == BETA_REGION then
+		return "BETA"
+	end
+	r = live(portal)
+	if r then
+		return r
+	end
+	if type(portal) == "string" and string.lower(trim(portal)) == BETA_PORTAL then
+		return "BETA"
+	end
+	local code = type(raw) == "string" and string.sub(string.gsub(string.upper(raw), "[^A-Z0-9]", ""), 1, MAX_REGION_CODE) or ""
+	return code == "" and "UNKNOWN" or ("X" .. code)
+end
+
+-- A realm name's words as the server reads them, byte by byte over its UTF-8: A–Z lowercased, a–z and
+-- 0–9 kept, any byte from 0x80 up written as its two lowercase hex digits (so "Гордунни" is one ASCII
+-- word, and ’ joins its word as "e28099"), any other byte a separator.
+function Prices.words(realm)
+	local words, word = {}, {}
+	local function close()
+		if #word > 0 then
+			words[#words + 1] = table.concat(word)
+			word = {}
+		end
+	end
+	for i = 1, #realm do
+		local b = string.byte(realm, i)
+		if b >= 65 and b <= 90 then
+			word[#word + 1] = string.char(b + 32)
+		elseif (b >= 97 and b <= 122) or (b >= 48 and b <= 57) then
+			word[#word + 1] = string.char(b)
+		elseif b >= 128 then
+			word[#word + 1] = string.format("%02x", b)
+		else
+			close()
+		end
+	end
+	close()
+	return words
+end
+
+-- Backend Markets.ruleset: from the realm name's words (Prices.words): Hardcore; RP and PvP together (or
+-- "rppvp") RP-PvP; PvP; RP, Roleplay(ing) or "Role Play"; PvE or Normal. A name saying none of these is
+-- a market of its own, keyed by its words joined and cut to 32 characters ("shendralas").
+function Prices.ruleset(realm)
+	if type(realm) ~= "string" then
+		return "normal"
+	end
+	local words, has = Prices.words(realm), {}
+	for _, w in ipairs(words) do
+		has[w] = true
+	end
+	local rp = has.rp or has.roleplay or has.roleplaying or has.rppvp
+	for i = 1, #words - 1 do
+		if words[i] == "role" and words[i + 1] == "play" then
+			rp = true
+		end
+	end
+	local pvp = has.pvp or has.rppvp
+	if has.hardcore then
+		return "hardcore"
+	elseif rp and pvp then
+		return "rppvp"
+	elseif pvp then
+		return "pvp"
+	elseif rp then
+		return "rp"
+	elseif has.pve or has.normal then
+		return "normal"
+	end
+	local joined = string.sub(table.concat(words), 1, MAX_RULESET)
+	return joined == "" and "unknown" or joined
 end
 
 -- The server's key for the addon's market "<region>-<realm>-<side>" (backend Markets.kt key()):
 -- "forever-<region>-<ruleset>-<side>". Forever only; nil on retail and for anything malformed.
-function Prices.poolMarket(market, interface)
+-- `portal` is the save's portal CVar, for a region the client named only by a number.
+function Prices.poolMarket(market, interface, portal)
 	if type(market) ~= "string" or not ns.Realms.isForever(interface) then
 		return nil
 	end
@@ -43,7 +134,7 @@ function Prices.poolMarket(market, interface)
 	if not region then
 		return nil
 	end
-	return "forever-" .. (REGIONS[string.upper(region)] or "BETA") .. "-" .. ruleset(realm) .. "-" .. side
+	return "forever-" .. Prices.region(region, portal) .. "-" .. Prices.ruleset(realm) .. "-" .. side
 end
 
 local SIDES = { alliance = true, horde = true, neutral = true }
@@ -68,30 +159,53 @@ local function retailMarkets(market)
 	if not region then
 		return nil
 	end
-	local r = REGIONS[string.upper(region)] or "BETA"
+	local r = Prices.region(region)
 	return { "retail-" .. r .. "-" .. string.gsub(realm, "[ %-%.]", ""), "retail-" .. r }
 end
 
 -- The server's keys to read for the addon's market, in order; nil when there are none.
-function Prices.markets(market, interface)
+function Prices.markets(market, interface, portal)
 	if type(market) ~= "string" then
 		return nil
 	end
 	if ns.Realms.isRetail(interface) then
 		return retailMarkets(market)
 	end
-	local key = Prices.poolMarket(market, interface)
+	local key = Prices.poolMarket(market, interface, portal)
 	return key and { key } or nil
 end
 
 -- The first market's valid entry for the item: value, minimum buyout, players, scan time.
+-- An item's entry: { market value, min buyout, players, scanned at[, week: the mean of its daily values
+-- over the 7 full days before the scan's day, absent with fewer than 3 or in a reset] }. The fifth is new (owner's answer, 2026-10-24: a trend at launch); a file without it, or
+-- with it unusable, shows no trend.
 local function entry(data, markets, id)
 	for _, market in ipairs(markets) do
 		local e = field(field(field(data, "markets"), market), id)
 		if e and amount(e[1]) and amount(e[2]) and amount(e[3]) and amount(e[4]) then
-			return e[1], e[2], e[3], e[4]
+			return e[1], e[2], e[3], e[4], (amount(e[5]) and e[5] > 0) and e[5] or nil
 		end
 	end
+end
+
+-- The market value against the week before, in whole percent; nil without both.
+function Prices.trend(value, week)
+	if not value or not week or week <= 0 then
+		return nil
+	end
+	return math.floor((value - week) / week * 100 + 0.5)
+end
+
+-- " · +8% vs 7-day avg", " · steady vs 7-day avg" within 1%, or "" without a trend. The average is the
+-- mean of the item's daily values over the 7 full days before its scan (the server's `week`).
+function Prices.trendText(pct)
+	if not pct then
+		return ""
+	end
+	if math.abs(pct) < 1 then
+		return " · steady vs 7-day avg"
+	end
+	return string.format(" · %s%d%% vs 7-day avg", pct > 0 and "+" or "-", math.abs(pct))
 end
 
 -- Whether data is a prices file this addon reads.
@@ -110,19 +224,19 @@ end
 
 -- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The line and whether it
 -- is stale; nil without a valid price.
-function Prices.line(data, markets, id, now)
+function Prices.line(data, markets, id, now, label)
 	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil
 	end
-	local value, minBuyout, players, scannedAt = entry(data, markets, id)
+	local value, minBuyout, players, scannedAt, week = entry(data, markets, id)
 	if not value then
 		return nil
 	end
 	players = math.floor(players)
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	return string.format("Pool: %s · min buyout %s · %d %s · %s", coins(value), coins(minBuyout), players,
-		players == 1 and "player" or "players", age), stale
+	return string.format("%s: %s%s · min buyout %s · %d %s · %s", label or "Pool", coins(value), Prices.trendText(Prices.trend(value, week)),
+		coins(minBuyout), players, players == 1 and "player" or "players", age), stale
 end
 
 -- The player's own latest scan (the appraiser's prices), for an item the file lacks.
@@ -173,29 +287,160 @@ function Prices.summary(data, mine, now)
 end
 
 -- The server's keys for the character being played; nil before login.
+-- The character's markets, worked out again only when what they are made of changes (every tooltip and
+-- Post row asked, and each answer was new tables and strings).
+local myMarkets, made = nil, {}
 local function mine()
 	local me = ns.me()
-	return me and Prices.markets(ns.market(string.lower(me.faction or "?")), ns.db().client.interface)
+	if not me then
+		return nil
+	end
+	local client = ns.db().client
+	if not myMarkets or made.faction ~= me.faction or made.realm ~= me.realm or made.region ~= client.region
+		or made.interface ~= client.interface or made.portal ~= client.portal then
+		made.faction, made.realm, made.region, made.interface, made.portal = me.faction, me.realm, client.region, client.interface, client.portal
+		myMarkets = Prices.markets(ns.market(string.lower(me.faction or "?")), client.interface, client.portal)
+	end
+	return myMarkets
+end
+
+-- An item's market value for the character being played: the pool's when the companion's file has it,
+-- else the own latest full scan's. Returns value and where it came from ("pool" or "scan"), or nil.
+-- An item's market value and where it came from ("pool" or "scan"), and with the pool's its trend on
+-- the week (Prices.trend), when the file carries one.
+function Prices.value(id)
+	local markets = mine()
+	if markets and Prices.loaded(GoldForever_Prices) then
+		local value, _, _, _, week = entry(GoldForever_Prices, markets, id)
+		if value then
+			return value, "pool", Prices.trend(value, week)
+		end
+	end
+	local own = ns.price and ns.price.market(id)
+	if own then
+		return own, "scan"
+	end
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function poolTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
+			return
+		end
+		-- Settings → Modules can switch the line off.
+		if ns.settings("prices", { tooltip = true }).tooltip == false then
+			return
+		end
+		local now = GetServerTime()
+		-- In a zone with a neutral auction house, its market's line first (design 009 decision 9).
+		local neutral = Prices.neutralMarkets()
+		if neutral then
+			local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
+			if nline then
+				local shade = nstale and STALE_SHADE or 1
+				tooltip:AddLine(ns.PREFIX .. " " .. nline, shade, shade, shade)
+			end
+		end
+		local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
+		-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
+		if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
+			local value, cheapest, scannedAt = ns.ownPrice(data.id)
+			line, stale = Prices.ownLine(value, cheapest, scannedAt, now)
+		end
+		if line then
+			local shade = stale and STALE_SHADE or 1
+			tooltip:AddLine(ns.PREFIX .. " " .. line, shade, shade, shade)
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("pool tooltip", function()
-			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
-				return
-			end
-			local now = GetServerTime()
-			local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
-			-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
-			if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
-				local value, cheapest, scannedAt = ns.ownPrice(data.id)
-				line, stale = Prices.ownLine(value, cheapest, scannedAt, now)
-			end
-			if line then
-				local shade = stale and STALE_SHADE or 1
-				tooltip:AddLine(ns.PREFIX .. " " .. line, shade, shade, shade)
-			end
-		end)
+		ns.safely("pool tooltip", poolTooltip, tooltip, data)
+	end)
+end
+
+-- The companion's file as the hub's Companion page shows it: state "missing", "version", "broken" or
+-- "ok"; the time it was written; and each market { key, items, mine }, this character's first.
+function Prices.status(data, mine, now)
+	if type(data) ~= "table" then
+		return { state = "missing", markets = {} }
+	end
+	if data.v ~= VERSION then
+		return { state = "version", version = data.v, markets = {} }
+	end
+	if not Prices.loaded(data) then
+		return { state = "broken", markets = {} }
+	end
+	local used = {}
+	for _, key in ipairs(mine or {}) do
+		used[key] = true
+	end
+	local markets = {}
+	for key, items in pairs(data.markets) do
+		markets[#markets + 1] = { key = tostring(key), items = count(items), mine = used[key] or false }
+	end
+	table.sort(markets, function(a, b)
+		if a.mine ~= b.mine then
+			return a.mine
+		end
+		return a.key < b.key
+	end)
+	local missing = {}
+	for _, key in ipairs(mine or {}) do
+		if not data.markets[key] then
+			missing[#missing + 1] = key
+		end
+	end
+	return { state = "ok", at = amount(data.at) and data.at or nil, age = amount(data.at) and ago(data.at, now) or nil, markets = markets, missing = missing }
+end
+
+-- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
+local neutralMarkets, neutralFor -- the neutral auction house's markets, and the region they are for
+function Prices.neutralMarkets()
+	if not (ns.atNeutralZone and ns.atNeutralZone()) then
+		return nil
+	end
+	local client = ns.db().client
+	if not ns.Realms.isForever(client.interface) then
+		return nil
+	end
+	local key = client.region
+	if not neutralMarkets or neutralFor ~= key then
+		neutralMarkets, neutralFor = Prices.markets(ns.market("neutral"), client.interface, client.portal), key
+	end
+	return neutralMarkets
+end
+
+-- At login: the warning when the companion's prices file is older than a day (owner's answer,
+-- 2026-10-24), at most once a day; nil when there is nothing to say (no file, a fresh one, warned today).
+Prices.STALE_FILE = 86400
+function Prices.staleWarning(data, now, lastWarned)
+	if type(data) ~= "table" or not amount(data.at) then
+		return nil
+	end
+	local age = now - data.at
+	if age <= Prices.STALE_FILE or (lastWarned and now - lastWarned < 86400) then
+		return nil
+	end
+	local days = math.floor(age / 86400)
+	return string.format("everyone's prices are %d %s old: is the companion app running? gold-forever.app/companion", days, days == 1 and "day" or "days")
+end
+
+-- This character's market keys, for the Companion page.
+Prices.mine = function()
+	return mine()
+end
+
+if ns.on then
+	ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
+		if not isInitialLogin then
+			return
+		end
+		local s = ns.settings("prices", { tooltip = true })
+		local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
+		if text then
+			s.staleWarned = GetServerTime()
+			ns.say(text)
+		end
 	end)
 end
 

@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Gold Forever
 ## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.app.
-## Version: 0.14.1
+## Version: 0.16.0
 ## SavedVariables: GoldForeverDB
 ## IconTexture: Interface\AddOns\GoldForever\Media\Icon.tga
 ## AddonCompartmentFunc: GoldForever_OnAddonCompartmentClick
@@ -39,5 +39,13 @@ Rares.lua
 Shop.lua
 Auctions.lua
 Levelling.lua
+Dings.lua
+Post.lua
+Shopping.lua
+SalePlan.lua
+AuctionPanel.lua
+CraftingStrip.lua
+FirstRun.lua
+MailHelper.lua
 DesignSystem.lua
 Minimap.lua

@@ -9,7 +9,13 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.14.1"
+local VERSION = "0.16.0"
+ns.VERSION = VERSION
+
+-- A retail client keeps a lean save (owner's answer, 2026-10-24): the catalogue exists to keep
+-- WoW: Forever's knowledge, which retail's does not need, so tooltip text, the achievement catalogue
+-- and map art are neither recorded there nor kept. Forever keeps everything.
+ns.lean = (select(4, GetBuildInfo()) or 0) >= 110000
 
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
@@ -22,6 +28,21 @@ local reloading = false -- set by the ReloadUI hook just before the UI unloads
 
 function ns.db()
 	return db
+end
+
+-- Whether the client handed us a "secret" value (newer clients hide some unit and marker values from
+-- addons): such a value may be passed back to the client but not compared or read here.
+function ns.secret(v)
+	return issecretvalue ~= nil and issecretvalue(v) or false
+end
+
+-- A value the addon may read, or nil when the client keeps it secret (UnitGUID, UnitName and
+-- UnitCreatureType are, for a unit whose identity is restricted).
+function ns.readable(v)
+	if ns.secret(v) then
+		return nil
+	end
+	return v
 end
 
 function ns.me()
@@ -54,6 +75,20 @@ function ns.safely(name, fn, ...)
 		ns.fail(name, err)
 	end
 	return ok
+end
+
+-- Work spread over frames takes about FRAME_MS a frame: ns.frameStart() when a frame's share begins,
+-- then ns.frameSpent(started, done, fallback) every so often says whether to yield. Where the client has
+-- no profiling timer, `fallback` units of work a frame instead.
+local FRAME_MS = 3
+function ns.frameStart()
+	return debugprofilestop and debugprofilestop() or nil
+end
+function ns.frameSpent(started, done, fallback)
+	if started then
+		return done % 25 == 0 and debugprofilestop() - started >= FRAME_MS
+	end
+	return done >= fallback
 end
 
 function ns.after(seconds, name, fn)
@@ -168,6 +203,11 @@ local function init()
 		ns.say("this file was written by a newer version. Update the addon.")
 	end
 	db.schema = SCHEMA
+	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
+	-- none, so what the player and the site see is only from the build running.
+	if db.addon ~= VERSION then
+		db.errors = nil
+	end
 	db.addon = VERSION
 	db.fields = db.fields or {}
 	for name, columns in pairs(ns.FIELDS) do
@@ -196,6 +236,11 @@ local function init()
 	db.catalogue.legacyRewards = db.catalogue.legacyRewards or {}
 	db.catalogue.achievements = db.catalogue.achievements or {}
 	db.catalogue.statistics = db.catalogue.statistics or {}
+	if ns.lean then
+		db.catalogue.tooltips = {}
+		db.catalogue.achievements = {}
+		db.mapArt = nil
+	end
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
 	db.errors = db.errors or {}
 	for name, e in pairs(errors) do
@@ -486,15 +531,27 @@ ns.commands = {
 SLASH_GOLDFOREVER1 = "/gf"
 SLASH_GOLDFOREVER2 = "/goldforever"
 -- "/gf bigdrop 2" runs ns.commands.bigdrop("2").
+-- "/gf" alone opens or closes the hub; "/gf help" lists the commands (owner's answer, 2026-10-24).
+local function help()
+	printStatus()
+	print("  /gf — the Gold Forever window · /gf ui <page> — open a page (home, ledger, crafting, session, rares, companion, settings)")
+	print("  /gf hud — the session HUD · /gf session — the session in chat · /gf reset — a new session · /gf bigdrop <gold> — big-drop alerts")
+	print("  /gf ah — the auction panel · /gf scan · /gf bags — what to do with your loot · /gf shop — crafts to make")
+	print("  /gf look web|classic|arcane · /gf accent #rrggbb · /gf minimap · /gf dings on|off · /gf welcome — the first-run card")
+	print("  /gf prices — the pool's prices file · /gf rares [mark] · /gf check · /gf claim <code> — prove a character is yours · /gf export")
+end
+
 SlashCmdList.GOLDFOREVER = function(message)
 	local name, rest = string.match(message or "", "^%s*(%S*)%s*(.-)%s*$")
-	local command = ns.commands[string.lower(name or "")]
+	name = string.lower(name or "")
+	local command = ns.commands[name]
 	if command then
 		ns.safely("/gf " .. name, command, rest)
+	elseif name == "" and ns.commands.ui then
+		ns.safely("/gf", ns.commands.ui, "")
+	elseif name == "help" or name == "" then
+		help()
 	else
-		printStatus()
-		print("  /gf ui — the Gold Forever window · /gf appraise — the loot window · /gf bags — what to do with your loot · /gf shop — crafts to make · /gf reset — new session")
-		print("  /gf bigdrop <gold> — alert on drops worth that much · /gf rares [mark] — rare alerts and skull · /gf scan · /gf check · /gf claim <code> — prove a character is yours")
-		print("  /gf prices — the pool's prices file: its markets and age · /gf look web|classic — the window's look · /gf minimap — hide or show its button")
+		print(ns.PREFIX .. ": no command \"" .. name .. "\". /gf help lists them.")
 	end
 end

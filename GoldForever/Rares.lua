@@ -24,7 +24,19 @@ local function mayMark()
 	return not IsInGroup() or UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
 end
 
-local alert = ns.alert
+-- The alert on screen, and with "tell my party" on (off by default; design 009: party only, never say
+-- or yell, once per spawn as the alert itself) a line in party chat, not in a raid.
+local function alert(text)
+	ns.alert(text)
+	local s = settings()
+	if s.party and IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) then
+		-- C_ChatInfo.SendChatMessage where the client has it; the global is its older name.
+		local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
+		if send then
+			send(Encode.chatLine(text), "PARTY")
+		end
+	end
+end
 
 -- "52.3, 34.1": the player's position on the map, close to the rare when it is seen.
 local function where()
@@ -48,14 +60,18 @@ local function seeUnit(unit, how)
 	if not RARE[UnitClassification(unit)] then
 		return
 	end
-	local guid = UnitGUID(unit)
+	local guid = ns.readable(UnitGUID(unit))
 	local s = settings()
 	if not guid then
 		return
 	end
 	-- Marked once, when its unit is first seen (a minimap marker has no unit to mark): marking again on
 	-- every mouseover would move the skull back from whatever the group marked since, or between rares.
-	if not marked[guid] and s.mark and mayMark() and GetRaidTargetIndex(unit) ~= SKULL then
+	-- The marker it has is compared only where the client lets us read it (a secret value on newer
+	-- clients); otherwise once a spawn is enough.
+	local index = GetRaidTargetIndex(unit)
+	local skulled = not ns.secret(index) and index == SKULL
+	if not marked[guid] and s.mark and mayMark() and not skulled then
 		marked[guid] = true
 		pcall(SetRaidTarget, unit, SKULL)
 	end
@@ -71,7 +87,7 @@ local function seeUnit(unit, how)
 		local _, _, _, at = where()
 		local level = UnitLevel(unit)
 		local kind = UnitClassification(unit) == "rareelite" and " elite" or ""
-		alert(string.format("Rare: %s (%s%s)%s", UnitName(unit) or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
+		alert(string.format("Rare: %s (%s%s)%s", ns.readable(UnitName(unit)) or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
 	end
 end
 

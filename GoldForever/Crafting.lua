@@ -67,9 +67,58 @@ function Crafting.quote(recipe, price, stock, cut)
 		cost = cost,
 		cash = cash,
 		ownedValue = ownedValue,
+		-- What crafting costs the player (owner's answer, 2026-10-24): the reagents still to buy, and the
+		-- ones held at what they would sell for. Profit, Cost and Margin share this base.
+		spend = plus(cash, ownedValue),
 		profit = minus(minus(revenue, cash), ownedValue),
 		lines = lines,
 	}
+end
+
+-- Profit over what crafting costs (a quote's spend; else its cost), in whole percent; nil without both.
+function Crafting.margin(q)
+	local base = q and (q.spend or q.cost)
+	if not q or not q.profit or not base or base <= 0 then
+		return nil
+	end
+	return math.floor(q.profit / base * 100 + 0.5)
+end
+
+-- Profit with "I have these": what the player holds costs nothing, only what is still to buy does.
+function Crafting.profitHeld(q)
+	if not q or not q.revenue or not q.cash then
+		return nil
+	end
+	return q.revenue - q.cash
+end
+
+-- The margin band a profit falls in (design 009, Crafting): "loss" (under 0), "thin" (under 10%), "fair",
+-- "good" (from 30%), or nil when unknown.
+function Crafting.band(margin)
+	if not margin then
+		return nil
+	end
+	if margin < 0 then
+		return "loss"
+	elseif margin < 10 then
+		return "thin"
+	elseif margin < 30 then
+		return "fair"
+	end
+	return "good"
+end
+
+-- The reagents a craft queue needs in all ({ { recipe = id, count = n } }; recipeOf(id) gives the
+-- recipe with its reagents): item ID -> units. A recipe the catalogue lacks needs nothing.
+function Crafting.queueReagents(queue, recipeOf)
+	local need = {}
+	for _, q in ipairs(queue or {}) do
+		local r = recipeOf(q.recipe)
+		for _, x in ipairs(r and r.reagents or {}) do
+			need[x.id] = (need[x.id] or 0) + x.count * (q.count or 1)
+		end
+	end
+	return need
 end
 
 return Crafting

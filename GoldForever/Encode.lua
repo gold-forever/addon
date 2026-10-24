@@ -176,6 +176,120 @@ function Encode.marketValue(listings)
 	return math.floor(copper / units)
 end
 
+-- The same market value from a flat list { unit1, qty1, unit2, qty2, … }: one table an item instead of one a
+-- listing, for reading a whole scan (a retail scan has ~110,000 rows).
+function Encode.marketValueFlat(flat)
+	local n = #flat / 2
+	local total = 0
+	for k = 2, #flat, 2 do
+		total = total + flat[k]
+	end
+	if total == 0 then
+		return nil
+	end
+	local wanted = math.max(1, math.ceil(total * 0.15))
+	if n == 1 then
+		return flat[1]
+	end
+	local order
+	if n <= 24 then
+		-- Few listings (most items): sorted in place by unit, pairs moved together; no table, no closure.
+		for i = 2, n do
+			local u, q = flat[2 * i - 1], flat[2 * i]
+			local j = i - 1
+			while j >= 1 and flat[2 * j - 1] > u do
+				flat[2 * j + 1], flat[2 * j + 2] = flat[2 * j - 1], flat[2 * j]
+				j = j - 1
+			end
+			flat[2 * j + 1], flat[2 * j + 2] = u, q
+		end
+	else
+		order = {}
+		for k = 1, n do
+			order[k] = k
+		end
+		table.sort(order, function(a, b)
+			return flat[2 * a - 1] < flat[2 * b - 1]
+		end)
+	end
+	local units, copper = 0, 0
+	for i = 1, n do
+		local k = order and order[i] or i
+		local take = math.min(wanted - units, flat[2 * k])
+		units = units + take
+		copper = copper + take * flat[2 * k - 1]
+		if units >= wanted then
+			break
+		end
+	end
+	return math.floor(copper / units)
+end
+
+-- The cheapest unit in a flat list.
+function Encode.cheapestFlat(flat)
+	local low
+	for k = 1, #flat, 2 do
+		if not low or flat[k] < low then
+			low = flat[k]
+		end
+	end
+	return low
+end
+
+-- A line for party chat: plain text (the game's "|" escapes out, so nothing coloured or linked), on one
+-- line, within chat's 255 characters, marked as Gold Forever's.
+function Encode.chatLine(text)
+	local plain = string.gsub(string.gsub(tostring(text or ""), "|", ""), "[\r\n]+", " ")
+	return string.sub("[Gold Forever] " .. plain, 1, 255)
+end
+
+-- Base64 (RFC 4648, with padding), for the GFL1/GFP1 strings players and the site share: the same bytes
+-- as the site's btoa over UTF-8.
+local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local B64_INDEX = {}
+for i = 1, 64 do
+	B64_INDEX[string.byte(B64, i)] = i - 1
+end
+
+function Encode.base64(text)
+	local out = {}
+	for i = 1, #text, 3 do
+		local a, b, c = string.byte(text, i, i + 2)
+		local n = a * 65536 + (b or 0) * 256 + (c or 0)
+		local d1, d2 = math.floor(n / 262144) % 64, math.floor(n / 4096) % 64
+		local d3, d4 = math.floor(n / 64) % 64, n % 64
+		out[#out + 1] = string.sub(B64, d1 + 1, d1 + 1) .. string.sub(B64, d2 + 1, d2 + 1)
+			.. (b and string.sub(B64, d3 + 1, d3 + 1) or "=") .. (c and string.sub(B64, d4 + 1, d4 + 1) or "=")
+	end
+	return table.concat(out)
+end
+
+-- The text of a base64 string, or nil when it is not one (a character outside the alphabet, a bad length).
+function Encode.unbase64(s)
+	s = string.gsub(s, "%s", "")
+	if #s % 4 ~= 0 then
+		return nil
+	end
+	local out = {}
+	for i = 1, #s, 4 do
+		local c1, c2, c3, c4 = string.byte(s, i, i + 3)
+		local v1, v2 = B64_INDEX[c1], B64_INDEX[c2]
+		local v3, v4 = c3 == 61 and 0 or B64_INDEX[c3], c4 == 61 and 0 or B64_INDEX[c4]
+		if not (v1 and v2 and v3 and v4) or (c3 == 61 and c4 ~= 61) or ((c3 == 61 or c4 == 61) and i + 3 < #s) then
+			return nil
+		end
+		local n = v1 * 262144 + v2 * 4096 + v3 * 64 + v4
+		out[#out + 1] = string.char(math.floor(n / 65536) % 256)
+		if c3 ~= 61 then
+			out[#out + 1] = string.char(math.floor(n / 256) % 256)
+		end
+		if c4 ~= 61 then
+			out[#out + 1] = string.char(n % 256)
+		end
+	end
+	return table.concat(out)
+end
+
 -- "1g 23s 4c", "23s 4c", "4c": copper as text, for where coin icons cannot go.
 function Encode.money(copper)
 	copper = math.floor(copper + 0.5)
