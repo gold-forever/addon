@@ -101,8 +101,9 @@ function UI.layout.money(copper, precision)
 	if g > 0 then
 		parts[#parts + 1] = coin(UI.layout.group(g), "g", Theme.color.gold)
 	end
-	-- "silver": gold and silver, as auction prices are set (8g 69s); copper only under a gold.
-	if precision == "silver" and g > 0 then
+	-- "silver": gold and silver, as auction prices are set (8g 69s); copper only under a gold, and only
+	-- when there is some (7s, not 7s 0c).
+	if precision == "silver" and (g > 0 or (s > 0 and c == 0)) then
 		if s > 0 then
 			parts[#parts + 1] = coin(s, "s", Theme.color.silver)
 		end
