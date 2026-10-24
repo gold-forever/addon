@@ -10,7 +10,7 @@ local Theme, UI, Views, Encode = ns.Theme, ns.UI, ns.Views, ns.Encode
 local CraftQueue = {}
 ns.CraftQueue = CraftQueue
 
-local W = 520
+local W = 600
 local frame, built
 local frames = {} -- Theme.key -> window (frames are never freed)
 
@@ -104,12 +104,13 @@ local function build()
 	f.crafts:SetPoint("TOPLEFT", 14, -38)
 	f.crafts:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 	f.table = UI.Table(f, {
+		-- Columns wide enough for their titles in every look (manual test run 001: "Ne…", "Ha…", "Ba…").
 		{ key = "name", title = "Reagent", flex = 3 },
-		{ key = "need", title = "Need", width = 44, align = "RIGHT" },
-		{ key = "have", title = "Have", width = 44, align = "RIGHT" },
-		{ key = "bank", title = "Bank", width = 44, align = "RIGHT", text = function(r) return r.bank > 0 and tostring(r.bank) or "" end },
+		{ key = "need", title = "Need", width = 56, align = "RIGHT" },
+		{ key = "bags", title = "Bags", width = 56, align = "RIGHT" },
+		{ key = "bank", title = "Bank", width = 56, align = "RIGHT", text = function(r) return r.bank > 0 and tostring(r.bank) or "" end },
 		{ key = "where", title = "Elsewhere", flex = 2, color = function() return Theme.color.textMuted end },
-		{ key = "buy", title = "Buy", width = 44, align = "RIGHT", text = function(r) return r.buy > 0 and tostring(r.buy) or "—" end,
+		{ key = "buy", title = "Buy", width = 52, align = "RIGHT", text = function(r) return r.buy > 0 and tostring(r.buy) or "—" end,
 			color = function(r) return r.buy > 0 and Theme.color.accent or Theme.color.textFaint end },
 	}, { pageSize = 7, rowHeight = 22, empty = "Nothing queued.", itemId = function(r) return r.id end })
 	f.table:SetPoint("TOPLEFT", 14, -64)
@@ -161,19 +162,32 @@ function CraftQueue.refresh()
 		crafts[#crafts + 1] = q.count .. "× " .. (r and itemName(r.output) or ("recipe " .. q.recipe))
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
-	local rows, buy = {}, 0
+	local rows, buy, ready = {}, 0, true
 	for i, r in ipairs(CraftQueue.plan()) do
 		local where = {}
+		if r.mail > 0 then
+			where[#where + 1] = "mailbox " .. r.mail
+		end
 		if r.guild > 0 then
 			where[#where + 1] = "guild bank " .. r.guild
 		end
 		for _, o in ipairs(r.others) do
 			where[#where + 1] = o.name .. " " .. o.n
 		end
-		rows[i] = { id = r.id, name = itemName(r.id), need = r.need, have = r.bags + r.mail, bank = r.bank, where = table.concat(where, ", "), buy = r.buy }
+		rows[i] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy }
 		if r.buy > 0 then
 			buy = buy + 1
 		end
+		if r.bags < r.need then
+			ready = false
+		end
+	end
+	-- Everything in the bags: nothing to fetch or buy, so the window goes (it comes back with the next
+	-- craft queued, or from its buttons).
+	if ready and #rows > 0 then
+		frame:Hide()
+		ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		return
 	end
 	frame.table:SetRows(rows, true)
 	frame.note:SetText(buy > 0 and string.format("%d to buy: the auction panel's Buy tab, list \"Craft queue\".", buy) or "Nothing left to buy.")
