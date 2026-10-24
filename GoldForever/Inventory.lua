@@ -26,8 +26,9 @@ end
 local BAGS = containers({ "^Backpack$", "^Bag_%d+$", "^ReagentBag$" }, { 0, 1, 2, 3, 4 })
 local BANK = containers({ "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$", "^Reagentbank$" }, { -1, 5, 6, 7, 8, 9, 10, 11 })
 
+-- `bound`: the units of each that are soulbound (not for the auction house), for Inventory's worth.
 local function read(ids)
-	local counts, used, total = {}, 0, 0
+	local counts, bound, used, total = {}, {}, 0, 0
 	for _, bag in ipairs(ids) do
 		local n = C_Container.GetContainerNumSlots(bag) or 0
 		total = total + n
@@ -38,12 +39,15 @@ local function read(ids)
 				local key = Encode.itemKey(info.hyperlink) or (info.itemID and tostring(info.itemID))
 				if key then
 					counts[key] = (counts[key] or 0) + (info.stackCount or 1)
+					if info.isBound then
+						bound[key] = (bound[key] or 0) + (info.stackCount or 1)
+					end
 					ns.catalogueItem(key)
 				end
 			end
 		end
 	end
-	return { used = used, total = total, items = Encode.items(counts), t = ns.now() }
+	return { used = used, total = total, items = Encode.items(counts), bound = next(bound) and Encode.items(bound) or nil, t = ns.now() }
 end
 
 -- Pages that show the bags (Home) and redraw when they are read.

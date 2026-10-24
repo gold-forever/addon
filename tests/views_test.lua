@@ -225,6 +225,19 @@ rows, t = inv({ quality = 2 })
 eq(#rows .. ":" .. rows[1].id, "1:14047", "green and better")
 rows, t = inv({ query = "linen" })
 eq(rows[1].where, "Alt 20 (mail), Zerie 3 (bank), Zerie 7 (bags)", "where it is held, sorted")
+-- Soulbound units are worth what a vendor pays; Tradeable only leaves them out; equipped gear is its own
+-- place, worth nothing here (owner's answers, 2026-10-24).
+do
+	local bc = { a = { name = "Zerie", bags = { items = "14047*3", bound = "14047*2" }, gear = { [1] = "14047", [5] = "2589", t = 1 } } }
+	local function bi(f) return V.inventory(bc, parse, function() return 1000 end, function() return 2 end, function() return "x" end, f, function() return 10 end) end
+	local r, tt = bi()
+	eq(r[1].bound .. "/" .. tt.worth, "2/1020", "one tradeable at 1000, two bound at the vendor's 10")
+	r, tt = bi({ tradeable = true })
+	eq(tt.units .. "/" .. tt.worth, "1/1000", "tradeable only")
+	r, tt = bi({ place = "gear" })
+	eq(tt.units .. "/" .. tt.worth, "2/0", "equipped: listed, worth nothing")
+	eq(#bi() , 1, "equipped gear is not in the default view")
+end
 
 -- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.
 local g = V.goal(0, 6400000, { gold = 10000000, by = 10 * 86400 })
@@ -269,6 +282,10 @@ do
   eq(V.heldText(index[4306]), "Held 4: Alt 3 (bags), Zerie 1 (bags)", "a place alone without its count")
   eq(V.heldText(index[2589], 1), "Held 12: Zerie 10 (bags 8, bank 2), +1 more", "at most so many characters")
   eq(V.heldText(index[9999]), nil, "nobody holds it")
+end
+do
+	local e = V.elsewhere({ bank = { items = "2589*5", bound = "2589*5" }, mail = { items = "14047*1" } }, parse, function() return 100 end, function() return "x" end)
+	eq(e.count .. "/" .. e.total, "1/100", "soulbound bank items are not for the auction house")
 end
 
 return checks
