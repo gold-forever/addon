@@ -290,11 +290,15 @@ end
 
 local auctionOpen = false
 
+-- A scan starts by itself at the auction house only when the player switched that on (the Scan tab).
 local function auctionOpened()
 	if auctionOpen then
 		return
 	end
 	auctionOpen = true
+	if not ns.settings("scan", { auto = false }).auto then
+		return
+	end
 	ns.after(1, "scan", function()
 		-- Closed again within the second: no scan, and the cooldown is not spent.
 		if auctionOpen then
