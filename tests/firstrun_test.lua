@@ -29,12 +29,11 @@ s = tables()
 F.apply("trader", s)
 eq(s.auction.hidden, false, "trader: the auction panel")
 eq(s.crafting.strip, true, "the crafting strip")
-eq(s.shop.shown, true, "the craft list")
 eq(s.appraiser.shown, false, "no HUD")
 
 s = tables()
 F.apply("everything", s)
-eq(s.appraiser.shown and s.advisor.shown and s.shop.shown and s.crafting.strip and not s.auction.hidden and s.prices.tooltip, true, "everything on")
+eq(s.appraiser.shown and s.advisor.shown and s.crafting.strip and not s.auction.hidden and s.prices.tooltip, true, "everything on")
 
 eq(F.apply("nonsense", tables()), false, "an unknown preset changes nothing")
 

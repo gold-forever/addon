@@ -14,10 +14,10 @@ ns.FirstRun = FirstRun
 FirstRun.PRESETS = {
 	{ id = "prices", label = "Prices only", blurb = "Everyone's prices in your tooltips; nothing else on screen.",
 		on = { tooltip = true } },
-	{ id = "trader", label = "Trader", blurb = "Prices, the auction house panel, the crafting strip and the craft list.",
-		on = { tooltip = true, auction = true, strip = true, shop = true } },
+	{ id = "trader", label = "Trader", blurb = "Prices, the auction house panel and the crafting strip.",
+		on = { tooltip = true, auction = true, strip = true } },
 	{ id = "everything", label = "Everything", blurb = "All of it, the session HUD and bag advice too. Switch any off later.",
-		on = { tooltip = true, auction = true, strip = true, shop = true, hud = true, advice = true } },
+		on = { tooltip = true, auction = true, strip = true, hud = true, advice = true } },
 }
 
 -- Applies a preset to the settings tables (each as ns.settings would return it). Pure: no game API.
@@ -35,7 +35,6 @@ function FirstRun.apply(id, s)
 	s.prices.tooltip = on.tooltip == true
 	s.auction.hidden = not on.auction
 	s.crafting.strip = on.strip == true
-	s.shop.shown = on.shop == true
 	s.appraiser.shown = on.hud == true
 	s.advisor.shown = on.advice == true
 	return true
@@ -57,7 +56,6 @@ local function settingsTables()
 		prices = ns.settings("prices", { tooltip = true }),
 		auction = ns.settings("auction", { rule = {}, duration = 2 }),
 		crafting = ns.settings("crafting", { strip = true }),
-		shop = ns.settings("shop", { shown = true }),
 		appraiser = ns.settings("appraiser", { shown = true }),
 		advisor = ns.settings("advisor", { shown = true }),
 	}

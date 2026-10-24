@@ -1285,7 +1285,7 @@ do
   assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
   -- Back to everything on, for the rest of the run.
   ns.FirstRun.apply("everything", { prices = GoldForeverDB.settings.prices, auction = GoldForeverDB.settings.auction,
-    crafting = ns.settings("crafting", { strip = true }), shop = GoldForeverDB.settings.shop, appraiser = GoldForeverDB.settings.appraiser,
+    crafting = ns.settings("crafting", { strip = true }), appraiser = GoldForeverDB.settings.appraiser,
     advisor = GoldForeverDB.settings.advisor })
 end
 -- Settings draws its General tab only when it first opens; the others when chosen.

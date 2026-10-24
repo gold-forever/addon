@@ -1295,7 +1295,6 @@ local function buildSettings(page)
 
 	local appraiser = ns.settings("appraiser", { shown = true })
 	local advisor = ns.settings("advisor", { shown = true })
-	local shop = ns.settings("shop", { shown = true })
 	local rares = ns.settings("rares", { announce = true, mark = true })
 	local minimap = ns.settings("minimap", { angle = 225, hidden = false })
 	-- Each tab drawn the first time it is chosen (General when the page opens).
@@ -1415,9 +1414,6 @@ local function buildSettings(page)
 		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
 				on = function() return crafting.strip ~= false end,
 				set = function(on) crafting.strip = on end },
-			{ icon = "flask-conical", name = "Craft list at the auction house", blurb = "Your recipes that make a profit, and what to buy for them.",
-				on = function() return shop.shown end,
-				set = function(on) shop.shown = on end },
 			{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
 				on = function() return rares.announce end,
 				set = function(on) rares.announce = on end, disabled = isRetail },

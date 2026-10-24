@@ -56,8 +56,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 - **Ledger**: Money, Characters, **Inventory** (filter by character, place and quality) and **Auction
   sales** (what sold, for how much, after the cut).
 - **Crafting**: every recipe your characters know, by profit, with cost, price after the cut and margin;
-  "I have these" counts what you hold at no cost. **Queue** a recipe and the Shop's "Craft queue" list
-  buys only the reagents still missing.
+  "I have these" counts what you hold at no cost. **Queue** a recipe and the Buy tab's "Craft queue" list
+  buys only the reagents still missing. `/gf shop` opens it; the old floating "crafts to make" window at
+  the auction house is gone.
 - **Session**: This session (the HUD at full size, with its loot), Levelling and Mobs.
 - **Rares**: every rare your characters have seen, how often, when and where, and what a loot has been
   worth.
