@@ -2043,6 +2043,32 @@ do
   fire("AUCTION_HOUSE_CLOSED")
   C_AuctionHouse.GetReplicateItemInfo = info
 end
+-- On WoW: Forever an auction may have a bid and no buyout. A scan where a fifth of the listings are such is
+-- read whole: it is stored full, its prices from the listings with a buyout.
+do
+  local scans = GoldForeverDB.scans
+  local before = #scans
+  local info = C_AuctionHouse.GetReplicateItemInfo
+  C_AuctionHouse.GetReplicateItemInfo = function(i)
+    if i % 5 == 0 then
+      return "x", 0, 1 + i % 20, 1, true, 1, 0, 50, 1, 0, 0, false, nil, nil, nil, 0, 2000 + i % 3000, true
+    end
+    return info(i)
+  end
+  GoldForeverDB.lastReplicate = 0
+  now = now + 3600
+  fire("AUCTION_HOUSE_SHOW")
+  wait(2)
+  fire("REPLICATE_ITEM_LIST_UPDATE")
+  wait(5)
+  local rec = scans[#scans]
+  assert(#scans == before + 1 and rec.kind == "full" and not rec.partial, "a scan with bid-only listings is full: " .. tostring(rec.kind) .. " " .. tostring(rec.partial))
+  local rows = 0
+  for _, c in ipairs(rec.rows or {}) do for row in c:gmatch("[^;]+") do rows = rows + 1; assert(not row:find("^[^,]*,0,"), "no price of 0: " .. row) end end
+  assert(rows > 0 and ns2.lastScan.kind == "full", "with its prices")
+  fire("AUCTION_HOUSE_CLOSED")
+  C_AuctionHouse.GetReplicateItemInfo = info
+end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.
 do
