@@ -502,13 +502,6 @@ function UI.Button(parent, label, onClick, opts)
 		b:SetText(label)
 		b.label = b:GetFontString()
 		b:SetWidth(opts.width or math.max(60, (b.label and b.label:GetStringWidth() or 40) + 28))
-		-- Seen blank once shown (manual test run 001: Buy's Remove at the auction house, cause not
-		-- found): its text is set again when shown, which draws it anew; the label when it has none. A
-		-- label set since (Buy next) is kept.
-		b:HookScript("OnShow", function(self)
-			local now = self:GetText()
-			self:SetText((now and now ~= "") and now or label)
-		end)
 	else
 		b = CreateFrame("Button", nil, parent)
 		b:SetHeight(opts.height or 24)
