@@ -43,8 +43,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 - The Gold Forever window (`/gf`, or the minimap button) is a hub: a sidebar with a page search (a tab's
   name finds its page and opens that tab: "inv" opens Ledger's Inventory), the pages in groups, and the addon's own memory and CPU use at its foot.
 - **Home**: your next moves (when you can scan, what your bags would sell for, the best craft), today's
-  money by where it came from, the bag items worth most, and a **gold goal** with the gold a day still
-  needed.
+  money by where it came from, the bag items worth most (each says whether it sells best at the auction
+  house or to a vendor; hover for the item), and a **gold goal** with the gold a day still needed. It
+  keeps up as your money and bags change. Large gold amounts are grouped (3,000,000g).
 - **Ledger**: Money, Characters, **Inventory** (filter by character, place and quality) and **Auction
   sales** (what sold, for how much, after the cut).
 - **Crafting**: every recipe your characters know, by profit, with cost, price after the cut and margin;

@@ -144,6 +144,9 @@ eq(list[1].id, 2, "the most valuable first")
 eq(list[2].id, 1, "ties by item id")
 eq(total, 10600, "the total")
 eq(unpriced, 7, "units without a price")
+-- Where each sells best, when worth says (manual test run 001: "the better of auction and vendor" was vague).
+local placed = V.worthList({ [1] = 1, [2] = 1 }, function(id) return 100, id == 1 and "auction" or "vendor" end)
+eq(placed[1].where .. " " .. placed[2].where, "auction vendor", "where each sells best")
 eq(V.dayStart(86400 * 3 + 5000), 86400 * 3, "the UTC day's start")
 
 -- Kills in a fight, as the playground's killsInFight: the larger of kill XP and fresh creature corpses.

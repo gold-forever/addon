@@ -77,6 +77,18 @@ end
 
 -- Coins as coloured text: "12g 4s 50c" with the game's coin colours, the larger units only when
 -- there are any (and "gold" precision drops silver and copper above a gold).
+-- A whole number in groups of three, with the client's separator ("3,000,000").
+function UI.layout.group(n)
+	local sign, digits = string.match(tostring(math.floor(n or 0)), "^(%-?)(%d+)$")
+	local sep = LARGE_NUMBER_SEPARATOR or ","
+	local out = string.gsub(string.reverse(digits or "0"), "(%d%d%d)", "%1" .. sep)
+	out = string.reverse(out)
+	if string.sub(out, 1, #sep) == sep then
+		out = string.sub(out, #sep + 1)
+	end
+	return (sign or "") .. out
+end
+
 function UI.layout.money(copper, precision)
 	copper = math.floor((copper or 0) + 0.5)
 	local sign = copper < 0 and "-" or ""
@@ -87,7 +99,7 @@ function UI.layout.money(copper, precision)
 	end
 	local parts = {}
 	if g > 0 then
-		parts[#parts + 1] = coin(g, "g", Theme.color.gold)
+		parts[#parts + 1] = coin(UI.layout.group(g), "g", Theme.color.gold)
 	end
 	if precision ~= "gold" or g == 0 then
 		if s > 0 or g > 0 then
@@ -1483,7 +1495,14 @@ function UI.Window(name, title, pages, store, opts)
 			ticker = C_Timer.NewTicker(10, measure)
 		end
 	end
-	w:SetScript("OnShow", started)
+	-- Opened again: the page in view shows what changed while it was closed (manual test run 001).
+	w:SetScript("OnShow", function()
+		started()
+		local page = w.pages and w.pages[store.page]
+		if page and page.Refresh then
+			ns.safely("ui " .. store.page, page.Refresh, page)
+		end
+	end)
 	w:SetScript("OnHide", function()
 		if ticker and ticker.Cancel then
 			ticker:Cancel()

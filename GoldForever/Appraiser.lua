@@ -211,15 +211,18 @@ local function vendor(id)
 	return sell and sell > 0 and sell or nil
 end
 
--- One unit's worth: the better of selling it on the auction house (after the cut) and to a vendor.
+-- One unit's worth: the better of selling it on the auction house (after the cut) and to a vendor, and
+-- which ("auction" or "vendor").
 local function worth(id)
 	local m = market(id)
 	local net = m and math.floor(m * (1 - CUT))
 	local v = vendor(id)
-	if net and v then
-		return math.max(net, v)
+	if net and (not v or net >= v) then
+		return net, "auction"
 	end
-	return net or v
+	if v then
+		return v, "vendor"
+	end
 end
 
 -- Quality (0 poor … 4 epic), item level, class and vendor price, from the catalogue, else the client.
