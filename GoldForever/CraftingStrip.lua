@@ -18,6 +18,7 @@ local function settings()
 end
 
 local strip, built
+local strips = {} -- Theme.key -> strip
 local recipeID
 
 local function host()
@@ -34,6 +35,15 @@ local function build()
 		ns.applyLook()
 	end
 	local old = strip
+	-- One strip per look and accent, reused (frames are never freed).
+	local cached = strips[Theme.key]
+	if cached then
+		if old and old ~= cached then
+			old:Hide()
+		end
+		strip, built = cached, Theme.key
+		return
+	end
 	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	f:SetWidth(W)
 	f:SetHeight(120 + 4 * 20 + LINES * 18 + 30)
@@ -83,6 +93,7 @@ local function build()
 	f.note:SetWidth(W - 28)
 	strip = f
 	built = Theme.key
+	strips[built] = f
 end
 
 local function refresh()

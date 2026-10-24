@@ -29,6 +29,7 @@ end
 
 local panel -- built the first time the auction house opens (or again after a look change)
 local built -- Theme.key it was drawn under
+local panels = {} -- Theme.key -> panel
 local rows, chosen = {}, nil -- the Post tab's rows and the chosen one
 local live = {} -- item key -> { cheapest, at }: the last live search's cheapest other listing
 local waiting -- a post sent, waiting for its answer: { key, at }
@@ -1383,6 +1384,14 @@ local function build()
 		ns.applyLook()
 	end
 	local old = panel
+	-- One panel per look and accent, reused when the look comes back (frames are never freed).
+	if panels[Theme.key] then
+		if old and old ~= panels[Theme.key] then
+			old:Hide()
+		end
+		panel, built = panels[Theme.key], Theme.key
+		return
+	end
 	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	p:SetWidth(W)
 	p:SetFrameStrata("HIGH")
@@ -1428,6 +1437,7 @@ local function build()
 	p:SetScript("OnHide", bindSpace)
 	panel = p
 	built = Theme.key
+	panels[built] = p
 	tabs:Select("scan")
 	pages.scan:Show()
 	p.tab = "scan"

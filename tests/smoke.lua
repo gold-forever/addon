@@ -1165,6 +1165,23 @@ do
   assert(running(1) == ones and running(10) == tens, "both stop with the window")
   SlashCmdList.GOLDFOREVER("accent")
 end
+-- Switching looks back and forth builds nothing new once each look has been drawn: the HUD, the
+-- first-run card and the crafting strip are reused per look (frames are never freed).
+do
+  ns.setHud(true)
+  local function cycle()
+    for _, look in ipairs({ "web", "classic", "arcane" }) do
+      SlashCmdList.GOLDFOREVER("look " .. look)
+      SlashCmdList.GOLDFOREVER("welcome")
+      ns.FirstRun.card():Hide()
+    end
+  end
+  cycle()
+  local before = #frames
+  cycle() cycle()
+  assert(#frames == before, "switching looks again builds no frames: " .. (#frames - before))
+  SlashCmdList.GOLDFOREVER("look web")
+end
 -- The Session page's This session tab reads the HUD's figures.
 do
   local sum = ns.sessionSummary()

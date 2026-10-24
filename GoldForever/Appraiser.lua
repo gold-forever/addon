@@ -376,6 +376,7 @@ end
 -- The session HUD ------------------------------------------------------------------------------------------
 
 local hud -- the one-line HUD; hud.details is the session panel under it
+local huds = {} -- Theme.key -> HUD
 local built -- the Theme.key the HUD was drawn under
 
 local function settings()
@@ -613,6 +614,22 @@ build = function()
 	end
 	local s = settings()
 	local old = hud
+	-- One HUD per look and accent, reused when the look comes back (frames are never freed), placed
+	-- where the player last left either.
+	local cached = huds[Theme.key]
+	if cached then
+		if old and old ~= cached then
+			old:Hide()
+		end
+		hud, built = cached, Theme.key
+		hud:ClearAllPoints()
+		if s.point then
+			hud:SetPoint(s.point[1], UIParent, s.point[2], s.point[3], s.point[4])
+		else
+			hud:SetPoint("TOP", UIParent, "TOP", 0, -110)
+		end
+		return
+	end
 	hud = UI.Panel(UIParent, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
 	hud:SetSize(W, H)
 	hud:SetFrameStrata("MEDIUM")
@@ -728,6 +745,7 @@ build = function()
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
 	hud.details = d
 	built = Theme.key
+	huds[built] = hud
 end
 
 -- Whether the HUD stays out of the way now: in combat, when the player asked for that.

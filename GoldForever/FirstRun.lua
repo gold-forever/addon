@@ -203,15 +203,27 @@ local function build()
 	return f
 end
 
+-- One card per look and accent, built the first time it is needed (frames are never freed): every
+-- loading screen asks for the card until it is done or skipped, and it is not built again for that.
+local cards = {}
 local function open()
 	if InCombatLockdown and InCombatLockdown() then
 		ns.settings("firstRun", {}).waiting = true
 		return
 	end
-	if card then
+	if ns.applyLook then
+		ns.applyLook()
+	end
+	local key = ns.Theme.key
+	if card and card ~= cards[key] then
 		card:Hide()
 	end
-	card = build()
+	if card and card == cards[key] and card:IsShown() then
+		return -- still open since the last loading screen
+	end
+	card = cards[key] or build()
+	cards[key] = card
+	card.show(1)
 	card:Show()
 end
 

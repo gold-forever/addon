@@ -67,6 +67,7 @@ end
 local Theme, UI = ns.Theme, ns.UI
 local patterns
 local panel, built
+local panels = {} -- Theme.key -> panel
 local run -- a batch in progress: { left, waiting }
 
 local function settings()
@@ -199,6 +200,14 @@ local function build()
 		ns.applyLook()
 	end
 	patterns = patterns or Mail.patterns()
+	-- One panel per look and accent, reused when the look comes back (frames are never freed).
+	if panels[ns.Theme.key] then
+		if panel and panel ~= panels[ns.Theme.key] then
+			panel:Hide()
+		end
+		panel, built = panels[ns.Theme.key], ns.Theme.key
+		return
+	end
 	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	p:SetSize(260, 150)
 	p:SetFrameStrata("HIGH")
@@ -219,6 +228,7 @@ local function build()
 	p.note:SetWidth(232)
 	panel = p
 	built = ns.Theme.key
+	panels[built] = p
 end
 
 local function close()
