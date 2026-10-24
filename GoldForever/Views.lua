@@ -534,6 +534,31 @@ function Views.heldText(entry, most)
 	return string.format("Held %d: %s", entry.total, table.concat(parts, ", "))
 end
 
+-- What this character keeps out of its bags that the auction house would pay for: its bank and mailbox,
+-- each item with its market value (value(id), a unit; nil or 0 drops it, as a bound item has none),
+-- the dearest first. Returns { items = { { id, name, count, place, worth } }, total, count }.
+function Views.elsewhere(character, parse, value, name)
+	local out = { items = {}, total = 0, count = 0 }
+	for _, place in ipairs({ "bank", "mail" }) do
+		for id, n in pairs(parse(character and character[place] and character[place].items)) do
+			local unit = value(id)
+			if unit and unit > 0 then
+				local worth = unit * n
+				out.items[#out.items + 1] = { id = id, name = name(id), count = n, place = place, worth = worth }
+				out.total = out.total + worth
+				out.count = out.count + 1
+			end
+		end
+	end
+	table.sort(out.items, function(a, b)
+		if a.worth ~= b.worth then
+			return a.worth > b.worth
+		end
+		return a.id < b.id
+	end)
+	return out
+end
+
 -- A gold goal on Home: gold now (copper, all characters) against goal = { gold (copper), by (Unix time) }.
 -- Returns { pct (0–100), left (copper still to make), daysLeft, perDay (copper a day to make it, nil once
 -- reached or past), reached, late }.

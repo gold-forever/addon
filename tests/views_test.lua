@@ -231,6 +231,22 @@ eq(V.goal(0, 12000000, { gold = 10000000, by = 86400 }).pct, 100, "never over 10
 local late = V.goal(2 * 86400, 100, { gold = 10000000, by = 86400 })
 eq(tostring(late.late) .. tostring(late.perDay), "truenil", "past the date, not reached")
 
+-- Elsewhere: the bank's and mailbox's items the auction house pays for, dearest first; no price, not shown.
+do
+  local function parse(text)
+    local out = {}
+    for id, n in string.gmatch(text or "", "(%d+)%*(%d+)") do out[tonumber(id)] = (out[tonumber(id)] or 0) + tonumber(n) end
+    return out
+  end
+  local me = { bags = { items = "1*5" }, bank = { items = "2589*40+6948*1" }, mail = { items = "4306*3" } }
+  local prices = { [1] = 999, [2589] = 30, [4306] = 500 }
+  local e = V.elsewhere(me, parse, function(id) return prices[id] end, function(id) return "item " .. id end)
+  eq(e.count, 2, "Linen in the bank and Silk in the mail; the bound Hearthstone has no price")
+  eq(e.items[1].id, 4306, "the dearest first: 3 × 500")
+  eq(e.items[2].place, "bank", "where it is")
+  eq(e.total, 1500 + 1200, "their worth together")
+  eq(V.elsewhere(nil, parse, function() return 1 end, tostring).count, 0, "no character, nothing")
+end
 -- Holdings: what every character holds of an item, most first, for the tooltip's Held line.
 do
   local function parse(text)
