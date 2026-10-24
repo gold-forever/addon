@@ -913,6 +913,30 @@ do
   local me = ns.me()
   local inBank = me and me.bank and ns.Encode.parseItems(me.bank.items)[2589] or 0
   assert(calls[#calls] == "start 2589 " .. (6 - inBank), "the queue's missing Linen, the bank's counted: " .. tostring(calls[#calls]))
+  -- A vendor's reagent: marked so, bought at a merchant that sells it, off the auction house's list.
+  do
+    local vendorRow = GoldForeverDB.catalogue.vendor[2589]
+    GoldForeverDB.catalogue.vendor[2589] = "50,,1,1"
+    local plan
+    for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then plan = r end end
+    assert(plan and plan.vendor, "Linen sold by a vendor: marked so")
+    local keep = { GetMerchantNumItems, GetMerchantItemID, GetMerchantItemInfo, BuyMerchantItem, GetMerchantItemMaxStack }
+    local buys = {}
+    GetMerchantNumItems = function() return 1 end
+    GetMerchantItemID = function() return 2589 end
+    GetMerchantItemInfo = function() return "Linen Cloth", 1, 50, 1, -1, true, false, false end
+    BuyMerchantItem = function(i, n) buys[#buys + 1] = i .. "x" .. n end
+    GetMerchantItemMaxStack = function() return 200 end
+    local mf = C_MerchantFrame
+    C_MerchantFrame = nil
+    fire("MERCHANT_SHOW")
+    wait(1)
+    assert(#buys == 1 and buys[1]:find("^1x%d+$"), "bought at the merchant: " .. table.concat(buys, ","))
+    fire("MERCHANT_CLOSED")
+    C_MerchantFrame = mf
+    GetMerchantNumItems, GetMerchantItemID, GetMerchantItemInfo, BuyMerchantItem, GetMerchantItemMaxStack = keep[1], keep[2], keep[3], keep[4], keep[5]
+    GoldForeverDB.catalogue.vendor[2589] = vendorRow
+  end
   ns.queueClear()
   assert(not ns.CraftQueue.window():IsShown(), "an empty queue closes the window")
   ns.Prices.value = value
