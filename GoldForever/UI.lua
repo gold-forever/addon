@@ -1435,12 +1435,17 @@ function UI.layout.footprint(kb, ms)
 end
 
 -- What the client says about the addon's memory and recent CPU time, when it says anything.
-local function footprint(addon)
+-- `fresh`: measure memory anew. UpdateAddOnMemoryUsage walks every addon loaded, which a big set of
+-- addons makes slow enough for the client to stop it (manual test run 001: "exceeded its execution time
+-- limit", about every 10 s while the hub was open); so only when asked, the last figure kept between.
+local lastKb
+local function footprint(addon, fresh)
 	local kb, ms
-	if UpdateAddOnMemoryUsage and GetAddOnMemoryUsage then
+	if fresh and UpdateAddOnMemoryUsage and GetAddOnMemoryUsage then
 		UpdateAddOnMemoryUsage()
-		kb = GetAddOnMemoryUsage(addon)
+		lastKb = GetAddOnMemoryUsage(addon)
 	end
+	kb = lastKb
 	if C_AddOnProfiler and C_AddOnProfiler.GetAddOnMetric and Enum and Enum.AddOnProfilerMetric then
 		ms = C_AddOnProfiler.GetAddOnMetric(addon, Enum.AddOnProfilerMetric.RecentAverageTime)
 	end
@@ -1551,16 +1556,23 @@ function UI.Window(name, title, pages, store, opts)
 	version:SetPoint("BOTTOMLEFT", 20, 32)
 	local perf = UI.Text(side, "", { size = "xs", tone = "faint" })
 	perf:SetPoint("BOTTOMLEFT", 20, 14)
-	-- The footprint every ten seconds while the window shows, and never while it is closed.
+	-- Memory when the window opens and when the line is clicked; the CPU (cheap to ask) every ten
+	-- seconds while the window shows, and never while it is closed.
 	local ticker
-	local function measure()
-		perf:SetText(footprint(opts.addon or "GoldForever"))
+	local function measure(fresh)
+		perf:SetText(footprint(opts.addon or "GoldForever", fresh))
 	end
+	local perfButton = CreateFrame("Button", nil, side)
+	perfButton:SetAllPoints(perf)
+	perfButton:SetScript("OnClick", function()
+		ns.safely("footprint", measure, true)
+	end)
 	local function started()
-		measure()
-		-- UpdateAddOnMemoryUsage measures every addon loaded, so not too often: every 10 seconds.
+		ns.safely("footprint", measure, true)
 		if C_Timer and C_Timer.NewTicker and not ticker then
-			ticker = C_Timer.NewTicker(10, measure)
+			ticker = C_Timer.NewTicker(10, function()
+				ns.safely("footprint", measure, false)
+			end)
 		end
 	end
 	-- Opened again: the page in view shows what changed while it was closed (manual test run 001).
