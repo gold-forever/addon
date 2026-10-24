@@ -29,14 +29,27 @@ function Encode.row(...)
 	return table.concat(out, ",")
 end
 
+-- Rows in each stream's last chunk, kept in memory so an append does not count them again: stream ->
+-- { chunk, n }, trusted only while that chunk is still the stream's last.
+local lastRows = setmetatable({}, { __mode = "k" })
+
 -- Appends a row to a stream: an array of chunk strings, the last one filled first.
 function Encode.append(stream, row)
 	local last = #stream
 	local chunk = stream[last]
-	if chunk and Encode.count(chunk) < Encode.ROWS_PER_CHUNK then
-		stream[last] = chunk .. ";" .. row
+	local known = lastRows[stream]
+	local n = chunk and (known and known.chunk == chunk and known.n or Encode.count(chunk)) or 0
+	if chunk and n < Encode.ROWS_PER_CHUNK then
+		chunk, n = chunk .. ";" .. row, n + 1
+		stream[last] = chunk
 	else
-		stream[last + 1] = row
+		chunk, n = row, 1
+		stream[last + 1] = chunk
+	end
+	if known then
+		known.chunk, known.n = chunk, n
+	else
+		lastRows[stream] = { chunk = chunk, n = n }
 	end
 end
 
