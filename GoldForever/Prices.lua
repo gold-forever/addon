@@ -19,8 +19,11 @@ local REGION_IDS = { ["1"] = "NA", ["2"] = "KR", ["3"] = "EU", ["4"] = "TW", ["5
 local BETA_REGION, BETA_PORTAL = "110", "test"
 local MAX_REGION_CODE, MAX_RULESET = 8, 32
 
+-- A number the file may carry: a price, a count or a time, none of them above a million gold's copper
+-- (a time stays under it until the year 2286), so an absurd price never reaches a post.
+local MAX = ns.Encode.MAX_COPPER
 local function amount(x)
-	return type(x) == "number" and x >= 0 and x < math.huge
+	return type(x) == "number" and x >= 0 and x <= MAX
 end
 
 local function field(t, key)

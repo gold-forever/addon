@@ -11,6 +11,9 @@ ns.Encode = Encode
 -- into chunks keeps that overhead per chunk instead of per row.
 Encode.ROWS_PER_CHUNK = 500
 
+-- The most copper any price the addon takes from outside may be (a million gold).
+Encode.MAX_COPPER = 10000000000
+
 -- One row from values in declared column order. nil and false become empty, true becomes "1".
 -- Trailing empty columns are kept so the row always matches its declaration.
 function Encode.row(...)
