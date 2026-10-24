@@ -1415,13 +1415,14 @@ function UI.Window(name, title, pages, store, opts)
 	local function measure()
 		perf:SetText(footprint(opts.addon or "GoldForever"))
 	end
-	w:SetScript("OnShow", function()
+	local function started()
 		measure()
 		-- UpdateAddOnMemoryUsage measures every addon loaded, so not too often: every 10 seconds.
-		if C_Timer and C_Timer.NewTicker then
+		if C_Timer and C_Timer.NewTicker and not ticker then
 			ticker = C_Timer.NewTicker(10, measure)
 		end
-	end)
+	end
+	w:SetScript("OnShow", started)
 	w:SetScript("OnHide", function()
 		if ticker and ticker.Cancel then
 			ticker:Cancel()
@@ -1625,5 +1626,9 @@ function UI.Window(name, title, pages, store, opts)
 	end
 	w:Filter("")
 	w:SelectPage(store.page or (pages[1] and pages[1].key))
+	-- A new frame is shown already, so OnShow does not come for the first opening.
+	if w:IsShown() then
+		started()
+	end
 	return w
 end

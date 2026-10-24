@@ -767,13 +767,18 @@ local function buildSessionNow(page)
 	end
 	-- Once a second while shown, and no ticker otherwise.
 	local ticker
-	page:SetScript("OnShow", function(self)
+	local function start(self)
 		if C_Timer and C_Timer.NewTicker and not ticker then
 			ticker = C_Timer.NewTicker(1, function()
 				ns.safely("ui session", self.Refresh, self)
 			end)
 		end
-	end)
+	end
+	page:SetScript("OnShow", start)
+	-- A new frame is shown already, so OnShow does not come for the first opening.
+	if page:IsShown() then
+		start(page)
+	end
 	page:SetScript("OnHide", function()
 		if ticker and ticker.Cancel then
 			ticker:Cancel()

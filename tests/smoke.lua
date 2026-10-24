@@ -74,12 +74,33 @@ function GetPhysicalScreenSize() return 2560, 1440 end
 UISpecialFrames = {}
 BackdropTemplateMixin = {}
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-function CreateFrame() local f = widget({ events = {}, shown = false })
+-- Frames as the client's: shown when made, visible when their parents are, and OnShow/OnHide (with
+-- hooks) run on a frame and its shown children when what is visible changes.
+local function visible(f)
+  while f do
+    if f.shown == false then return false end
+    f = f.parent
+  end
+  return true
+end
+local function run(f, script)
+  local fn = f.scripts[script]
+  if fn then fn(f) end
+  for _, c in ipairs(f.children) do
+    if c.shown then run(c, script) end
+  end
+end
+function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {} })
+  if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
-  function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn end end
-  function f:Show() self.shown = true end
-  function f:Hide() self.shown = false end
+  function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn end end
+  function f:GetScript(name) return self.scripts[name] end
+  function f:HookScript(name, fn) local old = self.scripts[name]; self.scripts[name] = function(...) if old then old(...) end fn(...) end end
+  function f:Show() if self.shown then return end local was = visible(self) self.shown = true if not was and visible(self) then run(self, "OnShow") end end
+  function f:Hide() if not self.shown then return end local was = visible(self) self.shown = false if was then run(self, "OnHide") end end
+  function f:SetShown(on) if on then self:Show() else self:Hide() end end
   function f:IsShown() return self.shown end
+  function f:IsVisible() return visible(self) end
   function f:CreateFontString() local fs = widget({}); function fs:SetText(t) self.text = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
 UIParent = widget()
@@ -1129,6 +1150,20 @@ for _, look in ipairs({ "classic", "arcane", "web" }) do
     settingsPage.ensure(tab)
     assert(settingsPage[tab].built, "Settings tab drawn: " .. tab)
   end
+end
+-- A window opened for the first time (a new accent builds one) straight onto This session: the tab's
+-- once-a-second refresh and the footer's 10-second memory reading run at once, and stop when it closes.
+do
+  local open = ns.hubWindow()
+  if open then open:Hide() end
+  local ones, tens = running(1), running(10)
+  SlashCmdList.GOLDFOREVER("accent #123456")
+  SlashCmdList.GOLDFOREVER("ui now")
+  assert(running(1) == ones + 1, "This session ticks from its first opening: " .. running(1) - ones)
+  assert(running(10) == tens + 1, "the memory line reads from the window's first opening")
+  ns.hubWindow():Hide()
+  assert(running(1) == ones and running(10) == tens, "both stop with the window")
+  SlashCmdList.GOLDFOREVER("accent")
 end
 -- The Session page's This session tab reads the HUD's figures.
 do
