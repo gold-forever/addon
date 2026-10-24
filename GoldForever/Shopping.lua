@@ -10,7 +10,8 @@ local Shopping = {}
 ns.Shopping = Shopping
 
 Shopping.PREFIX = "GFL1:"
-local MAX_STRING, MAX_ENTRIES, MAX_COPPER = 16384, 200, 10000000000
+-- MAX_LISTS is the site's too (MAX_SHARED_ITEMS): a pasted string cannot fill the save with lists.
+local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, 10000000000, 50
 
 -- The most an entry pays a unit: its own price, or a copper under market value ("under market").
 function Shopping.limit(entry, market)
@@ -96,6 +97,9 @@ function Shopping.decode(input)
 				return nil, string.format("Line %d is not understood: \"%s\"", n, string.sub(line, 1, 60))
 			end
 			if string.sub(line, 1, 5) == "list " then
+				if #lists >= MAX_LISTS then
+					return nil, "More than " .. MAX_LISTS .. " lists"
+				end
 				local name = string.match(string.sub(string.gsub(string.sub(line, 6), "|", ""), 1, 40), "^%s*(.-)%s*$")
 				lists[#lists + 1] = { name = name ~= "" and name or "Unnamed", entries = {} }
 			else
