@@ -1618,6 +1618,18 @@ do
   SlashCmdList.GOLDFOREVER("ui settings")
   assert(p.modules.rows[1].switch.on == true, "and back")
 end
+-- Opening the window onto the page it shows refreshes that page once, not once as it shows and again
+-- as the page is chosen.
+do
+  SlashCmdList.GOLDFOREVER("ui home")
+  local home = ns.hubWindow().pages.home
+  local refresh, n = home.Refresh, 0
+  home.Refresh = function(self) n = n + 1 return refresh(self) end
+  ns.hubWindow():Hide()
+  SlashCmdList.GOLDFOREVER("ui home")
+  assert(n == 1, "Home refreshed once as the window opens on it: " .. n)
+  home.Refresh = refresh
+end
 -- A window opened for the first time (a new accent builds one) straight onto This session: the tab's
 -- once-a-second refresh and the footer's 10-second memory reading run at once, and stop when it closes.
 do

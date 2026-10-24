@@ -557,6 +557,10 @@ local function buildRares(page)
 		-- Silvermoon): none listed.
 		note:SetText(retail and "Rares are recorded on WoW: Forever only: retail's cities are full of map markers that are not rares."
 			or "Logged from nameplates, your target and the minimap. Settings → Modules switches the alerts.")
+		if retail then
+			tbl:SetRows({})
+			return -- no rare listed, so no mob's loot to count
+		end
 		local names = ns.db().catalogue.npcs
 		local mobs, worth = ns.mobStats(function()
 			if page:IsShown() then
@@ -564,7 +568,7 @@ local function buildRares(page)
 			end
 		end)
 		local rows = {}
-		for _, r in ipairs(retail and {} or Views.rares(Views.rows(ns.db(), "rare"))) do
+		for _, r in ipairs(Views.rares(Views.rows(ns.db(), "rare"))) do
 			local m = mobs and mobs[r.npc]
 			local value
 			if m and m.loots > 0 then
@@ -1240,9 +1244,11 @@ local function buildInventory(page)
 	end)
 	quality:SetPoint("LEFT", where, "RIGHT", 8, 0)
 	quality:SetWidth(150)
+	-- Typing gathers its keys into a refresh at most every 0.3 seconds: each one reads every bag.
+	local searched = ns.throttle("ui inventory search", 0.3, refresh)
 	local search = UI.SearchBox(page, "Search items…", function(text)
 		filter.query = string.lower(text)
-		refresh()
+		searched()
 	end)
 	search:SetPoint("TOPRIGHT")
 	search:SetPoint("LEFT", quality, "RIGHT", 8, 0)
@@ -1858,13 +1864,23 @@ local function windowFor(name)
 	local hex = accent()
 	Theme.apply(name, hex)
 	local key = name .. (hex and string.gsub(hex, "#", "_") or "")
-	if not windows[key] then
+	local built = not windows[key]
+	if built then
 		windows[key] = UI.Window(key == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. key, "Gold Forever", PAGES, settings(), {
 			version = ns.VERSION,
 			look = Theme.skins[name].label,
 		})
 	end
-	return windows[key]
+	return windows[key], built
+end
+
+-- Whether the window has in view the page (and tab) a key names, as the saved page: a window just built
+-- or shown again has then refreshed it already, and opening it again would refresh it twice.
+local function showing(window, key)
+	local f = FOLDED[key]
+	local name = f and f[1] or key
+	local page = window.pages[name]
+	return settings().page == name and page ~= nil and page:IsShown() and (not f or page.tab == f[2])
 end
 
 local function shown()
@@ -1886,12 +1902,22 @@ ns.commands.ui = function(page)
 		open:Hide()
 		return
 	end
-	local window = windowFor(look())
+	-- An old key's tab, set before the window builds or shows its page.
+	local f = page and FOLDED[page]
+	if f then
+		settings().tabs = settings().tabs or {}
+		settings().tabs[f[1]] = f[2]
+	end
+	local window, built = windowFor(look())
+	local fresh = built or not window:IsShown()
+	if f and fresh and window.pages[f[1]] then
+		window.pages[f[1]].tab = f[2]
+	end
 	window:Restore()
 	window:Show()
 	-- In front every time, an open window too (manual test run 001: Rule › left it under the panel).
 	window:Raise()
-	if page and page ~= "" then
+	if page and page ~= "" and not (fresh and showing(window, page)) then
 		openIn(window, page)
 	end
 end
@@ -1901,10 +1927,14 @@ local function reopen()
 	local open = shown()
 	if open then
 		open:Hide()
-		local window = windowFor(look())
+		local window, built = windowFor(look())
+		local fresh = built or not window:IsShown()
 		window:Restore()
 		window:Show()
-		window:SelectPage(settings().page or PAGES[1].key)
+		local key = settings().page or PAGES[1].key
+		if not (fresh and showing(window, key)) then
+			window:SelectPage(key)
+		end
 	else
 		Theme.apply(look(), accent())
 	end
