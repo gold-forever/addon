@@ -78,15 +78,16 @@ function ns.safely(name, fn, ...)
 end
 
 -- Work spread over frames takes about FRAME_MS a frame: ns.frameStart() when a frame's share begins,
--- then ns.frameSpent(started, done, fallback) every so often says whether to yield. Where the client has
--- no profiling timer, `fallback` units of work a frame instead.
+-- then ns.frameSpent(started, done, fallback[, ms]) every so often says whether to yield. Where the client
+-- has no profiling timer, `fallback` units of work a frame instead. `ms` gives a larger share to work the
+-- player waits on (a scan's reading).
 local FRAME_MS = 3
 function ns.frameStart()
 	return debugprofilestop and debugprofilestop() or nil
 end
-function ns.frameSpent(started, done, fallback)
+function ns.frameSpent(started, done, fallback, ms)
 	if started then
-		return done % 25 == 0 and debugprofilestop() - started >= FRAME_MS
+		return done % 25 == 0 and debugprofilestop() - started >= (ms or FRAME_MS)
 	end
 	return done >= fallback
 end

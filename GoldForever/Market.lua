@@ -192,6 +192,8 @@ local function finish(s, buckets, n)
 	encode()
 end
 
+local READ_MS = 6 -- a full scan's reading, per frame
+
 local function read()
 	local s = scan
 	if not s or s.reading then
@@ -232,7 +234,8 @@ local function read()
 				end
 			end
 			done = done + 1
-			if ns.frameSpent(started, done, BATCH) then
+			-- 6 ms a frame (owner, 2026-10-24: 60-70 fps reading at 3 ms, 50 is fine), about half the wait.
+			if ns.frameSpent(started, done, BATCH, READ_MS) then
 				stop = index + 1
 				break
 			end
