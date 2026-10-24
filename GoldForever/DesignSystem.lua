@@ -1940,8 +1940,9 @@ ns.commands.accent = function(hex)
 		return
 	end
 	local chosen = hex ~= "" and hex or nil
-	settings().accent = chosen
+	-- The session's accent read before the new one is saved, or the new one would count as drawn already.
 	accent()
+	settings().accent = chosen
 	if not drawnAccents[chosen or "none"] then
 		if drawnCount >= MAX_ACCENTS then
 			ns.say("accent saved; it shows after /reload (each new colour draws every panel again, which stays until a reload).")
