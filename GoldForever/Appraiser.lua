@@ -312,16 +312,18 @@ end
 
 -- Kills without the combat log (forbidden on Forever): a fight opens when combat starts and closes a
 -- few seconds after it ends, once its loot is in; its kills are the larger of its kill-XP gains and the
--- creature corpses looted for the first time (Views.killsInFight), so a grey mob counts too.
+-- creature corpses looted for the first time, so a grey mob counts too; a corpse looted after its
+-- fight closed matches the kill XP already counted rather than counting again (Views.creditKills).
 local FIGHT_GRACE = 8 -- seconds after combat for the kill XP (classified 3 s late) and the loot
 local fight -- { xpKills, corpses = { guid } } while one is open
 local corpsesSeen = {} -- corpse GUIDs already counted
+local uncorpsed = {} -- times of kills credited by XP whose corpse is not looted yet (Views.creditKills)
 
 local function closeFight()
 	local f = fight
 	fight = nil
 	if f and session then
-		session.kills = session.kills + ns.Views.killsInFight(f.xpKills, f.corpses, corpsesSeen)
+		session.kills = session.kills + ns.Views.creditKills(uncorpsed, f.xpKills, f.corpses, corpsesSeen, GetTime())
 	end
 end
 
@@ -347,7 +349,8 @@ table.insert(ns.xpListeners, function(gained, kind)
 		if fight then
 			fight.xpKills = fight.xpKills + 1
 		else
-			s.kills = s.kills + 1 -- a kill outside any fight (a pet's, a DoT's after combat)
+			-- a kill outside any fight (a pet's, a DoT's after combat)
+			s.kills = s.kills + ns.Views.creditKills(uncorpsed, 1, nil, corpsesSeen, GetTime())
 		end
 	end
 end)
@@ -801,7 +804,7 @@ table.insert(ns.lootListeners, function(coin, taken, rows)
 			table.insert(fight.corpses, guid)
 		end
 	elseif #corpses > 0 then
-		session.kills = session.kills + ns.Views.killsInFight(0, corpses, corpsesSeen)
+		session.kills = session.kills + ns.Views.creditKills(uncorpsed, 0, corpses, corpsesSeen, GetTime())
 	end
 	ns.safely("big drop", bigDrops, taken)
 	session.coin = session.coin + coin

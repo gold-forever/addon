@@ -154,6 +154,22 @@ local seenCorpses = {}
 eq(V.killsInFight(1, { "Creature-0-1-a" }, seenCorpses), 1, "the first loot")
 eq(V.killsInFight(0, { "Creature-0-1-a" }, seenCorpses), 0, "a corpse looted again is no new kill")
 eq(V.killsInFight(0, { "GameObject-0-1-chest" }, {}), 0, "a chest is no kill")
+
+-- Across fights: a corpse looted after its fight closed is the kill its XP already counted.
+do
+  local pending, seen = {}, {}
+  eq(V.creditKills(pending, 1, {}, seen, 100), 1, "killed; the fight closes before the loot")
+  eq(V.creditKills(pending, 0, { "Creature-0-1-a" }, seen, 110), 0, "its corpse, looted late, is no second kill")
+  -- Kill one, pull the next before looting, loot both in the second fight: two kills, not three.
+  eq(V.creditKills(pending, 1, {}, seen, 200), 1, "the first fight")
+  eq(V.creditKills(pending, 1, { "Creature-0-1-b", "Creature-0-1-c" }, seen, 215), 1, "the second fight with both corpses")
+  eq(#pending, 0, "every XP kill has its corpse")
+  -- A grey mob: no XP, a corpse, a kill.
+  eq(V.creditKills(pending, 0, { "Creature-0-1-rat" }, seen, 300), 1, "a grey mob")
+  -- A kill never looted is let go after MATCH_SECONDS: a later grey mob still counts.
+  eq(V.creditKills(pending, 1, {}, seen, 400), 1, "killed, never looted")
+  eq(V.creditKills(pending, 0, { "Creature-0-1-rat2" }, seen, 400 + V.MATCH_SECONDS + 1), 1, "a grey mob long after")
+end
 eq(V.sessionRates({ coin = 0, xp = 900, killXp = 900, kills = 5, xpKills = 3 }, 30, 0, 9000).killsToLevel, 30, "XP a kill from the kills that gave XP")
 
 -- Rares: one row a rare, how often seen, the last sighting's place and how, the latest first.
