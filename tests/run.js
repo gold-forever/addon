@@ -53,4 +53,29 @@ for (const name of tests) {
     console.log(`✓ ${name}: ${lua.lua_tojsstring(L, -1)} checks`)
   }
 }
+// The whole addon on a made-up save the size of a heavy player's (bigsave.lua), on both clients, when
+// luajit is installed (CI runs it in its own step after installing it).
+const { spawnSync } = require('child_process')
+const os = require('os')
+if (spawnSync('luajit', ['-v']).status === 0) {
+  const repo = path.join(__dirname, '..')
+  const save = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gf-bigsave-')), 'GoldForever.lua')
+  fs.writeFileSync(save, spawnSync('luajit', [path.join(__dirname, 'bigsave.lua')], { maxBuffer: 64 << 20 }).stdout)
+  for (const interfaceNumber of ['16001', '120105']) {
+    const run = spawnSync('luajit', ['tests/smoke.lua', 'GoldForever'], {
+      cwd: repo,
+      env: { ...process.env, GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_SAVE: save, GF_SMOKE_GUID: 'Player-3666-0000000A' },
+      maxBuffer: 64 << 20,
+    })
+    const out = String(run.stdout)
+    if (run.status !== 0) {
+      console.error(`✗ big save on ${interfaceNumber}:\n${out.split('\n').filter((l) => !l.startsWith('[chat]')).join('\n')}${run.stderr}`)
+      failed++
+    } else {
+      console.log(`✓ big save on ${interfaceNumber}: ${out.match(/MEMORY .*/)?.[0] ?? ''}`)
+    }
+  }
+} else {
+  console.log('- big save skipped: no luajit')
+}
 process.exit(failed ? 1 : 0)

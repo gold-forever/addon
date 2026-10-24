@@ -18,3 +18,15 @@ where the addon's own work grows with the data, not what the client spends drawi
 First run, 2026-10-24, on the owner's retail save (11 MB file, 20 873 catalogued items, three
 characters): no errors as any of the three; the save alone holds 13.4 MB, 19.4 MB after the whole tour;
 every page under 3 ms; a tooltip for each of the 20 873 items in 160 ms together.
+
+## The made-up big save
+
+`tests/bigsave.lua` writes a save of the same shapes and size with every value generated (20 000 items,
+three characters, two markets of 110 000 scan rows, fourteen days of events), so the same tour runs with
+no one's data: `npm test` runs it on both clients when `luajit` is installed, and CI always does. A step
+over `GF_SMOKE_BUDGET_MS` (1000 by default) fails the run.
+
+What it found first (2026-10-24): the Mobs tab counted every loot row in one frame (now a chunk a frame
+from 20 s after login), a folded tab refreshed the page's previous tab before its own, and the Ledger,
+Sales and Levelling tabs split every character's rows to keep one's (now passed over unsplit). Revisiting
+every page: 116 ms to 13 ms.

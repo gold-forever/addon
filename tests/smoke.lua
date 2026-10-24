@@ -234,6 +234,11 @@ if SAVE then
     local kb, t = collectgarbage("count"), os.clock()
     local ok, err = pcall(fn)
     local ms = (os.clock() - t) * 1000
+    -- A loose budget a step (GF_SMOKE_BUDGET_MS, 1000 by default): it catches work grown tenfold, not noise.
+    if ok and ms > (tonumber(os.getenv("GF_SMOKE_BUDGET_MS")) or 1000) then
+      ok, err = false, "over the budget"
+    end
+    if not ok then failedSteps = (failedSteps or 0) + 1 end
     rows[#rows + 1] = string.format("%-34s %8.1f ms %8.0f KB%s", label, ms, collectgarbage("count") - kb, ok and "" or ("  FAILED: " .. tostring(err)))
   end
   timed("load and log in", function()
@@ -276,7 +281,7 @@ if SAVE then
   end
   io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
   io.write(string.format("MEMORY %.0f KB after a full collect\n", (function() collectgarbage("collect") return collectgarbage("count") end)()))
-  os.exit(#errors == 0 and 0 or 1)
+  os.exit((#errors == 0 and not failedSteps) and 0 or 1)
 end
 fire("ADDON_LOADED", "GoldForever")
 fire("PLAYER_LOGIN")
