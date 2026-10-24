@@ -1449,7 +1449,7 @@ local function buildSettings(page)
 						appraiser.shown = on
 					end
 				end },
-			{ icon = "gavel", name = "Auction house panel", blurb = "Scan, post and the rule, beside the auction house.",
+			{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
 				on = function() return not auction.hidden end,
 				set = function(on) auction.hidden = not on end },
 			{ icon = "tag", name = "Prices in tooltips", blurb = "Everyone's price, or your own scan's, under every item.",
@@ -1464,7 +1464,7 @@ local function buildSettings(page)
 			{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
 			on = function() return ns.settings("auction", { rule = {}, duration = 2 }).dealsAlert ~= false end,
 			set = function(on) ns.settings("auction", { rule = {}, duration = 2 }).dealsAlert = on end },
-		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open the auction house's mail, a batch a press.",
+		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
 			on = function() return ns.settings("mail", { helper = true }).helper ~= false end,
 			set = function(on) ns.settings("mail", { helper = true }).helper = on end },
 		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
@@ -1477,11 +1477,13 @@ local function buildSettings(page)
 		local list = UI.Panel(m, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
 		list:SetPoint("TOPLEFT")
 		list:SetPoint("RIGHT", m, "RIGHT")
-		list:SetHeight(#MODULES * 52 + 8)
+		-- 38 a row: nine modules and the note fit the page (manual test run 001: at 52 the list ran past it).
+		local ROW = 38
+		list:SetHeight(#MODULES * ROW + 8)
 		for i, mod in ipairs(MODULES) do
 			local row = CreateFrame("Frame", nil, list)
-			row:SetHeight(52)
-			row:SetPoint("TOPLEFT", 0, -4 - (i - 1) * 52)
+			row:SetHeight(ROW)
+			row:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW)
 			row:SetPoint("RIGHT", list, "RIGHT")
 			if i > 1 then
 				local rule = UI.solid(row, "BORDER", Theme.color.border)
@@ -1492,9 +1494,9 @@ local function buildSettings(page)
 			local icon = UI.Icon(row, mod.icon, 20, mod.on() and "accent" or "faint")
 			icon:SetPoint("LEFT", 20, 0)
 			local name = UI.Text(row, mod.name, { size = "sm", medium = true, tone = mod.on() and "text" or "muted" })
-			name:SetPoint("TOPLEFT", 56, -10)
+			name:SetPoint("TOPLEFT", 56, -5)
 			local blurb = UI.Text(row, mod.blurb, { size = "xs", tone = "faint" })
-			blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -4)
+			blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
 			blurb:SetPoint("RIGHT", row, "RIGHT", -80, 0)
 			local sw = UI.Switch(row, mod.on(), function(on)
 				mod.set(on)
@@ -1507,8 +1509,8 @@ local function buildSettings(page)
 				sw:SetAlpha(0.5)
 			end
 		end
-		local note = UI.Text(m, "What the save records stays the same whatever is switched off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
-		note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -14)
+		local note = UI.Text(m, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
+		note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
 		note:SetPoint("RIGHT", m, "RIGHT")
 	end
 	fills.discord = function()
@@ -1810,6 +1812,9 @@ local function reopen()
 		window:SelectPage(settings().page or PAGES[1].key)
 	else
 		Theme.apply(look(), accent())
+	end
+	if ns.lookChanged then
+		ns.lookChanged()
 	end
 end
 

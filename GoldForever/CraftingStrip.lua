@@ -186,6 +186,7 @@ ns.on("TRADE_SKILL_SHOW", "crafting strip", function()
 	end)
 end)
 ns.on("TRADE_SKILL_CLOSE", "crafting strip", hide)
+ns.onLook("crafting strip", refresh) -- refresh draws a strip that shows in the look now set
 ns.on("BAG_UPDATE_DELAYED", "crafting strip", refresh)
 
 if EventRegistry and EventRegistry.RegisterCallback then

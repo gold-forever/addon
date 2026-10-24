@@ -2215,6 +2215,11 @@ ns.on("AUCTION_HOUSE_SHOW", "auction panel", function()
 	show()
 end)
 ns.on("AUCTION_HOUSE_CLOSED", "auction panel", hide)
+ns.onLook("auction panel", function()
+	if refresh then
+		refresh() -- a panel that shows is drawn again in the look now set
+	end
+end)
 ns.on("BAG_UPDATE_DELAYED", "auction panel", function()
 	if panel and panel:IsShown() then
 		reread()
