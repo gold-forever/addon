@@ -394,6 +394,15 @@ do
   function ClearOverrideBindings() end
   AP.tab("scan")
   assert(not AP.bound(), "Space is free on the Scan tab")
+  -- Alt-click on the bag's Linen (bag 0, slot 1) chooses it in Post, by slot or by link.
+  ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  local _, picked = AP.state()
+  assert(picked and picked.id == 2589 and AP.bound(), "alt-click chose Linen and opened Post")
+  AP.tab("scan")
+  ns.AuctionPanelAltClick("|cffffffff|Hitem:2589::::::::30|h[Linen Cloth]|h|r", nil)
+  _, picked = AP.state()
+  assert(picked and picked.id == 2589, "by link where no slot is given")
+  AP.tab("scan")
   AP.tab("rule")
   AP.tab("post")
   assert(AP.bound(), "Space posts on the Post tab")

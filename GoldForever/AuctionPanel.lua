@@ -1453,6 +1453,63 @@ ns.on("BAG_UPDATE_DELAYED", "auction panel", function()
 	end
 end)
 
+-- Alt-click on a bag item while the panel shows chooses it in Post (owner's answer, 2026-10-24): the
+-- game's own modified-click handler is hooked (HandleModifiedItemClick, after it ran; nothing replaced),
+-- and the item found by its bag slot, or by its link where the client passes none.
+local function bagSlot(loc)
+	if type(loc) ~= "table" then
+		return nil
+	end
+	if loc.GetBagAndSlot then
+		return loc:GetBagAndSlot()
+	end
+	return loc.bag, loc.slot
+end
+
+local function chooseFromBag(link, loc)
+	if not panel or not panel:IsShown() then
+		return
+	end
+	reread()
+	local bag, slot = bagSlot(loc)
+	local key = link and ns.Encode.itemKey(link)
+	local id = link and ns.Encode.itemId(key)
+	local found
+	for _, r in ipairs(rows) do
+		for _, l in ipairs(r.locations) do
+			local b, sl = bagSlot(l)
+			if bag and b == bag and sl == slot then
+				found = r
+			end
+		end
+		if not found and not bag and (r.key == key or (r.commodity and r.id == id)) then
+			found = r
+		end
+	end
+	if not found then
+		return
+	end
+	panel.ensure("post")
+	panel.tabs:Select("post")
+	for k, f in pairs(panel.pages) do
+		f:SetShown(k == "post")
+	end
+	panel.tab = "post"
+	bindSpace(panel)
+	chosen, armed = found, nil
+	search(found, true)
+	refresh()
+end
+
+if hooksecurefunc and HandleModifiedItemClick then
+	hooksecurefunc("HandleModifiedItemClick", function(link, loc)
+		if IsAltKeyDown and IsAltKeyDown() then
+			ns.safely("auction alt-click", chooseFromBag, link, loc)
+		end
+	end)
+end
+ns.AuctionPanelAltClick = chooseFromBag
+
 -- "/gf ah" shows or hides the panel at the auction house, and remembers.
 ns.commands.ah = function()
 	local s = settings()
