@@ -261,6 +261,13 @@ function tocFiles()
   return out
 end
 local ns = {}
+-- An observation the run prints, pinned: its value on WoW: Forever, and on retail where that differs.
+local function seen(label, value, forever, retail)
+  value = tostring(value)
+  print(label .. value)
+  local want = FLAVOUR == "retail" and retail or forever
+  if value ~= want then error(label:gsub("%s+$", "") .. ": expected [" .. tostring(want) .. "], got [" .. value .. "]", 2) end
+end
 -- GF_SMOKE_SAVE=<a copy of a SavedVariables file>: the addon on a real save instead of the session
 -- below, as that save's character, through every page, tab, look and panel, timed (tests/realsave.md).
 local SAVE = os.getenv("GF_SMOKE_SAVE")
@@ -439,7 +446,7 @@ fishing = false
 fire("UNIT_SPELLCAST_SENT", "player", "Testchar", "Cast-8", 1243)
 slots = { { kind = 1, link = "|Hitem:6358::::::::30|h[Oily Blackmouth]|h", qty = 1, sources = { "GameObject-0-4620-0-12-35591-000E", 1 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-print("BOBBER NAMED " .. tostring(GoldForeverDB.catalogue.objects[35591]))
+seen("BOBBER NAMED ", tostring(GoldForeverDB.catalogue.objects[35591]), "nil")
 wait(30)
 fire("TRADE_SKILL_SHOW")
 fire("MERCHANT_SHOW")
@@ -465,7 +472,7 @@ fireNow("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-3", 2963)
 bolts = 4
 fireNow("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:2996::::::::30|h[Bolt of Linen Cloth]|h|rx2.")
 wait(3)
-print("CRAFTS " .. tostring(GoldForeverDB.events["2026-10-20"].craft and GoldForeverDB.events["2026-10-20"].craft[1]))
+seen("CRAFTS ", tostring(GoldForeverDB.events["2026-10-20"].craft and GoldForeverDB.events["2026-10-20"].craft[1]), "1792517415,1,2963,2996,1,75,1429;1792517415,1,2963,2996,1,76,1429;1792517415,1,2963,2996,2,76,1429")
 Enum.FlightPathState = { Current = 0 }
 TakeTaxiNode(2)
 C_QuestLog = { GetTitleForQuestID = function() return "The Fargodeep Mine, part 2" end }
@@ -533,10 +540,10 @@ table.insert(GoldForeverDB.scans, { t = 1792520100, kind = "full", market = "EU-
 ns.scanVersion = (ns.scanVersion or 0) + 1
 slots = { { kind = 1, link = "|Hitem:271206::::::::30|h[Skin]|h", qty = 1, sources = { "Creature-0-4620-0-12-1922-000H", 1 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-print("BIG DROP " .. tostring(raidNotices[1]))
+seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin — 6s 87c")
 GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
-print("SASH TOOLTIP " .. table.concat(GameTooltip.lines, " / "))
+seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 53s 66c · |cff56c98fbetter than selling|r", "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 1c")
 bagsFull = true
 -- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
 -- Blizzard's own call: the first press says what, the second sells, once.
@@ -546,7 +553,7 @@ function MerchantFrame:IsShown() return true end
 C_MerchantFrame = { GetNumJunkItems = function() return 3 end, IsSellAllJunkEnabled = function() return true end,
   SellAllJunkItems = function() sold = sold + 1 end }
 fire("MERCHANT_SHOW")
-print("ADVISOR\n" .. tostring(appraiserText))
+seen("ADVISOR\n", tostring(appraiserText), "Sell junk: 3 items · 0c")
 do
   local sell = ns.Advisor.sellButton()
   assert(sell and sell:IsShown() and (sell.label:GetText()):find("Sell junk: 3 items", 1, true), "Sell junk shows: " .. tostring(sell and sell.label:GetText()))
@@ -574,7 +581,7 @@ UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-94
 UnitExists = function(u) return u == "npc" or u == "target" or u == "nameplate3" end
 fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
 fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
-print("RARE " .. tostring(raidNotices[1]) .. " | notices " .. #raidNotices .. " | skull " .. tostring(marks.nameplate3))
+seen("RARE ", tostring(raidNotices[1]) .. " | notices " .. #raidNotices .. " | skull " .. tostring(marks.nameplate3), "Rare: Testchar (12 elite) near 41.2, 67.9 | notices 1 | skull 8", "nil | notices 0 | skull nil")
 -- Off on retail for now: its cities' minimap markers made the announcer fire on ordinary NPCs (2026-10-22).
 if INTERFACE >= 110000 then
   assert(#raidNotices == 0 and marks.nameplate3 == nil, "retail: no rare notice and no skull")
@@ -671,7 +678,7 @@ ns.scanVersion = (ns.scanVersion or 0) + 1
 GoldForeverDB.catalogue.items[2996] = "Bolt of Linen Cloth,1,10,7,5,10,25,0,132890"
 GoldForeverDB.catalogue.tooltips[2996] = "Bolt of Linen Cloth"
 fire("AUCTION_HOUSE_SHOW")
-print("SHOP\n" .. tostring(appraiserText))
+seen("SHOP\n", tostring(appraiserText), "|cffffd100Vendor these|r · 6s 87c\n1× Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 2s 66c\n7× Item‚ 2589 · 2s 66c|cff999999 (post at 40c each)|r\n \n|cffa335eeDisenchant these|r · 53s 66c\n1× Violet Sash · 53s 66c\n \n|cffffffffAll of it: 63s 19c|r", "|cffffd100Vendor these|r · 22s 72c\n1× Violet Sash · 15s 85c\n1× Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 6s 65c\n7× Item‚ 2589 · 6s 65c|cff999999 (post at 1s 0c each)|r\n \n|cffffffffAll of it: 29s 37c|r")
 -- The crafting strip: beside the profession window, the selected recipe's cost, sale and profit.
 do
   ProfessionsFrame = widget()
@@ -699,6 +706,7 @@ do
   local framesBefore = #frames
   fire("AUCTION_HOUSE_SHOW")
   print("AH PANEL FRAMES at opening: " .. (#frames - framesBefore))
+  assert((#frames - framesBefore) <= 21, "the auction panel builds at most 21 frames at opening: " .. (#frames - framesBefore))
   local AP = ns.AuctionPanel
   function SetOverrideBindingClick() end
   function ClearOverrideBindings() end
@@ -719,7 +727,7 @@ do
   local rows, chosen = AP.state()
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
-  print("AH POST " .. tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit))
+  seen("AH POST ", tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit), "normal 100")
   -- A bag item's tooltip at the auction house says what Post would ask.
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
@@ -1138,10 +1146,10 @@ C_QuestLog.IsQuestFlaggedCompleted = function() return false end
 raidNotices = {}
 slots = { { kind = 1, link = "|Hitem:1357::::::::30|h[Map]|h", qty = 1, quest = 136, sources = { "Creature-0-4620-0-12-1922-000Q", 1 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-print("QUEST ALERT " .. tostring(raidNotices[1]) .. " | recorded quest " .. tostring(GoldForeverDB.catalogue.questStarters[1357]))
+seen("QUEST ALERT ", tostring(raidNotices[1]) .. " | recorded quest " .. tostring(GoldForeverDB.catalogue.questStarters[1357]), "Starts a quest: Captain Sander's Treasure Map — right-click it in your bags to start it. | recorded quest 136")
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
-print("MOB STARTER " .. tostring(GameTooltip.lines[3]))
+seen("MOB STARTER ", tostring(GameTooltip.lines[3]), "Drops a quest starter: Captain Sander's Treasure Map (25% of loots) · not done")
 -- Stop: the session ends and its clock stops.
 SlashCmdList.GOLDFOREVER("reset")
 -- Posting: a commodity and its confirmation are one post; an item's unit price is its buyout per item.
@@ -1152,22 +1160,22 @@ C_AuctionHouse.ConfirmPostCommodity({}, 2, 20, 95)
 C_AuctionHouse.PostItem({}, 3, 2, 0, 3000)
 C_AuctionHouse.PostItem({}, 3, 2, 0, 3000) -- a second alike auction, no confirmation: two posts
 local day = GoldForeverDB.events["2026-10-20"]
-print("POSTS " .. tostring(day.post and day.post[1]))
+seen("POSTS ", tostring(day.post and day.post[1]), "1792517415,1,2592,2,1500,3,;1792517415,1,2592,2,1500,3,")
 -- A sale mail, read twice: one sale row, no buyer.
 function GetInboxNumItems() return 1 end
 function GetInboxInvoiceInfo(i) return "seller", "Wool Cloth, bundle", "SomeBuyer", 0, 1900, 120, 95, 0, 0, 20, false end
 function GetInboxHeaderInfo(i) return nil, nil, "Alliance Auction House", "Auction successful", 1925, 0, 29.95 end
 fire("MAIL_INBOX_UPDATE") wait(2) fire("MAIL_INBOX_UPDATE") wait(2)
-print("SALES " .. tostring(day.sale and day.sale[1]))
+seen("SALES ", tostring(day.sale and day.sale[1]), "1792517415,1,Wool Cloth‚ bundle,20,1900,120,95")
 -- The same mail two minutes later (fewer days left): still one sale. Then two alike mails: two.
 clock = clock + 120; now = now + 120
 function GetInboxHeaderInfo(i) return nil, nil, "Alliance Auction House", "Auction successful", 1925, 0, 29.95 - 120 / 86400 end
 fire("MAIL_INBOX_UPDATE") wait(2)
-print("SALES AFTER DRIFT " .. tostring(day.sale and day.sale[1]))
+seen("SALES AFTER DRIFT ", tostring(day.sale and day.sale[1]), "1792517415,1,Wool Cloth‚ bundle,20,1900,120,95")
 function GetInboxNumItems() return 2 end
 function GetInboxHeaderInfo(i) return nil, nil, "Alliance Auction House", "Auction successful", 1925, 0, i == 1 and (29.95 - 120 / 86400) or 29.999 end
 fire("MAIL_INBOX_UPDATE") wait(2)
-print("SALES AFTER SECOND MAIL " .. tostring(day.sale and day.sale[1]))
+seen("SALES AFTER SECOND MAIL ", tostring(day.sale and day.sale[1]), "1792517415,1,Wool Cloth‚ bundle,20,1900,120,95;1792517535,1,Wool Cloth‚ bundle,20,1900,120,95")
 -- The mailbox as a snapshot: a returned stack and gold; no sender kept.
 function GetInboxHeaderInfo(i) return nil, nil, "SomeBuyer", "Auction expired", i == 1 and 1925 or 0, 0, 29.5 + i, 1 end
 function GetInboxItemLink(i, slot) return slot == 1 and "|Hitem:2592::::::::30|h[Wool Cloth]|h" or nil end
@@ -1176,9 +1184,9 @@ ATTACHMENTS_MAX_RECEIVE = 12
 fire("MAIL_INBOX_UPDATE") wait(3)
 do
   local m = GoldForeverDB.characters["Player-4620-006C0FC1"].mail
-  print("MAIL " .. m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil))
+  seen("MAIL ", m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil), "2 mails, 2592*40, 1925c, expires in 2635200 s, sender kept: false")
 end
-print("BUYER KEPT " .. tostring((table.concat(day.sale or {}, ";")):find("SomeBuyer") ~= nil))
+seen("BUYER KEPT ", tostring((table.concat(day.sale or {}, ";")):find("SomeBuyer") ~= nil), "false")
 -- Lists and profiles carried from the site (Data.lua's `shared`): merged into the save, newest wins.
 do
   local prices = GoldForever_Prices
@@ -1259,10 +1267,10 @@ do
   GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
   MailFrame = nil
 end
-print("RARE ROWS " .. tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]))
-print("APPRAISER\n" .. tostring(ns.sessionText and ns.sessionText()))
+seen("RARE ROWS ", tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]), "1792517415,1,947,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate;1792517415,1,61234,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate", "nil")
+seen("APPRAISER\n", tostring(ns.sessionText and ns.sessionText()), "Loot something to start a session.")
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
-print("TOOLTIP " .. tostring(GameTooltip.lines[1]))
+seen("TOOLTIP ", tostring(GameTooltip.lines[1]), "looted 4× · ~4s 50c a loot", "looted 4× · ~2s 62c a loot")
 -- The pool's prices from GoldForever_Data (contract T01): one line for the player's own market.
 local function poolLine(id, label)
   GameTooltip.lines = {}
@@ -1293,7 +1301,7 @@ assert(#said == 1 and said[1]:find("no prices file loaded", 1, true), "/gf price
 local POOL_MINE, POOL_OTHER = "forever-EU-normal-" .. side, "forever-EU-normal-" .. otherSide
 GoldForever_Prices = { v = 1, at = now, markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
 local pool = poolLine(2589)
-print("POOL " .. tostring(pool))
+seen("POOL ", tostring(pool), "Market 12s 34c · min 11s 0c", "nil")
 if INTERFACE < 110000 then
   assert(pool and pool:find("Market 12s 34c · min 11s 0c", 1, true), "the pool line")
 else
@@ -1371,7 +1379,7 @@ if INTERFACE < 110000 then
   function print(...) said[#said + 1] = table.concat({...}, " ") end
   SlashCmdList.GOLDFOREVER("prices")
   print = saved
-  print("PRICES " .. table.concat(said, " / "))
+  seen("PRICES ", table.concat(said, " / "), "|cffe0ac45Gold Forever|r: prices file written just now · 1 market /   " .. POOL_MINE .. ": 1 item · this character's")
   assert(said[1]:find("prices file written just now · 1 market", 1, true), "/gf prices: the file")
   assert(said[2] and said[2]:find(POOL_MINE .. ": 1 item · this character's", 1, true), "/gf prices: the market")
 end
@@ -1412,7 +1420,7 @@ do
 end
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
-print("MOB " .. tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lines[2]))
+seen("MOB ", tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lines[2]), "looted 4× · ~4s 50c a loot | Linen Cloth 25% · Item‚ 2934 25% · Captain Sander's Treasure Map 25%", "looted 4× · ~2s 62c a loot | Linen Cloth 25% · Item‚ 2934 25% · Captain Sander's Treasure Map 25%")
 -- One more loot of that mob after its tooltip was built: counted in place, not by reading every row.
 -- It is a fight of its own with no kill XP (a grey mob): its corpse counts as one kill once the fight
 -- closes, and looting it again later counts nothing.
@@ -1425,7 +1433,7 @@ wait(10)
 assert(ns.sessionKills() == killsBefore + 1, "a grey mob's corpse is a kill: " .. tostring(ns.sessionKills()) .. " after " .. killsBefore)
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
-print("MOB AFTER LOOT " .. tostring(GameTooltip.lines[1]))
+seen("MOB AFTER LOOT ", tostring(GameTooltip.lines[1]), "looted 5× · ~3s 68c a loot", "looted 5× · ~2s 18c a loot")
 -- Two corpses looted back to back: the first window's coin arrives after the second opened.
 local coinDay = GoldForeverDB.events["2026-10-20"]
 local before = #(table.concat(coinDay.loot, ";"))
@@ -1437,7 +1445,7 @@ money = money + 30; fireNow("PLAYER_MONEY")
 fireNow("LOOT_SLOT_CLEARED", 1) fireNow("LOOT_CLOSED")
 money = money + 20; fireNow("PLAYER_MONEY")
 wait(3)
-print("BACK TO BACK " .. string.sub(table.concat(coinDay.loot, ";"), before + 1))
+seen("BACK TO BACK ", string.sub(table.concat(coinDay.loot, ";"), before + 1), ";1792517535,1,1429,412,679,n299,1,30,,;1792517535,1,1429,412,679,n299,1,20,,")
 
 -- A class trainer: spells by level, no profession skill. Tagged with the visitor's class; at the
 -- level-up below, what is new there comes up in chat.
@@ -1450,7 +1458,7 @@ do
   GetTrainerServiceCost = function(i) return ({ 5000, 4000, 3000 })[i] end
   fire("TRAINER_SHOW") wait(2)
   GetNumTrainerServices, GetTrainerServiceInfo, GetTrainerServiceSkillReq, GetTrainerServiceLevelReq, GetTrainerServiceCost = unpack(saved)
-  print("TRAINER CLASS " .. tostring(GoldForeverDB.catalogue.trainerClasses and GoldForeverDB.catalogue.trainerClasses[8661]))
+  seen("TRAINER CLASS ", tostring(GoldForeverDB.catalogue.trainerClasses and GoldForeverDB.catalogue.trainerClasses[8661]), "PRIEST")
 end
 
 -- A faction and a currency under closed headers keep what was read before; what shows is updated.
@@ -1459,12 +1467,12 @@ do
   me.reputation = { factions = "69:6:1000+72:5:100" }
   me.currencies = { items = "3002*5+3001*1" }
   fire("UPDATE_FACTION") fire("CURRENCY_DISPLAY_UPDATE") wait(12)
-  print("REPUTATION " .. me.reputation.factions .. " | CURRENCIES " .. me.currencies.items)
+  seen("REPUTATION ", me.reputation.factions .. " | CURRENCIES " .. me.currencies.items, "69:6:1000+72:5:3200 | CURRENCIES 3001*12+3002*5")
 end
 
 -- Levelling: a group kill in a dungeon with rested XP, a quest whose event follows its XP, a level-up.
 local lday = GoldForeverDB.events["2026-10-20"]
-print("LOGIN LEVEL " .. tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG))
+seen("LOGIN LEVEL ", tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG), "1792517410,1,login,30,86400,600,79098,1429,412,679 | chat listens true")
 inDungeon = true
 GetXPExhaustion = function() return 1000 end; fire("UPDATE_EXHAUSTION")
 
@@ -1496,12 +1504,12 @@ xpcur = 300; xpmax = 49000; played = { 90000, 0 }
 fire("PLAYER_REGEN_ENABLED")
 fire("PLAYER_XP_UPDATE") fire("PLAYER_LEVEL_UP", 31)
 wait(15)
-print("MAP RECT " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.rects[1429]))
-print("MAP ART " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.maps[1411]) .. " | maps " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.build))
-print("XP ROWS " .. tostring(lday.xp and lday.xp[1]))
-print("LEVEL ROWS " .. tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG))
-print("ZONE ROWS " .. tostring(lday.zone and lday.zone[1]))
-print("BOSS ROWS " .. tostring(lday.boss and lday.boss[1]) .. " | instance " .. tostring(GoldForeverDB.catalogue.instances and GoldForeverDB.catalogue.instances[389]))
+seen("MAP RECT ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.rects[1429]), "1415,0.40000,0.60000,0.30000,0.50000", "nil")
+seen("MAP ART ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.maps[1411]) .. " | maps " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.build), "1002,668,256,256;768730+768731+768732+768733 | maps 1.60.1.70450", "nil | maps nil")
+seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679;1792517415,1,400,other,,,1429,30,412,679;1792517535,1,300,kill,100,party,1429,30,412,679;1792517535,1,100,boss,100,party,1429,30,412,679;1792517535,1,500,quest,,,1429,30,412,679;1792517535,1,55,explore,,,1429,30,412,679;1792517535,1,42745,other,,,1429,30,412,679;1792517535,1,700,kill,,,1429,30,412,679")
+seen("LEVEL ROWS ", tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG), "1792517410,1,login,30,86400,600,79098,1429,412,679;1792517535,1,up,31,90000,0,79450,1429,412,679 | chat listens true")
+seen("ZONE ROWS ", tostring(lday.zone and lday.zone[1]), "1792517410,1,1429,,;1792517535,1,1446,,;1792517535,1,1429,,;1792517535,1,1429,party,389", "1792517410,1,1429,,;1792517535,1,1429,party,389")
+seen("BOSS ROWS ", tostring(lday.boss and lday.boss[1]) .. " | instance " .. tostring(GoldForeverDB.catalogue.instances and GoldForeverDB.catalogue.instances[389]), "1792517535,1,1443,Taragaman the Hungerer,1,5,,1429,389;1792517535,1,1443,Taragaman the Hungerer,1,5,1,1429,389 | instance Ragefire Chasm,party")
 -- Scans from three days, several a day: the newest two and one from each earlier day stay.
 for _, t in ipairs({ 1792300000, 1792300900, 1792390000, 1792390900 }) do
   table.insert(GoldForeverDB.scans, 1, { t = t, kind = "full", market = "EU-Classic Beta PvE 2-" .. side, rows = {} })
@@ -1570,6 +1578,7 @@ do
   SlashCmdList.GOLDFOREVER("look web")
   SlashCmdList.GOLDFOREVER("ui settings")
   print("SETTINGS FRAMES at opening: " .. (#frames - before))
+  assert((#frames - before) <= 47, "Settings builds at most 47 frames at opening: " .. (#frames - before))
 end
 -- The Guide names only commands the addon has.
 for _, c in ipairs(ns.GUIDE_COMMANDS) do
@@ -1734,17 +1743,17 @@ SlashCmdList.GOLDFOREVER("minimap")
 assert(GoldForeverDB.settings.minimap.hidden == true, "/gf minimap hides the button")
 SlashCmdList.GOLDFOREVER("minimap")
 assert(GoldForeverDB.settings.minimap.hidden == false, "and brings it back")
-print("UI WINDOW " .. tostring(GoldForeverDB.settings.window and GoldForeverDB.settings.window.page))
+seen("UI WINDOW ", tostring(GoldForeverDB.settings.window and GoldForeverDB.settings.window.page), "ledger")
 do
   local V, db = ns.Views, GoldForeverDB
   local rows, best = V.characters(db.characters, GetServerTime(), UnitGUID("player"))
-  print("UI CHARACTERS " .. #rows .. " best " .. tostring(best and best.name))
+  seen("UI CHARACTERS ", #rows .. " best " .. tostring(best and best.name), "1 best nil")
   local led = V.ledger(V.rows(db, "money"), V.rows(db, "flight"), nil, 0)
   local cats = {}
   for _, c in ipairs(led.categories) do cats[#cats + 1] = c.key .. "=" .. c.net end
-  print("UI LEDGER " .. table.concat(cats, " ") .. " net " .. led.net)
+  seen("UI LEDGER ", table.concat(cats, " ") .. " net " .. led.net, "loot=240 quest=75 vendor=37 net 352")
   local lv = V.levelling(V.rows(db, "level"), V.rows(db, "xp"), ns.me().ref)
-  print("UI LEVELLING levels " .. #lv.levels .. " xp " .. lv.xp .. " perHour " .. tostring(lv.perHour))
+  seen("UI LEVELLING levels ", #lv.levels .. " xp " .. lv.xp .. " perHour " .. tostring(lv.perHour), "2 xp 45130 perHour nil")
 end
 
 -- A retail save is lean: no tooltip text, achievement catalogue or map art; Forever keeps them all.
@@ -1824,13 +1833,13 @@ clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
 assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
 local after = ns2.sessionText and ns2.sessionText() or ""
-print("AFTER RELOAD\n" .. tostring(after))
+seen("AFTER RELOAD\n", tostring(after), "Farming 3:57\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 64c|r\nXP: 44400 · 673011/h · level 31 in 4m (~133 kills)\nBags: 8 free")
 do
   local kinds = {}
   for _, sc in ipairs(GoldForeverDB.scans) do kinds[#kinds + 1] = sc.kind .. "@" .. tostring(sc.t) end
-  print("SCANS KEPT " .. table.concat(kinds, " "))
+  seen("SCANS KEPT ", table.concat(kinds, " "), "full@1792300900 full@1792390900 full@1792517415 full@1792520100 full@1792520200", "full@1792517415 full@1792520200")
 end
-print("SAME TOTALS " .. tostring((before:match("Total: [^|]*")) == (after:match("Total: [^|]*"))))
+seen("SAME TOTALS ", tostring((before:match("Total: [^|]*")) == (after:match("Total: [^|]*"))), "true")
 assert(before:match("Total: [^|]*") and before:match("Total: [^|]*") == after:match("Total: [^|]*"), "the session survives a /reload")
 -- An old prices file: one line at login, not again the same day.
 do
@@ -1847,10 +1856,10 @@ end
 -- /gf export: the first holds everything, the next only what is new; both build without error.
 SlashCmdList.GOLDFOREVER("export")
 local firstAt = GoldForeverDB.exportedAt
-print("EXPORT AT " .. tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil))
+seen("EXPORT AT ", tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil), "1792517540 sent items true")
 now = now + 60
 SlashCmdList.GOLDFOREVER("export")
-print("EXPORT AGAIN after " .. tostring(GoldForeverDB.exportedAt and firstAt and GoldForeverDB.exportedAt - firstAt) .. " s")
+seen("EXPORT AGAIN after ", tostring(GoldForeverDB.exportedAt and firstAt and GoldForeverDB.exportedAt - firstAt) .. " s", "60 s")
 SlashCmdList.GOLDFOREVER("")
 money = 0; xpmax = 0; C_Container.GetContainerNumSlots = function() return 0 end
 fire("PLAYER_LEAVING_WORLD")
@@ -1925,7 +1934,7 @@ do
   print(string.format("PRICE REBUILD after a %d-auction scan: %d frames, worst %.2f ms", N, rframes, rworst))
   -- The deals line once the prices were in: the list's Linen (up to 45s) is listed cheaper in this scan.
   assert(dealsLine, "the deals line after the scan")
-  print("DEALS " .. dealsLine)
+  seen("DEALS ", dealsLine, "|cffe0ac45Gold Forever|r: 1 item on your lists is at or under your price: Linen Cloth. Open the Buy tab.")
   assert(ns2.price.market(2001) and ns2.price.cheapest(2001), "the big scan's prices arrive")
   assert(rworst < 20, string.format("a frame of the price rebuild took %.2f ms", rworst))
   UnitFactionGroup = factionOf
