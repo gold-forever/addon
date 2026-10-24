@@ -128,14 +128,18 @@ local function refresh()
 	local quality = ns.price.itemInfo(r.output) or 1
 	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "× ") or "") .. name(r.output) .. "|r")
 	strip.rows[1]:SetText(q.spend and money(q.spend) or dash)
-	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. " after the cut|r") or dash)
-	if q.profit then
+	local gear = ns.isGear and ns.isGear(r.output)
+	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and " any quality|r" or " after the cut|r")) or dash)
+	if q.profit and gear then
+		-- One price for every quality and item level: grey, not to be trusted.
+		strip.rows[3]:SetText(faint .. (q.profit >= 0 and "+" or "-") .. UI.layout.plain(money(math.abs(q.profit))) .. "|r")
+	elseif q.profit then
 		strip.rows[3]:SetText(q.profit >= 0 and (Theme.escape(Theme.color.success) .. "+|r" .. money(q.profit)) or (Theme.escape(Theme.color.danger) .. "-|r" .. money(-q.profit)))
 	else
 		strip.rows[3]:SetText(dash)
 	end
 	local margin = ns.Crafting.margin(q)
-	strip.rows[4]:SetText(margin and (margin .. "%") or dash)
+	strip.rows[4]:SetText(margin and ((gear and faint or "") .. margin .. "%" .. (gear and "|r" or "")) or dash)
 	local shown = 0
 	for _, line in ipairs(q.lines) do
 		if line.toBuy > 0 and shown < LINES then
@@ -149,7 +153,8 @@ local function refresh()
 		strip.lines[i].name:SetText(i == 1 and (faint .. "Nothing: your bags and bank hold it all.|r") or "")
 		strip.lines[i].value:SetText("")
 	end
-	strip.note:SetText("Reagents at the cheaper of the auction house (your last scan) and a vendor; what you hold counts at the lower of buying and selling it.")
+	strip.note:SetText(gear and "Gear has one price for every quality and item level: check the auction house for the quality you craft."
+		or "Reagents at the cheaper of the auction house and a vendor; what you hold counts at the lower of buying and selling it.")
 end
 
 -- The recipe the profession window shows now, read from its schematic form where it has one.

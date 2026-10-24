@@ -81,6 +81,7 @@ eq(plain(L.money(1014420, "gold")), "101g", "gold precision")
 eq(plain(L.money(45, "gold")), "45c", "gold precision under a gold keeps the rest")
 -- Long gold amounts grouped by thousands (manual test run 001: "3000000 is hard to read").
 eq(L.group(3000000), "3,000,000", "millions grouped")
+eq(L.plain("|cffe0ac4512g|r |cffaaaaaa5s|r"), "12g 5s", "colour codes stripped")
 -- Auction prices keep their silver (manual test run 001: 8g 69s showed as 8g).
 eq(plain(L.money(86900, "silver")), "8g 69s", "gold and silver")
 eq(plain(L.money(80000, "silver")), "8g", "no 0s")
