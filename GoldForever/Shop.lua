@@ -83,19 +83,29 @@ local function queue()
 	s.queue = s.queue or {}
 	return s.queue
 end
+-- The auction panel's Buy tab shows the queue as a list: it follows every change (manual test run 001:
+-- a cleared queue's list stayed).
+local function changed()
+	if ns.auctionRefresh then
+		ns.auctionRefresh()
+	end
+end
 function ns.queueAdd(recipeId, n)
 	local q = queue()
 	for _, x in ipairs(q) do
 		if x.recipe == recipeId then
 			x.count = x.count + n
+			changed()
 			return
 		end
 	end
 	q[#q + 1] = { recipe = recipeId, count = n }
+	changed()
 end
 function ns.queueClear()
 	local s = ns.settings("crafting", { strip = true })
 	s.queue = {}
+	changed()
 end
 function ns.queueList()
 	return queue()
