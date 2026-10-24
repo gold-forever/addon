@@ -550,7 +550,10 @@ local function buildRares(page)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
 		local retail = ns.Realms.isRetail(select(4, GetBuildInfo()))
-		note:SetText(retail and "Rare alerts are off on retail (its cities are full of markers taken for rares); sightings from WoW: Forever show here."
+		-- On retail nothing is recorded (its cities are full of markers taken for rares), and what a retail save
+		-- holds from before that was switched off is those false rares (manual test run 001: "NPC …" from
+		-- Silvermoon): none listed.
+		note:SetText(retail and "Rares are recorded on WoW: Forever only: retail's cities are full of map markers that are not rares."
 			or "Logged from nameplates, your target and the minimap. Settings → Modules switches the alerts.")
 		local names = ns.db().catalogue.npcs
 		local mobs, worth = ns.mobStats(function()
@@ -559,7 +562,7 @@ local function buildRares(page)
 			end
 		end)
 		local rows = {}
-		for _, r in ipairs(Views.rares(Views.rows(ns.db(), "rare"))) do
+		for _, r in ipairs(retail and {} or Views.rares(Views.rows(ns.db(), "rare"))) do
 			local m = mobs and mobs[r.npc]
 			local value
 			if m and m.loots > 0 then
