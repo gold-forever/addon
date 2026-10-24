@@ -988,6 +988,7 @@ local function buildShop(page)
 	page.note:SetPoint("RIGHT", page, "RIGHT")
 
 	function page:Refresh()
+		rebuildPick() -- names and the chosen list as the Shopping lists page left them
 		local _, list = lists()
 		local shown = {}
 		for i, e in ipairs(list.entries) do
@@ -1597,8 +1598,18 @@ local function buildLists(page)
 	local editName = UI.Text(edit, "", { size = "sm", medium = true })
 	editName:SetPoint("TOPLEFT")
 	local setPrice, amount
+	-- A kind chosen without its number yet (Fixed price, % of market): shown, the box waiting for it.
+	local pending
 	local mode = UI.Dropdown(edit, PRICE_MODES, "market", function(v)
-		setPrice(v, amount:GetText())
+		if v == "market" then
+			pending = nil
+			setPrice(v, "")
+		else
+			pending = { id = chosenItem, kind = v }
+			page:Refresh()
+			amount:SetText("")
+			amount:SetFocus()
+		end
 	end)
 	mode:SetPoint("TOPLEFT", 0, -20)
 	mode:SetWidth(130)
@@ -1686,21 +1697,28 @@ local function buildLists(page)
 		if not t then
 			return
 		end
-		t.maxUnit, t.pct = nil, nil
+		local maxUnit, pct
 		if kind == "fixed" then
-			t.maxUnit = ns.Shopping.parseGold(text)
+			maxUnit = ns.Shopping.parseGold(text)
 		elseif kind == "pct" then
 			local n = tonumber(string.match(text or "", "%d+") or "")
-			t.pct = n and n > 0 and math.min(n, 1000) or nil
+			pct = n and n > 0 and math.min(n, 1000) or nil
 		end
+		if kind ~= "market" and not maxUnit and not pct then
+			page.note:SetText(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter." or "Type a share of the market value, as 80, then Enter.") .. "|r")
+			return
+		end
+		t.maxUnit, t.pct = maxUnit, pct
 		if not list.queue then
 			stamp(list)
 		end
 		page:Refresh()
 	end
 	amount:SetScript("OnEnterPressed", function(self)
-		setPrice(mode.value or "market", self:GetText())
 		self:ClearFocus()
+		local kind = pending and pending.id == chosenItem and pending.kind or mode.value or "market"
+		pending = nil
+		setPrice(kind, self:GetText())
 	end)
 	local function setMany(text)
 		local e, list = chosenEntry()
@@ -1751,6 +1769,10 @@ local function buildLists(page)
 	slot:SetScript("OnClick", dropped)
 
 	function page:Refresh()
+		-- The auction panel's Buy tab shows the same lists: it follows at once.
+		if refresh then
+			refresh()
+		end
 		local _, list, shown = lists()
 		local rows = {}
 		for i, l in ipairs(shown) do
@@ -1788,7 +1810,7 @@ local function buildLists(page)
 		if e then
 			local editable = not list.profile or list.queue
 			editName:SetText(itemNameOf(e.itemId))
-			local kind = e.maxUnit and "fixed" or e.pct and "pct" or "market"
+			local kind = pending and pending.id == e.itemId and pending.kind or e.maxUnit and "fixed" or e.pct and "pct" or "market"
 			mode:Set(kind)
 			amount:SetShown(kind ~= "market")
 			amount:SetText(e.maxUnit and (string.gsub(string.format("%.2f", e.maxUnit / 10000), "%.?0+$", "")) or e.pct and tostring(e.pct) or "")
