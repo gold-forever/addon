@@ -19,6 +19,7 @@
 - Fewer rows in the hub: **Ledger** holds Money, Characters, Inventory and **Auction sales** (what sold,
   for how much, after the cut) as tabs, and **Session** holds **This session** (the HUD's figures at full
   size, with the session's loot), Levelling and Mobs; each page remembers its tab, and `/gf ui levelling` and the like still work.
+- `/gf` on its own opens or closes the hub; `/gf help` lists every command.
 - A **Home** page, the hub's first: the next moves (when you can scan, what your bags would sell for,
   the best craft at the latest prices), today's money by where it came from, and the bag items worth
   most.

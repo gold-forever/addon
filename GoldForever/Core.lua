@@ -487,15 +487,27 @@ ns.commands = {
 SLASH_GOLDFOREVER1 = "/gf"
 SLASH_GOLDFOREVER2 = "/goldforever"
 -- "/gf bigdrop 2" runs ns.commands.bigdrop("2").
+-- "/gf" alone opens or closes the hub; "/gf help" lists the commands (owner's answer, 2026-10-24).
+local function help()
+	printStatus()
+	print("  /gf — the Gold Forever window · /gf ui <page> — open a page (home, ledger, crafting, session, rares, companion, settings)")
+	print("  /gf hud — the session HUD · /gf session — the session in chat · /gf reset — a new session · /gf bigdrop <gold> — big-drop alerts")
+	print("  /gf ah — the auction panel · /gf scan · /gf bags — what to do with your loot · /gf shop — crafts to make")
+	print("  /gf look web|classic|arcane · /gf accent #rrggbb · /gf minimap · /gf dings on|off · /gf welcome — the first-run card")
+	print("  /gf prices — the pool's prices file · /gf rares [mark] · /gf check · /gf claim <code> — prove a character is yours · /gf export")
+end
+
 SlashCmdList.GOLDFOREVER = function(message)
 	local name, rest = string.match(message or "", "^%s*(%S*)%s*(.-)%s*$")
-	local command = ns.commands[string.lower(name or "")]
+	name = string.lower(name or "")
+	local command = ns.commands[name]
 	if command then
 		ns.safely("/gf " .. name, command, rest)
+	elseif name == "" and ns.commands.ui then
+		ns.safely("/gf", ns.commands.ui, "")
+	elseif name == "help" or name == "" then
+		help()
 	else
-		printStatus()
-		print("  /gf ui — the Gold Forever window · /gf appraise — the loot window · /gf bags — what to do with your loot · /gf shop — crafts to make · /gf reset — new session")
-		print("  /gf bigdrop <gold> — alert on drops worth that much · /gf rares [mark] — rare alerts and skull · /gf scan · /gf check · /gf claim <code> — prove a character is yours")
-		print("  /gf prices — the pool's prices file: its markets and age · /gf look web|classic — the window's look · /gf minimap — hide or show its button")
+		print(ns.PREFIX .. ": no command \"" .. name .. "\". /gf help lists them.")
 	end
 end

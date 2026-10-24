@@ -874,6 +874,19 @@ SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui inventory")
 SlashCmdList.GOLDFOREVER("look nonsense")
 assert(GoldForeverDB.settings.window.look == "classic", "an unknown look changes nothing")
+-- "/gf" alone opens the hub; "/gf help" lists the commands.
+do
+  local helped = false
+  local chat = print
+  print = function(...) if table.concat({ ... }, " "):find("/gf hud", 1, true) then helped = true end chat(...) end
+  local before = ns.hubWindow() ~= nil
+  SlashCmdList.GOLDFOREVER("")
+  assert((ns.hubWindow() ~= nil) ~= before, "/gf opens the hub, or closes it")
+  SlashCmdList.GOLDFOREVER("help")
+  print = chat
+  assert(helped, "/gf help lists the commands")
+  SlashCmdList.GOLDFOREVER("")
+end
 SlashCmdList.GOLDFOREVER("look arcane")
 assert(GoldForeverDB.settings.window.look == "arcane", "the arcane look is kept")
 SlashCmdList.GOLDFOREVER("ui design")
