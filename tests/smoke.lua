@@ -961,6 +961,8 @@ do
     c.setPrice("pct", "80")
     c.setMany("20")
     assert(list.entries[2].pct == 80 and list.entries[2].upTo == 20 and not list.entries[2].maxUnit, "80% of market, up to 20")
+    c.setPrice("lowest", "120")
+    assert(list.entries[2].lowest == 120 and not list.entries[2].pct and not list.entries[2].maxUnit, "lowest, asking over 120%")
     c.setPrice("fixed", "4g 50s")
     assert(list.entries[2].maxUnit == 45000 and not list.entries[2].pct, "a fixed price replaces the share")
     c.rename("Cloth")

@@ -737,6 +737,7 @@ end
 -- then a second press confirms it; a quote 10% dearer than the deal asks again), an item one auction a
 -- press. Lists travel as GFL1 strings. Buying only ever happens on a press.
 local shopChosen -- the entry in view: { itemId, maxUnit }
+local overArmed -- the item whose dearer units (past a lowest entry's share) Buy next named; the next press buys
 local purchase -- a commodity purchase in progress: { itemId, quantity, expected, quoted, moved }
 
 -- An id for a list or profile made here, and its edited time stamped (design 009, decision 11).
@@ -769,7 +770,7 @@ local function lists()
 		local prices = s.queuePrices or {}
 		for id, n in pairs(needs) do
 			local p = prices[id] or {}
-			entries[#entries + 1] = { itemId = id, upTo = n, maxUnit = p.maxUnit, pct = p.pct }
+			entries[#entries + 1] = { itemId = id, upTo = n, maxUnit = p.maxUnit, pct = p.pct, lowest = p.lowest }
 		end
 		table.sort(entries, function(a, b)
 			return a.itemId < b.itemId
@@ -792,6 +793,11 @@ local function shopDeal(e)
 	local l = live[tostring(e.itemId)] or live["item:" .. e.itemId]
 	if not l or not l.levels then
 		return nil, l
+	end
+	if e.lowest and e.upTo then
+		-- What the player needs: the cheapest first, and past its share of market, asked first.
+		local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(e.itemId)) or 0
+		return ns.Shopping.lowestDeal(e, heldHere(e.itemId, inBags), l.levels, ns.Prices.value(e.itemId)), l
 	end
 	if e.upTo then
 		-- A profile's buy rule: up to its target, counting what this character holds (decision 12).
@@ -866,6 +872,15 @@ local function buyNext()
 		searchEntry(e)
 		return
 	end
+	-- Over a lowest entry's share of market: said first, bought on the next press.
+	if deal.over and overArmed ~= e.itemId then
+		overArmed = e.itemId
+		local market = ns.Prices.value(e.itemId)
+		note:SetText(Theme.escape(Theme.color.warning) .. string.format("Over your %d%% of market: %d for %s (up to %s each%s). Press again to buy, or choose something else.",
+			deal.share or 0, deal.quantity, money(deal.total), money(deal.topUnit), market and (", market " .. money(market)) or "") .. "|r")
+		return
+	end
+	overArmed = nil
 	if book.commodity then
 		purchase = { itemId = e.itemId, quantity = deal.quantity, expected = deal.total }
 		C_AuctionHouse.StartCommoditiesPurchase(e.itemId, deal.quantity)
@@ -958,10 +973,13 @@ local function buildShop(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		{ key = "max", title = "Up to", width = 100, align = "RIGHT", text = function(r)
-			local price = r.maxUnit and money(r.maxUnit) or r.pct and (r.pct .. "%") or "market"
+			local price = r.maxUnit and money(r.maxUnit) or r.pct and (r.pct .. "%") or r.lowest and "lowest" or "market"
 			return (r.upTo and (r.upTo .. " at ") or "") .. price
 		end },
 		{ key = "deal", title = "Deal", width = 120, align = "RIGHT", text = function(r)
+			if r.deal and r.deal.over then
+				return Theme.escape(Theme.color.warning) .. "over: " .. r.deal.quantity .. " for " .. money(r.deal.total) .. "|r"
+			end
 			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "—" or "")
 		end },
 	}, {
@@ -996,7 +1014,7 @@ local function buildShop(page)
 		for i, e in ipairs(list.entries) do
 			local quality, _, _, _, name = ns.price.itemInfo(e.itemId)
 			local deal, book = shopDeal(e)
-			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, pct = e.pct, upTo = e.upTo, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
+			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, pct = e.pct, lowest = e.lowest, upTo = e.upTo, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
 		end
 		tbl:SetRows(shown)
 		local deal = shopChosen and shopDeal(shopChosen)
@@ -1478,7 +1496,8 @@ local function itemNameOf(id)
 	local _, _, _, _, name = ns.price.itemInfo(id)
 	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
 end
-local PRICE_MODES = { { value = "market", label = "Under market" }, { value = "fixed", label = "Fixed price" }, { value = "pct", label = "% of market" } }
+local PRICE_MODES = { { value = "market", label = "Under market" }, { value = "fixed", label = "Fixed price" }, { value = "pct", label = "% of market" },
+	{ value = "lowest", label = "Lowest, ask over %" } }
 
 local function buildLists(page)
 	local s = settings()
@@ -1699,18 +1718,22 @@ local function buildLists(page)
 		if not t then
 			return
 		end
-		local maxUnit, pct
+		local maxUnit, share
 		if kind == "fixed" then
 			maxUnit = ns.Shopping.parseGold(text)
-		elseif kind == "pct" then
+		elseif kind == "pct" or kind == "lowest" then
 			local n = tonumber(string.match(text or "", "%d+") or "")
-			pct = n and n > 0 and math.min(n, 1000) or nil
+			share = n and n > 0 and math.min(n, 1000) or nil
 		end
-		if kind ~= "market" and not maxUnit and not pct then
-			page.note:SetText(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter." or "Type a share of the market value, as 80, then Enter.") .. "|r")
+		if kind ~= "market" and not maxUnit and not share then
+			page.note:SetText(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter."
+				or kind == "lowest" and "Type the share of the market value to ask over, as 120, then Enter." or "Type a share of the market value, as 80, then Enter.") .. "|r")
 			return
 		end
-		t.maxUnit, t.pct = maxUnit, pct
+		t.maxUnit, t.pct, t.lowest = maxUnit, kind == "pct" and share or nil, kind == "lowest" and share or nil
+		if kind == "lowest" and not e.upTo and not list.queue then
+			page.note:SetText("Set How many too: Lowest buys until you hold that many, asking over your share.")
+		end
 		if not list.queue then
 			stamp(list)
 		end
@@ -1803,7 +1826,7 @@ local function buildLists(page)
 		for i, e in ipairs(list.entries) do
 			local quality = ns.price.itemInfo(e.itemId)
 			entries[i] = { itemId = e.itemId, name = itemNameOf(e.itemId), quality = quality or 1,
-				price = e.maxUnit and money(e.maxUnit) or e.pct and (e.pct .. "% of market") or "under market",
+				price = e.maxUnit and money(e.maxUnit) or e.pct and (e.pct .. "% of market") or e.lowest and ("lowest, ask over " .. e.lowest .. "%") or "under market",
 				many = e.upTo and tostring(e.upTo) or "any" }
 		end
 		items:SetRows(entries, true)
@@ -1812,11 +1835,11 @@ local function buildLists(page)
 		if e then
 			local editable = not list.profile or list.queue
 			editName:SetText(itemNameOf(e.itemId))
-			local kind = pending and pending.id == e.itemId and pending.kind or e.maxUnit and "fixed" or e.pct and "pct" or "market"
+			local kind = pending and pending.id == e.itemId and pending.kind or e.maxUnit and "fixed" or e.pct and "pct" or e.lowest and "lowest" or "market"
 			mode:Set(kind)
 			amount:SetShown(kind ~= "market")
-			amount:SetText(e.maxUnit and (string.gsub(string.format("%.2f", e.maxUnit / 10000), "%.?0+$", "")) or e.pct and tostring(e.pct) or "")
-			amount.hint:SetText(kind == "pct" and "%" or "gold")
+			amount:SetText(e.maxUnit and (string.gsub(string.format("%.2f", e.maxUnit / 10000), "%.?0+$", "")) or (e.pct or e.lowest) and tostring(e.pct or e.lowest) or "")
+			amount.hint:SetText(kind == "fixed" and "gold" or "%")
 			many:SetText(e.upTo and tostring(e.upTo) or "")
 			-- The craft queue's numbers come from the queue.
 			many:SetShown(not list.profile)

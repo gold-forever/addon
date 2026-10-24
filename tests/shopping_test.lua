@@ -25,6 +25,17 @@ eq(S.limit({ itemId = 1 }, 900), 899, "a copper under market")
 eq(S.limit({ itemId = 1 }, nil), nil, "no market, no limit")
 -- A share of the market value, and how many to hold (owner's answer, 2026-10-24).
 eq(S.limit({ itemId = 1, pct = 80 }, 1000), 800, "80% of market")
+eq(S.limit({ itemId = 1, lowest = 120 }, 1000), 1200, "lowest: bought without asking up to 120% of market")
+eq(S.line({ itemId = 7, lowest = 120, upTo = 20 }), "item 7 lowest 120 upto 20", "lowest in the line")
+-- Lowest: needing 20, holding 5, market 1000, check over 120%: the cheapest 15 within 1200 first...
+local low = S.lowestDeal({ itemId = 7, lowest = 120, upTo = 20 }, 5, { lv(1300, 50), lv(900, 10), lv(1100, 3) }, 1000)
+eq(low.quantity .. " " .. low.total .. " " .. tostring(low.over), "13 12300 nil", "within the share, cheapest first")
+-- ...then, still needing some and only dearer ones left, those, marked over.
+local over = S.lowestDeal({ itemId = 7, lowest = 120, upTo = 20 }, 7, { lv(1300, 50), lv(1500, 10) }, 1000)
+eq(over.quantity .. " " .. over.total .. " " .. tostring(over.over) .. " " .. over.limit, "13 16900 true 1300", "over the share: asked first")
+eq(S.lowestDeal({ itemId = 7, lowest = 120, upTo = 20 }, 20, { lv(900, 10) }, 1000), nil, "nothing needed")
+eq(S.decode(S.encode({ { name = "Raid", entries = { { itemId = 7, lowest = 120, upTo = 20 } } } }))[1].entries[1].lowest, 120, "lowest read back")
+eq((S.decode("GFL1:" .. E.base64("list a\nitem 1 lowest 0"))), nil, "lowest 0")
 eq(S.parseGold("4.5"), 45000, "gold with a point")
 eq(S.parseGold("4,5"), 45000, "or a comma")
 eq(S.parseGold("4g 50s"), 45000, "gold and silver")

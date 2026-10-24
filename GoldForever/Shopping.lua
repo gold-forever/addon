@@ -15,15 +15,18 @@ local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, 10000000000, 
 -- A share of the market value (owner's answer, 2026-10-24: "% of market"), and how many to hold.
 local MAX_PCT, MAX_UPTO = 1000, 1000000
 
--- An entry: { itemId, maxUnit? (copper), pct? (of market value), upTo? (units to hold) }; with neither
--- price, "under market". The most it pays a unit: its own price, its share of the market value, or a
--- copper under the market value.
+-- An entry: { itemId, maxUnit? (copper), pct? (of market value), lowest? (a share of the market value
+-- to check over), upTo? (units to hold) }; with no price, "under market". The most it pays a unit without
+-- asking: its own price, its share of the market value, or a copper under the market value. `lowest` is
+-- for what the player needs (owner, 2026-10-24: raid consumables): the cheapest first, and past its share
+-- Buy next asks before it buys.
 function Shopping.limit(entry, market)
 	if entry.maxUnit then
 		return entry.maxUnit
 	end
-	if entry.pct then
-		return market and math.max(1, math.floor(market * entry.pct / 100)) or nil
+	local share = entry.pct or entry.lowest
+	if share then
+		return market and math.max(1, math.floor(market * share / 100)) or nil
 	end
 	return market and math.max(1, market - 1) or nil
 end
@@ -60,6 +63,46 @@ function Shopping.deal(entry, levels, market)
 	return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
 end
 
+-- What a `lowest` entry buys now, for the units still needed (upTo less what is held), cheapest first:
+-- those at or under its share of the market value; when none are and some are still needed, the cheapest
+-- above it, marked `over` (Buy next asks before buying them). Returns a deal as Shopping.deal's, or nil.
+function Shopping.lowestDeal(entry, held, levels, market)
+	local need = math.max(0, (entry.upTo or 0) - (held or 0))
+	local limit = Shopping.limit(entry, market)
+	if need == 0 or not limit then
+		return nil
+	end
+	local sorted = {}
+	for i, l in ipairs(levels or {}) do
+		sorted[i] = l
+	end
+	table.sort(sorted, function(a, b)
+		return a.unitPrice < b.unitPrice
+	end)
+	local function take(cap)
+		local left, quantity, total, top = need, 0, 0, nil
+		for _, l in ipairs(sorted) do
+			if left == 0 or (cap and l.unitPrice > cap) then
+				break
+			end
+			local n = math.min(left, (l.quantity or 0) - (l.own or 0))
+			if n > 0 then
+				quantity, total, top, left = quantity + n, total + n * l.unitPrice, l.unitPrice, left - n
+			end
+		end
+		return quantity, total, top
+	end
+	local quantity, total, top = take(limit)
+	if quantity > 0 then
+		return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
+	end
+	quantity, total, top = take(nil)
+	if quantity == 0 then
+		return nil
+	end
+	return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = top, over = true, share = entry.lowest }
+end
+
 -- A quote dearer than the deal by more than `pct` percent (10 by default): Buy next asks again.
 function Shopping.moved(expected, quoted, pct)
 	return quoted > expected * (1 + (pct or 10) / 100)
@@ -68,7 +111,7 @@ end
 -- One entry's line: "item <id> max <copper>", "item <id> pct <n>" or "item <id> market", then
 -- " upto <n>" when it holds a number to buy up to. A list with neither pct nor upto reads as before.
 function Shopping.line(e)
-	local price = e.maxUnit and ("max " .. e.maxUnit) or e.pct and ("pct " .. e.pct) or "market"
+	local price = e.maxUnit and ("max " .. e.maxUnit) or e.pct and ("pct " .. e.pct) or e.lowest and ("lowest " .. e.lowest) or "market"
 	return "item " .. e.itemId .. " " .. price .. (e.upTo and (" upto " .. e.upTo) or "")
 end
 
@@ -122,7 +165,7 @@ function Shopping.decode(input)
 				if not id or not list or #id > 8 then
 					return bad()
 				end
-				local maxUnit, pct, upTo
+				local maxUnit, pct, lowest, upTo
 				local price, u = string.match(rest, "^(.-) upto (%d+)$")
 				if price then
 					if #u > 7 then
@@ -136,6 +179,7 @@ function Shopping.decode(input)
 				if rest ~= "market" then
 					local m = string.match(rest, "^max (%d+)$")
 					local p = string.match(rest, "^pct (%d+)$")
+					local lo = string.match(rest, "^lowest (%d+)$")
 					if m and #m <= 11 then
 						maxUnit = tonumber(m)
 						if maxUnit == 0 or maxUnit > MAX_COPPER then
@@ -144,6 +188,11 @@ function Shopping.decode(input)
 					elseif p and #p <= 4 then
 						pct = tonumber(p)
 						if pct == 0 or pct > MAX_PCT then
+							return bad()
+						end
+					elseif lo and #lo <= 4 then
+						lowest = tonumber(lo)
+						if lowest == 0 or lowest > MAX_PCT then
 							return bad()
 						end
 					else
@@ -157,7 +206,7 @@ function Shopping.decode(input)
 				if entries > MAX_ENTRIES then
 					return nil, "More than " .. MAX_ENTRIES .. " items"
 				end
-				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit, pct = pct, upTo = upTo }
+				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit, pct = pct, lowest = lowest, upTo = upTo }
 			end
 		end
 	end
