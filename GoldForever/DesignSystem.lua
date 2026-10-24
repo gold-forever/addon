@@ -645,14 +645,25 @@ local BAND_COLOR = { loss = "danger", thin = "textFaint", fair = "text", good = 
 local function buildCrafting(page)
 	local held = settings().craftHeld or false
 	local chosen
-	local switchLabel = UI.Text(page, "I have these: reagents you hold cost nothing", { size = "sm", tone = "muted" })
-	switchLabel:SetPoint("TOPLEFT", 0, -2)
+	-- The switch beside its words (manual test run 001: far apart, and "I have these" was unclear).
 	local sw = UI.Switch(page, held, function(on)
 		held = on
 		settings().craftHeld = on
 		page:Refresh()
 	end)
-	sw:SetPoint("TOPRIGHT", 0, 0)
+	sw:SetPoint("TOPLEFT", 0, -2)
+	local switchLabel = UI.Text(page, "Use my own ingredients when I have them (they cost nothing)", { size = "sm", tone = "muted" })
+	switchLabel:SetPoint("LEFT", sw, "RIGHT", 8, 0)
+	-- One profession at a time, or all (owner, 2026-10-24: "only leatherworking").
+	local profession = settings().craftProf
+	local profPick = UI.Dropdown(page, { { value = "all", label = "All professions" } }, profession or "all", function(v)
+		profession = v ~= "all" and v or nil
+		settings().craftProf = profession
+		chosen = nil
+		page:Refresh()
+	end)
+	profPick:SetPoint("TOPRIGHT", 0, 2)
+	profPick:SetWidth(180)
 	local money = function(c)
 		return c and UI.layout.amount(c) or (Theme.escape(Theme.color.textFaint) .. "unknown|r")
 	end
@@ -709,16 +720,36 @@ local function buildCrafting(page)
 		lines[i] = { name = l, value = v }
 	end
 	function page:Refresh()
-		local rows = {}
-		for _, q in ipairs(ns.allCraftQuotes and ns.allCraftQuotes() or {}) do
+		local rows, profs, seenProf = {}, { { value = "all", label = "All professions" } }, {}
+		local quotes = ns.allCraftQuotes and ns.allCraftQuotes() or {}
+		for _, q in ipairs(quotes) do
+			if q.prof and not seenProf[q.prof] then
+				seenProf[q.prof] = true
+				profs[#profs + 1] = { value = q.prof, label = q.prof }
+			end
+		end
+		table.sort(profs, function(a, b)
+			if a.value == "all" or b.value == "all" then
+				return a.value == "all" and b.value ~= "all"
+			end
+			return a.label < b.label
+		end)
+		if profession and not seenProf[profession] then
+			profession = nil -- this character has no such profession
+		end
+		profPick:SetOptions(profs)
+		profPick:Set(profession or "all")
+		for _, q in ipairs(quotes) do
 			local r = q.recipe
-			local profit = held and ns.Crafting.profitHeld(q) or q.profit
-			local cost = held and q.cash or q.spend
-			rows[#rows + 1] = {
-				id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "× ") or "") .. itemName(r.output), quality = itemQuality(r.output),
-				cost = cost, revenue = q.revenue, profit = profit,
-				margin = profit and cost and cost > 0 and math.floor(profit / cost * 100 + 0.5) or nil,
-			}
+			if not profession or q.prof == profession then
+				local profit = held and ns.Crafting.profitHeld(q) or q.profit
+				local cost = held and q.cash or q.spend
+				rows[#rows + 1] = {
+					id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "× ") or "") .. itemName(r.output), quality = itemQuality(r.output),
+					cost = cost, revenue = q.revenue, profit = profit,
+					margin = profit and cost and cost > 0 and math.floor(profit / cost * 100 + 0.5) or nil,
+				}
+			end
 		end
 		tbl:SetRows(rows, true) -- a click or the ticker keeps the page
 		local sel
