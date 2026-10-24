@@ -1053,6 +1053,17 @@ do
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   for _, l in ipairs(GameTooltip.lines) do assert(not l:find("Post at", 1, true), "no Post line away from the auction house") end
+  -- /gf ah with the auction house closed shows no panel and sends no search (review B-7).
+  do
+    local searches = 0
+    local send = C_AuctionHouse.SendSearchQuery
+    C_AuctionHouse.SendSearchQuery = function() searches = searches + 1 end
+    AuctionHouseFrame.IsShown = function() return false end
+    SlashCmdList.GOLDFOREVER("ah")
+    assert(not AP.panel():IsShown() and searches == 0, "no panel and no search away from the auction house")
+    assert(GoldForeverDB.settings.auction.hidden == false, "and it opens there next time")
+    AuctionHouseFrame.IsShown, C_AuctionHouse.SendSearchQuery = nil, send
+  end
   AuctionHouseFrame = nil
 end
 -- Blizzard's tabs and the panel's in step (manual test run 001): it opens on Blizzard's tab, follows it,

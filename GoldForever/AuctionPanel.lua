@@ -2664,7 +2664,12 @@ ns.commands.ah = function()
 		ns.say("the auction panel no longer opens at the auction house; /gf ah there brings it back.")
 	else
 		s.hidden = false
-		show()
+		-- Shown only at the auction house: away from it, it opens there next time.
+		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+			show()
+		else
+			ns.say("the auction panel opens at the auction house again.")
+		end
 	end
 end
 
