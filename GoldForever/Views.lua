@@ -591,6 +591,45 @@ function Views.elsewhere(character, parse, value, name)
 	return out
 end
 
+-- The craft queue's reagents, each with where to get it (owner, 2026-10-25: "what to pick up at the
+-- bank / guild bank, what to get from other characters and what to buy"). needs = { [id] = units };
+-- mine = { bags, bank, mail } counts by id (mail with what was bought since it was read); guild = counts
+-- in the guild bank; others = { [id] = { { name, total } } } on other characters. Bags, bank and mail
+-- are the player's and count against the need; the guild bank and other characters are where the rest
+-- can come from; what none of them covers is to buy. Rows, most to buy first, then by id.
+function Views.queuePlan(needs, mine, guild, others)
+	local rows = {}
+	for id, need in pairs(needs or {}) do
+		local bags = mine.bags[id] or 0
+		local bank = mine.bank[id] or 0
+		local mail = mine.mail[id] or 0
+		local missing = math.max(0, need - bags - bank - mail)
+		local g = math.min(missing, (guild or {})[id] or 0)
+		local from = {}
+		local left = missing - g
+		for _, o in ipairs((others or {})[id] or {}) do
+			if left <= 0 then
+				break
+			end
+			local n = math.min(left, o.total)
+			from[#from + 1] = { name = o.name, n = n }
+			left = left - n
+		end
+		rows[#rows + 1] = {
+			id = id, need = need, bags = bags,
+			bank = math.min(bank, math.max(0, need - bags)), -- to pick up from the bank
+			mail = mail, guild = g, others = from, buy = left,
+		}
+	end
+	table.sort(rows, function(a, b)
+		if a.buy ~= b.buy then
+			return a.buy > b.buy
+		end
+		return a.id < b.id
+	end)
+	return rows
+end
+
 -- A gold goal on Home: gold now (copper, all characters) against goal = { gold (copper), by (Unix time) }.
 -- Returns { pct (0–100), left (copper still to make), daysLeft, perDay (copper a day to make it, nil once
 -- reached or past), reached, late }.

@@ -708,6 +708,13 @@ local function buildCrafting(page)
 		page:Refresh()
 	end, { kind = "ghost", width = 100, height = 22 })
 	clear:SetPoint("BOTTOMRIGHT", -14, 8)
+	-- The craft queue window: where to get each reagent (CraftQueue.lua).
+	local queueWindow = UI.Button(detail, "Queue window", function()
+		if ns.openCraftQueue then
+			ns.openCraftQueue()
+		end
+	end, { width = 110, height = 22 })
+	queueWindow:SetPoint("RIGHT", clear, "LEFT", -6, 0)
 	for i, n in ipairs({ 5, 1 }) do
 		local b = UI.Button(detail, "Queue " .. n, function()
 			if chosen then

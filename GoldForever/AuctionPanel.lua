@@ -1655,11 +1655,17 @@ local function buildLists(page)
 	local X = LEFT + 24
 	local title = UI.Text(page, "", { size = "lg", medium = true })
 	title:SetPoint("TOPLEFT", X, 0)
-	title:SetPoint("RIGHT", page, "RIGHT", -110, 0)
+	title:SetPoint("RIGHT", page, "RIGHT", -240, 0)
 	local crafting = UI.Button(page, "Open Crafting ›", function()
 		ns.openPage("crafting")
 	end, { width = 120, height = 24 })
 	crafting:SetPoint("TOPRIGHT", 0, 2)
+	local queueWindow = UI.Button(page, "Queue window", function()
+		if ns.openCraftQueue then
+			ns.openCraftQueue()
+		end
+	end, { width = 110, height = 24 })
+	queueWindow:SetPoint("RIGHT", crafting, "LEFT", -6, 0)
 	-- The slot: drop an item on it (or click it holding one), or shift-click an item anywhere.
 	local slot = CreateFrame("Button", nil, page)
 	slot:SetSize(36, 36)
@@ -1888,6 +1894,7 @@ local function buildLists(page)
 		exportButton:SetShown(mine ~= nil)
 		title:SetText(list.name)
 		crafting:SetShown(list.queue == true)
+		queueWindow:SetShown(list.queue == true)
 		slot:SetShown(mine ~= nil)
 		slotLine:SetText(mine and "Drop an item here, or shift-click one anywhere, to add it."
 			or list.queue and "Its items are what the queued crafts still need; set what you pay for each."

@@ -106,6 +106,9 @@ local function changed()
 	if ns.auctionRefresh then
 		ns.auctionRefresh()
 	end
+	if ns.craftQueueChanged then
+		ns.craftQueueChanged()
+	end
 end
 function ns.queueAdd(recipeId, n)
 	local q = queue()
