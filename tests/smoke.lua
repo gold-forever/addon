@@ -475,6 +475,26 @@ wait(3)
 seen("CRAFTS ", tostring(GoldForeverDB.events["2026-10-20"].craft and GoldForeverDB.events["2026-10-20"].craft[1]), "1792517415,1,2963,2996,1,75,1429;1792517415,1,2963,2996,1,76,1429;1792517415,1,2963,2996,2,76,1429")
 Enum.FlightPathState = { Current = 0 }
 TakeTaxiNode(2)
+-- /gf check shows the flights' cost with the addon's own money text, which works on retail too.
+do
+  local me, said, saved = ns.me(), {}, print
+  local cost = me.flights.cost
+  me.flights.cost = 12345
+  function print(...) said[#said + 1] = table.concat({...}, " ") end
+  SlashCmdList.GOLDFOREVER("check")
+  print = saved
+  me.flights.cost = cost
+  local line
+  for _, l in ipairs(said) do if l:find("paid flights", 1, true) then line = l end end
+  assert(line and line:find(ns.price.coins(12345), 1, true) and not line:find("12345c", 1, true), "flights line: " .. tostring(line))
+end
+-- A settings table saved before a default was added gets it; what the player set stays.
+do
+  GoldForeverDB.settings.smokeOld = { shown = false }
+  local s = ns.settings("smokeOld", { shown = true, added = 3 })
+  assert(s.shown == false and s.added == 3, "a later default reaches an older table")
+  GoldForeverDB.settings.smokeOld = nil
+end
 C_QuestLog = { GetTitleForQuestID = function() return "The Fargodeep Mine, part 2" end }
 fire("QUEST_ACCEPTED", 62)
 wait(10)
@@ -1828,6 +1848,8 @@ fire("PLAYER_LOGOUT")
 local thisVersion = GoldForeverDB.addon
 GoldForeverDB.addon = "0.15.0"
 GoldForeverDB.errors.old = { n = 3, msg = "fixed since", t = now - 86400 }
+-- A newer version wrote the file: its schema stays, the data is not relabelled as the older one's.
+GoldForeverDB.schema = 99
 for k in pairs(frames) do frames[k] = nil end
 local ns2 = {}
 for _, f in ipairs(tocFiles()) do
@@ -1837,6 +1859,8 @@ tablesHaveHeights(ns2)
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
 assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
+assert(GoldForeverDB.schema == 99, "a newer schema is never lowered")
+GoldForeverDB.schema = 1
 local after = ns2.sessionText and ns2.sessionText() or ""
 seen("AFTER RELOAD\n", tostring(after), "Farming 3:57\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 64c|r\nXP: 44400 · 673011/h · level 31 in 4m (~133 kills)\nBags: 8 free")
 do

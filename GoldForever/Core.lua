@@ -248,10 +248,20 @@ function ns.alert(text)
 	print(ns.PREFIX .. " " .. text)
 end
 
--- A feature's settings table in the saved file, made with its defaults the first time.
+-- A feature's settings table in the saved file, made with its defaults the first time. A default added
+-- in a later version reaches a table saved before it; what the player set stays.
 function ns.settings(name, defaults)
 	local s = ns.db().settings
-	s[name] = s[name] or defaults
+	if not s[name] then
+		s[name] = defaults
+	elseif defaults then
+		local saved = s[name]
+		for key, value in pairs(defaults) do
+			if saved[key] == nil then
+				saved[key] = value
+			end
+		end
+	end
 	return s[name]
 end
 
@@ -286,10 +296,12 @@ end
 local function init()
 	GoldForeverDB = GoldForeverDB or {}
 	db = GoldForeverDB
+	-- A newer version's file keeps its schema, so its data is never labelled as the older one's.
 	if db.schema and db.schema > SCHEMA then
 		ns.say("this file was written by a newer version. Update the addon.")
+	else
+		db.schema = SCHEMA
 	end
-	db.schema = SCHEMA
 	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
 	-- none, so what the player and the site see is only from the build running.
 	if db.addon ~= VERSION then
@@ -537,7 +549,7 @@ local function printStatus()
 	print(string.format("  today %d crafts, %d skill-ups, %d quests, %d money changes, %d flights",
 		count(today.craft), count(today.skill), count(today.quest), count(today.money), count(today.flight)))
 	if me and me.flights then
-		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, GetCoinTextureString and GetCoinTextureString(me.flights.cost) or me.flights.cost .. "c"))
+		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, (ns.price and ns.price.coins or Encode.money)(me.flights.cost)))
 	end
 	for name, e in pairs(db.errors) do
 		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
