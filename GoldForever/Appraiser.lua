@@ -953,6 +953,9 @@ ns.on("PLAYER_ENTERING_WORLD", "appraiser", function(isInitialLogin, isReloading
 		restore()
 	end
 end)
+ns.onLook("appraiser", function()
+	refresh() -- a HUD that shows is drawn again in the look now set
+end)
 ns.on("PLAYER_XP_UPDATE", "appraiser", function()
 	xpSeen = readXp()
 	refresh()

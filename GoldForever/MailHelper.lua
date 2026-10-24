@@ -11,7 +11,11 @@ local Mail = {}
 ns.Mail = Mail
 
 Mail.BATCH = 500 -- mails a press: all of them (a guard against a loop, not a limit)
-local GAP = 0.05 -- seconds between a take's answer and the next, and between checks while the server is busy
+-- Seconds between the inbox's update after a take and the next take, and between checks while the
+-- server is busy. 0.05 on the take's own answer was too soon (manual test run 001: three mails, then the
+-- mailbox refused the next and the press ended): the inbox must have dropped the mail first.
+local GAP = 0.15
+local RETRIES = 3 -- a refused take is tried again, a second apart, this many times
 local WAIT = 0.5 -- seconds to wait for an answer the client never sends
 
 -- The auction house's subjects as the client words them ("Auction successful: %s"), English fallbacks
@@ -173,24 +177,37 @@ end
 
 -- The server refused a take (a full bag, a busy inbox): the batch stops and says so.
 ns.on("MAIL_FAILED", "mail helper", function()
-	if run then
+	if not run then
+		return
+	end
+	run.failed = (run.failed or 0) + 1
+	if run.failed > RETRIES then
 		run = nil
 		if panel then
-			panel.note:SetText("The mailbox refused that one; press again in a moment.")
+			panel.note:SetText("The mailbox refused it again; press again in a moment.")
 		end
 		refresh()
+		return
 	end
+	-- Busy: the same mail again after a second.
+	run.waiting = false
+	run.left = run.left + 1
+	local mine = run
+	C_Timer.After(1, function()
+		if run == mine then
+			ns.safely("mail helper", step)
+		end
+	end)
 end)
 
 local function answered()
 	if run and run.waiting then
-		run.waiting = false
+		run.waiting, run.failed = false, 0
 		C_Timer.After(GAP, function()
 			ns.safely("mail helper", step)
 		end)
 	end
 end
-ns.on("MAIL_SUCCESS", "mail helper", answered)
 ns.on("MAIL_INBOX_UPDATE", "mail helper", function()
 	answered()
 	refresh()
@@ -271,6 +288,17 @@ ns.on("MAIL_SHOW", "mail helper", function()
 	refresh()
 end)
 ns.on("MAIL_CLOSED", "mail helper", close)
+-- A panel that shows is drawn again in the look now set.
+ns.onLook("mail helper", function()
+	if panel and panel:IsShown() and built ~= ns.Theme.key then
+		panel:Hide()
+		build()
+		panel:ClearAllPoints()
+		panel:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
+		panel:Show()
+		refresh()
+	end
+end)
 
 -- For the smoke test.
 Mail.press = function()

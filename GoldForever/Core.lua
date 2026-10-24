@@ -117,6 +117,19 @@ function ns.frameSpent(started, done, fallback, ms)
 	return done >= fallback
 end
 
+-- Panels outside the hub (the auction panel, the crafting strip, the mail helper, the HUD) redraw in a
+-- new look while they show (manual test run 001: the crafting strip stayed arcane after a switch to
+-- classic). ns.onLook(fn) adds one; ns.lookChanged() calls them.
+local lookListeners = {}
+function ns.onLook(name, fn)
+	lookListeners[#lookListeners + 1] = { name = name, fn = fn }
+end
+function ns.lookChanged()
+	for _, l in ipairs(lookListeners) do
+		ns.safely(l.name, l.fn)
+	end
+end
+
 function ns.after(seconds, name, fn)
 	C_Timer.After(seconds, function()
 		ns.safely(name, fn)
