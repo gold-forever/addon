@@ -287,10 +287,21 @@ function Prices.summary(data, mine, now)
 end
 
 -- The server's keys for the character being played; nil before login.
+-- The character's markets, worked out again only when what they are made of changes (every tooltip and
+-- Post row asked, and each answer was new tables and strings).
+local myMarkets, made = nil, {}
 local function mine()
 	local me = ns.me()
+	if not me then
+		return nil
+	end
 	local client = ns.db().client
-	return me and Prices.markets(ns.market(string.lower(me.faction or "?")), client.interface, client.portal)
+	if not myMarkets or made.faction ~= me.faction or made.realm ~= me.realm or made.region ~= client.region
+		or made.interface ~= client.interface or made.portal ~= client.portal then
+		made.faction, made.realm, made.region, made.interface, made.portal = me.faction, me.realm, client.region, client.interface, client.portal
+		myMarkets = Prices.markets(ns.market(string.lower(me.faction or "?")), client.interface, client.portal)
+	end
+	return myMarkets
 end
 
 -- An item's market value for the character being played: the pool's when the companion's file has it,
@@ -383,6 +394,7 @@ function Prices.status(data, mine, now)
 end
 
 -- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
+local neutralMarkets, neutralFor -- the neutral auction house's markets, and the region they are for
 function Prices.neutralMarkets()
 	if not (ns.atNeutralZone and ns.atNeutralZone()) then
 		return nil
@@ -391,7 +403,11 @@ function Prices.neutralMarkets()
 	if not ns.Realms.isForever(client.interface) then
 		return nil
 	end
-	return Prices.markets(ns.market("neutral"), client.interface, client.portal)
+	local key = client.region
+	if not neutralMarkets or neutralFor ~= key then
+		neutralMarkets, neutralFor = Prices.markets(ns.market("neutral"), client.interface, client.portal), key
+	end
+	return neutralMarkets
 end
 
 -- At login: the warning when the companion's prices file is older than a day (owner's answer,
