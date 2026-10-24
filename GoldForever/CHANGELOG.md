@@ -17,7 +17,10 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
     After a scan, one chat line names your list items now listed at or under your price.
   - **Sell**: the items in your bags the auction house takes, each priced by your rule against the
     cheapest listing by someone else, with the reason (Undercut, No one else, Normal price, At floor,
-    Hold). Click Post or press Space; it waits for the server, then moves to the next item. A price under
+    Under your floor). The floor and normal price are measured against the item's 7-day average where
+    the shared prices have one, so a day's dip does not move them. An item held under your floor can be
+    posted anyway at the undercut price, on a second press. Click Post or press Space; it waits for the
+    server, then moves to the next item. A price under
     vendor value or far under the market asks for a second press. The duration and the quantity you
     choose are remembered for each item. Alt-click an item in your bags to choose it; its tooltip says
     what Post would ask.

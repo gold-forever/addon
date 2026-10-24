@@ -35,6 +35,9 @@ eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Pool: 12s
 eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · -20% vs 7-day avg · min buyout 9s 0c · 1 player · scanned just now", "down on the week")
 eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · steady vs 7-day avg · min buyout 9s 0c · 1 player · scanned just now", "within 1%")
 eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Pool: 10s 0c · min buyout 9s 0c · 1 player · scanned just now", "an unusable week shows no trend")
+-- Sell measures against the 7-day average where there is one.
+eq(table.concat({ P.sellBase(128300, "pool", 90000) }, " "), "90000 7-day avg", "the week's average")
+eq(table.concat({ P.sellBase(128300, "pool", nil) }, " "), "128300 pool", "else the value")
 eq(P.line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · min buyout 9s 0c · 1 player · scanned just now", "nor a zero one")
 eq(P.trend(nil, 1000), nil, "no value, no trend")
 

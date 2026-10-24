@@ -196,6 +196,16 @@ function Prices.trend(value, week)
 	return math.floor((value - week) / week * 100 + 0.5)
 end
 
+-- What Sell measures the floor and normal price against (owner's answer, 2026-10-24, manual test run
+-- 001: a pool value far over today's listings held every Small Egg): the 7-day average where the pool
+-- has one, so a day's dip or spike does not move it; else the value, and where it came from.
+function Prices.sellBase(value, from, week)
+	if week and week > 0 then
+		return week, "7-day avg"
+	end
+	return value, from
+end
+
 -- " · +8% vs 7-day avg", " · steady vs 7-day avg" within 1%, or "" without a trend. The average is the
 -- mean of the item's daily values over the 7 full days before its scan (the server's `week`).
 function Prices.trendText(pct)
@@ -313,7 +323,7 @@ function Prices.value(id)
 	if markets and Prices.loaded(GoldForever_Prices) then
 		local value, _, _, _, week = entry(GoldForever_Prices, markets, id)
 		if value then
-			return value, "pool", Prices.trend(value, week)
+			return value, "pool", Prices.trend(value, week), week
 		end
 	end
 	local own = ns.price and ns.price.market(id)

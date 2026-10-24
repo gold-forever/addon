@@ -110,7 +110,7 @@ Post.REASONS = {
 	alone = "No one else",
 	normal = "Normal price",
 	floor = "At floor",
-	hold = "Hold",
+	hold = "Under your floor", -- not "Hold", read as "keep this many" (manual test run 001)
 }
 
 -- A second press is asked for when a post looks like a mistake: under what a vendor pays after the
