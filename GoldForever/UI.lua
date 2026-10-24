@@ -813,7 +813,7 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 	readout:SetTextColor(Theme.rgb(Theme.color.text))
 	readout:SetJustifyH("CENTER")
 	readout.bg, readout.rim = surface(readout, Theme.color.surfaceSunken, 1, Theme.color.border, radius("control") > 0 and 5 or 0)
-	local quiet, dragging = false, false
+	local quiet, dragging, current = false, false, value
 	local function show(v)
 		if not readout:HasFocus() then
 			readout:SetText(format(v))
@@ -821,6 +821,7 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 	end
 	s:SetScript("OnValueChanged", function(_, v)
 		v = UI.layout.step(v, min, max, step)
+		current = v
 		show(v)
 		if not quiet and onChange and not (onRelease and dragging) then
 			onChange(v)
@@ -868,10 +869,15 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 		self.rim:SetColor(Theme.color.border)
 		show(UI.layout.step(s:GetValue(), min, max, step))
 	end)
+	-- Its number again when shown (manual test run 001: the Sell quantity's box showed empty).
+	readout:SetScript("OnShow", function()
+		show(current)
+	end)
 	function f:Set(v)
 		quiet = true
 		s:SetValue(v)
-		show(UI.layout.step(v, min, max, step))
+		current = UI.layout.step(v, min, max, step)
+		show(current)
 		quiet = false
 	end
 	-- A new range (the units of the item in view), without calling onChange.

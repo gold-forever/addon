@@ -591,7 +591,7 @@ local function buildPost(page)
 		if ns.rulesPage and chosen then
 			ns.rulesPage.chooseScope("add-item")
 		end
-	end, { kind = "ghost", width = 72, height = 24 })
+	end, { width = 72, height = 24 })
 	ruleButton:SetPoint("TOPRIGHT", -10, -8)
 	local reason = UI.Text(detail, "", { size = "sm" })
 	reason:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
