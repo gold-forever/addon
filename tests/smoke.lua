@@ -567,6 +567,12 @@ end
 SlashCmdList.GOLDFOREVER("scan")
 C_Background.GetThing()
 SlashCmdList.GOLDFOREVER("legacy")
+-- Legacy is WoW: Forever's own: read there, never on retail.
+if INTERFACE >= 110000 then
+  assert(not (GoldForeverDB.account and (GoldForeverDB.account.legacy or GoldForeverDB.account.legacyTreeSearch)), "no Legacy read on retail")
+else
+  assert(GoldForeverDB.account and GoldForeverDB.account.legacy and GoldForeverDB.account.legacy.renown == 16, "Legacy read on WoW: Forever")
+end
 -- A claim code from the site, typed on this character (security review finding 4).
 SlashCmdList.GOLDFOREVER("claim bcdf-2345")
 C_Background.GetThing()

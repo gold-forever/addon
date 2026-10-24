@@ -132,8 +132,14 @@ local function readRenown(legacy)
 	end
 end
 
+-- Legacy is WoW: Forever's: on retail the reads find nothing of it (faction 2802 may be something else).
+local function forever()
+	local client = ns.db().client
+	return not ns.Realms.isRetail(client and client.interface)
+end
+
 local function readLegacy()
-	if not (C_Traits and C_MajorFactions) then
+	if not (C_Traits and C_MajorFactions) or not forever() then
 		return
 	end
 	local db = ns.db()
@@ -153,7 +159,7 @@ end
 -- when done. Once per session.
 local searched = false
 local function findTrees()
-	if searched or not C_Traits.GetConfigIDByTreeID then
+	if searched or not C_Traits.GetConfigIDByTreeID or not forever() then
 		return
 	end
 	searched = true
