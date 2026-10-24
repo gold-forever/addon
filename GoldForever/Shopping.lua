@@ -31,13 +31,10 @@ function Shopping.limit(entry, market)
 	return market and math.max(1, market - 1) or nil
 end
 
--- What an entry can buy from a book of levels { unitPrice, quantity, own }: every unit by other players
--- at or under its limit, cheapest first. Returns { itemId, quantity, total, topUnit, limit } or nil.
-function Shopping.deal(entry, levels, market)
-	local limit = Shopping.limit(entry, market)
-	if not limit then
-		return nil
-	end
+-- Takes other players' units from a book of levels { unitPrice, quantity, own }, cheapest first: those
+-- at or under `cap` (nil: any price), up to `need` units (nil: every one). Returns quantity, total, top
+-- (the dearest unit price taken, nil when none).
+function Shopping.take(levels, cap, need)
 	local sorted = {}
 	for i, l in ipairs(levels or {}) do
 		sorted[i] = l
@@ -47,16 +44,31 @@ function Shopping.deal(entry, levels, market)
 	end)
 	local quantity, total, top = 0, 0, nil
 	for _, l in ipairs(sorted) do
-		if l.unitPrice > limit then
+		if need == 0 or (cap and l.unitPrice > cap) then
 			break
 		end
 		local n = (l.quantity or 0) - (l.own or 0)
+		if need then
+			n = math.min(need, n)
+		end
 		if n > 0 then
-			quantity = quantity + n
-			total = total + n * l.unitPrice
-			top = l.unitPrice
+			quantity, total, top = quantity + n, total + n * l.unitPrice, l.unitPrice
+			if need then
+				need = need - n
+			end
 		end
 	end
+	return quantity, total, top
+end
+
+-- What an entry can buy from a book of levels { unitPrice, quantity, own }: every unit by other players
+-- at or under its limit, cheapest first. Returns { itemId, quantity, total, topUnit, limit } or nil.
+function Shopping.deal(entry, levels, market)
+	local limit = Shopping.limit(entry, market)
+	if not limit then
+		return nil
+	end
+	local quantity, total, top = Shopping.take(levels, limit, nil)
 	if quantity == 0 or not top then
 		return nil
 	end
@@ -72,31 +84,11 @@ function Shopping.lowestDeal(entry, held, levels, market)
 	if need == 0 or not limit then
 		return nil
 	end
-	local sorted = {}
-	for i, l in ipairs(levels or {}) do
-		sorted[i] = l
-	end
-	table.sort(sorted, function(a, b)
-		return a.unitPrice < b.unitPrice
-	end)
-	local function take(cap)
-		local left, quantity, total, top = need, 0, 0, nil
-		for _, l in ipairs(sorted) do
-			if left == 0 or (cap and l.unitPrice > cap) then
-				break
-			end
-			local n = math.min(left, (l.quantity or 0) - (l.own or 0))
-			if n > 0 then
-				quantity, total, top, left = quantity + n, total + n * l.unitPrice, l.unitPrice, left - n
-			end
-		end
-		return quantity, total, top
-	end
-	local quantity, total, top = take(limit)
+	local quantity, total, top = Shopping.take(levels, limit, need)
 	if quantity > 0 then
 		return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
 	end
-	quantity, total, top = take(nil)
+	quantity, total, top = Shopping.take(levels, nil, need)
 	if quantity == 0 then
 		return nil
 	end

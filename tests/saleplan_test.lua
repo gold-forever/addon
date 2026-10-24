@@ -2,6 +2,7 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Shopping.lua"], "@Shopping.lua"))("GoldForever", ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P, E = ns.SalePlan, ns.Encode
 

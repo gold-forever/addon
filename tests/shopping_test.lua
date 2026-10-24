@@ -8,9 +8,18 @@ local S, E = ns.Shopping, ns.Encode
 local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
 
 -- Every function is there as soon as the file loads (one was once defined inside encode by mistake).
-for _, name in ipairs({ "limit", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge" }) do
+for _, name in ipairs({ "limit", "take", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge" }) do
 	eq(type(S[name]), "function", "defined at load: " .. name)
 end
+
+-- take: other players' units from the book, cheapest first, under a cap and up to a need.
+local function took(...) return table.concat({ tostring((select(1, ...))), tostring((select(2, ...))), tostring((select(3, ...))) }, ":") end
+local book = { lv(300, 5), lv(100, 4, 1), lv(200, 10) }
+eq(took(S.take(book, nil, nil)), "18:" .. (300 + 2000 + 1500) .. ":300", "every other unit, cheapest first")
+eq(took(S.take(book, 200, nil)), "13:2300:200", "at or under the cap")
+eq(took(S.take(book, nil, 5)), "5:" .. (300 + 400) .. ":200", "up to the need")
+eq(took(S.take(book, 50, 5)), "0:0:nil", "nothing under the cap")
+eq(took(S.take(book, nil, 0)), "0:0:nil", "nothing needed")
 
 -- entryLimit
 eq(S.limit({ itemId = 1, maxUnit = 500 }, 900), 500, "its own price")
