@@ -129,7 +129,7 @@ local PLAN_REASONS = {
 
 local function planned(r, rule, market)
 	local book = live[r.commodity and tostring(r.id) or ("item:" .. r.id)]
-	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market)
+	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market, nil, Post.silver)
 	local unit = step.unitPrice or (step.choices and step.choices.plan)
 	local label = PLAN_REASONS[step.reason] or step.reason
 	if step.reason == "keeping" then

@@ -82,8 +82,10 @@ function SalePlan.percentile(levels, pct)
 end
 
 -- What one sell rule does now: { action = "post"|"ask"|"hold"|"skip", reason, quantity, unitPrice,
--- choices = { plan, undercut } for "ask", ignored (units left out as outliers), floor }.
-function SalePlan.sell(rule, held, levels, market, guard)
+-- choices = { plan, undercut } for "ask", ignored (units left out as outliers), floor }. `round` (the
+-- auction house's step, Post.silver in game) is applied before the floor is checked, so a price rounded
+-- down never posts under the floor.
+function SalePlan.sell(rule, held, levels, market, guard, round)
 	local quantity = math.max(0, held - rule.keep)
 	local kept, out = SalePlan.clean(levels, guard, market)
 	local ignored = 0
@@ -103,6 +105,7 @@ function SalePlan.sell(rule, held, levels, market, guard)
 	end
 	local cheapest = kept[1] and kept[1].unitPrice or nil
 	local function guarded(price, reason)
+		price = round and round(price) or price
 		if floor and price < floor then
 			return step("hold", "under-floor", nil)
 		end
