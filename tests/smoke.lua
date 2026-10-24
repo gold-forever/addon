@@ -411,6 +411,12 @@ do
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
   print("AH POST " .. tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit))
+  -- A bag item's tooltip at the auction house says what Post would ask.
+  GameTooltip.lines = {}
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
+  local postLine
+  for _, l in ipairs(GameTooltip.lines) do if l:find("Post at", 1, true) then postLine = l end end
+  assert(postLine, "the Post line in the tooltip: " .. table.concat(GameTooltip.lines, " | "))
   -- A sale profile for Linen: keep 2, undercut 1 copper, floor 50%: the Post tab follows it.
   AP.importProfile(ns.SalePlan.encode({ name = "Cloth", author = "Test", sell = { { itemID = 2589, keep = 2, price = { kind = "undercut", by = 1 }, floorPct = 50 } }, buy = {} }))
   AP.tab("post")
@@ -509,6 +515,9 @@ do
   AP.tab("scan")
   assert(not AP.bound(), "and is free again off it")
   fire("AUCTION_HOUSE_CLOSED")
+  GameTooltip.lines = {}
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
+  for _, l in ipairs(GameTooltip.lines) do assert(not l:find("Post at", 1, true), "no Post line away from the auction house") end
   AuctionHouseFrame = nil
 end
 -- A quest starter drops: recorded, alerted; the mob's tooltip names it.

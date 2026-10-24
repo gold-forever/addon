@@ -1510,6 +1510,30 @@ if hooksecurefunc and HandleModifiedItemClick then
 end
 ns.AuctionPanelAltClick = chooseFromBag
 
+-- While the panel shows, a bag item's tooltip says what Post would ask for it (owner's answer,
+-- 2026-10-24): the same price and reason as the Post tab, rule, override or profile.
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("auction tooltip", function()
+			if tooltip ~= GameTooltip or not data or not data.id or not panel or not panel:IsShown() then
+				return
+			end
+			for _, r in ipairs(rows) do
+				if r.id == data.id then
+					price(r)
+					local sug = r.suggestion
+					if sug and sug.unit then
+						tooltip:AddLine(string.format("%s Post at %s · %s", ns.PREFIX, money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
+					elseif sug then
+						tooltip:AddLine(ns.PREFIX .. " " .. (sug.label or Post.REASONS[sug.reason] or "Hold"), 0.6, 0.6, 0.6)
+					end
+					return
+				end
+			end
+		end)
+	end)
+end
+
 -- "/gf ah" shows or hides the panel at the auction house, and remembers.
 ns.commands.ah = function()
 	local s = settings()
