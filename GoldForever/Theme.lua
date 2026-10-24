@@ -153,6 +153,8 @@ Theme.skins = {
 		-- A FontString's shadow: an offset and a colour, never a blur.
 		textShadow = { 0, -1, "#00001e", 0.8 },
 		titleCaps = true,
+		-- Shades of its accent the decor uses besides the token, swapped with it for a chosen accent.
+		accentShades = { "#4fd1ff" },
 		radius = { window = 10, card = 8, control = 6, tab = 5, item = 6 },
 		windowShadow = true,
 		tabs = "segmented",
@@ -241,10 +243,37 @@ function Theme.apply(name, accent)
 		Theme.text[k] = skin.text[k] or v
 	end
 	if accent and string.match(accent, "^#%x%x%x%x%x%x$") then
+		local own, ownStrong = Theme.color.accent, Theme.color.accentStrong
 		Theme.color.accent = accent
 		Theme.color.accentStrong = Theme.mix(accent, "#ffffff", 0.3)
 		Theme.color.accentSoft = Theme.mix(Theme.color.bg, accent, 0.2)
 		Theme.color.focus = Theme.color.accentStrong
+		-- A look that draws in its accent (Arcane's cyan) takes the chosen one there too, in a copy: its
+		-- gradients, glow, rule and header art; its other colours (Arcane's violet) stay.
+		if skin.decor or skin.hero then
+			local swap = { [string.lower(own)] = accent, [string.lower(ownStrong)] = Theme.color.accentStrong }
+			for _, hex in ipairs(skin.accentShades or {}) do
+				swap[string.lower(hex)] = accent
+			end
+			local function recolor(v)
+				if type(v) == "string" then
+					return swap[string.lower(v)] or v
+				elseif type(v) == "table" then
+					local out = {}
+					for k, x in pairs(v) do
+						out[k] = recolor(x)
+					end
+					return out
+				end
+				return v
+			end
+			local copy = {}
+			for k, v in pairs(skin) do
+				copy[k] = v
+			end
+			copy.decor, copy.hero = recolor(skin.decor), recolor(skin.hero)
+			skin = copy
+		end
 	end
 	Theme.skin = skin
 	Theme.accent = Theme.color.accent

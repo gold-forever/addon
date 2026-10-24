@@ -166,4 +166,18 @@ eq(T.color.accent, "#6ee7ff", "a bad accent is ignored")
 T.apply("web")
 eq(T.color.accent, "#e0ac45", "and a look without one has its own")
 
+-- Arcane with a chosen accent: its cyan becomes the accent in the decor and header art, its violet stays,
+-- and the look's own tables are not changed; without an accent it is the look itself.
+local arcane = T.skins.arcane
+local skin = T.apply("arcane", "#d6453b")
+eq(skin.decor.rule[1], "#d6453b", "the rule's cyan is the accent")
+eq(skin.decor.rule[3], "#b48cff", "its violet stays")
+eq(skin.decor.primary[1], "#d6453b", "the button's brighter cyan too")
+eq(skin.decor.glow[1], "#d6453b", "the glow")
+eq(skin.hero.lights[2][1], "#d6453b", "the header art's cyan light")
+eq(skin.hero.stars[2][3], T.color.accentStrong, "the light stars take the strong shade")
+eq(arcane.decor.rule[1], "#6ee7ff", "the look's own table untouched")
+eq(T.apply("arcane"), arcane, "no accent: the look itself")
+T.apply("web")
+
 return checks

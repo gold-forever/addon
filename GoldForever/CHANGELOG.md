@@ -31,7 +31,7 @@
   markets with their items (this character's first, and any it has no prices for yet), and this
   character's Discord dings.
 - A **Settings** page with the settings the addon has, changed at once: the look, an accent colour over
-  any look (also `/gf accent #rrggbb`), the minimap button, the window's size and the alerts. Its
+  any look (also `/gf accent #rrggbb`; Arcane's glow and gradients take it too), the minimap button, the window's size and the alerts. Its
   **Modules** tab switches each part on or off without a reload: the session HUD, the auction house
   panel, prices in tooltips, the crafting strip, bag advice at vendors, the craft list and rare alerts. What the save
   records stays the same whatever is off.

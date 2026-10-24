@@ -877,6 +877,11 @@ do
   local sales = ns.Views.sales(ns.Views.rows(GoldForeverDB, "sale"), nil, 0)
   assert(sales.count >= 1 and sales.list[1].item ~= "?", "the sale mail is a row on the Sales tab")
 end
+SlashCmdList.GOLDFOREVER("look arcane")
+SlashCmdList.GOLDFOREVER("accent #d6453b")
+SlashCmdList.GOLDFOREVER("ui home")
+assert(ns.Theme.skin.decor.rule[1] == "#d6453b", "Arcane draws in the chosen accent")
+SlashCmdList.GOLDFOREVER("look web")
 SlashCmdList.GOLDFOREVER("accent #2fd1a8")
 assert(GoldForeverDB.settings.window.accent == "#2fd1a8", "the accent is kept")
 assert(ns.Theme.color.accent == "#2fd1a8", "and goes over the look")
