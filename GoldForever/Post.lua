@@ -49,7 +49,8 @@ end
 function Post.suggest(rule, market, cheapest)
 	rule = rule or Post.DEFAULT
 	local floor = Post.silver(math.ceil(market * (rule.floor or 80) / 100))
-	local normal = math.max(floor, Post.silver(market * (rule.normal or 120) / 100 + 50))
+	-- To the nearest silver where the auction house takes silver; where it takes copper, to the copper.
+	local normal = math.max(floor, Post.silver(market * (rule.normal or 120) / 100 + (Post.copper and 0 or 50)))
 	if not cheapest then
 		return { unit = normal, reason = "alone", floor = floor, normal = normal }
 	end

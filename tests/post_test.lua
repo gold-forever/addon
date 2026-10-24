@@ -71,7 +71,12 @@ eq(P.resolve(base, nil, 1, nil), base, "no overrides at all")
 P.copper = true
 eq(P.silver(9437), 9437, "copper kept")
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9549, "a copper under")
+-- Alone in copper mode: the normal price to the copper, not 50 copper over it (review B-13).
+s = P.suggest(rule, 10000, nil)
+eq(s.reason .. " " .. s.unit, "alone 12000", "copper mode, nobody else: 120% of the market exactly")
+eq(P.suggest(rule, 10041, nil).unit, 12049, "copper mode: down to the copper")
 P.copper = false
+eq(P.suggest(rule, 10041, nil).unit, 12000, "silver mode: to the nearest silver")
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9500, "whole silver otherwise")
 
 -- The trend's advice: rising at 10% over the 7-day average, falling at 10% under, else none.
