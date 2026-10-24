@@ -1122,7 +1122,7 @@ end
 -- searched in turn against other players' listings (a sneaky single cheap unit passed over); those
 -- undercut by more than the tolerance are listed, and Cancel next cancels the most undercut one a press
 -- (CancelAuction is a hardware event, and costs the deposit). The items come back by mail.
-local TOLERANCES = { { value = 1, label = "1 percent" }, { value = 5, label = "5 percent" }, { value = 10, label = "10 percent" } }
+local TOLERANCES = { { value = 1, label = "1%" }, { value = 5, label = "5%" }, { value = 10, label = "10%" } }
 local owned = {} -- { auctionID, itemID, key, name, quality, quantity, unit, commodity, cheapest, under }
 local checking -- the index of the auction being searched, while a check runs
 
@@ -1264,10 +1264,12 @@ local function buildCancel(page)
 		settings().tolerance = v
 		refresh()
 	end)
-	tol:SetPoint("TOPLEFT", 120, 0)
-	tol:SetWidth(120)
+	-- The label, then the dropdown just after it, leaving room before Check my auctions at the right in
+	-- the panel's 384 pixels (manual test run 001: they touched).
 	local tolLabel = UI.Text(page, "Undercut past", { size = "sm", tone = "muted" })
-	tolLabel:SetPoint("RIGHT", tol, "LEFT", -10, 0)
+	tolLabel:SetPoint("TOPLEFT", 0, -7)
+	tol:SetPoint("LEFT", tolLabel, "RIGHT", 10, 0)
+	tol:SetWidth(84)
 	local check = UI.Button(page, "Check my auctions", function()
 		ns.safely("auction cancel", startCheck)
 	end, { width = 150, height = 28 })
