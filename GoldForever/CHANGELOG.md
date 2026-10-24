@@ -48,8 +48,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   newer edit wins).
 - Prices are whole silver unless the auction house takes copper (the addon asks the game). A single cheap
   unit far under the rest is ignored when pricing ("sneaky prices").
-- The panel's title row says what your bank and mailbox hold that the auction house pays for; a hover
-  lists it, to fetch before posting.
+- The panel's title row says what your bank and mailbox hold that the auction house pays for; a click
+  opens the **Bank** tab, where you choose the bank items to sell: they move into your bags the next
+  time you open your bank.
 - A **mail helper** beside the mailbox: one press opens all the auction-house mails in turn, quickly (sold gold,
   bought, expired, cancelled and outbid items), stopping when your bags are full. A player's letter or a
   cash-on-delivery mail is never touched.

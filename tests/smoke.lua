@@ -742,8 +742,31 @@ do
     GameTooltip.lines = {}
     away.scripts.OnEnter(away)
     local listed = false
-    for _, l in ipairs(GameTooltip.lines) do if l:find("Fetch these first", 1, true) then listed = true end end
-    assert(listed, "the hover lists them")
+    for _, l in ipairs(GameTooltip.lines) do if l:find("sell for", 1, true) then listed = true end end
+    assert(listed, "the hover says what they sell for")
+    -- A click on it opens the Bank tab; a click on a bank row chooses it to take.
+    away.scripts.OnClick(away)
+    assert(AP.panel().tab == "bank", "the title line opens the Bank tab")
+    local rows = AP.panel().bank.rows
+    assert(rows and rows[1] and rows[1].id == 2589 and rows[1].place == "bank", "the bank's Linen on the Bank tab")
+    ns.fetchList()[2589] = true
+    AP.panel().bank:Refresh()
+    assert(AP.panel().bank.rows[1].take, "chosen to take")
+    -- At the bank: its stacks move into the bags, and it leaves the list.
+    local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots }
+    local used = {}
+    local inBank = { [-1] = { [1] = 2589, [3] = 2589 } }
+    C_Container.GetContainerNumSlots = function(bag) return inBank[bag] and 4 or 0 end
+    C_Container.GetContainerItemInfo = function(bag, slot) local id = inBank[bag] and inBank[bag][slot] return id and { itemID = id, stackCount = 20, hyperlink = "|Hitem:" .. id .. "::::::::30|h[x]|h" } or nil end
+    C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot end
+    C_Container.GetContainerNumFreeSlots = function() return 10, 0 end
+    fire("BANKFRAME_OPENED")
+    wait(2)
+    assert(table.concat(used, ",") == "-1:1,-1:3", "both stacks taken from the bank: " .. table.concat(used, ","))
+    assert(ns.fetchList()[2589] == nil, "and off the list")
+    fire("BANKFRAME_CLOSED")
+    C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots = keep[1], keep[2], keep[3], keep[4]
+    AP.tab("post")
     me.bank = bank
   end
   -- Changing the rule's scope again and again builds no new frames (the picker's rows are reused).

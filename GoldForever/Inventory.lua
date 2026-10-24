@@ -128,9 +128,87 @@ end)
 ns.on("PLAYER_LEAVING_WORLD", "bags", readBags)
 ns.on("PLAYER_LOGOUT", "bags", readBags)
 
+-- Items to take from the bank for the auction house, chosen on the auction panel's Bank tab (owner,
+-- 2026-10-24: "chose items you want to pick from the bank, and they will be auto looted next time you
+-- are there"): settings("fetch")[guid] = { [itemId] = true }, for the character online.
+function ns.fetchList()
+	local guid = UnitGUID and ns.readable(UnitGUID("player"))
+	if not guid then
+		return nil
+	end
+	local s = ns.settings("fetch", {})
+	s[guid] = s[guid] or {}
+	return s[guid]
+end
+
+local function freeBagSlots()
+	local free = 0
+	for _, bag in ipairs(BAGS) do
+		local n, kind = C_Container.GetContainerNumFreeSlots(bag)
+		if (kind or 0) == 0 then
+			free = free + (n or 0)
+		end
+	end
+	return free
+end
+
+-- When the bank opens: each chosen item's stacks into the bags, a stack every 0.15 s (the server takes
+-- one move at a time), while the bags have room and the bank stays open; never in combat. An item whose
+-- stacks all came out is taken off the list.
+local FETCH_GAP = 0.15
+local function fetchFromBank()
+	local want = ns.fetchList()
+	if not want or not next(want) or (InCombatLockdown and InCombatLockdown()) then
+		return
+	end
+	local moves, left = {}, {}
+	for _, bag in ipairs(BANK) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and info.itemID and want[info.itemID] then
+				moves[#moves + 1] = { bag = bag, slot = slot, id = info.itemID }
+				left[info.itemID] = (left[info.itemID] or 0) + 1
+			end
+		end
+	end
+	local i, taken, full = 0, 0, false
+	local function done()
+		for id, n in pairs(left) do
+			if n == 0 then
+				want[id] = nil
+			end
+		end
+		if taken > 0 or full then
+			ns.say(string.format("took %d %s from the bank to sell%s.", taken, taken == 1 and "stack" or "stacks",
+				full and "; your bags are full, the rest stays chosen" or ""))
+		end
+	end
+	local function step()
+		i = i + 1
+		local m = moves[i]
+		if not m or not bankOpen then
+			done()
+			return
+		end
+		if freeBagSlots() == 0 then
+			full = true
+			done()
+			return
+		end
+		C_Container.UseContainerItem(m.bag, m.slot)
+		taken, left[m.id] = taken + 1, left[m.id] - 1
+		C_Timer.After(FETCH_GAP, function()
+			ns.safely("bank fetch", step)
+		end)
+	end
+	step()
+end
+ns.fetchFromBank = fetchFromBank
+
 local function bankOpened()
 	bankOpen = true
 	ns.after(0.5, "bank", readBank)
+	ns.after(0.6, "bank fetch", fetchFromBank)
 end
 local function bankClosed()
 	readBank()
