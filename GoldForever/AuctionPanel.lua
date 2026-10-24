@@ -207,14 +207,39 @@ local function blizzardMode()
 	return f.GetDisplayMode and f:GetDisplayMode() or f.displayMode
 end
 
--- Shows an item's listings in Blizzard's window; true when it did.
+-- Shows an item's listings in Blizzard's window; true when it did. Blizzard's SelectBrowseResult reads
+-- the item key's info and fails when the client has not loaded it yet (manual test run 001: "attempt to
+-- index local itemKeyInfo"): the client is asked for it, and the item is shown when it arrives.
+local waitingKey
 local function browse(itemKey)
 	local f = AuctionHouseFrame
 	if not (itemKey and f and f.SelectBrowseResult and f:IsShown()) then
 		return false
 	end
+	if C_AuctionHouse.GetItemKeyInfo and not C_AuctionHouse.GetItemKeyInfo(itemKey) then
+		waitingKey = itemKey
+		return false
+	end
+	waitingKey = nil
 	following = true
 	local ok = ns.safely("auction browse", f.SelectBrowseResult, f, { itemKey = itemKey })
+	following = false
+	return ok
+end
+ns.on("ITEM_KEY_ITEM_INFO_RECEIVED", "auction panel", function(itemID)
+	if waitingKey and waitingKey.itemID == itemID then
+		browse(waitingKey)
+	end
+end)
+
+-- Puts a bag item in Blizzard's own Sell window, as a click on it in the bags does there; true when it did.
+local function sellItem(location)
+	local f = AuctionHouseFrame
+	if not (location and f and f.SetPostItem and f:IsShown()) then
+		return false
+	end
+	following = true
+	local ok = ns.safely("auction sell item", f.SetPostItem, f, location)
 	following = false
 	return ok
 end
@@ -228,7 +253,9 @@ local function search(r, open)
 		return
 	end
 	r.itemKey = key
-	if open and browse(key) then
+	-- Chosen on Sell: into Blizzard's Sell window too (the search below still reads the listings for
+	-- the panel); else its listings in Blizzard's Buy view.
+	if open and not sellItem(r.locations[1]) and browse(key) then
 		return
 	end
 	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }

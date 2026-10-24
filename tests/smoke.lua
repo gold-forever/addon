@@ -870,6 +870,24 @@ do
   ns.AuctionPanel.tab("cancel")
   f:SelectBrowseResult()
   assert(p.tab == "shop", "an item shown by Blizzard itself is its Buy")
+  -- An item chosen on Sell goes into Blizzard's Sell window; the panel stays on Sell.
+  local posted
+  function f:SetPostItem(loc) posted = loc; self:SetDisplayMode(M.CommoditiesSell) end
+  ns.AuctionPanel.tab("post")
+  ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  assert(posted and p.tab == "post", "chosen on Sell: into Blizzard's Sell window")
+  -- Without it, Blizzard's Buy view shows the item, but only once the client has the item key's info.
+  f.SetPostItem = nil
+  local browsed, info = 0, nil
+  function f:SelectBrowseResult() browsed = browsed + 1 end
+  local keyInfo = C_AuctionHouse.GetItemKeyInfo
+  C_AuctionHouse.GetItemKeyInfo = function() return info end
+  ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  assert(browsed == 0, "not shown before the item key's info is loaded")
+  info = { isCommodity = true }
+  fire("ITEM_KEY_ITEM_INFO_RECEIVED", 2589)
+  assert(browsed == 1, "shown when it arrives")
+  C_AuctionHouse.GetItemKeyInfo = keyInfo
   fire("AUCTION_HOUSE_CLOSED")
   AuctionHouseFrame, AuctionHouseFrameDisplayMode = nil, nil
 end
