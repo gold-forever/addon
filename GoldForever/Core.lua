@@ -53,14 +53,17 @@ ns.now = GetServerTime
 
 -- Errors ------------------------------------------------------------------------------------------
 
-local errors = {} -- collector -> { n, msg, t }; becomes db.errors once the file is loaded
+local errors = {} -- collector -> { n, msg, t, stack }; becomes db.errors once the file is loaded
 local told = {} -- collectors already reported in chat this session
 
-function ns.fail(name, err)
+-- `stack`, where known, is where the error came from, trimmed so the file stays small.
+local STACK_CHARS = 800
+function ns.fail(name, err, stack)
 	local e = errors[name] or { n = 0 }
 	errors[name] = e
 	e.n = e.n + 1
 	e.msg = tostring(err)
+	e.stack = type(stack) == "string" and string.sub(stack, 1, STACK_CHARS) or nil
 	e.t = GetServerTime()
 	if not told[name] then
 		told[name] = true
@@ -68,7 +71,6 @@ function ns.fail(name, err)
 	end
 end
 
--- Runs fn(...) and records an error instead of raising it.
 -- The outermost call in flight and the frame it began in. The client stops a script that runs too long
 -- without an error the addon can catch ("has exceeded its execution time limit", no stack): that call
 -- never returns, so the next one, in a later frame, finds it still marked and records it under
@@ -87,6 +89,24 @@ local function stoppedBefore(now)
 	end
 end
 
+-- The stack of the last error, read in the error handler while it still exists. The client's debugstack
+-- leaves out the handler itself; debug.traceback elsewhere.
+local lastStack
+local function withStack(err)
+	if debugstack then
+		lastStack = debugstack(2, 12, 0)
+	elseif debug and debug.traceback then
+		lastStack = debug.traceback("", 2)
+	end
+	return err
+end
+-- The client's xpcall passes arguments on to the call; a plain Lua 5.1's does not, and a call with
+-- some goes through a closure there.
+local passesArgs = select(2, xpcall(function(a)
+	return a
+end, withStack, true)) == true
+
+-- Runs fn(...) and records an error, with its stack, instead of raising it.
 function ns.safely(name, fn, ...)
 	local now = GetTime and GetTime() or 0
 	stoppedBefore(now)
@@ -94,10 +114,20 @@ function ns.safely(name, fn, ...)
 		running, runningAt = name, now
 	end
 	depth = depth + 1
-	local ok, err = pcall(fn, ...)
+	local ok, err
+	if passesArgs or select("#", ...) == 0 then
+		ok, err = xpcall(fn, withStack, ...)
+	else
+		local args, n = { ... }, select("#", ...)
+		ok, err = xpcall(function()
+			return fn(unpack(args, 1, n))
+		end, withStack)
+	end
 	depth = depth - 1
 	if not ok then
-		ns.fail(name, err)
+		local stack = lastStack
+		lastStack = nil
+		ns.fail(name, err, stack)
 	end
 	return ok
 end

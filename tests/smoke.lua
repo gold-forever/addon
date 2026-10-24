@@ -1804,6 +1804,11 @@ do
   ns.safely("next frame", function() end)
   assert(not GoldForeverDB.stopped, "nothing recorded as stopped")
   assert(GoldForeverDB.errors.erring and GoldForeverDB.errors.erring.n == 1, "the caught error is recorded")
+  local stack = GoldForeverDB.errors.erring.stack
+  assert(type(stack) == "string" and stack:find("smoke") and #stack <= 800, "with a trimmed stack that names where it came from: " .. tostring(stack))
+  ns.safely("erring with arguments", function(a, b, c) assert(a == 1 and b == nil and c == 3) error("caught") end, 1, nil, 3)
+  assert(GoldForeverDB.errors["erring with arguments"].msg:find("caught"), "the arguments, a nil among them, reach the call")
+  GoldForeverDB.errors["erring with arguments"] = nil
   GoldForeverDB.errors.erring = nil
 end
 assert(tablesMade > 0, "the session made tables")
