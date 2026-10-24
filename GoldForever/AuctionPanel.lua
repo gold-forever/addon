@@ -595,7 +595,7 @@ local function buildScan(page)
 		cards[1]:Set(last and tostring(last.auctions or 0) or "—", "auctions read")
 		cards[2]:Set(last and last.prices and tostring(last.prices) or "—", "item and price pairs")
 		cards[3]:Set(last and last.seconds and (last.seconds .. " s") or "—", "asking and reading")
-		cards[4]:Set(last and ns.Views.ago(last.t, ns.now()) or "never", last and last.kind == "throttled" and "the server said wait" or "")
+		cards[4]:Set(last and ns.Views.ago(last.t, ns.now()) or "never", last and (last.kind == "partial" and "cut short: not used" or last.kind == "throttled" and "the server said wait") or "")
 	end
 end
 

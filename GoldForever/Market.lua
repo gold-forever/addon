@@ -118,7 +118,21 @@ end)
 -- Performance budget). A retail scan has ~110,000 rows; written at once they took a frame of their own.
 local ENCODE = 2000
 
+-- A scan read only in part (the auction house closed while it read: the client stops giving the listings,
+-- though the count stays) is no market: manual test run 001, leaving mid-read stored a few odd listings as
+-- a full scan, and the shared price of Leafy Appendage became 145g against 7.92g on the auction house.
+local COMPLETE = 0.9 -- the share of the listings a full scan must have read
+ns.Market = ns.Market or {}
+local Market = ns.Market
+function Market.partial(n, read, cutShort)
+	return n > 0 and (cutShort or (read or 0) < n * COMPLETE) or false
+end
+
 local function finish(s, buckets, n)
+	local partial = Market.partial(n, s.read, s.cutShort)
+	if partial then
+		buckets = {} -- none of it is kept: a part is not the market
+	end
 	-- Rows in no particular order: nothing reads them by position, and sorting ~110,000 keys took a frame.
 	local keys = {}
 	for key in pairs(buckets) do
@@ -129,7 +143,9 @@ local function finish(s, buckets, n)
 		local record = {
 			t = s.t,
 			market = s.market,
-			kind = n > 0 and "full" or "throttled",
+			-- A partial scan is stored as "throttled" (the server reads no rows of one), marked partial.
+			kind = (n > 0 and not partial) and "full" or "throttled",
+			partial = partial or nil,
 			bands = 0,
 			auctions = n,
 			map = s.map,
@@ -159,7 +175,7 @@ local function finish(s, buckets, n)
 		prune()
 		-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
 		ns.scanVersion = (ns.scanVersion or 0) + 1
-		ns.lastScan = { t = s.t, kind = record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
+		ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
 		-- The new prices are read (over frames for a big scan); the deals line follows when they are in.
 		if n > 0 then
 			ns.dealsPending = true
@@ -167,7 +183,11 @@ local function finish(s, buckets, n)
 				ns.price.own(0) -- builds the own scan's prices
 			end
 		end
-		ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
+		if partial then
+			ns.say(string.format("scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends.", s.read or 0, n))
+		else
+			ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
+		end
 		scan = nil
 	end
 	local function encode()
@@ -216,6 +236,9 @@ local function read()
 		for index = i, n - 1 do
 			local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID =
 				C_AuctionHouse.GetReplicateItemInfo(index)
+			if itemID then
+				s.read = (s.read or 0) + 1
+			end
 			if itemID and buyout and buyout > 0 and count and count > 0 then
 				local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
 				local unit = math.floor(buyout / count + 0.5)
@@ -311,6 +334,10 @@ local function auctionOpened()
 end
 local function auctionClosed()
 	auctionOpen = false
+	-- Closed while reading: the rest of the listings never come; the scan is partial.
+	if scan and scan.reading then
+		scan.cutShort = true
+	end
 end
 ns.on("AUCTION_HOUSE_SHOW", "scan", auctionOpened)
 ns.on("AUCTION_HOUSE_CLOSED", "scan", auctionClosed)
