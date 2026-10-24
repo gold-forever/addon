@@ -1219,6 +1219,10 @@ function UI.Table(parent, columns, opts)
 	local ROW = opts.rowHeight or 22
 	local t = UI.Panel(parent, { color = Theme.color.surface })
 	t.columns, t.all, t.page, t.size = columns, {}, 1, opts.pageSize or 12
+	-- Its height from the start: set only later, in its first size change, what is anchored below it
+	-- (Remove, Edit lists, the Sell box, the craft queue's buttons) was now and then never placed and not
+	-- drawn until the panel was shown again (manual test run 001).
+	t:SetHeight(ROW + 2 + t.size * ROW + 24)
 	if opts.sort and columns[opts.sort.column] then
 		t.sortColumn, t.sortDescending = opts.sort.column, opts.sort.descending
 	end
