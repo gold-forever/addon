@@ -1396,7 +1396,7 @@ local function buildRule(page)
 		control:SetPoint("TOPLEFT", LABEL, y + 6)
 		control:SetPoint("RIGHT", page, "LEFT", LEFT, 0)
 		local line = UI.Text(page, says, { size = "xs", tone = "faint", wrap = true })
-		line:SetPoint("TOPLEFT", 0, y - 30)
+		line:SetPoint("TOPLEFT", 0, y - 32)
 		line:SetWidth(LEFT)
 		return control
 	end
@@ -1406,13 +1406,13 @@ local function buildRule(page)
 	end
 	local v = shown()
 	local controls = {
-		undercut = row(-52, "Undercut by", UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
+		undercut = row(-84, "Undercut by", UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
 			"How far under the cheapest other seller you post."),
-		floor = row(-120, "Never under", UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
+		floor = row(-156, "Never under", UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
 			"Your floor, as a share of the market value: nothing posts below it."),
-		normal = row(-188, "Normal price", UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
+		normal = row(-228, "Normal price", UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
 			"What you ask when no one else sells it, or everyone asks more than this."),
-		belowFloor = row(-256, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold it" }, { value = "floor", label = "Post at the floor" } }, v.belowFloor, function(x) set("belowFloor", x) end),
+		belowFloor = row(-300, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold it" }, { value = "floor", label = "Post at the floor" } }, v.belowFloor, function(x) set("belowFloor", x) end),
 			"When undercutting would go under your floor: keep the item, or post at the floor anyway."),
 	}
 	local scopePick, removeButton
@@ -1483,10 +1483,10 @@ local function buildRule(page)
 	page.chooseScope = choose
 	page.setField = set
 	local scopeLine = UI.Text(page, "A rule for one item or a category changes only what you set for it; the rest comes from Every item.", { size = "xs", tone = "faint", wrap = true })
-	scopeLine:SetPoint("TOPLEFT", 0, -26)
+	scopeLine:SetPoint("TOPLEFT", 0, -34)
 	scopeLine:SetWidth(LEFT)
 	local note = UI.Text(page, "The market value is everyone's price from the companion, else your own last scan. Prices are whole silver.", { size = "xs", tone = "faint", wrap = true })
-	note:SetPoint("TOPLEFT", 0, -330)
+	note:SetPoint("TOPLEFT", 0, -376)
 	note:SetWidth(LEFT)
 
 	-- Sale profiles (GFP1 strings from the site or other players): one active at a time.
@@ -1525,7 +1525,7 @@ local function buildRule(page)
 		describe()
 	end
 	rebuild()
-	local field = UI.SearchBox(page, "Paste a GFP1: profile", nil)
+	local field = UI.SearchBox(page, "Paste a GFP1 string", nil)
 	field:SetMaxLetters(0) -- a profile string runs to 16 KB (SalePlan.decode bounds it)
 	field:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -48)
 	field:SetPoint("RIGHT", page, "RIGHT", -152, 0)

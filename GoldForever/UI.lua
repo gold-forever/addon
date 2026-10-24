@@ -692,6 +692,9 @@ function UI.SearchBox(parent, placeholder, onChange)
 	box.bg, box.rim = surface(box, Theme.color.surfaceSunken, 1, Theme.color.borderStrong, radius("control"))
 	box.hint = UI.Text(box, placeholder, { tone = "faint" })
 	box.hint:SetPoint("LEFT", 10, 0)
+	-- Cut at the box's edge, never under what stands beside it.
+	box.hint:SetPoint("RIGHT", -10, 0)
+	box.hint:SetWordWrap(false)
 	box:SetScript("OnTextChanged", function(self)
 		local text = self:GetText() or ""
 		self.hint:SetShown(text == "")
@@ -1410,6 +1413,9 @@ function UI.Window(name, title, pages, store, opts)
 	local w = UI.Panel(UIParent, { name = name, window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	w:SetSize(W, H)
 	w:SetFrameStrata("HIGH")
+	-- Over the auction panel and the other HIGH frames when it opens or is clicked (manual test run 001:
+	-- Rule › opened it under the panel).
+	w:SetToplevel(true)
 	w:SetClampedToScreen(true)
 	w:SetMovable(true)
 	w:EnableMouse(true)
@@ -1509,6 +1515,7 @@ function UI.Window(name, title, pages, store, opts)
 	end
 	-- Opened again: the page in view shows what changed while it was closed (manual test run 001).
 	w:SetScript("OnShow", function()
+		w:Raise()
 		started()
 		local page = w.pages and w.pages[store.page]
 		if page and page.Refresh then
