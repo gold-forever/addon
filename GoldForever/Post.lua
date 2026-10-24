@@ -70,6 +70,25 @@ function Post.suggest(rule, market, cheapest)
 	return { unit = nil, reason = "hold", floor = floor, normal = normal }
 end
 
+-- What a rule does, as four sentences for an item worth `market` (10g unless given): someone a little
+-- under the market, no one else, someone far under (past the floor), someone far over. money(copper)
+-- formats an amount.
+function Post.examples(rule, money, market)
+	market = market or 100000
+	local out = {}
+	local function say(situation, cheapest)
+		local s = Post.suggest(rule, market, cheapest)
+		out[#out + 1] = situation .. ": " .. (s.unit and ("you post at " .. money(s.unit) .. " (" .. string.lower(Post.REASONS[s.reason]) .. ")")
+			or "you hold it, as it is under your floor")
+	end
+	local near, low, high = math.floor(market * 0.95), math.floor(market / 2), market * 2
+	say("Someone lists it at " .. money(near), near)
+	say("No one else lists it", nil)
+	say("The cheapest is " .. money(low), low)
+	say("The cheapest is " .. money(high), high)
+	return out
+end
+
 -- Advice from the market's trend against its 7-day average (owner's answer, 2026-10-24), in percent:
 -- 10% or more above it, "rising: maybe wait"; 10% or more under, "falling"; else nil. Advice only.
 Post.TREND_HINT = 10

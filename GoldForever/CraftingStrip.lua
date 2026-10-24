@@ -84,7 +84,7 @@ local function build()
 	f.queue = UI.Button(f, "Queue 1", function()
 		if recipeID and ns.queueAdd then
 			ns.queueAdd(recipeID, 1)
-			f.note:SetText("Queued. The Shop's \"Craft queue\" list buys what is missing.")
+			f.note:SetText("Queued. The Buy tab's \"Craft queue\" list buys what is missing.")
 		end
 	end, { kind = "ghost", width = 70, height = 22 })
 	f.queue:SetPoint("TOPRIGHT", -12, -12)

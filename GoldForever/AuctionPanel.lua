@@ -542,7 +542,15 @@ local function buildPost(page)
 	detail:SetHeight(252)
 	local name = UI.Text(detail, "", { size = "md", medium = true })
 	name:SetPoint("TOPLEFT", 14, -12)
-	name:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
+	name:SetPoint("RIGHT", detail, "RIGHT", -96, 0)
+	-- The selling rules live in the hub: this opens them on a rule for the item in view.
+	local ruleButton = UI.Button(detail, "Rule ›", function()
+		ns.openPage("rules")
+		if ns.rulesPage and chosen then
+			ns.rulesPage.chooseScope("add-item")
+		end
+	end, { kind = "ghost", width = 72, height = 24 })
+	ruleButton:SetPoint("TOPRIGHT", -10, -8)
 	local reason = UI.Text(detail, "", { size = "sm" })
 	reason:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
 	reason:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
@@ -747,7 +755,7 @@ function ns.announceDeals()
 		local _, _, _, _, name = ns.price.itemInfo(under[i])
 		names[i] = name or ("item " .. under[i])
 	end
-	ns.say(string.format("%d %s on your lists %s at or under your price: %s%s. Open the Shop.", #under, #under == 1 and "item" or "items",
+	ns.say(string.format("%d %s on your lists %s at or under your price: %s%s. Open the Buy tab.", #under, #under == 1 and "item" or "items",
 		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", …" or ""))
 end
 
@@ -1221,11 +1229,16 @@ local function buildCancel(page)
 	end
 end
 
+-- The selling rules, a page of the hub (manual test run 001: too much for the panel, and hard to read):
+-- the rule's controls at the left, each saying what it does; at the right what the rule does to an item
+-- worth 10g, and the sale profile.
 local function buildRule(page)
 	local s = settings()
 	s.overrides = s.overrides or { items = {}, classes = {} }
 	s.overrides.items = s.overrides.items or {}
 	s.overrides.classes = s.overrides.classes or {}
+	local LEFT, LABEL = 400, 130 -- the controls' column, and where a control starts in it
+	local RIGHT = LEFT + 28 -- the column at the right starts here
 	-- Which rule the controls below edit: the default, or an override (only the fields it changes).
 	local scope = "default"
 	local function className(class)
@@ -1254,17 +1267,41 @@ local function buildRule(page)
 		end
 		return out
 	end
+
+	-- What the rule does, at the right.
+	local exampleCard = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	exampleCard:SetPoint("TOPLEFT", RIGHT, 0)
+	exampleCard:SetPoint("RIGHT", page, "RIGHT")
+	exampleCard:SetHeight(196)
+	local exampleHead = UI.Text(exampleCard, "WHAT IT DOES TO AN ITEM WORTH 10G", { size = "xs", medium = true, tone = "faint" })
+	exampleHead:SetPoint("TOPLEFT", 14, -12)
+	local exampleText = UI.Text(exampleCard, "", { size = "xs", wrap = true })
+	exampleText:SetPoint("TOPLEFT", exampleHead, "BOTTOMLEFT", 0, -10)
+	exampleText:SetPoint("RIGHT", exampleCard, "RIGHT", -14, 0)
+	local function showExamples()
+		local lines = Post.examples(shown(), money)
+		for i, l in ipairs(lines) do
+			lines[i] = Theme.escape(Theme.color.accent) .. "•|r " .. l
+		end
+		exampleText:SetText(table.concat(lines, "\n\n"))
+	end
+
 	local function set(field, v)
 		local t = target()
 		if t then
 			t[field] = v
 		end
+		showExamples()
 	end
-	local function row(y, label, control)
+	-- A row: its name, the control, and a line under them saying what it does.
+	local function row(y, label, control, says)
 		local l = UI.Text(page, label, { size = "sm" })
 		l:SetPoint("TOPLEFT", 0, y)
-		control:SetPoint("TOPLEFT", 160, y + 6)
-		control:SetPoint("RIGHT", page, "RIGHT")
+		control:SetPoint("TOPLEFT", LABEL, y + 6)
+		control:SetPoint("RIGHT", page, "LEFT", LEFT, 0)
+		local line = UI.Text(page, says, { size = "xs", tone = "faint", wrap = true })
+		line:SetPoint("TOPLEFT", 0, y - 30)
+		line:SetWidth(LEFT)
 		return control
 	end
 	local undercuts = {}
@@ -1273,14 +1310,18 @@ local function buildRule(page)
 	end
 	local v = shown()
 	local controls = {
-		undercut = row(-40, "Undercut by", UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end)),
-		floor = row(-90, "Never under", UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end)),
-		normal = row(-140, "Normal price", UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end)),
-		belowFloor = row(-190, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold" }, { value = "floor", label = "Post at the floor" } }, v.belowFloor, function(x) set("belowFloor", x) end)),
+		undercut = row(-52, "Undercut by", UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
+			"How far under the cheapest other seller you post."),
+		floor = row(-120, "Never under", UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
+			"Your floor, as a share of the market value: nothing posts below it."),
+		normal = row(-188, "Normal price", UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
+			"What you ask when no one else sells it, or everyone asks more than this."),
+		belowFloor = row(-256, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold it" }, { value = "floor", label = "Post at the floor" } }, v.belowFloor, function(x) set("belowFloor", x) end),
+			"When undercutting would go under your floor: keep the item, or post at the floor anyway."),
 	}
 	local scopePick, removeButton
 	local function pickOptions()
-		local out = { { value = "default", label = "Default: every item" } }
+		local out = { { value = "default", label = "Every item" } }
 		for id in pairs(s.overrides.items) do
 			local _, _, _, _, name = ns.price.itemInfo(id)
 			out[#out + 1] = { value = "item:" .. id, label = "Item: " .. (name or id) }
@@ -1288,7 +1329,7 @@ local function buildRule(page)
 		for class in pairs(s.overrides.classes) do
 			out[#out + 1] = { value = "class:" .. class, label = "Category: " .. className(class) }
 		end
-		out[#out + 1] = { value = "add-item", label = "+ The item chosen in Post" }
+		out[#out + 1] = { value = "add-item", label = "+ The item chosen in Sell" }
 		out[#out + 1] = { value = "add-class", label = "+ Its category" }
 		return out
 	end
@@ -1317,6 +1358,7 @@ local function buildRule(page)
 		end
 		removeButton:SetShown(scope ~= "default")
 		rebuildPick()
+		showExamples()
 	end
 	rebuildPick = function()
 		if scopePick then
@@ -1325,8 +1367,8 @@ local function buildRule(page)
 			return
 		end
 		scopePick = UI.Dropdown(page, pickOptions(), scope, choose)
-		scopePick:SetPoint("TOPLEFT", 160, 6)
-		scopePick:SetPoint("RIGHT", page, "RIGHT", -96, 0)
+		scopePick:SetPoint("TOPLEFT", LABEL, 6)
+		scopePick:SetPoint("RIGHT", page, "LEFT", LEFT - 94, 0)
 	end
 	local pickLabel = UI.Text(page, "Rule for", { size = "sm" })
 	pickLabel:SetPoint("TOPLEFT", 0, 0)
@@ -1339,23 +1381,26 @@ local function buildRule(page)
 		end
 		choose("default")
 	end, { kind = "ghost", width = 86, height = 28 })
-	removeButton:SetPoint("TOPRIGHT", 0, 6)
+	removeButton:SetPoint("TOPRIGHT", page, "TOPLEFT", LEFT, 6)
 	removeButton:Hide()
 	rebuildPick()
 	page.chooseScope = choose
 	page.setField = set
-	local note = UI.Text(page, "Floor and normal price are shares of the market value: the pool's from the companion, else your own last scan. Prices are whole silver. An item in the sale profile follows the profile instead.", { size = "xs", tone = "faint", wrap = true })
-	note:SetPoint("TOPLEFT", 0, -230)
-	note:SetPoint("RIGHT", page, "RIGHT")
+	local scopeLine = UI.Text(page, "A rule for one item or a category changes only what you set for it; the rest comes from Every item.", { size = "xs", tone = "faint", wrap = true })
+	scopeLine:SetPoint("TOPLEFT", 0, -26)
+	scopeLine:SetWidth(LEFT)
+	local note = UI.Text(page, "The market value is everyone's price from the companion, else your own last scan. Prices are whole silver.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", 0, -330)
+	note:SetWidth(LEFT)
 
 	-- Sale profiles (GFP1 strings from the site or other players): one active at a time.
 	s.profiles = s.profiles or {}
 	local head = UI.Text(page, "SALE PROFILE", { size = "xs", medium = true, tone = "faint" })
-	head:SetPoint("TOPLEFT", 0, -270)
+	head:SetPoint("TOPLEFT", exampleCard, "BOTTOMLEFT", 0, -18)
 	local pick
 	local summary = UI.Text(page, "", { size = "xs", tone = "muted", wrap = true })
 	local function options()
-		local out = { { value = 0, label = "None: the rule above" } }
+		local out = { { value = 0, label = "None: the rules" } }
 		for i, p in ipairs(s.profiles) do
 			out[#out + 1] = { value = i, label = p.name }
 		end
@@ -1363,8 +1408,8 @@ local function buildRule(page)
 	end
 	local function describe()
 		local p = activeProfile()
-		summary:SetText(p and string.format("%s by %s: %d items to sell, %d to buy.", p.name, p.author ~= "" and p.author or "?", #p.sell, #p.buy)
-			or "No profile: every item follows the rule above.")
+		summary:SetText(p and string.format("%s by %s: %d items to sell, %d to buy. The items it names follow it instead of the rules.", p.name, p.author ~= "" and p.author or "?", #p.sell, #p.buy)
+			or "A profile from gold-forever.app/me/lists prices the items it names; the rules price the rest.")
 	end
 	local function rebuild()
 		if pick then
@@ -1377,17 +1422,17 @@ local function buildRule(page)
 			s.profile = v ~= 0 and v or nil
 			describe()
 		end)
-		pick:SetPoint("TOPLEFT", 0, -288)
-		pick:SetWidth(220)
+		pick:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -8)
+		pick:SetPoint("RIGHT", page, "RIGHT")
 		summary:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -8)
 		summary:SetPoint("RIGHT", page, "RIGHT")
 		describe()
 	end
 	rebuild()
-	local field = UI.SearchBox(page, "Paste a GFP1: profile (make one at gold-forever.app/me/lists)", nil)
+	local field = UI.SearchBox(page, "Paste a GFP1: profile", nil)
 	field:SetMaxLetters(0) -- a profile string runs to 16 KB (SalePlan.decode bounds it)
-	field:SetPoint("TOPLEFT", 0, -340)
-	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
+	field:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -48)
+	field:SetPoint("RIGHT", page, "RIGHT", -152, 0)
 	local message = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
 	message:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -6)
 	message:SetPoint("RIGHT", page, "RIGHT")
@@ -1407,7 +1452,7 @@ local function buildRule(page)
 	end
 	local import = UI.Button(page, "Import", function()
 		doImport()
-	end, { kind = "ghost", width = 70, height = 28 })
+	end, { width = 72, height = 28 })
 	import:SetPoint("LEFT", field, "RIGHT", 6, 0)
 	local export = UI.Button(page, "Export", function()
 		local p = activeProfile()
@@ -1417,10 +1462,17 @@ local function buildRule(page)
 			field:HighlightText()
 			message:SetText("Copy it with Ctrl+C.")
 		end
-	end, { kind = "ghost", width = 70, height = 28 })
+	end, { width = 72, height = 28 })
 	export:SetPoint("LEFT", import, "RIGHT", 4, 0)
 	page.importProfile = doImport
+	showExamples()
+	-- The newest drawn (the window in the look in use), for the Sell tab's Rule button and the tests.
+	ns.rulesPage = page
+	function page:Refresh()
+		choose(scope) -- an override added or removed from the Sell tab shows
+	end
 end
+ns.buildSellingRules = buildRule
 
 -- Space posts only while the Post tab shows: an override binding on a named button, set and cleared as
 -- the tab and the panel change (never in combat, when bindings cannot change). Elsewhere it jumps.
@@ -1489,7 +1541,7 @@ local function build()
 	p.away = away
 	local pages = {}
 	-- Named as Blizzard's tabs are (manual test run 001); the keys stay as the save knows them.
-	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "shop", label = "Buy" }, { key = "post", label = "Sell" }, { key = "cancel", label = "Auctions" }, { key = "rule", label = "Rule" } }, function(key)
+	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "shop", label = "Buy" }, { key = "post", label = "Sell" }, { key = "cancel", label = "Auctions" } }, function(key)
 		p.select(key)
 	end, { variant = "underline" })
 	-- A tab chosen here moves Blizzard's window to its own (fromBlizzard: it came from there).
@@ -1511,7 +1563,7 @@ local function build()
 	end
 	tabs:SetPoint("TOPLEFT", 16, -42)
 	tabs:SetPoint("TOPRIGHT", -16, -42)
-	for _, key in ipairs({ "scan", "post", "shop", "cancel", "rule" }) do
+	for _, key in ipairs({ "scan", "post", "shop", "cancel" }) do
 		local f = CreateFrame("Frame", nil, p)
 		f:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
 		f:SetPoint("BOTTOMRIGHT", -20, 16)
@@ -1519,7 +1571,7 @@ local function build()
 		pages[key] = f
 	end
 	-- Each tab is drawn the first time it is chosen: opening the auction house draws Scan only.
-	local builders = { scan = buildScan, post = buildPost, shop = buildShop, cancel = buildCancel, rule = buildRule }
+	local builders = { scan = buildScan, post = buildPost, shop = buildShop, cancel = buildCancel }
 	function p.ensure(key)
 		local f = pages[key]
 		if f and not f.built then
@@ -1860,14 +1912,15 @@ ns.AuctionPanel = {
 		return owned, checking
 	end,
 	importProfile = function(text)
-		panel.pages.rule.importProfile(text)
+		ns.openPage("rules")
+		ns.rulesPage.importProfile(text)
 	end,
 	ruleScope = function(value)
-		panel.ensure("rule")
-		panel.pages.rule.chooseScope(value)
+		ns.openPage("rules")
+		ns.rulesPage.chooseScope(value)
 	end,
 	ruleSet = function(field, value)
-		panel.pages.rule.setField(field, value)
+		ns.rulesPage.setField(field, value)
 	end,
 	suggestion = function()
 		return chosen and chosen.suggestion
