@@ -85,13 +85,6 @@ end
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 local function target(t)
 	unit = t
 	fire("PLAYER_TARGET_CHANGED")
@@ -174,4 +167,4 @@ fire("LOOT_READY")
 eq(catalogue.objects[2000], "Argentleaf", "a readable cast names it as before")
 issecretvalue = nil
 
-return checks
+return checks()

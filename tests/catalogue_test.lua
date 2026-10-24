@@ -12,14 +12,6 @@ C_TooltipInfo = {
 	end,
 }
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- One session of the addon on the saved table db: Catalogue.lua loaded afresh, its timers in `tick`.
 local function session(db, lean)
 	local scheduled = {}
@@ -123,4 +115,4 @@ while tick() do
 end
 eq(asked[200001], 1, "lean, next session: a row without a tooltip is not asked for")
 
-return checks
+return checks()

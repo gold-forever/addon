@@ -10,14 +10,6 @@ assert(load(SOURCES["Prices.lua"], "@Prices.lua"))("GoldForever", ns)
 ns.price = { coins = ns.Encode.money }
 local P = ns.Prices
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local MARKET = "EU-Classic Beta PvE 2-alliance"
 local NOW = 1761148800
 local function data(entry, market)
@@ -274,4 +266,4 @@ eq(P.staleWarning({ at = NOW - 2 * DAY - 5 }, NOW, nil), "everyone's prices are 
 eq(P.staleWarning({ at = NOW - DAY - 5 }, NOW, nil):find("1 day old", 1, true) ~= nil, true, "one day")
 eq(P.staleWarning({ at = NOW - 2 * DAY }, NOW, NOW - 3600), nil, "warned an hour ago")
 
-return checks
+return checks()

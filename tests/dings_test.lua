@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["Dings.lua"], "@Dings.lua"))("GoldForever", ns)
 local D = ns.Dings
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local ME = "Player-4620-006C0FC1"
 
 -- Without the companion: nothing to change, and the hint says why.
@@ -64,4 +56,4 @@ s = D.state({ on = "yes", t = 2000 }, { at = "soon", dings = { webhook = "maybe"
 eq(s.on, false, "a malformed choice and file read as off")
 eq(s.webhook, nil, "a malformed webhook flag says nothing")
 
-return checks
+return checks()

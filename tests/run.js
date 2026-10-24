@@ -2,7 +2,7 @@
 // code avoids everything that differs between them.
 //
 // Every addon file is compiled (not run) so syntax errors fail here instead of in game, then each
-// *_test.lua file runs with the addon sources available as SOURCES[name].
+// *_test.lua file runs with the addon sources available as SOURCES[name] and the harness of helpers.lua.
 
 const fs = require('fs')
 const path = require('path')
@@ -25,6 +25,11 @@ function state() {
   const gamedate = fs.readFileSync(path.join(__dirname, 'gamedate.lua'), 'utf8')
   if (lauxlib.luaL_dostring(L, to_luastring(gamedate)) !== lua.LUA_OK) {
     throw new Error(`gamedate.lua: ${lua.lua_tojsstring(L, -1)}`)
+  }
+  // The shared harness: eq, near and checks() (helpers.lua).
+  const helpers = fs.readFileSync(path.join(__dirname, 'helpers.lua'), 'utf8')
+  if (lauxlib.luaL_loadbuffer(L, to_luastring(helpers), null, to_luastring('@helpers.lua')) !== lua.LUA_OK || lua.lua_pcall(L, 0, 0, 0) !== lua.LUA_OK) {
+    throw new Error(`helpers.lua: ${lua.lua_tojsstring(L, -1)}`)
   }
   return L
 }

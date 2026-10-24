@@ -5,13 +5,6 @@ assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P, E = ns.SalePlan, ns.Encode
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 local function lv(u, q, own) return { unitPrice = u, quantity = q, own = own or 0 } end
 local function prices(levels) local out = {} for i, l in ipairs(levels) do out[i] = l.unitPrice end return table.concat(out, ",") end
 
@@ -96,4 +89,4 @@ eq((P.decode(wrap("rm 1 keep 5"))), nil, "an unknown rule")
 eq(P.decode(wrap("sell 1 keep 5 undercut 1")).sell[1].floorPct, 0, "no floor is none")
 eq(P.ruleFor(profile, 13444).keep, 5, "the rule for an item")
 
-return checks
+return checks()

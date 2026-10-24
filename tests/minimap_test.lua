@@ -5,14 +5,6 @@ assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
 assert(load(SOURCES["Minimap.lua"], "@Minimap.lua"))("GoldForever", ns)
 local M = ns.Minimap
 
-local checks = 0
-local function near(actual, expected, what)
-	checks = checks + 1
-	if math.abs(actual - expected) > 1e-9 then
-		error(string.format("%s: expected %s, got %s", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local x, y = M.offset(0, 80)
 near(x, 80, "east is right")
 near(y, 0, "east is level")
@@ -34,4 +26,4 @@ for _, a in ipairs({ 0, 33, 135, 225, 300 }) do
 	near(M.angle(10 + dx, 10 + dy, 10, 10), a, "an angle survives a round trip: " .. a)
 end
 
-return checks
+return checks()

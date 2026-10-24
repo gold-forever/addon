@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["Post.lua"], "@Post.lua"))("GoldForever", ns)
 local P = ns.Post
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local rule = P.DEFAULT
 -- Market value 1g: floor 80s, normal 1g 20s.
 local s = P.suggest(rule, 10000, nil)
@@ -99,4 +91,4 @@ eq(ex[4], "The cheapest is 200000c: you post at 120000c (normal price)", "far ov
 local atFloor = P.examples({ undercut = "1s", floor = 80, normal = 120, belowFloor = "floor" }, function(c) return c .. "c" end)
 eq(atFloor[3], "The cheapest is 50000c: you post at 80000c (at floor)", "or posted at the floor")
 
-return checks
+return checks()

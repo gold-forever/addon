@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 local E = ns.Encode
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- Rows keep every declared column, empty included, so they match their declaration.
 eq(E.row(1792407600, 1, 1452, 612, 384, "n7440", true, 2400, "14047*2"), "1792407600,1,1452,612,384,n7440,1,2400,14047*2", "full loot row")
 eq(E.row(1792411000, 2, nil, nil, nil, "n10184", true, 52000, ""), "1792411000,2,,,,n10184,1,52000,", "instance loot keeps empty columns")
@@ -168,4 +160,4 @@ eq(E.chatLine("Rare: |cffff0000Bad|r (30) near 52.3, 34.1"), "[Gold Forever] Rar
 eq(E.chatLine("a\nb"), "[Gold Forever] a b", "one line")
 eq(#E.chatLine(string.rep("x", 400)), 255, "within chat's limit")
 
-return checks
+return checks()

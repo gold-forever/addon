@@ -5,13 +5,6 @@ assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Shopping.lua"], "@Shopping.lua"))("GoldForever", ns)
 local S, E = ns.Shopping, ns.Encode
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
 
 -- Every function is there as soon as the file loads (one was once defined inside encode by mistake).
@@ -138,4 +131,4 @@ local withCopies = { { id = "a", name = "Mats" }, { id = "x", name = "Mats (olde
 eq(S.dropCopies(withCopies), 1, "one copy dropped")
 eq(#withCopies .. withCopies[2].name, "2Mine", "the player's own lists stay")
 
-return checks
+return checks()

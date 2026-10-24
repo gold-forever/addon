@@ -5,14 +5,6 @@ assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Export.lua"], "@Export.lua"))("GoldForever", ns)
 local X = ns.Export
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- The Lua text the site's parser reads, keys in a stable order so the same data gives the same text.
 eq(X.serialize({ b = 2, a = "x\"y\n", [3] = true, [1] = 1.5 }), '{[1]=1.5,[3]=true,["a"]="x\\"y\\n",["b"]=2}', "a table, sorted keys")
 eq(X.serialize({ list = { "a", "b" } }), '{["list"]={[1]="a",[2]="b"}}', "nested arrays")
@@ -60,4 +52,4 @@ eq(X.base64("fo"), "Zm8=", "two bytes")
 eq(X.base64("foo"), "Zm9v", "three bytes")
 eq(X.base64("\0\255\128"), "AP+A", "binary")
 
-return checks
+return checks()

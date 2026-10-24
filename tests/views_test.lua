@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
 local V = ns.Views
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- Rows: each saved day's chunks, by the declared columns, empty ones nil, in time order.
 local db = {
 	fields = { money = "t,char,delta,ctx", flight = "t,char,from,to,cost,map" },
@@ -301,4 +293,4 @@ do
 	eq(e.count .. "/" .. e.total, "1/100", "soulbound bank items are not for the auction house")
 end
 
-return checks
+return checks()

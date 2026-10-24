@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["FirstRun.lua"], "@FirstRun.lua"))("GoldForever", ns)
 local F = ns.FirstRun
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local function tables()
 	return { prices = { tooltip = true }, auction = { hidden = false }, crafting = { strip = true }, shop = { shown = true },
 		appraiser = { shown = true }, advisor = { shown = true } }
@@ -41,4 +33,4 @@ eq(F.isNew({ characters = {} }), true, "no characters: a new install")
 eq(F.isNew({}), true, "no table either")
 eq(F.isNew({ characters = { ["Player-1"] = {} } }), false, "a save with characters is not new")
 
-return checks
+return checks()

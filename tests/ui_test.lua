@@ -5,14 +5,6 @@ assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
 assert(load(SOURCES["UI.lua"], "@UI.lua"))("GoldForever", ns)
 local L, T = ns.UI.layout, ns.Theme
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- Theme: colours as floats and as text escapes.
 local r, g, b = T.rgb("#e0ac45")
 eq(string.format("%.3f %.3f %.3f", r, g, b), "0.878 0.675 0.271", "accent as floats")
@@ -197,4 +189,4 @@ eq(arcane.decor.rule[1], "#6ee7ff", "the look's own table untouched")
 eq(T.apply("arcane"), arcane, "no accent: the look itself")
 T.apply("web")
 
-return checks
+return checks()
