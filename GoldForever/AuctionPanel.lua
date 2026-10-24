@@ -983,8 +983,10 @@ local function buildShop(page)
 	end, { width = 110, height = 26 })
 	editLists:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
 	page.editLists = editLists
+	-- Anchored to the table, not the button: with the note hung on the button at its left, that button's
+	-- text was never placed now and then (manual test run 001, /gf uidebug: Remove, then Edit lists).
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
-	page.note:SetPoint("TOPLEFT", editLists, "BOTTOMLEFT", 0, -10)
+	page.note:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -46)
 	page.note:SetPoint("RIGHT", page, "RIGHT")
 
 	function page:Refresh()
@@ -2040,7 +2042,17 @@ local function anchor()
 		panel:SetPoint("BOTTOMLEFT", AuctionHouseFrame, "BOTTOMRIGHT", 6, 0)
 	end
 end
-ns.auctionAnchor = anchor
+-- A frame after opening, or after a tab is first drawn: anchored anew, then hidden and shown, which is
+-- what closing and opening the auction house did that put every widget and text in place (manual test
+-- run 001, /gf uidebug: a button's own text at nil,nil, unseen, on the first opening).
+local function settle()
+	anchor()
+	if panel and panel:IsShown() then
+		panel:Hide()
+		panel:Show()
+	end
+end
+ns.auctionAnchor = settle
 -- `redrawn`: the same visit in a new look, on the tab it had; else a new visit, on Blizzard's tab.
 show = function(redrawn)
 	if not AuctionHouseFrame then
@@ -2064,7 +2076,7 @@ show = function(redrawn)
 	-- Again a frame later: built in the frame the auction house opens, some of its widgets were never
 	-- placed (manual test run 001, /gf uidebug: Sell's Rule ›, quantity and Post with no rect, Remove's
 	-- text unseen) until the panel was anchored anew, as closing and opening did.
-	C_Timer.After(0, anchor)
+	C_Timer.After(0, settle)
 	-- A new visit opens on Scan while a full scan may start, to prod the player into one (owner's answer,
 	-- 2026-10-24); else on Blizzard's tab.
 	if redrawn ~= true then
