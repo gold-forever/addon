@@ -168,7 +168,8 @@ function CraftQueue.refresh()
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
 	local rows, buy, vendors, ready = {}, 0, 0, true
-	for i, r in ipairs(CraftQueue.plan()) do
+	local plan = CraftQueue.plan()
+	for _, r in ipairs(plan) do
 		local where = {}
 		if r.mail > 0 then
 			where[#where + 1] = "mailbox " .. r.mail
@@ -179,7 +180,10 @@ function CraftQueue.refresh()
 		for _, o in ipairs(r.others) do
 			where[#where + 1] = o.name .. " " .. o.n
 		end
-		rows[i] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
+		-- A reagent all in the bags is done: not listed (owner, 2026-10-25).
+		if r.bags < r.need then
+			rows[#rows + 1] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
+		end
 		if r.buy > 0 and not r.vendor then
 			buy = buy + 1
 		elseif r.buy > 0 then
@@ -191,7 +195,7 @@ function CraftQueue.refresh()
 	end
 	-- Everything in the bags: nothing to fetch or buy, so the window goes (it comes back with the next
 	-- craft queued, or from its buttons).
-	if ready and #rows > 0 then
+	if ready and #plan > 0 then
 		frame:Hide()
 		ns.say("everything the craft queue needs is in your bags: ready to craft.")
 		return
@@ -223,6 +227,13 @@ function CraftQueue.show()
 	end
 	frame:Show()
 	CraftQueue.refresh()
+	-- Hidden and shown a frame later, as the auction panel is: what was not yet placed is placed then.
+	C_Timer.After(0, function()
+		if frame and frame:IsShown() then
+			frame:Hide()
+			frame:Show()
+		end
+	end)
 end
 
 -- For the smoke test.
