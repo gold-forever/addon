@@ -277,7 +277,10 @@ end
 -- `edited` wins and the other is dropped; an id only one side has is added (owner's answer, 2026-10-24:
 -- keeping the loser as "<name> (older copy)" made copies pile up, since the site keeps a list's version
 -- from before it was changed in the game). Returns the merged list and how many changed.
-function Shopping.merge(mine, incoming)
+-- `removed` (id -> edited time when deleted in the game) keeps a deleted item away, unless the site's
+-- copy was edited after it was deleted; an earlier merge's "(older copy)" (marked copyOf) is never taken.
+function Shopping.merge(mine, incoming, removed)
+	removed = removed or {}
 	local out, byId, changed = {}, {}, 0
 	for i, m in ipairs(mine or {}) do
 		out[i] = m
@@ -287,7 +290,10 @@ function Shopping.merge(mine, incoming)
 	end
 	for _, inc in ipairs(incoming or {}) do
 		local at = inc.id and byId[inc.id]
-		if not at then
+		local gone = inc.id and removed[inc.id]
+		if inc.copyOf or (gone and (inc.edited or 0) <= gone) then
+			-- a copy, or deleted here and not changed on the site since: left out
+		elseif not at then
 			out[#out + 1] = inc
 			if inc.id then
 				byId[inc.id] = #out

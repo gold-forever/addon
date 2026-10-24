@@ -1059,6 +1059,17 @@ do
   local count = #auction.lists
   ns.mergeShared()
   assert(#auction.lists == count, "the same file is not merged twice")
+  -- A list deleted in the game stays deleted, and the site's copies are never taken (manual test run 001:
+  -- deleted lists and "(older copy)" lists came back at every reload).
+  for i, l in ipairs(auction.lists) do if l.id == "s1" then table.remove(auction.lists, i) end end
+  auction.removedShared = auction.removedShared or {}
+  auction.removedShared.s1 = now
+  local copy = ns.Shopping.encode({ { name = "From the site (older copy)", entries = {} } })
+  GoldForever_Prices.shared = { at = 78, lists = { { id = "s1", edited = 100, string = site }, { id = "c1", edited = 100, string = copy } }, profiles = {} }
+  ns.mergeShared()
+  for _, l in ipairs(auction.lists) do
+    assert(l.id ~= "s1" and l.id ~= "c1", "neither the deleted list nor a site copy came back: " .. tostring(l.name))
+  end
   GoldForever_Prices = prices
 end
 -- The mail helper: one press opens the auction mails in turn (a player's letter and a COD mail stay),

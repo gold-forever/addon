@@ -129,6 +129,10 @@ eq(table.concat(names, "|"), "Mats v2|Snipe|Herbs", "replaced, kept, added; no c
 eq(changed, 2, "two changes")
 local again, changedAgain = S.merge(merged, { { id = "b", edited = 250, name = "Snipe old" } })
 eq(#again .. ":" .. changedAgain, "3:0", "the site's stale version again: nothing")
+-- A list deleted in the game stays deleted, unless edited on the site after; a site copy is never taken.
+local kept = S.merge({}, { { id = "d", edited = 100, name = "Deleted" }, { id = "e", edited = 500, name = "Edited after" },
+	{ id = "f", edited = 100, name = "Old (older copy)", copyOf = "a" } }, { d = 200, e = 200 })
+eq(#kept .. kept[1].name, "1Edited after", "deleted stays deleted; edited after comes back; no copies")
 -- The copies earlier merges kept are taken out.
 local withCopies = { { id = "a", name = "Mats" }, { id = "x", name = "Mats (older copy)", copyOf = "a" }, { id = "y", name = "Mine" } }
 eq(S.dropCopies(withCopies), 1, "one copy dropped")
