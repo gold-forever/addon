@@ -436,3 +436,16 @@ function Views.inventory(characters, parse, worth, quality, name, filter)
 	end
 	return rows, totals
 end
+
+-- A gold goal on Home: gold now (copper, all characters) against goal = { gold (copper), by (Unix time) }.
+-- Returns { pct (0–100), left (copper still to make), daysLeft, perDay (copper a day to make it, nil once
+-- reached or past), reached, late }.
+function Views.goal(now, total, goal)
+	local pct = goal.gold > 0 and math.min(100, math.floor(total / goal.gold * 100)) or 100
+	local left = math.max(0, goal.gold - total)
+	local daysLeft = math.max(0, math.ceil((goal.by - now) / 86400))
+	local reached = left == 0
+	local late = not reached and now >= goal.by
+	return { pct = pct, left = left, daysLeft = daysLeft, reached = reached, late = late,
+		perDay = (not reached and not late) and math.ceil(left / math.max(1, daysLeft)) or nil }
+end

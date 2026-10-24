@@ -231,9 +231,9 @@ local function buildHome(page)
 	local half = math.floor((W - GAP) / 2)
 	local function column(x, title, rows, rowH)
 		local label = UI.Text(page, title, { size = "xs", medium = true, tone = "faint" })
-		label:SetPoint("TOPLEFT", x, -92)
+		label:SetPoint("TOPLEFT", x, -140)
 		local card = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
-		card:SetPoint("TOPLEFT", x, -110)
+		card:SetPoint("TOPLEFT", x, -158)
 		card:SetSize(half, rows * rowH + 16)
 		card.rows = {}
 		for i = 1, rows do
@@ -247,6 +247,40 @@ local function buildHome(page)
 		card.empty:SetPoint("TOPLEFT", 16, -16)
 		card.empty:SetPoint("RIGHT", card, "RIGHT", -16, 0)
 		return card, label
+	end
+
+	-- A gold goal (owner's answer, 2026-10-24): gold across all characters against an amount and a date.
+	local goalStrip = CreateFrame("Frame", nil, page)
+	goalStrip:SetPoint("TOPLEFT", 0, -86)
+	goalStrip:SetPoint("RIGHT", page, "RIGHT")
+	goalStrip:SetHeight(42)
+	local goalText = UI.Text(goalStrip, "", { size = "sm" })
+	goalText:SetPoint("TOPLEFT")
+	local goalBar = UI.Bar(goalStrip, 100, {}, 6)
+	goalBar:SetPoint("TOPLEFT", goalText, "BOTTOMLEFT", 0, -8)
+	goalBar:SetPoint("RIGHT", goalStrip, "RIGHT", -310, 0)
+	local goalGold = UI.SearchBox(goalStrip, "Goal in gold", nil)
+	goalGold:SetPoint("TOPRIGHT", -196, 2)
+	goalGold:SetWidth(100)
+	local DAYS = { { value = 7, label = "in 7 days" }, { value = 14, label = "in 14 days" }, { value = 30, label = "in 30 days" }, { value = 60, label = "in 60 days" } }
+	local goalDays = UI.Dropdown(goalStrip, DAYS, 30, nil)
+	goalDays:SetPoint("TOPRIGHT", -84, 2)
+	goalDays:SetWidth(106)
+	local goalSet = UI.Button(goalStrip, "Set", function()
+		local gold = tonumber(goalGold:GetText() or "")
+		local s = settings()
+		if gold and gold > 0 then
+			s.goal = { gold = math.floor(gold * 10000), by = ns.now() + (goalDays.value or 30) * 86400 }
+		else
+			s.goal = nil -- an empty field clears it
+		end
+		goalGold:SetText("")
+		goalGold:ClearFocus()
+		page:Refresh()
+	end, { kind = "ghost", width = 76, height = 28 })
+	goalSet:SetPoint("TOPRIGHT", 0, 2)
+	page.setGoal = function(gold, days)
+		settings().goal = gold and { gold = gold, by = ns.now() + days * 86400 } or nil
 	end
 
 	local today, todayLabel = column(0, "TODAY", 7, 36)
@@ -301,6 +335,24 @@ local function buildHome(page)
 		local best = crafts[1]
 		actions[3].title:SetText(best and ("Craft " .. itemName(best.recipe.output)) or "Craft for profit")
 		actions[3].line:SetText(best and (UI.layout.money(best.profit, "gold") .. " profit a craft") or "No priced recipe makes a profit yet")
+
+		-- The goal.
+		local total = 0
+		for _, c in pairs(db.characters or {}) do
+			total = total + (c.money or 0)
+		end
+		local goal = settings().goal
+		if goal then
+			local g = Views.goal(now, total, goal)
+			goalText:SetText(string.format("Goal %s: %s now, %d%%%s", UI.layout.money(goal.gold, "gold"), UI.layout.money(total, "gold"), g.pct,
+				g.reached and Theme.escape(Theme.color.success) .. " · reached|r" or g.late and (faint .. " · the date has passed|r")
+				or (faint .. string.format(" · %s a day for %d more %s", "|r" .. UI.layout.money(g.perDay, "gold") .. faint, g.daysLeft, g.daysLeft == 1 and "day" or "days") .. "|r")))
+			goalBar:Set(100, { { value = g.pct, color = g.reached and Theme.color.success or Theme.color.accent } })
+			goalBar:Show()
+		else
+			goalText:SetText(faint .. "A gold goal: an amount and a date, and Home shows how far there is to go. " .. "|r" .. UI.layout.money(total, "gold") .. faint .. " across your characters now.|r")
+			goalBar:Hide()
+		end
 
 		-- Today's money for this character, by where it came from.
 		local ledger = me and Views.ledger(Views.rows(db, "money"), Views.rows(db, "flight"), me.ref, Views.dayStart(now)) or { categories = {}, net = 0 }

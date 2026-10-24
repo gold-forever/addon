@@ -24,7 +24,8 @@
 - `/gf` on its own opens or closes the hub; `/gf help` lists every command.
 - A **Home** page, the hub's first: the next moves (when you can scan, what your bags would sell for,
   the best craft at the latest prices), today's money by where it came from, and the bag items worth
-  most.
+  most. A **gold goal** (an amount and 7–60 days) shows how far you are across all characters and
+  the gold a day still needed.
 - A **Crafting** page: every recipe your characters know, by profit, with cost, price after the cut and
   margin (grey under 10%, green from 30%), the chosen recipe's reagents, and "I have these" to count what
   you hold at no cost. **Queue** 1 or 5 of a recipe (also from the crafting strip): the Shop gets a

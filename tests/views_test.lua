@@ -200,4 +200,12 @@ eq(#rows .. ":" .. rows[1].id, "1:14047", "green and better")
 rows, t = inv({ query = "linen" })
 eq(rows[1].where, "Alt 20 (mail), Zerie 3 (bank), Zerie 7 (bags)", "where it is held, sorted")
 
+-- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.
+local g = V.goal(0, 6400000, { gold = 10000000, by = 10 * 86400 })
+eq(g.pct .. "/" .. g.left .. "/" .. g.daysLeft .. "/" .. g.perDay, "64/3600000/10/360000", "64%, 360g left, 36g a day")
+eq(V.goal(0, 12000000, { gold = 10000000, by = 86400 }).reached, true, "reached")
+eq(V.goal(0, 12000000, { gold = 10000000, by = 86400 }).pct, 100, "never over 100%")
+local late = V.goal(2 * 86400, 100, { gold = 10000000, by = 86400 })
+eq(tostring(late.late) .. tostring(late.perDay), "truenil", "past the date, not reached")
+
 return checks
