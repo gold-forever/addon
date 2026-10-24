@@ -844,6 +844,9 @@ do
   assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
   -- A profile's buy rule (up to 12 Linen at 45s at most) is the Shop's last list: holding 7, Buy next
   -- asks for the 5 still needed, not every cheap unit.
+  -- The 20 bought above count as held until the mailbox is read: they are in it now.
+  assert(ns.boughtSince(2589) == 20, "a purchase counts as held until the mailbox is read")
+  GoldForeverDB.settings.auction.bought = nil
   local count = C_Item.GetItemCount
   C_Item.GetItemCount = function(id) if id == 2589 then return 7 end return count and count(id) or 0 end
   AP.importProfile(ns.SalePlan.encode({ name = "Mats", author = "Test", sell = {}, buy = { { itemID = 2589, upTo = 12, maxUnit = 4500 } } }))
