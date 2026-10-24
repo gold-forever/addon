@@ -943,6 +943,16 @@ do
   ns.AuctionPanel.tab("post")
   ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
   assert(posted and p.tab == "post", "chosen on Sell: into Blizzard's Sell window")
+  -- Posting from the panel empties Blizzard's Sell window first (its frame would ask the emptied bag slot
+  -- for an item level and fail).
+  f.ItemSellFrame = { itemLocation = { bag = 0, slot = 1 }, SetItem = function(self, loc) self.itemLocation = loc end }
+  local _, row = ns.AuctionPanel.state()
+  assert(row, "a row is chosen")
+  row.suggestion = { unit = 4200, reason = "undercut", floor = 100, normal = 9000 }
+  ns.AuctionPanel.post()
+  assert(f.ItemSellFrame.itemLocation == nil, "Blizzard's Sell window emptied before the panel posts")
+  fire("AUCTION_HOUSE_SHOW_ERROR", 2) -- let the wait go
+  f.ItemSellFrame = nil
   -- Without it, Blizzard's Buy view shows the item, but only once the client has the item key's info.
   f.SetPostItem = nil
   local browsed, info = 0, nil
