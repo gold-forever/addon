@@ -1607,9 +1607,23 @@ local function look()
 	return Theme.skins[name] and name or "web"
 end
 
+-- The accent panels draw in this session. Each new colour draws every window and panel anew (frames are
+-- never freed), so a session draws in at most MAX_ACCENTS of them; one more is saved and shows after a
+-- /reload.
+local MAX_ACCENTS = 4
+local drawnAccents, drawnCount, sessionAccent, accentRead = {}, 0, nil, false
+local function accent()
+	if not accentRead then
+		accentRead = true
+		sessionAccent = settings().accent
+		drawnAccents[sessionAccent or "none"], drawnCount = true, 1
+	end
+	return sessionAccent
+end
+
 -- The look and accent the player set, for panels outside the window (the session HUD) to draw in.
 function ns.applyLook()
-	Theme.apply(look(), settings().accent)
+	Theme.apply(look(), accent())
 end
 
 local function windowFor(name)
@@ -1620,9 +1634,9 @@ local function windowFor(name)
 		settings().tabs[folded[1]] = folded[2]
 		settings().page = folded[1]
 	end
-	local accent = settings().accent
-	Theme.apply(name, accent)
-	local key = name .. (accent and string.gsub(accent, "#", "_") or "")
+	local hex = accent()
+	Theme.apply(name, hex)
+	local key = name .. (hex and string.gsub(hex, "#", "_") or "")
 	if not windows[key] then
 		windows[key] = UI.Window(key == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. key, "Gold Forever", PAGES, settings(), {
 			version = ns.VERSION,
@@ -1669,7 +1683,7 @@ local function reopen()
 		window:Show()
 		window:SelectPage(settings().page or PAGES[1].key)
 	else
-		Theme.apply(look(), settings().accent)
+		Theme.apply(look(), accent())
 	end
 end
 
@@ -1692,6 +1706,16 @@ ns.commands.accent = function(hex)
 		print("Gold Forever: /gf accent #rrggbb, or /gf accent alone for the look's own colour.")
 		return
 	end
-	settings().accent = hex ~= "" and hex or nil
+	local chosen = hex ~= "" and hex or nil
+	settings().accent = chosen
+	accent()
+	if not drawnAccents[chosen or "none"] then
+		if drawnCount >= MAX_ACCENTS then
+			ns.say("accent saved; it shows after /reload (each new colour draws every panel again, which stays until a reload).")
+			return
+		end
+		drawnAccents[chosen or "none"], drawnCount = true, drawnCount + 1
+	end
+	sessionAccent = chosen
 	reopen()
 end

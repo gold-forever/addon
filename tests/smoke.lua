@@ -1395,6 +1395,17 @@ assert(GoldForeverDB.settings.window.accent == "#2fd1a8", "the accent is kept")
 assert(ns.Theme.color.accent == "#2fd1a8", "and goes over the look")
 SlashCmdList.GOLDFOREVER("accent")
 assert(GoldForeverDB.settings.window.accent == nil, "/gf accent alone goes back to the look's own")
+-- Each new accent draws every panel again: past four in a session, one more is saved and waits for a reload.
+do
+  local before = #frames
+  for _, hex in ipairs({ "#111111", "#222222", "#333333" }) do SlashCmdList.GOLDFOREVER("accent " .. hex) end
+  assert(GoldForeverDB.settings.window.accent == "#333333", "the fifth colour is saved")
+  assert(ns.Theme.color.accent ~= "#333333", "but not drawn until a reload")
+  local drawn = #frames
+  SlashCmdList.GOLDFOREVER("accent #444444")
+  assert(#frames == drawn, "and builds nothing")
+  SlashCmdList.GOLDFOREVER("accent")
+end
 -- Discord dings: changed in game only with the companion's file, and only once the site has a webhook.
 do
   local prices, guid = GoldForever_Prices, UnitGUID("player")
