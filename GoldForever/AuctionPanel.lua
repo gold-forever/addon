@@ -114,7 +114,10 @@ end
 local function heldHere(id, bags)
 	local me = ns.me()
 	local bank = me and me.bank and ns.Encode.parseItems(me.bank.items)[id] or 0
-	return (bags or 0) + bank
+	-- The mailbox as last read, and what was bought since (it goes to the mailbox on retail).
+	local mail = me and me.mail and ns.Encode.parseItems(me.mail.items)[id] or 0
+	local boughtSince = ns.boughtSince and ns.boughtSince(id) or 0
+	return (bags or 0) + bank + mail + boughtSince
 end
 
 -- A sale plan's step as the Post tab's suggestion: posts in whole silver; "ask" posts the plan's price
@@ -757,6 +760,7 @@ end
 -- then a second press confirms it; a quote 10% dearer than the deal asks again), an item one auction a
 -- press. Lists travel as GFL1 strings. Buying only ever happens on a press.
 local shopChosen -- the entry in view: { itemId, maxUnit }
+local buying -- { id, n }: the purchase sent, recorded when it succeeds
 local overArmed -- the item whose dearer units (past a lowest entry's share) Buy next named; the next press buys
 local purchase -- a commodity purchase in progress: { itemId, quantity, expected, quoted, moved }
 
@@ -889,6 +893,7 @@ local function buyNext()
 		local p = purchase
 		purchase = nil
 		C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
+		buying = { id = p.itemId, n = p.quantity }
 		await("shop:" .. p.itemId, note)
 		note:SetText("Buying…")
 		return
@@ -916,6 +921,7 @@ local function buyNext()
 		for _, a in ipairs(book.levels) do
 			if a.own == 0 and a.unitPrice <= deal.limit and a.auctionID then
 				C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
+				buying = { id = e.itemId, n = a.quantity or 1 }
 				await("shop:" .. e.itemId, note)
 				note:SetText("Buying one for " .. money(a.buyout) .. "…")
 				return
@@ -936,10 +942,38 @@ ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
 		or ("Press again to buy " .. text .. "."))
 	refresh()
 end)
+-- What was bought since the mailbox was last read, for the craft queue: retail sends a purchase to the
+-- mailbox, so the bags do not show it (manual test run 001: a reagent bought stayed on the Craft queue
+-- list). settings().bought = { { id, n, t } }; dropped once the mailbox has been read after it.
+local function recordBought(b)
+	local s = settings()
+	s.bought = s.bought or {}
+	s.bought[#s.bought + 1] = { id = b.id, n = b.n, t = ns.now() }
+end
+-- Units of an item bought and not in the mailbox as read yet.
+function ns.boughtSince(id)
+	local me = ns.me()
+	local mailAt = me and me.mail and me.mail.t or 0
+	local list, n = settings().bought or {}, 0
+	for i = #list, 1, -1 do
+		local b = list[i]
+		if b.t <= mailAt then
+			table.remove(list, i) -- in the mailbox (or the bags) by now
+		elseif b.id == id then
+			n = n + b.n
+		end
+	end
+	return n
+end
+
 local function bought(ok, why)
 	if not panel or not panel.shop.note then
 		return -- a purchase from Blizzard's own window, the Shop not drawn
 	end
+	if ok and buying then
+		recordBought(buying)
+	end
+	buying = nil
 	waiting, purchase = nil, nil
 	panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
 	if shopChosen then
