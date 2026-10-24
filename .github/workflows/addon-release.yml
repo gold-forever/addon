@@ -17,28 +17,9 @@ permissions:
   contents: read
 
 jobs:
+  # The same gate as every push (ci.yml).
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Unit tests (fengari)
-        working-directory: tests
-        run: npm ci && npm test
-      - name: The whole addon loads on a stand-in game API
-        run: |
-          sudo apt-get install -y -qq luajit >/dev/null
-          # WoW: Forever, then the same session on a retail client; each as an Alliance and a Horde character.
-          for faction in Alliance Horde; do
-            for interface in 16001 120105; do
-              out=$(GF_SMOKE_FACTION=$faction GF_SMOKE_INTERFACE=$interface luajit tests/smoke.lua GoldForever)
-              echo "$out" | tail -20
-              # The smoke run prints its errors table; it must be empty.
-              if echo "$out" | grep -A2 '\["errors"\] = {' | tail -n +2 | grep -q '\["'; then
-                echo "::error::the smoke run recorded errors (interface $interface, $faction)"
-                exit 1
-              fi
-            done
-          done
+    uses: ./.github/workflows/ci.yml
 
   release:
     needs: test

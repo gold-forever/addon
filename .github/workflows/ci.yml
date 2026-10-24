@@ -1,9 +1,12 @@
-# Every push and pull request: the unit tests, and the whole addon loading on a stand-in game API.
+# Every push and pull request, and every release: the unit tests, and the whole addon loading on a
+# stand-in game API.
 name: ci
 
 on:
   push:
   pull_request:
+  # The release runs the same job before it packages (addon-release.yml).
+  workflow_call:
 
 permissions:
   contents: read
@@ -13,29 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Unit tests (fengari)
+      - name: luajit, for the smoke runs
+        run: sudo apt-get install -y -qq luajit >/dev/null
+      # The unit tests on fengari, then the whole addon on a stand-in game API (tests/run.js): the session
+      # on WoW: Forever and on a retail client, each as an Alliance and a Horde character, and a made-up
+      # save the size of a heavy player's on both clients. Any assert or recorded error fails it.
+      - name: Unit tests and smoke runs
         working-directory: tests
         run: npm ci && npm test
-      - name: The whole addon loads on a stand-in game API
-        run: |
-          sudo apt-get install -y -qq luajit >/dev/null
-          # WoW: Forever, then the same session on a retail client; each as an Alliance and a Horde character.
-          for faction in Alliance Horde; do
-            for interface in 16001 120105; do
-              out=$(GF_SMOKE_FACTION=$faction GF_SMOKE_INTERFACE=$interface luajit tests/smoke.lua GoldForever)
-              echo "$out" | tail -20
-              # The smoke run prints its errors table; it must be empty.
-              if echo "$out" | grep -A2 '\["errors"\] = {' | tail -n +2 | grep -q '\["'; then
-                echo "::error::the smoke run recorded errors (interface $interface, $faction)"
-                exit 1
-              fi
-            done
-          done
-      - name: The whole addon on a made-up save the size of a heavy player's
-        run: |
-          set -o pipefail
-          luajit tests/bigsave.lua > "$RUNNER_TEMP/bigsave.lua"
-          for interface in 16001 120105; do
-            GF_SMOKE_INTERFACE=$interface GF_SMOKE_SAVE="$RUNNER_TEMP/bigsave.lua" GF_SMOKE_GUID=Player-3666-0000000A \
-              luajit tests/smoke.lua GoldForever | grep -v '^\[chat\]'
-          done

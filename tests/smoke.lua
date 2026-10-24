@@ -1920,3 +1920,10 @@ do
   fire("AUCTION_HOUSE_CLOSED")
   C_AuctionHouse.GetReplicateItemInfo = info
 end
+-- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
+-- caught by ns.safely is not raised, so only this sees it.
+do
+  local left = recorded()
+  io.write("ERRORS " .. #left .. "\n", table.concat(left, "\n"), "\n")
+  os.exit(#left == 0 and 0 or 1)
+end
