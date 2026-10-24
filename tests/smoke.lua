@@ -1748,7 +1748,18 @@ do
   wait(1)
   ns.safely("next frame", function() end)
   assert(not GoldForeverDB.stopped, "nothing recorded as stopped")
+  assert(GoldForeverDB.errors.erring and GoldForeverDB.errors.erring.n == 1, "the caught error is recorded")
+  GoldForeverDB.errors.erring = nil
 end
+-- What the run recorded before the reload clears it: nothing failed, nothing was stopped.
+local function recorded()
+  local out = {}
+  for name, e in pairs(GoldForeverDB.errors or {}) do out[#out + 1] = name .. ": " .. tostring(e.msg) end
+  for name, e in pairs(GoldForeverDB.stopped or {}) do out[#out + 1] = name .. ": stopped " .. tostring(e.n) .. "x" end
+  table.sort(out)
+  return out
+end
+assert(#recorded() == 0, "errors before the reload:\n" .. table.concat(recorded(), "\n"))
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
 local before = ns.sessionText()
 fire("PLAYER_LOGOUT")
