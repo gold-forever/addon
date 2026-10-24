@@ -34,7 +34,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 - **Shopping lists**, a page of the window (Trading → Shopping lists): make, rename, delete, import and
   export lists (`GFL1:` strings); add an item by dropping it on the slot or shift-clicking it anywhere;
   for each, the most you pay (under market, a fixed price, or a share of the market value) and how many
-  you want in all, bags and bank counted. The craft queue's list is there too, its prices set the same way.
+  you want in all, bags and bank counted. **Lowest, ask over %** is for what you need (raid consumables):
+  Buy next buys the cheapest first, and above your share of the market value it asks before buying, so
+  you can choose something cheaper instead. The craft queue's list is there too, its prices set the same way.
 - **Selling rules**, a page of the window (Trading → Selling rules; **Rule ›** on the Sell tab opens it
   for the item in view): undercut by 1 silver or a percentage, a floor and a normal price as shares of
   the market value, and hold or post at the floor, each with a line saying what it does, and beside them
