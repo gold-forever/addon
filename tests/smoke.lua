@@ -747,25 +747,35 @@ do
     -- A click on it opens the Bank tab; a click on a bank row chooses it to take.
     away.scripts.OnClick(away)
     assert(AP.panel().tab == "bank", "the title line opens the Bank tab")
-    local rows = AP.panel().bank.rows
+    local bankPage = AP.panel().bank
+    local rows = bankPage.rows
     assert(rows and rows[1] and rows[1].id == 2589 and rows[1].place == "bank", "the bank's Linen on the Bank tab")
-    ns.fetchList()[2589] = true
-    AP.panel().bank:Refresh()
-    assert(AP.panel().bank.rows[1].take, "chosen to take")
+    -- A click chooses it (and shows it in Blizzard's window); Take all marks it, Don't take unmarks it.
+    bankPage.table.lines[1].scripts.OnClick(bankPage.table.lines[1])
+    bankPage.take.all.scripts.OnClick(bankPage.take.all)
+    assert(ns.fetchList()[2589] == true and bankPage.rows[1].take == true, "Take all marks it")
+    bankPage.take.none.scripts.OnClick(bankPage.take.none)
+    assert(ns.fetchList()[2589] == nil, "Don't take unmarks it")
+    bankPage.take.typed(25)
+    assert(ns.fetchList()[2589] == 25, "Take… 25")
     -- At the bank: its stacks move into the bags, and it leaves the list.
-    local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots }
+    local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots,
+      C_Container.SplitContainerItem, C_Container.PickupContainerItem }
     local used = {}
     local inBank = { [-1] = { [1] = 2589, [3] = 2589 } }
-    C_Container.GetContainerNumSlots = function(bag) return inBank[bag] and 4 or 0 end
+    C_Container.GetContainerNumSlots = function(bag) return inBank[bag] and 4 or (bag == 0 and 16) or 0 end
+    C_Container.SplitContainerItem = function(bag, slot, n) used[#used + 1] = "split " .. bag .. ":" .. slot .. "x" .. n end
+    C_Container.PickupContainerItem = function(bag, slot) used[#used + 1] = "to " .. bag .. ":" .. slot end
     C_Container.GetContainerItemInfo = function(bag, slot) local id = inBank[bag] and inBank[bag][slot] return id and { itemID = id, stackCount = 20, hyperlink = "|Hitem:" .. id .. "::::::::30|h[x]|h" } or nil end
     C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot end
     C_Container.GetContainerNumFreeSlots = function() return 10, 0 end
     fire("BANKFRAME_OPENED")
     wait(2)
-    assert(table.concat(used, ",") == "-1:1,-1:3", "both stacks taken from the bank: " .. table.concat(used, ","))
+    assert(table.concat(used, ",") == "-1:1,split -1:3x5,to 0:1", "25 of two stacks of 20: one whole, five split off: " .. table.concat(used, ","))
     assert(ns.fetchList()[2589] == nil, "and off the list")
     fire("BANKFRAME_CLOSED")
     C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots = keep[1], keep[2], keep[3], keep[4]
+    C_Container.SplitContainerItem, C_Container.PickupContainerItem = keep[5], keep[6]
     AP.tab("post")
     me.bank = bank
   end
