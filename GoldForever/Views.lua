@@ -642,3 +642,16 @@ function Views.goal(now, total, goal)
 	return { pct = pct, left = left, daysLeft = daysLeft, reached = reached, late = late,
 		perDay = (not reached and not late) and math.ceil(left / math.max(1, daysLeft)) or nil }
 end
+
+-- What the bags would sell for (Home's "Sell your bags"): Views.worthList over bags = { items, bound },
+-- the soulbound units left out, as Views.inventory leaves them out of what sells.
+function Views.bagWorth(bags, parse, worth)
+	local items, bound, sellable = parse(bags and bags.items), parse(bags and bags.bound), {}
+	for id, n in pairs(items) do
+		local left = n - math.min(n, bound[id] or 0)
+		if left > 0 then
+			sellable[id] = left
+		end
+	end
+	return Views.worthList(sellable, worth)
+end

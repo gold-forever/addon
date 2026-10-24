@@ -293,4 +293,11 @@ do
 	eq(e.count .. "/" .. e.total, "1/100", "soulbound bank items are not for the auction house")
 end
 
+-- Home's bag worth: soulbound units are not for sale, a bound stack drops out, a part-bound one counts the rest.
+do
+	local list, total = V.bagWorth({ items = "14047*3+2589*4", bound = "14047*3+2589*1" }, parse, function() return 100 end)
+	eq(#list .. " " .. list[1].id .. "*" .. list[1].count .. " " .. total, "1 2589*3 300", "only the unbound units are worth selling")
+	eq(#V.bagWorth(nil, parse, function() return 100 end), 0, "no bags, nothing")
+end
+
 return checks()

@@ -379,8 +379,7 @@ local function buildHome(page)
 		actions[1].line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60)
 			or (last and ("Last scan " .. Views.ago(last, now) .. ": scan again") or "No scan yet: open the auction house"))
 		-- The bags: what they would sell for.
-		local held = me and Encode.parseItems(me.bags and me.bags.items) or {}
-		local list, total, unpriced = Views.worthList(held, function(id)
+		local list, total, unpriced = Views.bagWorth(me and me.bags, Encode.parseItems, function(id)
 			if ns.price then
 				return ns.price.worth(id)
 			end
