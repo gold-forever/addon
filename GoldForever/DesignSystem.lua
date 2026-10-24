@@ -655,7 +655,7 @@ local function buildCrafting(page)
 		for _, q in ipairs(ns.allCraftQuotes and ns.allCraftQuotes() or {}) do
 			local r = q.recipe
 			local profit = held and ns.Crafting.profitHeld(q) or q.profit
-			local cost = held and q.cash or q.cost
+			local cost = held and q.cash or q.spend
 			rows[#rows + 1] = {
 				id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "× ") or "") .. itemName(r.output), quality = itemQuality(r.output),
 				cost = cost, revenue = q.revenue, profit = profit,
