@@ -208,6 +208,6 @@ ns.CraftingStrip = {
 		refresh()
 	end,
 	shown = function()
-		return strip and strip:IsShown() and strip.title.text
+		return strip and strip:IsShown() and strip.title:GetText()
 	end,
 }

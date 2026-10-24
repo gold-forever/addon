@@ -62,10 +62,18 @@ local FLAVOUR = (tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001) >= 11
 local MIXIN = { AddLine = true, SetOwner = true, SelectBrowseResult = true, GetRecipeInfo = true, GetBagAndSlot = true, AddDoubleLine = true,
   SetBackdrop = true, SetBackdropColor = true, SetBackdropBorderColor = true }
 local CHILDREN = { CraftingPage = true, SchematicForm = true }
+-- What a widget was given by SetText and SetHeight (or SetSize), kept beside it: the addon keeps child
+-- frames under keys such as `text` itself.
+local texts, heights = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
 local function widget(t)
   return setmetatable(t or {}, { __index = function(_, k)
     if NUMBERS[k] then return function() return NUMBERS[k] end end
-    if k == "GetText" then return function() return "" end end
+    if k == "GetText" then return function(self) return texts[self] or "" end end
+    if k == "SetText" and METHODS[FLAVOUR][k] then
+      return function(self, text) texts[self] = type(text) == "number" and tostring(text) or text end
+    end
+    if k == "SetHeight" and METHODS[FLAVOUR][k] then return function(self, h) heights[self] = h end end
+    if k == "SetSize" and METHODS[FLAVOUR][k] then return function(self, _, h) heights[self] = h end end
     -- Only methods (capitalised, as the client's are); a missing field is nil, as on a real frame.
     if type(k) ~= "string" or not k:match("^%u") then return nil end
     if CHILDREN[k] then return widget() end
@@ -76,6 +84,11 @@ local function widget(t)
 end
 -- The stand-in refuses what the client lacks: a misspelt method is nil, a documented one works.
 assert(widget().SetPointt == nil and type(widget().SetPoint) == "function", "the stand-in knows the client's methods")
+do
+  local w = widget()
+  w:SetText("Linen")
+  assert(w:GetText() == "Linen" and widget():GetText() == "", "GetText gives back what SetText was given")
+end
 function GetPhysicalScreenSize() return 2560, 1440 end
 UISpecialFrames = {}
 BackdropTemplateMixin = {}
@@ -107,18 +120,28 @@ function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true,
   function f:SetShown(on) if on then self:Show() else self:Hide() end end
   function f:IsShown() return self.shown end
   function f:IsVisible() return visible(self) end
-  function f:CreateFontString() local fs = widget({}); function fs:SetText(t) self.text = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
+  function f:CreateFontString() local fs = widget({}); function fs:SetText(t) self.text = t; texts[self] = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
 UIParent = widget()
 Minimap = widget()
 function GetCursorPosition() return 0, 0 end
 function strsplit(sep, s) local out = {} for part in (s .. sep):gmatch("([^" .. sep .. "]*)" .. sep) do out[#out + 1] = part end return unpack(out) end
 GameTooltip = widget({ lines = {}, shades = {} }); function GameTooltip:AddLine(t, r) table.insert(self.lines, t); self.shades[t] = r end
-C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end, NewTicker = function(s, fn) ticker = fn; local t = { every = s, fn = fn, Cancel = function(self) self.cancelled = true end }; liveTickers[#liveTickers + 1] = t; return t end }
+-- Tickers run only when the session says so (tick), each its own handle.
+C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end,
+  NewTicker = function(s, fn) local t = { every = s, fn = fn, Cancel = function(self) self.cancelled = true end }; liveTickers[#liveTickers + 1] = t; return t end }
 liveTickers = {}
 -- Tickers of `every` seconds still running.
 function running(every) local n = 0 for _, t in ipairs(liveTickers) do if t.every == every and not t.cancelled then n = n + 1 end end return n end
-local function runTimers(upto) local i = 0 while #timers > 0 and i < 5000 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
+-- One beat of every ticker of `every` seconds still running; there must be one.
+function tick(every)
+  local beat = {}
+  for _, t in ipairs(liveTickers) do if t.every == every and not t.cancelled then beat[#beat + 1] = t end end
+  assert(#beat > 0, "no ticker of " .. every .. " s is running")
+  for _, t in ipairs(beat) do if not t.cancelled then t.fn(t) end end
+end
+-- The timers due by `upto`; a chain that never ends (more than 5,000 in one go) fails the run.
+local function runTimers(upto) local i = 0 while #timers > 0 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end assert(i < 5000, "more than 5,000 timers in one go"); local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
 function fire(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end runTimers() end
 -- An event without running the timers due, for orderings within a second.
 function fireNow(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end end
@@ -228,10 +251,10 @@ function ChatFrame1:IsEventRegistered(e) return self.registered[e] end
 function ChatFrame1:UnregisterEvent(e) self.registered[e] = nil end
 function ChatFrame1:RegisterEvent(e) self.registered[e] = true end
 SlashCmdList = {}
--- The files the client loads, in its order: the TOC's own list.
+-- The files the client loads, in its order: the list in the TOC this client reads.
 function tocFiles()
   local out = {}
-  for line in io.lines(dir .. "/GoldForever_Forever.toc") do
+  for line in io.lines(dir .. (FLAVOUR == "retail" and "/GoldForever_Mainline.toc" or "/GoldForever_Forever.toc")) do
     -- The TOC's paths use the client's backslash.
     if line:match("%.lua%s*$") then out[#out + 1] = (line:match("^%s*(.-)%s*$"):gsub("\\", "/")) end
   end
@@ -264,9 +287,22 @@ if SAVE then
     dofile(os.getenv("GF_SMOKE_PRICES"))
   end
 end
+-- Every UI.Table has its height when it is made: what is anchored below one is placed only then (manual
+-- test run 001: the craft queue's buttons, Remove, Edit lists and the Sell box came up blank).
+tablesMade = 0
+local function tablesHaveHeights(ns)
+  local make = ns.UI.Table
+  ns.UI.Table = function(...)
+    local t = make(...)
+    assert(heights[t], "a UI.Table without a height when made")
+    tablesMade = tablesMade + 1
+    return t
+  end
+end
 for _, f in ipairs(tocFiles()) do
   assert(loadfile(dir .. "/" .. f))("GoldForever", ns)
 end
+tablesHaveHeights(ns)
 if SAVE then
   local rows = {}
   local function timed(label, fn)
@@ -387,7 +423,8 @@ fire("LOOT_SLOT_CLEARED", 1)
 money = money + 100; fire("PLAYER_MONEY")
 fire("LOOT_SLOT_CLEARED", 2) fire("LOOT_SLOT_CLEARED", 3)
 fire("LOOT_CLOSED")
-now = now + 5; clock = clock + 5; ticker(); ticker()
+-- Five seconds on: a position sample and the HUD's clock.
+now = now + 5; clock = clock + 5; tick(5); tick(1)
 fire("PLAYER_TARGET_CHANGED")
 fire("UNIT_SPELLCAST_SENT", "player", "Peacebloom", "Cast-9", 2366)
 slots = { { kind = 1, link = "|Hitem:2447::::::::30|h[Peacebloom]|h", qty = 2, sources = { "GameObject-0-4620-0-12-1618-000C", 2 } } }
@@ -512,9 +549,9 @@ fire("MERCHANT_SHOW")
 print("ADVISOR\n" .. tostring(appraiserText))
 do
   local sell = ns.Advisor.sellButton()
-  assert(sell and sell:IsShown() and (sell.label.text or ""):find("Sell junk: 3 items", 1, true), "Sell junk shows: " .. tostring(sell and sell.label.text))
+  assert(sell and sell:IsShown() and (sell.label:GetText()):find("Sell junk: 3 items", 1, true), "Sell junk shows: " .. tostring(sell and sell.label:GetText()))
   sell.scripts.OnClick(sell)
-  assert(sold == 0 and (sell.label.text or ""):find("Press again", 1, true), "the first press only asks")
+  assert(sold == 0 and (sell.label:GetText()):find("Press again", 1, true), "the first press only asks")
   sell.scripts.OnClick(sell)
   assert(sold == 1, "the second press sells")
   -- A client whose merchant window has Blizzard's own button: none of ours.
@@ -713,7 +750,7 @@ do
     row.suggestion = { reason = "hold", floor = 9000 }
     row.anyway = 4200
     AP.post()
-    assert(sent == nil and (AP.panel().post.note.text or ""):find("Press again to post anyway", 1, true), "the first press only warns: " .. tostring(AP.panel().post.note.text))
+    assert(sent == nil and (AP.panel().post.note:GetText()):find("Press again to post anyway", 1, true), "the first press only warns: " .. tostring(AP.panel().post.note:GetText()))
     AP.post()
     assert(sent == 4200, "the second posts at the undercut price: " .. tostring(sent))
     C_AuctionHouse.PostCommodity = inner
@@ -726,7 +763,7 @@ do
     me.bank = { items = "2589*40", t = now + 1 }
     AP.tab("post")
     local away = AP.panel().away
-    assert((away.text.text or ""):find("Bank & mail: 1 item", 1, true), "the bank's Linen in the title row: " .. tostring(away.text.text))
+    assert((away.text:GetText()):find("Bank & mail: 1 item", 1, true), "the bank's Linen in the title row: " .. tostring(away.text:GetText()))
     GameTooltip.lines = {}
     away.scripts.OnEnter(away)
     local listed = false
@@ -1760,6 +1797,7 @@ do
   assert(GoldForeverDB.errors.erring and GoldForeverDB.errors.erring.n == 1, "the caught error is recorded")
   GoldForeverDB.errors.erring = nil
 end
+assert(tablesMade > 0, "the session made tables")
 -- What the run recorded before the reload clears it: nothing failed, nothing was stopped.
 local function recorded()
   local out = {}
@@ -1781,6 +1819,7 @@ local ns2 = {}
 for _, f in ipairs(tocFiles()) do
   assert(loadfile(dir .. "/" .. f))("GoldForever", ns2)
 end
+tablesHaveHeights(ns2)
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
 assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
