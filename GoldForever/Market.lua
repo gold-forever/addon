@@ -176,8 +176,9 @@ local function finish(s, buckets, n)
 		-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
 		ns.scanVersion = (ns.scanVersion or 0) + 1
 		ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
-		-- The new prices are read (over frames for a big scan); the deals line follows when they are in.
-		if n > 0 then
+		-- The new prices are read (over frames for a big scan); the deals line follows when they are in. A
+		-- partial scan gives no prices and no deals line.
+		if n > 0 and not partial then
 			ns.dealsPending = true
 			if ns.price then
 				ns.price.own(0) -- builds the own scan's prices
@@ -236,10 +237,10 @@ local function read()
 		for index = i, n - 1 do
 			local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID =
 				C_AuctionHouse.GetReplicateItemInfo(index)
-			if itemID then
-				s.read = (s.read or 0) + 1
-			end
+			-- Read: a listing with its price and count. Once the auction house is closed the client still
+			-- gives the item but not those (manual test run 001: "322407 of 322407 read" on a cut scan).
 			if itemID and buyout and buyout > 0 and count and count > 0 then
+				s.read = (s.read or 0) + 1
 				local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
 				local unit = math.floor(buyout / count + 0.5)
 				local left = timeLeft and Encode.band(timeLeft(index))

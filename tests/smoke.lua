@@ -1896,10 +1896,14 @@ do
   local scans = GoldForeverDB.scans
   local before = #scans
   local info = C_AuctionHouse.GetReplicateItemInfo
+  -- As the client does once the auction house is closed: the item still, but no price or count.
   C_AuctionHouse.GetReplicateItemInfo = function(i)
-    if i >= 10000 then return nil end -- the rest never comes
+    if i >= 10000 then
+      return "x", 0, 0, 1, true, 1, 0, 1, 1, 0, 0, false, nil, nil, nil, 0, 2000 + i % 3000, true
+    end
     return info(i)
   end
+  dealsLine = nil
   GoldForeverDB.lastReplicate = 0
   now = now + 3600
   fire("AUCTION_HOUSE_SHOW")
@@ -1911,6 +1915,8 @@ do
   local rows = 0
   for _, c in ipairs(rec.rows or {}) do rows = rows + #c end
   assert(rows == 0, "with no rows")
+  wait(5)
+  assert(dealsLine == nil, "no deals line after a partial scan: " .. tostring(dealsLine))
   fire("AUCTION_HOUSE_CLOSED")
   C_AuctionHouse.GetReplicateItemInfo = info
 end
