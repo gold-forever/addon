@@ -844,6 +844,9 @@ ns.on("AUCTION_HOUSE_PURCHASE_COMPLETED", "auction shop", function()
 	bought(true)
 end)
 
+-- Laid out top to bottom as it is used (manual test run 001: "chaotic"): the list and Buy next, the field
+-- to add an item, the list's items; under them Remove at the left and the lists' own buttons at the
+-- right. The string field for import and export shows only while one is under way.
 local function buildShop(page)
 	local s = settings()
 	local function names()
@@ -853,6 +856,11 @@ local function buildShop(page)
 		end
 		return out
 	end
+	local buy = UI.Button(page, "Buy next", function()
+		ns.safely("auction shop", buyNext)
+	end, { kind = "primary", width = 200, height = 28 })
+	buy:SetPoint("TOPRIGHT", 0, 0)
+	page.buy = buy
 	local listPick
 	local function rebuildPick()
 		if listPick then
@@ -866,56 +874,25 @@ local function buildShop(page)
 			refresh()
 		end)
 		listPick:SetPoint("TOPLEFT")
-		listPick:SetWidth(170)
+		listPick:SetPoint("RIGHT", buy, "LEFT", -10, 0)
 	end
 	rebuildPick()
 	page.rebuildPick = rebuildPick
-	local newList = UI.Button(page, "New", function()
-		local all = lists()
-		all[#all + 1] = stamp({ name = "List " .. (#all + 1), entries = {} })
-		s.list = #all
-		rebuildPick()
-		refresh()
-	end, { kind = "ghost", width = 54, height = 28 })
-	newList:SetPoint("LEFT", page, "TOPLEFT", 178, -14)
-
-	-- Import and export: one field, the GFL1 string in or out.
-	local field = UI.SearchBox(page, "Paste a GFL1: string (make one at gold-forever.app/me/lists)", nil)
-	-- No length limit: a list string runs to 16 KB (Shopping.decode bounds it), as Blizzard's export box.
-	field:SetMaxLetters(0)
-	field:SetPoint("TOPLEFT", 0, -36)
-	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
-	local import = UI.Button(page, "Import", function()
-		local got, err = ns.Shopping.decode(field:GetText())
-		if not got then
-			page.note:SetText(Theme.escape(Theme.color.danger) .. err .. "|r")
-			return
-		end
-		local all = lists()
-		for _, l in ipairs(got) do
-			all[#all + 1] = stamp(l)
-		end
-		s.list = #all
-		field:SetText("")
-		rebuildPick()
-		page.note:SetText(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"))
-		refresh()
-	end, { kind = "ghost", width = 70, height = 28 })
-	import:SetPoint("LEFT", field, "RIGHT", 6, 0)
-	local export = UI.Button(page, "Export", function()
-		local _, list = lists()
-		field:SetText(ns.Shopping.encode({ list }))
-		field:SetFocus()
-		field:HighlightText()
-		page.note:SetText("Copy it with Ctrl+C; anyone with Gold Forever can import it.")
-	end, { kind = "ghost", width = 70, height = 28 })
-	export:SetPoint("LEFT", import, "RIGHT", 4, 0)
 
 	-- Adding: shift-click an item into the field (or type its ID), then a price in gold, or none for
-	-- "under market".
-	local add = UI.SearchBox(page, "Shift-click an item, then a gold price (or none)", nil)
-	add:SetPoint("TOPLEFT", 0, -72)
+	-- "under market". The hover says so in full.
+	local add = UI.SearchBox(page, "Shift-click an item, then a price", nil)
+	add:SetPoint("TOPLEFT", 0, -38)
 	add:SetPoint("RIGHT", page, "RIGHT", -82, 0)
+	add:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:AddLine("Add an item to this list")
+		GameTooltip:AddLine("Shift-click an item (or type its ID), then the most you pay a unit in gold, for example 4.5. With no price, Buy next buys under the market value.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	add:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
 	page.add = add
 	local addButton = UI.Button(page, "Add", function()
 		local id, maxUnit = ns.Shopping.parseAdd(add:GetText())
@@ -938,16 +915,16 @@ local function buildShop(page)
 
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
-		{ key = "max", title = "Up to", width = 80, align = "RIGHT", text = function(r)
+		{ key = "max", title = "Up to", width = 90, align = "RIGHT", text = function(r)
 			return (r.upTo and (r.upTo .. " at ") or "") .. (r.maxUnit and money(r.maxUnit) or "market")
 		end },
-		{ key = "deal", title = "Deal", width = 110, align = "RIGHT", text = function(r)
+		{ key = "deal", title = "Deal", width = 120, align = "RIGHT", text = function(r)
 			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "—" or "")
 		end },
 	}, {
-		pageSize = 6,
+		pageSize = 8,
 		rowHeight = 24,
-		empty = "No items yet: shift-click one into the field above.",
+		empty = "Nothing on this list yet.",
 		isSelected = function(r) return shopChosen and r.itemId == shopChosen.itemId end,
 		onRowClick = function(r)
 			shopChosen, purchase = r.entry, nil
@@ -955,14 +932,9 @@ local function buildShop(page)
 			refresh()
 		end,
 	})
-	tbl:SetPoint("TOPLEFT", add, "BOTTOMLEFT", 0, -10)
+	tbl:SetPoint("TOPLEFT", add, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	page.table = tbl
-	local buy = UI.Button(page, "Buy next", function()
-		ns.safely("auction shop", buyNext)
-	end, { kind = "primary", width = 200, height = 30 })
-	buy:SetPoint("TOPRIGHT", tbl, "BOTTOMRIGHT", 0, -10)
-	page.buy = buy
 	local remove = UI.Button(page, "Remove", function()
 		local _, list = lists()
 		if list.profile then
@@ -978,11 +950,86 @@ local function buildShop(page)
 			end
 		end
 		refresh()
-	end, { kind = "ghost", width = 90, height = 30 })
+	end, { width = 90, height = 26 })
 	remove:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+
+	-- The lists' own buttons; Import and Export open the string field under them.
+	local exchange = CreateFrame("Frame", nil, page)
+	exchange:SetPoint("TOPLEFT", remove, "BOTTOMLEFT", 0, -12)
+	exchange:SetPoint("RIGHT", page, "RIGHT")
+	exchange:SetHeight(28)
+	exchange:Hide()
+	local field = UI.SearchBox(exchange, "Paste a GFL1: string", nil)
+	-- No length limit: a list string runs to 16 KB (Shopping.decode bounds it), as Blizzard's export box.
+	field:SetMaxLetters(0)
+	field:SetPoint("TOPLEFT")
+	field:SetPoint("RIGHT", exchange, "RIGHT", -84, 0)
+	local mode -- "import" or "export" while the field shows
+	local function closeExchange()
+		mode = nil
+		field:SetText("")
+		field:ClearFocus()
+		exchange:Hide()
+	end
+	local done = UI.Button(exchange, "Import", function()
+		if mode ~= "import" then
+			closeExchange()
+			return
+		end
+		local got, err = ns.Shopping.decode(field:GetText())
+		if not got then
+			page.note:SetText(Theme.escape(Theme.color.danger) .. err .. "|r")
+			return
+		end
+		local all = lists()
+		for _, l in ipairs(got) do
+			all[#all + 1] = stamp(l)
+		end
+		s.list = #all
+		closeExchange()
+		rebuildPick()
+		page.note:SetText(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"))
+		refresh()
+	end, { width = 78, height = 28 })
+	done:SetPoint("LEFT", field, "RIGHT", 6, 0)
+	local export = UI.Button(page, "Export", function()
+		local _, list = lists()
+		mode = "export"
+		exchange:Show()
+		done.label:SetText("Done")
+		field:SetText(ns.Shopping.encode({ list }))
+		field:SetFocus()
+		field:HighlightText()
+		page.note:SetText("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.")
+	end, { width = 76, height = 26 })
+	export:SetPoint("TOPRIGHT", tbl, "BOTTOMRIGHT", 0, -10)
+	local import = UI.Button(page, "Import", function()
+		mode = "import"
+		exchange:Show()
+		done.label:SetText("Import")
+		field:SetText("")
+		field:SetFocus()
+		page.note:SetText("Paste a list string (Ctrl+V), then Import.")
+	end, { width = 76, height = 26 })
+	import:SetPoint("RIGHT", export, "LEFT", -6, 0)
+	local newList = UI.Button(page, "New list", function()
+		local all = lists()
+		all[#all + 1] = stamp({ name = "List " .. (#all + 1), entries = {} })
+		s.list = #all
+		rebuildPick()
+		refresh()
+	end, { width = 86, height = 26 })
+	newList:SetPoint("RIGHT", import, "LEFT", -6, 0)
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
-	page.note:SetPoint("TOPLEFT", remove, "BOTTOMLEFT", 0, -10)
 	page.note:SetPoint("RIGHT", page, "RIGHT")
+	-- The note sits under the field while it shows, else under the buttons.
+	exchange:SetScript("OnShow", function()
+		page.note:SetPoint("TOPLEFT", exchange, "BOTTOMLEFT", 0, -8)
+	end)
+	exchange:SetScript("OnHide", function()
+		page.note:SetPoint("TOPLEFT", remove, "BOTTOMLEFT", 0, -10)
+	end)
+	page.note:SetPoint("TOPLEFT", remove, "BOTTOMLEFT", 0, -10)
 
 	function page:Refresh()
 		local _, list = lists()
