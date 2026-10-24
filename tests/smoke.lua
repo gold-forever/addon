@@ -874,6 +874,10 @@ do
   cq:Hide()
   ns.queueAdd(2963, 0)
   assert(cq:IsShown() and not GoldForeverDB.settings.craftQueue.closed, "a craft queued opens it again")
+  -- Crafting a queued recipe counts it down.
+  fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)
+  assert(ns.queueList()[1].count == 2, "one Bolt of Linen crafted: two left in the queue")
+  ns.queueAdd(2963, 1)
   C_Item.GetItemCount = function() return 0 end
   -- A market value above the listings (the queue's list buys under market).
   local value = ns.Prices.value

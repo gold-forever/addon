@@ -122,6 +122,25 @@ function ns.queueAdd(recipeId, n)
 	q[#q + 1] = { recipe = recipeId, count = n }
 	changed()
 end
+-- A queued recipe crafted: one fewer in the queue, and gone at none (manual test run 001: the window
+-- stayed with everything in the bags). The cast's spell is the recipe's ID.
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
+	if unit ~= "player" or not spell then
+		return
+	end
+	local q = queue()
+	for i, x in ipairs(q) do
+		if x.recipe == spell then
+			x.count = x.count - 1
+			if x.count <= 0 then
+				table.remove(q, i)
+			end
+			changed()
+			return
+		end
+	end
+end)
+
 function ns.queueClear()
 	local s = ns.settings("crafting", { strip = true })
 	s.queue = {}
