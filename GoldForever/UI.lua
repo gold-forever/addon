@@ -510,7 +510,9 @@ function UI.Button(parent, label, onClick, opts)
 	local skin = Theme.skin
 	local kind = opts.kind or "default"
 	local b
-	if skin.buttonTemplate and kind ~= "ghost" then
+	-- In the classic look every button is the game's own, a ghost one too (manual test run 001: Stop and
+	-- New session, Clear queue, Rule › stood out as not classic).
+	if skin.buttonTemplate then
 		b = CreateFrame("Button", nil, parent, skin.buttonTemplate)
 		b:SetHeight(opts.height or 22)
 		-- The game's red button, with a label of our own over it: the template's own text was now and then
