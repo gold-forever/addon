@@ -1,7 +1,13 @@
--- Minimap.lua's arithmetic: where the button sits for an angle, and the angle a drag leaves it at.
+-- Minimap.lua's arithmetic: where the button sits for an angle, and the angle a drag leaves it at; and
+-- Theme.lua's class colours, which it loads.
 
 local ns = { on = function() end, commands = {}, settings = function(_, d) return d end }
+-- The game's class colours fill in the classes past the nine; the nine keep their own.
+RAID_CLASS_COLORS = { MONK = { r = 0, g = 1, b = 0.596 }, MAGE = { r = 0, g = 0, b = 0 } }
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
+RAID_CLASS_COLORS = nil
+eq(ns.Theme.class.MONK, "#00ff98", "a monk in the game's colour")
+eq(ns.Theme.class.MAGE, "#3fc7eb", "a mage in its own")
 assert(load(SOURCES["Minimap.lua"], "@Minimap.lua"))("GoldForever", ns)
 local M = ns.Minimap
 
