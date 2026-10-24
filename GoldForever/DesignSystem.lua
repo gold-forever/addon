@@ -173,12 +173,12 @@ end
 
 -- Shared by the pages ------------------------------------------------------------------------------------
 
--- 12345 -> "12,345".
+-- 12345.6 -> "12,346".
 local function count(n)
-	local s = tostring(math.floor((n or 0) + 0.5))
-	local out = string.gsub(string.reverse(s), "(%d%d%d)", "%1,")
-	return (string.gsub(string.reverse(out), "^(%-?),", "%1"))
+	return UI.layout.group(math.floor((n or 0) + 0.5))
 end
+
+local isRetail = ns.Realms and ns.Realms.isRetail and ns.Realms.isRetail(select(4, GetBuildInfo()))
 
 local function classColor(class)
 	return Theme.class[class or ""] or Theme.color.text
@@ -396,20 +396,20 @@ local function buildHome(page)
 		actions[3].line:SetText(best and (UI.layout.money(best.profit, "gold") .. " profit a craft") or "No priced recipe makes a profit yet")
 
 		-- The goal.
-		local total = 0
+		local gold = 0
 		for _, c in pairs(db.characters or {}) do
-			total = total + (c.money or 0)
+			gold = gold + (c.money or 0)
 		end
 		local goal = settings().goal
 		if goal then
-			local g = Views.goal(now, total, goal)
-			goalText:SetText(string.format("Goal %s: %s now, %d%%%s", UI.layout.money(goal.gold, "gold"), UI.layout.money(total, "gold"), g.pct,
+			local g = Views.goal(now, gold, goal)
+			goalText:SetText(string.format("Goal %s: %s now, %d%%%s", UI.layout.money(goal.gold, "gold"), UI.layout.money(gold, "gold"), g.pct,
 				g.reached and Theme.escape(Theme.color.success) .. " · reached|r" or g.late and (faint .. " · the date has passed|r")
 				or (faint .. string.format(" · %s a day for %d more %s", "|r" .. UI.layout.money(g.perDay, "gold") .. faint, g.daysLeft, g.daysLeft == 1 and "day" or "days") .. "|r")))
 			goalBar:Set(100, { { value = g.pct, color = g.reached and Theme.color.success or Theme.color.accent } })
 			goalBar:Show()
 		else
-			goalText:SetText(faint .. "A gold goal: an amount and a date, and Home shows how far there is to go. " .. "|r" .. UI.layout.money(total, "gold") .. faint .. " across your characters now.|r")
+			goalText:SetText(faint .. "A gold goal: an amount and a date, and Home shows how far there is to go. " .. "|r" .. UI.layout.money(gold, "gold") .. faint .. " across your characters now.|r")
 			goalBar:Hide()
 		end
 
@@ -551,13 +551,12 @@ local function buildRares(page)
 	tbl:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -10)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local retail = ns.Realms.isRetail(select(4, GetBuildInfo()))
 		-- On retail nothing is recorded (its cities are full of markers taken for rares), and what a retail save
 		-- holds from before that was switched off is those false rares (manual test run 001: "NPC …" from
 		-- Silvermoon): none listed.
-		note:SetText(retail and "Rares are recorded on WoW: Forever only: retail's cities are full of map markers that are not rares."
+		note:SetText(isRetail and "Rares are recorded on WoW: Forever only: retail's cities are full of map markers that are not rares."
 			or "Logged from nameplates, your target and the minimap. Settings → Modules switches the alerts.")
-		if retail then
+		if isRetail then
 			tbl:SetRows({})
 			return -- no rare listed, so no mob's loot to count
 		end
@@ -1315,25 +1314,23 @@ end
 
 -- Settings ------------------------------------------------------------------------------------------------
 
-local isRetail = ns.Realms and ns.Realms.isRetail and ns.Realms.isRetail(select(4, GetBuildInfo()))
-
 -- A card of settings in two columns: a small-caps title over it, each row its label on the left of its
 -- half and its control on the right. rows = { { side = 0|1, label, make = function(parent) -> control,
 -- full = true for a control as wide as the half's right part } }. Returns the card.
 local function settingsCard(page, title, y, rows)
 	local label = UI.Text(page, string.upper(title), { size = "xs", medium = true, tone = "faint" })
 	label:SetPoint("TOPLEFT", 0, y)
-	local count = 0
+	local lines = 0
 	for _, r in ipairs(rows) do
-		count = math.max(count, (r.row or 0) + 1)
+		lines = math.max(lines, (r.row or 0) + 1)
 	end
 	local card = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
 	card:SetPoint("TOPLEFT", 0, y - 18)
 	card:SetPoint("RIGHT", page, "RIGHT")
-	card:SetHeight(count * 50 + 8)
+	card:SetHeight(lines * 50 + 8)
 	local split = UI.solid(card, "BORDER", Theme.color.border)
 	split:SetPoint("TOP", 0, -10)
-	split:SetSize(UI.pixel(), count * 50 - 12)
+	split:SetSize(UI.pixel(), lines * 50 - 12)
 	local half = CreateFrame("Frame", nil, card)
 	half:SetPoint("TOPLEFT")
 	half:SetPoint("BOTTOMRIGHT", card, "BOTTOM")
@@ -1509,6 +1506,7 @@ local function buildSettings(page)
 		local auction = ns.settings("auction", { rule = {}, duration = 2 })
 		local prices = ns.settings("prices", { tooltip = true })
 		local crafting = ns.settings("crafting", { strip = true })
+		local mail = ns.settings("mail", { helper = true })
 		local MODULES = {
 			{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
 				on = function() return appraiser.shown end,
@@ -1532,12 +1530,12 @@ local function buildSettings(page)
 				on = function() return advisor.shown end,
 				set = function(on) advisor.shown = on end },
 			{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
-			on = function() return ns.settings("auction", { rule = {}, duration = 2 }).dealsAlert ~= false end,
-			set = function(on) ns.settings("auction", { rule = {}, duration = 2 }).dealsAlert = on end },
-		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
-			on = function() return ns.settings("mail", { helper = true }).helper ~= false end,
-			set = function(on) ns.settings("mail", { helper = true }).helper = on end },
-		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
+				on = function() return auction.dealsAlert ~= false end,
+				set = function(on) auction.dealsAlert = on end },
+			{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
+				on = function() return mail.helper ~= false end,
+				set = function(on) mail.helper = on end },
+			{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
 				on = function() return crafting.strip ~= false end,
 				set = function(on) crafting.strip = on end },
 			{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
