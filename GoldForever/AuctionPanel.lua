@@ -1675,6 +1675,12 @@ local function build()
 		if f and not f.built then
 			f.built = true
 			builders[key](f)
+			-- Its widgets placed for certain: the panel anchored anew a frame later (see show).
+			C_Timer.After(0, function()
+				if ns.auctionAnchor then
+					ns.auctionAnchor()
+				end
+			end)
 		end
 	end
 	p.ensure("scan")
@@ -1767,6 +1773,15 @@ end
 
 local ticker
 local hooked = false
+-- Beside the auction house, its height.
+local function anchor()
+	if panel and AuctionHouseFrame then
+		panel:ClearAllPoints()
+		panel:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPRIGHT", 6, 0)
+		panel:SetPoint("BOTTOMLEFT", AuctionHouseFrame, "BOTTOMRIGHT", 6, 0)
+	end
+end
+ns.auctionAnchor = anchor
 -- `redrawn`: the same visit in a new look, on the tab it had; else a new visit, on Blizzard's tab.
 show = function(redrawn)
 	if not AuctionHouseFrame then
@@ -1785,10 +1800,12 @@ show = function(redrawn)
 			end
 		end)
 	end
-	panel:ClearAllPoints()
-	panel:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPRIGHT", 6, 0)
-	panel:SetPoint("BOTTOMLEFT", AuctionHouseFrame, "BOTTOMRIGHT", 6, 0)
+	anchor()
 	panel:Show()
+	-- Again a frame later: built in the frame the auction house opens, some of its widgets were never
+	-- placed (manual test run 001, /gf uidebug: Sell's Rule ›, quantity and Post with no rect, Remove's
+	-- text unseen) until the panel was anchored anew, as closing and opening did.
+	C_Timer.After(0, anchor)
 	local key = redrawn ~= true and tabForMode(blizzardMode())
 	if key and key ~= panel.tab then
 		panel.select(key, true)
@@ -2021,7 +2038,8 @@ local function describe(label, w, out)
 		.. "/" .. call(w, "GetEffectiveAlpha") .. " size " .. call(w, "GetWidth") .. "x" .. call(w, "GetHeight") .. " at " .. call(w, "GetLeft") .. "," .. call(w, "GetBottom")
 		.. " strata " .. call(w, "GetFrameStrata") .. " level " .. call(w, "GetFrameLevel")
 		.. " text [" .. call(w, "GetText") .. "] fs [" .. call(fs, "GetText") .. "] fs shown " .. call(fs, "IsShown") .. " fs alpha " .. call(fs, "GetAlpha")
-		.. " fs width " .. call(fs, "GetStringWidth") .. " font " .. tostring(font) .. " " .. v(size)
+		.. " fs width " .. call(fs, "GetStringWidth") .. " fs at " .. call(fs, "GetLeft") .. "," .. call(fs, "GetBottom")
+		.. " font " .. tostring(font) .. " " .. v(size)
 	covering(w, out)
 end
 ns.commands.uidebug = function()
