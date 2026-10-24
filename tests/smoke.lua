@@ -47,15 +47,29 @@ tailoring = 75
 -- Any widget method not stubbed here is a no-op returning another such widget.
 -- Sizes come back as numbers and text as strings, so the UI kit's layout arithmetic runs.
 local NUMBERS = { GetWidth = 400, GetHeight = 300, GetStringWidth = 60, GetVerticalScroll = 0, GetEffectiveScale = 1, GetScale = 1, GetFrameLevel = 1 }
+-- The widget methods the client documents (tests/widget_methods.lua, generated from Blizzard's API docs),
+-- for the client this run plays; a method the client lacks fails the run, as it would fail in game.
+local METHODS = assert(loadfile((dir or "GoldForever") .. "/../tests/widget_methods.lua"))()
+local FLAVOUR = (tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001) >= 110000 and "retail" or "forever"
+-- Methods Blizzard's own frames, templates and mixins add (not in the widget docs), which the addon calls,
+-- and child frames it reads by key.
+local MIXIN = { AddLine = true, SetOwner = true, SelectBrowseResult = true, GetRecipeInfo = true, GetBagAndSlot = true, AddDoubleLine = true,
+  SetBackdrop = true, SetBackdropColor = true, SetBackdropBorderColor = true }
+local CHILDREN = { CraftingPage = true, SchematicForm = true }
 local function widget(t)
   return setmetatable(t or {}, { __index = function(_, k)
     if NUMBERS[k] then return function() return NUMBERS[k] end end
     if k == "GetText" then return function() return "" end end
     -- Only methods (capitalised, as the client's are); a missing field is nil, as on a real frame.
     if type(k) ~= "string" or not k:match("^%u") then return nil end
+    if CHILDREN[k] then return widget() end
+    -- Anything else the client does not have is nil, as on a real frame: calling it fails as in game.
+    if not METHODS[FLAVOUR][k] and not MIXIN[k] then return nil end
     return function() return widget() end
   end })
 end
+-- The stand-in refuses what the client lacks: a misspelt method is nil, a documented one works.
+assert(widget().SetPointt == nil and type(widget().SetPoint) == "function", "the stand-in knows the client's methods")
 function GetPhysicalScreenSize() return 2560, 1440 end
 UISpecialFrames = {}
 BackdropTemplateMixin = {}
