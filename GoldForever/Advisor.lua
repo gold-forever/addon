@@ -112,10 +112,52 @@ local function text()
 	return table.concat(lines, "\n")
 end
 
+-- Selling junk where the merchant window has no button of its own (Blizzard's retail one has; WoW:
+-- Forever's client has the call, C_MerchantFrame.SellAllJunkItems, and no button): what Blizzard counts
+-- as junk, sold by its own call, so it stays in the buyback tab. Returns how many and what they fetch.
+local function junkSale()
+	local api = C_MerchantFrame
+	if not (api and api.SellAllJunkItems and api.GetNumJunkItems) or MerchantSellAllJunkButton then
+		return nil
+	end
+	if api.IsSellAllJunkEnabled and not api.IsSellAllJunkEnabled() then
+		return nil
+	end
+	local n = api.GetNumJunkItems() or 0
+	if n == 0 then
+		return nil
+	end
+	local value = 0
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and info.itemID and info.quality == 0 and not info.hasNoValue then
+				value = value + (ns.price.vendor(info.itemID) or 0) * (info.stackCount or 1)
+			end
+		end
+	end
+	return n, value
+end
+
+local SELL_ARMED = 5 -- seconds the first press of Sell junk waits for the second
+local sell, armedAt
+
 local function refresh()
 	if frame and frame:IsShown() then
 		body:SetText(text())
-		frame:SetHeight(body:GetStringHeight() + 40)
+		local n, value = nil, nil
+		if MerchantFrame and MerchantFrame:IsShown() then
+			n, value = junkSale()
+		end
+		if n and sell then
+			local armed = armedAt and GetTime() - armedAt < SELL_ARMED
+			sell.label:SetText(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
+				or string.format("Sell junk: %d %s · %s", n, n == 1 and "item" or "items", ns.price.coins(value)))
+			sell:Show()
+		elseif sell then
+			sell:Hide()
+		end
+		frame:SetHeight(body:GetStringHeight() + 40 + (n and 34 or 0))
 	end
 end
 
@@ -126,6 +168,29 @@ local function show()
 		end)
 		frame:SetWidth(330)
 		body:SetWidth(310)
+		if ns.applyLook then
+			ns.applyLook()
+		end
+		-- Two presses: the first says what it will sell, the second sells.
+		sell = ns.UI.Button(frame, "Sell junk", function()
+			ns.safely("sell junk", function()
+				local n, value = junkSale()
+				if not n then
+					return
+				end
+				if armedAt and GetTime() - armedAt < SELL_ARMED then
+					armedAt = nil
+					C_MerchantFrame.SellAllJunkItems()
+					ns.say(string.format("sold %d junk %s for %s; the buyback tab has them for now.", n, n == 1 and "item" or "items", ns.price.coins(value)))
+				else
+					armedAt = GetTime()
+					C_Timer.After(SELL_ARMED, refresh)
+				end
+				refresh()
+			end)
+		end, { width = 310, height = 26 })
+		sell:SetPoint("BOTTOM", 0, 10)
+		sell:Hide()
 	end
 	frame:Show()
 	refresh()
@@ -158,3 +223,10 @@ ns.commands.bags = function()
 		show()
 	end
 end
+
+-- For the smoke test.
+ns.Advisor = {
+	sellButton = function()
+		return sell
+	end,
+}
