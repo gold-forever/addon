@@ -275,6 +275,11 @@ if SAVE then
   C_AutoComplete = { GetAutoCompleteRealms = function() return connected end }
   GetRealmName = function() return realm end
   now = math.max(now, GoldForeverDB.writtenAt or now)
+  -- GF_SMOKE_PRICES=<a copy of the companion's Data.lua>: the shared prices the game has, as the pool
+  -- every value comes from first.
+  if os.getenv("GF_SMOKE_PRICES") then
+    dofile(os.getenv("GF_SMOKE_PRICES"))
+  end
 end
 for _, f in ipairs(tocFiles()) do
   assert(loadfile(dir .. "/" .. f))("GoldForever", ns)
@@ -1714,6 +1719,16 @@ do
   GetStatisticsCategoryList, GetCategoryNumAchievements, debugprofilestop, GetStatistic = lists[1], lists[2], lists[3], stat
 end
 
+-- A call the client stops for running too long never returns, and the next call in a later frame records
+-- it (Core.lua). The stand-in cannot stop a call; this checks only that calls which return or error are
+-- never recorded as stopped.
+do
+  pcall(ns.safely, "erring", function() error("caught") end)
+  ns.safely("returning", function() end)
+  wait(1)
+  ns.safely("next frame", function() end)
+  assert(not GoldForeverDB.stopped, "nothing recorded as stopped")
+end
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
 local before = ns.sessionText()
 fire("PLAYER_LOGOUT")
