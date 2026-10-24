@@ -793,7 +793,9 @@ local function buildShop(page)
 	local listPick
 	local function rebuildPick()
 		if listPick then
-			listPick:Hide()
+			listPick:SetOptions(names())
+			listPick:Set(s.list or 1)
+			return
 		end
 		listPick = UI.Dropdown(page, names(), s.list or 1, function(v)
 			s.list = v
@@ -816,6 +818,8 @@ local function buildShop(page)
 
 	-- Import and export: one field, the GFL1 string in or out.
 	local field = UI.SearchBox(page, "Paste a GFL1: string (make one at gold-forever.app/me/lists)", nil)
+	-- No length limit: a list string runs to 16 KB (Shopping.decode bounds it), as Blizzard's export box.
+	field:SetMaxLetters(0)
 	field:SetPoint("TOPLEFT", 0, -36)
 	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
 	local import = UI.Button(page, "Import", function()
@@ -1257,7 +1261,9 @@ local function buildRule(page)
 	end
 	rebuildPick = function()
 		if scopePick then
-			scopePick:Hide()
+			scopePick:SetOptions(pickOptions())
+			scopePick:Set(scope)
+			return
 		end
 		scopePick = UI.Dropdown(page, pickOptions(), scope, choose)
 		scopePick:SetPoint("TOPLEFT", 160, 6)
@@ -1303,7 +1309,10 @@ local function buildRule(page)
 	end
 	local function rebuild()
 		if pick then
-			pick:Hide()
+			pick:SetOptions(options())
+			pick:Set(s.profile or 0)
+			describe()
+			return
 		end
 		pick = UI.Dropdown(page, options(), s.profile or 0, function(v)
 			s.profile = v ~= 0 and v or nil
@@ -1317,6 +1326,7 @@ local function buildRule(page)
 	end
 	rebuild()
 	local field = UI.SearchBox(page, "Paste a GFP1: profile (make one at gold-forever.app/me/lists)", nil)
+	field:SetMaxLetters(0) -- a profile string runs to 16 KB (SalePlan.decode bounds it)
 	field:SetPoint("TOPLEFT", 0, -340)
 	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
 	local message = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })

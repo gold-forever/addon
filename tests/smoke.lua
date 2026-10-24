@@ -554,6 +554,12 @@ do
   assert(over and tostring(over.label):find("(item rule)", 1, true), "Post names the item's rule: " .. tostring(over and over.label))
   GoldForeverDB.settings.auction.overrides.items[2589] = nil
   AP.ruleScope("default")
+  -- Changing the rule's scope again and again builds no new frames (the picker's rows are reused).
+  do
+    local before = #frames
+    for _ = 1, 5 do AP.ruleScope("add-item") AP.ruleScope("default") end
+    assert(#frames == before, "no frames built by scope changes: " .. (#frames - before))
+  end
   AP.tab("post")
   -- A post the client says needs confirming: nothing is waited for, the next press confirms it with the
   -- same four arguments.

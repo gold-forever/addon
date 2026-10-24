@@ -831,35 +831,49 @@ function UI.Dropdown(parent, options, value, onChange)
 	menu:SetFrameStrata("FULLSCREEN_DIALOG")
 	menu:SetPoint("TOPLEFT", d, "BOTTOMLEFT", 0, -2)
 	menu:SetPoint("TOPRIGHT", d, "BOTTOMRIGHT", 0, -2)
-	menu:SetHeight(#options * 24 + 8)
 	menu:EnableMouse(true)
 	menu:Hide()
 	menu.rows = {}
-	for i, o in ipairs(options) do
-		local row = CreateFrame("Button", nil, menu)
-		row:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 24)
-		row:SetPoint("TOPRIGHT", -4, -4 - (i - 1) * 24)
-		row:SetHeight(24)
-		row.hover = surface(row, Theme.color.surfaceHover, 1, nil, radius("item"))
-		row.hover:SetShown(false)
-		row.text = UI.Text(row, o.label, { size = "sm" })
-		row.text:SetPoint("LEFT", 8, 0)
-		row:SetScript("OnEnter", function(self)
-			self.hover:SetShown(true)
-		end)
-		row:SetScript("OnLeave", function(self)
-			self.hover:SetShown(false)
-		end)
-		row:SetScript("OnClick", function()
-			menu:Hide()
-			d:Set(o.value)
-			if onChange then
-				onChange(o.value)
+	-- The choices, again when they change (a list added, an override removed): the rows are reused, as
+	-- frames are never freed.
+	function d:SetOptions(list)
+		options = list
+		menu:SetHeight(#options * 24 + 8)
+		for i, o in ipairs(options) do
+			local row = menu.rows[i]
+			if not row then
+				row = CreateFrame("Button", nil, menu)
+				row:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 24)
+				row:SetPoint("TOPRIGHT", -4, -4 - (i - 1) * 24)
+				row:SetHeight(24)
+				row.hover = surface(row, Theme.color.surfaceHover, 1, nil, radius("item"))
+				row.hover:SetShown(false)
+				row.text = UI.Text(row, "", { size = "sm" })
+				row.text:SetPoint("LEFT", 8, 0)
+				row:SetScript("OnEnter", function(self)
+					self.hover:SetShown(true)
+				end)
+				row:SetScript("OnLeave", function(self)
+					self.hover:SetShown(false)
+				end)
+				row:SetScript("OnClick", function(self)
+					menu:Hide()
+					d:Set(self.value)
+					if onChange then
+						onChange(self.value)
+					end
+				end)
+				menu.rows[i] = row
 			end
-		end)
-		row.value = o.value
-		menu.rows[i] = row
+			row.text:SetText(o.label)
+			row.value = o.value
+			row:Show()
+		end
+		for i = #options + 1, #menu.rows do
+			menu.rows[i]:Hide()
+		end
 	end
+	d:SetOptions(options)
 	function d:Set(v)
 		self.value = v
 		local label = v
@@ -869,7 +883,8 @@ function UI.Dropdown(parent, options, value, onChange)
 			end
 		end
 		self.text:SetText(label)
-		for _, row in ipairs(menu.rows) do
+		for i = 1, #options do
+			local row = menu.rows[i]
 			row.text:SetTextColor(Theme.rgb(row.value == v and Theme.color.accent or Theme.color.text))
 		end
 	end
