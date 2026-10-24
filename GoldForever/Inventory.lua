@@ -152,9 +152,24 @@ local function freeBagSlots()
 	return free
 end
 
--- When the bank opens: each chosen item's stacks into the bags, a stack every 0.15 s (the server takes
--- one move at a time), while the bags have room and the bank stays open; never in combat. An item whose
--- stacks all came out is taken off the list.
+-- The first empty slot in the bags (a general bag, for a split stack).
+local function emptyBagSlot()
+	for _, bag in ipairs(BAGS) do
+		local _, kind = C_Container.GetContainerNumFreeSlots(bag)
+		if (kind or 0) == 0 then
+			for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+				if not C_Container.GetContainerItemInfo(bag, slot) then
+					return bag, slot
+				end
+			end
+		end
+	end
+end
+
+-- When the bank opens: each chosen item into the bags, a move every 0.15 s (the server takes one at a
+-- time), while the bags have room and the bank stays open; never in combat. want[id] is true (all of it)
+-- or a number of units: whole stacks move as they are, and the last part is split off into an empty bag
+-- slot (owner, 2026-10-25: "take all, or take qty"). What is taken comes off the list.
 local FETCH_GAP = 0.15
 local function fetchFromBank()
 	local want = ns.fetchList()
@@ -166,16 +181,27 @@ local function fetchFromBank()
 		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
 			local info = C_Container.GetContainerItemInfo(bag, slot)
 			if info and info.itemID and want[info.itemID] then
-				moves[#moves + 1] = { bag = bag, slot = slot, id = info.itemID }
-				left[info.itemID] = (left[info.itemID] or 0) + 1
+				moves[#moves + 1] = { bag = bag, slot = slot, id = info.itemID, n = info.stackCount or 1 }
 			end
 		end
+	end
+	for id, w in pairs(want) do
+		left[id] = w == true and math.huge or tonumber(w) or 0
 	end
 	local i, taken, full = 0, 0, false
 	local function done()
 		for id, n in pairs(left) do
-			if n == 0 then
-				want[id] = nil
+			-- Stacks of it still in the bank, not reached (bags full, bank closed)?
+			local more = false
+			for k = i + 1, #moves do
+				if moves[k].id == id then
+					more = true
+				end
+			end
+			if n <= 0 or not more then
+				want[id] = nil -- all taken, or none left in the bank
+			else
+				want[id] = n == math.huge or n -- still to take: all of it, or how many
 			end
 		end
 		if taken > 0 or full then
@@ -190,13 +216,31 @@ local function fetchFromBank()
 			done()
 			return
 		end
+		local need = left[m.id] or 0
+		if need <= 0 then
+			return step()
+		end
 		if freeBagSlots() == 0 then
-			full = true
+			full, i = true, i - 1
 			done()
 			return
 		end
-		C_Container.UseContainerItem(m.bag, m.slot)
-		taken, left[m.id] = taken + 1, left[m.id] - 1
+		if need >= m.n then
+			C_Container.UseContainerItem(m.bag, m.slot)
+			left[m.id] = need - m.n
+		else
+			-- Part of a stack: split it onto the cursor and put it in an empty bag slot.
+			local bag, slot = emptyBagSlot()
+			if not bag then
+				full, i = true, i - 1
+				done()
+				return
+			end
+			C_Container.SplitContainerItem(m.bag, m.slot, need)
+			C_Container.PickupContainerItem(bag, slot)
+			left[m.id] = 0
+		end
+		taken = taken + 1
 		C_Timer.After(FETCH_GAP, function()
 			ns.safely("bank fetch", step)
 		end)
