@@ -24,7 +24,15 @@ local function mayMark()
 	return not IsInGroup() or UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
 end
 
-local alert = ns.alert
+-- The alert on screen, and with "tell my party" on (off by default; design 009: party only, never say
+-- or yell, once per spawn as the alert itself) a line in party chat, not in a raid.
+local function alert(text)
+	ns.alert(text)
+	local s = settings()
+	if s.party and SendChatMessage and IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) then
+		SendChatMessage(Encode.chatLine(text), "PARTY")
+	end
+end
 
 -- "52.3, 34.1": the player's position on the map, close to the rare when it is seen.
 local function where()

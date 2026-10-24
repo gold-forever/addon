@@ -1121,7 +1121,17 @@ local function buildSettings(page)
 				end
 				return sw
 			end },
-			{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
+			{ side = 1, row = 1, label = "Tell my party about rares", make = function(cell)
+			local sw = UI.Switch(cell, rares.party == true, function(on)
+				rares.party = on
+			end)
+			if isRetail then
+				sw:Disable()
+				sw:SetAlpha(0.5)
+			end
+			return sw
+		end },
+		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
 				return UI.Slider(cell, 0, 50, 1, math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000), function(v)
 					appraiser.bigDrop = v * 10000
 				end, function(v)

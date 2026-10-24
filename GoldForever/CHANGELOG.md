@@ -78,6 +78,8 @@
   that already has characters never sees it; `/gf welcome` shows it again.
 - In Stranglethorn, Tanaris and Winterspring (the neutral auction houses), item tooltips show the
   neutral market's pool price first, then your faction's (WoW: Forever).
+- Rare alerts can **tell your party** (Settings → General, off at first; WoW: Forever): one plain line in
+  party chat a rare, never in say, yell or raid.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.

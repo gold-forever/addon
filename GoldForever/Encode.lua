@@ -236,6 +236,13 @@ function Encode.cheapestFlat(flat)
 	return low
 end
 
+-- A line for party chat: plain text (the game's "|" escapes out, so nothing coloured or linked), on one
+-- line, within chat's 255 characters, marked as Gold Forever's.
+function Encode.chatLine(text)
+	local plain = string.gsub(string.gsub(tostring(text or ""), "|", ""), "[\r\n]+", " ")
+	return string.sub("[Gold Forever] " .. plain, 1, 255)
+end
+
 -- Base64 (RFC 4648, with padding), for the GFL1/GFP1 strings players and the site share: the same bytes
 -- as the site's btoa over UTF-8.
 local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

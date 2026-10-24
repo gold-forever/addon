@@ -163,4 +163,9 @@ eq(E.unbase64("Zg==Zg=="), nil, "padding only at the end")
 local utf = "Guldsm\195\184r \226\128\153 \208\147"
 eq(E.unbase64(E.base64(utf)), utf, "UTF-8 bytes round trip")
 
+-- Party chat lines: plain, one line, at most 255 characters.
+eq(E.chatLine("Rare: |cffff0000Bad|r (30) near 52.3, 34.1"), "[Gold Forever] Rare: cffff0000Badr (30) near 52.3, 34.1", "escapes out")
+eq(E.chatLine("a\nb"), "[Gold Forever] a b", "one line")
+eq(#E.chatLine(string.rep("x", 400)), 255, "within chat's limit")
+
 return checks

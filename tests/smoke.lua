@@ -333,6 +333,27 @@ if INTERFACE >= 110000 then
 else
   assert(#raidNotices == 1 and marks.nameplate3 == 8, "WoW: Forever: the rare is announced once and marked")
 end
+-- "Tell my party": nothing in chat while it is off (the default); on and in a party, one line a spawn.
+do
+  local said = {}
+  function SendChatMessage(text, channel) said[#said + 1] = channel .. ": " .. text end
+  assert(#said == 0, "nothing sent with it off")
+  ns.settings("rares", { announce = true, mark = true }).party = true
+  IsInGroup = function() return true end
+  function UnitIsGroupLeader() return false end
+  function UnitIsGroupAssistant() return false end
+  IsInRaid = function() return false end
+  UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC2" end return unitGUID(u) end
+  fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+  fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+  if INTERFACE < 110000 then
+    assert(#said == 1 and said[1]:find("^PARTY: %[Gold Forever%] Rare: "), "one party line for the new spawn: " .. tostring(said[1]))
+  else
+    assert(#said == 0, "retail: rare alerts are off, nothing told")
+  end
+  ns.settings("rares", { announce = true, mark = true }).party = nil
+  IsInGroup = function() return false end
+end
 -- The craft list at the auction house: Bolt of Linen Cloth from 2 Linen, Bolts selling at 2s.
 table.insert(GoldForeverDB.scans, { t = 1792520200, kind = "full", market = "EU-Classic Beta PvE 2-alliance",
   rows = { "2589,40,100,10;2589,50,200,5;2996,200,20,4;2934,500,3,1" } })
