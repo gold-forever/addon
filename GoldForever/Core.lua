@@ -189,6 +189,11 @@ local function init()
 		ns.say("this file was written by a newer version. Update the addon.")
 	end
 	db.schema = SCHEMA
+	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
+	-- none, so what the player and the site see is only from the build running.
+	if db.addon ~= VERSION then
+		db.errors = nil
+	end
 	db.addon = VERSION
 	db.fields = db.fields or {}
 	for name, columns in pairs(ns.FIELDS) do

@@ -1231,6 +1231,10 @@ end
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
 local before = ns.sessionText()
 fire("PLAYER_LOGOUT")
+-- The save was written by an older version, with an error it recorded: the new version starts with none.
+local thisVersion = GoldForeverDB.addon
+GoldForeverDB.addon = "0.15.0"
+GoldForeverDB.errors.old = { n = 3, msg = "fixed since", t = now - 86400 }
 for k in pairs(frames) do frames[k] = nil end
 local ns2 = {}
 for _, f in ipairs(tocFiles()) do
@@ -1238,6 +1242,7 @@ for _, f in ipairs(tocFiles()) do
 end
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
+assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
 local after = ns2.sessionText and ns2.sessionText() or ""
 print("AFTER RELOAD\n" .. tostring(after))
 do
