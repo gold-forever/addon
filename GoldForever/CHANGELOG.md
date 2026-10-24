@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.16.0 (not released yet)
 
 - The Gold Forever window (`/gf ui`) has two looks. **Web**, the default, looks like gold-forever.app:
   rounded panels with a soft shadow, the site's colours and text sizes, in Roboto. **Classic** looks
