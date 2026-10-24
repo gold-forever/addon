@@ -1287,9 +1287,11 @@ end
 if INTERFACE < 110000 then
   local e = GoldForever_Prices.markets[POOL_MINE][2589]
   e[5] = 1100
+  local at = e[4]
+  e[4] = now + 86400 -- newer than the own scan, which would win by far otherwise (Prices.pick)
   assert((poolLine(2589) or ""):find("12s 34c · +12% vs 7-day avg", 1, true), "the pool line with its trend: " .. tostring(poolLine(2589)))
   assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
-  e[5] = nil
+  e[5], e[4] = nil, at
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
 -- In a zone with a neutral auction house (Tanaris here), the neutral market's line comes first, on

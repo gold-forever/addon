@@ -318,11 +318,30 @@ end
 -- else the own latest full scan's. Returns value and where it came from ("pool" or "scan"), or nil.
 -- An item's market value and where it came from ("pool" or "scan"), and with the pool's its trend on
 -- the week (Prices.trend), when the file carries one.
+-- The pool's value, unless the player's own scan is newer and more than twice or under half of it: then
+-- the own scan's (manual test run 001: Nylon Thread at 48g in the pool from a scan read in part, 99s in a
+-- full scan made after it). Returns the value and where it came from.
+function Prices.pick(pool, poolAt, own, ownAt)
+	if pool and own and poolAt and ownAt and ownAt > poolAt and own > 0 and (pool > own * 2 or pool * 2 < own) then
+		return own, "scan"
+	end
+	return pool, "pool"
+end
+
 function Prices.value(id)
 	local markets = mine()
 	if markets and Prices.loaded(GoldForever_Prices) then
-		local value, _, _, _, week = entry(GoldForever_Prices, markets, id)
+		local value, _, _, scannedAt, week = entry(GoldForever_Prices, markets, id)
 		if value then
+			local own, ownAt
+			if ns.ownPrice then
+				local o, _, at = ns.ownPrice(id)
+				own, ownAt = o, at
+			end
+			local picked, from = Prices.pick(value, scannedAt, own, ownAt)
+			if from == "scan" then
+				return picked, "scan"
+			end
 			return value, "pool", Prices.trend(value, week), week
 		end
 	end
