@@ -78,6 +78,9 @@
   that already has characters never sees it; `/gf welcome` shows it again.
 - In Stranglethorn, Tanaris and Winterspring (the neutral auction houses), item tooltips show the
   neutral market's pool price first, then your faction's (WoW: Forever).
+- A **mail helper** beside the mailbox: one press opens up to ten auction-house mails in turn (sold gold,
+  bought, expired, cancelled and outbid items), stopping when your bags are full. A player's letter or a
+  cash-on-delivery mail is never touched. Settings → Modules switches it off.
 - Rare alerts can **tell your party** (Settings → General, off at first; WoW: Forever): one plain line in
   party chat a rare, never in say, yell or raid.
 - **Announce dings on Discord** from the game: Settings → Discord (or `/gf dings on|off`) switches it

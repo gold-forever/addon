@@ -49,5 +49,6 @@ SalePlan.lua
 AuctionPanel.lua
 CraftingStrip.lua
 FirstRun.lua
+MailHelper.lua
 DesignSystem.lua
 Minimap.lua

@@ -550,6 +550,34 @@ do
   print("MAIL " .. m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil))
 end
 print("BUYER KEPT " .. tostring((table.concat(day.sale or {}, ";")):find("SomeBuyer") ~= nil))
+-- The mail helper: one press opens the auction mails in turn (a player's letter and a COD mail stay),
+-- the next when the inbox has changed.
+do
+  local keep = { GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem }
+  local inbox = {
+    { "Kael", "Hello", 500, 0, 0 },
+    { "Alliance Auction House", "Auction expired: Linen Cloth", 0, 0, 1 },
+    { "Alliance Auction House", "Auction successful: Wool Cloth", 1900, 0, 0 },
+    { "Bob", "Auction won: Ore", 0, 100, 2 },
+  }
+  function GetInboxNumItems() return #inbox end
+  function GetInboxHeaderInfo(i) local m = inbox[i] if m then return nil, nil, m[1], m[2], m[3], m[4], 20, m[5] end end
+  function GetInboxInvoiceInfo() return nil end
+  local opened = {}
+  function AutoLootMailItem(i) opened[#opened + 1] = inbox[i][2]; table.remove(inbox, i) end
+  MailFrame = widget()
+  fire("MAIL_SHOW")
+  ns.Mail.press()
+  fireNow("MAIL_INBOX_UPDATE")
+  wait(2)
+  fireNow("MAIL_INBOX_UPDATE")
+  wait(2)
+  assert(#opened == 2 and opened[1]:find("expired") and opened[2]:find("successful"), "the two auction mails, in order: " .. table.concat(opened, " | "))
+  assert(#inbox == 2 and inbox[1][2] == "Hello", "the letter and the COD mail stay")
+  fire("MAIL_CLOSED")
+  GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
+  MailFrame = nil
+end
 print("RARE ROWS " .. tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]))
 print("APPRAISER\n" .. tostring(ns.sessionText and ns.sessionText()))
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
