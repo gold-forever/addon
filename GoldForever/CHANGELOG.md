@@ -71,7 +71,8 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   for all professions or one; "Use my own ingredients" counts what you hold at no cost. **Queue** a recipe and the Buy tab's "Craft queue" list
   buys only the reagents still missing. A **craft queue window** opens while crafts are queued: for each reagent what you
   have, what to pick up from the bank (**Take from bank** marks it for your next visit), what the guild
-  bank and your other characters hold, and what is left to buy. Close it with its X; **Queue window** on
+  bank and your other characters hold, and what is left to buy; a reagent a vendor sells is marked
+  "vendor" and bought when you open a merchant that has it. Close it with its X; **Queue window** on
   the Crafting page or the Craft queue list opens it again. `/gf shop` opens it; the old floating "crafts to make" window at
   the auction house is gone.
 - **Session**: This session (the HUD at full size, with its loot), Levelling and Mobs.

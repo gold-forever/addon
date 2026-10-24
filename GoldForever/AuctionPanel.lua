@@ -795,7 +795,8 @@ local function lists()
 		for id, n in pairs(needs) do
 			-- A reagent held already (bags and bank) is not to buy: off the list (manual test run 001).
 			local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id)) or 0
-			if heldHere(id, inBags) < n then
+			-- A vendor's reagent is bought at the vendor (CraftQueue.lua), not here.
+			if heldHere(id, inBags) < n and not ns.price.vendorBuy(id) then
 				local p = prices[id] or {}
 				entries[#entries + 1] = { itemId = id, upTo = n, maxUnit = p.maxUnit, pct = p.pct, lowest = p.lowest }
 			end

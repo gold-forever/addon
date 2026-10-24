@@ -66,7 +66,12 @@ function CraftQueue.plan()
 			others[id] = list
 		end
 	end
-	return Views.queuePlan(needs, mine, guildCounts(), others)
+	local plan = Views.queuePlan(needs, mine, guildCounts(), others)
+	-- A reagent a vendor sells without limit (seen at a merchant) is bought there, not at the auction house.
+	for _, r in ipairs(plan) do
+		r.vendor = ns.price.vendorBuy(r.id) ~= nil
+	end
+	return plan
 end
 
 local function build()
@@ -110,7 +115,7 @@ local function build()
 		{ key = "bags", title = "Bags", width = 56, align = "RIGHT" },
 		{ key = "bank", title = "Bank", width = 56, align = "RIGHT", text = function(r) return r.bank > 0 and tostring(r.bank) or "" end },
 		{ key = "where", title = "Elsewhere", flex = 2, color = function() return Theme.color.textMuted end },
-		{ key = "buy", title = "Buy", width = 52, align = "RIGHT", text = function(r) return r.buy > 0 and tostring(r.buy) or "—" end,
+		{ key = "buy", title = "Buy", width = 80, align = "RIGHT", text = function(r) return r.buy > 0 and (r.buy .. (r.vendor and " vendor" or "")) or "—" end,
 			color = function(r) return r.buy > 0 and Theme.color.accent or Theme.color.textFaint end },
 	}, { pageSize = 7, rowHeight = 22, empty = "Nothing queued.", itemId = function(r) return r.id end })
 	f.table:SetPoint("TOPLEFT", 14, -64)
@@ -162,7 +167,7 @@ function CraftQueue.refresh()
 		crafts[#crafts + 1] = q.count .. "× " .. (r and itemName(r.output) or ("recipe " .. q.recipe))
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
-	local rows, buy, ready = {}, 0, true
+	local rows, buy, vendors, ready = {}, 0, 0, true
 	for i, r in ipairs(CraftQueue.plan()) do
 		local where = {}
 		if r.mail > 0 then
@@ -174,9 +179,11 @@ function CraftQueue.refresh()
 		for _, o in ipairs(r.others) do
 			where[#where + 1] = o.name .. " " .. o.n
 		end
-		rows[i] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy }
-		if r.buy > 0 then
+		rows[i] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
+		if r.buy > 0 and not r.vendor then
 			buy = buy + 1
+		elseif r.buy > 0 then
+			vendors = vendors + 1
 		end
 		if r.bags < r.need then
 			ready = false
@@ -190,7 +197,14 @@ function CraftQueue.refresh()
 		return
 	end
 	frame.table:SetRows(rows, true)
-	frame.note:SetText(buy > 0 and string.format("%d to buy: the auction panel's Buy tab, list \"Craft queue\".", buy) or "Nothing left to buy.")
+	local parts = {}
+	if buy > 0 then
+		parts[#parts + 1] = string.format("%d to buy at the auction house (Buy tab, list \"Craft queue\")", buy)
+	end
+	if vendors > 0 then
+		parts[#parts + 1] = string.format("%d from a vendor (bought when you open one that sells it)", vendors)
+	end
+	frame.note:SetText(#parts > 0 and (table.concat(parts, "; ") .. ".") or "Nothing left to buy.")
 end
 
 function CraftQueue.show()
@@ -238,6 +252,64 @@ function ns.craftQueueChanged()
 		CraftQueue.show()
 	end
 end
+
+-- At a merchant: the queue's vendor reagents it sells, bought (owner, 2026-10-25: "be bought when talking
+-- to a vendor that has the item"), as many as are still to buy and the money allows, in stacks the
+-- merchant sells. A chat line says what was bought.
+local function buyFromMerchant()
+	if InCombatLockdown and InCombatLockdown() then
+		return
+	end
+	local need = {}
+	for _, r in ipairs(CraftQueue.plan()) do
+		if r.buy > 0 then
+			need[r.id] = r.buy
+		end
+	end
+	if not next(need) then
+		return
+	end
+	local bought, spent, money = {}, 0, GetMoney()
+	for i = 1, (GetMerchantNumItems and GetMerchantNumItems() or 0) do
+		local id = GetMerchantItemID and GetMerchantItemID(i)
+		local n = id and need[id]
+		if n then
+			local price, per, extended
+			if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
+				local info = C_MerchantFrame.GetItemInfo(i)
+				if info then
+					price, per, extended = info.price, info.stackCount, info.hasExtendedCost
+				end
+			else
+				local _
+				_, _, price, per, _, _, _, extended = GetMerchantItemInfo(i)
+			end
+			per = math.max(1, per or 1)
+			if price and price > 0 and not extended then
+				local unit = price / per
+				-- What the money allows, then in the merchant's largest stack a purchase.
+				n = math.min(n, math.floor(money / unit))
+				local most = GetMerchantItemMaxStack and GetMerchantItemMaxStack(i) or n
+				local left = n
+				while left > 0 do
+					local take = math.min(left, math.max(1, most))
+					BuyMerchantItem(i, take)
+					left = left - take
+				end
+				if n > 0 then
+					bought[#bought + 1] = n .. "× " .. itemName(id)
+					spent, money = spent + n * unit, money - n * unit
+				end
+			end
+		end
+	end
+	if #bought > 0 then
+		ns.say("bought for the craft queue: " .. table.concat(bought, ", ") .. " (" .. ns.price.coins(spent) .. ").")
+	end
+end
+ns.on("MERCHANT_SHOW", "craft queue", function()
+	ns.after(0.6, "craft queue", buyFromMerchant)
+end)
 
 -- At login, while there are crafts queued and it was not closed.
 ns.on("PLAYER_ENTERING_WORLD", "craft queue", function(isInitialLogin, isReloadingUi)
