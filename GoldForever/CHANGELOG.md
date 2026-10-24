@@ -56,7 +56,8 @@
   the server's answer, then moves to the next item. A post under vendor value or far under the market
   asks for a second press. Alt-click an item in your bags to choose it in Post; its tooltip says what Post would ask. The duration you choose for an item, and how many of a stackable item to
   post (all at first), are remembered for it. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
-  as shares of the market value (the pool's, else your own scan), and hold or post at the floor.
+  as shares of the market value (the pool's, else your own scan), and hold or post at the floor. Prices
+  are whole silver unless the auction house takes copper (the addon asks the game).
   **Shop**: shopping lists of items with the most you pay a unit (or "under market"); shift-click an
   item into the field to add it. Choosing one searches it and shows what you can buy at or under your
   price; **Buy next** asks the auction house for the price, and a second press buys (a price more than

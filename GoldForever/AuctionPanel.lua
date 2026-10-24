@@ -1498,6 +1498,8 @@ key:SetScript("OnClick", function()
 end)
 
 ns.on("AUCTION_HOUSE_SHOW", "auction panel", function()
+	-- Ask the client whether its auction house takes copper (Forever's source leaves it to the client).
+	Post.copper = C_AuctionHouse and C_AuctionHouse.SupportsCopperValues and C_AuctionHouse.SupportsCopperValues() or false
 	if settings().hidden then
 		return
 	end

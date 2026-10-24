@@ -75,4 +75,11 @@ eq(from, "default", "no override")
 eq(r, base, "the default itself")
 eq(P.resolve(base, nil, 1, nil), base, "no overrides at all")
 
+-- A client whose auction house takes copper: copper prices, a copper undercut.
+P.copper = true
+eq(P.silver(9437), 9437, "copper kept")
+eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9549, "a copper under")
+P.copper = false
+eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9500, "whole silver otherwise")
+
 return checks
