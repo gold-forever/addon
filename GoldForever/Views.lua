@@ -664,3 +664,15 @@ function Views.fit(n, room)
 	end
 	return room - 1, n - room + 1
 end
+
+-- How many character rows (Views.characters) are at the level cap: by level, not by the XP missing, which
+-- a character not yet read has missing too.
+function Views.capped(rows, maxLevel)
+	local n = 0
+	for _, r in ipairs(rows) do
+		if (r.level or 0) >= maxLevel then
+			n = n + 1
+		end
+	end
+	return n
+end

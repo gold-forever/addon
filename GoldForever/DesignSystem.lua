@@ -1009,11 +1009,11 @@ local function buildCharacters(page)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
 		local rows, best = Views.characters(ns.db().characters, ns.now(), UnitGUID and UnitGUID("player"))
-		local money, top = 0, 0
+		local money = 0
 		for _, r in ipairs(rows) do
 			money = money + r.money
-			top = top + (r.progress and 0 or 1)
 		end
+		local top = Views.capped(rows, GetMaxPlayerLevel and GetMaxPlayerLevel() or 60)
 		gold:Set(UI.layout.money(money, "gold"), #rows .. (#rows == 1 and " character" or " characters"))
 		if best then
 			nextUp:Set(Theme.escape(classColor(best.class)) .. best.display .. "|r", string.format("%.2f levels of rested XP waiting", best.restedLevels))

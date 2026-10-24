@@ -305,4 +305,7 @@ eq(table.concat({ V.fit(3, 4) }, " "), "3 0", "three reagents in four lines: all
 eq(table.concat({ V.fit(4, 4) }, " "), "4 0", "four in four: all")
 eq(table.concat({ V.fit(6, 4) }, " "), "3 3", "six in four: three and +3 more")
 
+-- At the level cap by level: a character with no XP saved below it is not counted.
+eq(V.capped({ { level = 60 }, { level = 12 }, { level = 0 }, {} }, 60), 1, "one at the cap")
+
 return checks()
