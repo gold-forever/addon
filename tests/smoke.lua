@@ -829,6 +829,21 @@ do
     if not asked then AP.post() end -- a sanity check's second press first, if one was asked
     assert(asked and not confirmed, "posted, the client asked to confirm")
     assert(select(3, AP.state()) == nil, "nothing waited for when the client asks to confirm")
+    -- Blizzard's own warning popup is closed for the panel's post (its Accept would find no post of its
+    -- own) only just after it; later, the warning is for a post from Blizzard's window, and left open
+    -- (review B-6).
+    do
+      local hidden
+      local popupHide = StaticPopup_Hide
+      StaticPopup_Hide = function(which) hidden = which end
+      fire("AUCTION_HOUSE_POST_WARNING")
+      assert(hidden == "AUCTION_HOUSE_POST_WARNING", "just after the panel's post: closed")
+      hidden = nil
+      wait(5)
+      fire("AUCTION_HOUSE_POST_WARNING")
+      assert(hidden == nil, "a while later: Blizzard's own, left open")
+      StaticPopup_Hide = popupHide
+    end
     AP.post()
     assert(confirmed and confirmed.n == 4 and confirmed[3] >= 1 and confirmed[4] and confirmed[4] % 100 == 0, "confirmed with the post's four arguments")
     -- A refused post clears the wait at once (AUCTION_HOUSE_POST_ERROR), the item still chosen.

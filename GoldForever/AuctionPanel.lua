@@ -394,6 +394,8 @@ end)
 -- Posting -----------------------------------------------------------------------------------------------------
 
 local lastArgs -- what the last post sent, for confirming it after the client's warning
+local postedAt -- when the panel last sent a post (GetTime)
+local WARNING_WINDOW = 2 -- seconds after the panel's own post in which the client's warning is for it
 
 -- The duration an item posts for: the one last chosen for it, else the default.
 local function durationOf(r)
@@ -464,6 +466,7 @@ local function post()
 	-- The client says at once whether the post needs confirming (a price far from the going one); then
 	-- the next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
 	local needs
+	postedAt = GetTime()
 	if r.commodity then
 		lastArgs = { n = 4, loc, duration, q, unit }
 		needs = C_AuctionHouse.PostCommodity(loc, duration, q, unit)
@@ -515,12 +518,16 @@ local function closeBlizzardWarning()
 	end)
 end
 ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
+	-- The panel's: its post waiting for an answer, or one it was just warned about. Else it is a post
+	-- from Blizzard's own Sell window, and its popup is the player's to answer.
+	local fresh = confirm and postedAt and GetTime() - postedAt <= WARNING_WINDOW
+	if not (waits.post or fresh) then
+		return
+	end
 	if waits.post and lastArgs then
 		confirm = { key = waits.post.key, args = lastArgs }
-		closeBlizzardWarning()
-	elseif confirm then
-		closeBlizzardWarning()
 	end
+	closeBlizzardWarning()
 	waits.post = nil
 	if panel and panel.post.note then
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
@@ -624,7 +631,7 @@ local function buildPost(page)
 		itemId = function(r) return r.id end,
 		isSelected = function(r) return chosen and r.key == chosen.key end,
 		onRowClick = function(r)
-			chosen, armed = r, nil
+			chosen, armed, confirm = r, nil, nil
 			search(r, true)
 			refresh()
 		end,
@@ -2473,7 +2480,7 @@ local function chooseFromBag(link, loc, itemID)
 		return
 	end
 	panel.select("post", true)
-	chosen, armed = found, nil
+	chosen, armed, confirm = found, nil, nil
 	search(found, true)
 	refresh()
 end
