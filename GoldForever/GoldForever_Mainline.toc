@@ -49,6 +49,7 @@ Shopping.lua
 SalePlan.lua
 AuctionPanel.lua
 CraftingStrip.lua
+CraftQueue.lua
 FirstRun.lua
 MailHelper.lua
 DesignSystem.lua

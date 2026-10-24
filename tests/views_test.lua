@@ -239,6 +239,19 @@ do
 	eq(#bi() , 1, "equipped gear is not in the default view")
 end
 
+-- The craft queue's plan: 20 Linen needed, 5 in the bags, 8 in the bank, none in the mail: 7 missing,
+-- 3 in the guild bank, Alt holds 10: 3 from the guild, 4 from Alt, nothing to buy. 6 Wool, none anywhere:
+-- buy 6.
+do
+	local plan = V.queuePlan({ [2589] = 20, [2592] = 6 },
+		{ bags = { [2589] = 5 }, bank = { [2589] = 8 }, mail = {} }, { [2589] = 3 }, { [2589] = { { name = "Alt", total = 10 } } })
+	eq(plan[1].id .. ":" .. plan[1].buy, "2592:6", "most to buy first")
+	local l = plan[2]
+	eq(l.bags .. "/" .. l.bank .. "/" .. l.guild .. "/" .. l.others[1].name .. " " .. l.others[1].n .. "/" .. l.buy, "5/8/3/Alt 4/0", "bags, bank, guild, Alt, nothing to buy")
+	local enough = V.queuePlan({ [2589] = 4 }, { bags = { [2589] = 1 }, bank = { [2589] = 8 }, mail = {} }, {}, {})
+	eq(enough[1].bank .. "/" .. enough[1].buy, "3/0", "only what is needed from the bank")
+end
+
 -- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.
 local g = V.goal(0, 6400000, { gold = 10000000, by = 10 * 86400 })
 eq(g.pct .. "/" .. g.left .. "/" .. g.daysLeft .. "/" .. g.perDay, "64/3600000/10/360000", "64%, 360g left, 36g a day")

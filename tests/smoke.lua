@@ -884,6 +884,17 @@ do
   -- buys what the bank does not hold.
   ns.queueAdd(2963, 3)
   assert(ns.queueNeeds()[2589] == 6, "the queue needs 6 Linen")
+  -- The craft queue window opens with a craft queued, plans each reagent, closes with its X and comes
+  -- back with the next craft queued.
+  local cq = ns.CraftQueue.window()
+  assert(cq and cq:IsShown(), "the craft queue window opens")
+  local planned
+  for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then planned = r end end
+  assert(planned and planned.need == 6, "it plans the Linen")
+  GoldForeverDB.settings.craftQueue.closed = true
+  cq:Hide()
+  ns.queueAdd(2963, 0)
+  assert(cq:IsShown() and not GoldForeverDB.settings.craftQueue.closed, "a craft queued opens it again")
   C_Item.GetItemCount = function() return 0 end
   -- A market value above the listings (the queue's list buys under market).
   local value = ns.Prices.value
@@ -899,6 +910,7 @@ do
   local inBank = me and me.bank and ns.Encode.parseItems(me.bank.items)[2589] or 0
   assert(calls[#calls] == "start 2589 " .. (6 - inBank), "the queue's missing Linen, the bank's counted: " .. tostring(calls[#calls]))
   ns.queueClear()
+  assert(not ns.CraftQueue.window():IsShown(), "an empty queue closes the window")
   ns.Prices.value = value
   C_Item.GetItemCount = count
   GoldForeverDB.settings.auction.list = 1
