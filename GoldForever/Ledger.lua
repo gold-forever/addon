@@ -36,7 +36,7 @@ ns.on("UNIT_SPELLCAST_START", "craft", function(unit, cast, spell)
 	if output then
 		before[cast] = GetItemCount(output)
 	end
-end)
+end, "player")
 
 -- What a craft made: the game's "You create: [Bolt of Linen Cloth]x2." says it exactly. Counting the
 -- bags instead misses with "Create All", where the next cast starts before this one's items arrive.
@@ -71,7 +71,7 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft", function(unit, cast, spell)
 			end
 		end
 	end)
-end)
+end, "player")
 
 ns.on("CHAT_MSG_LOOT", "craft", function(message)
 	if #crafting == 0 then

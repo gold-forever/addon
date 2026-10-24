@@ -112,6 +112,8 @@ end
 function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {} })
   if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
+  -- One unit's event only: the client passes the unit first, and calls the frame for no other.
+  function f:RegisterUnitEvent(e, ...) self:RegisterEvent(e) self.units = self.units or {} self.units[e] = {} for _, u in ipairs({...}) do self.units[e][u] = true end end
   function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn end end
   function f:GetScript(name) return self.scripts[name] end
   function f:HookScript(name, fn) local old = self.scripts[name]; self.scripts[name] = function(...) if old then old(...) end fn(...) end end
@@ -142,9 +144,10 @@ function tick(every)
 end
 -- The timers due by `upto`; a chain that never ends (more than 5,000 in one go) fails the run.
 local function runTimers(upto) local i = 0 while #timers > 0 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end assert(i < 5000, "more than 5,000 timers in one go"); local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
-function fire(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end runTimers() end
+local function hears(f, e, unit) return f.events[e] and not (f.units and f.units[e] and not f.units[e][unit]) end
+function fire(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end runTimers() end
 -- An event without running the timers due, for orderings within a second.
-function fireNow(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end end
+function fireNow(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end end
 function wait(s) runTimers(clock + s) clock = clock + s end
 -- GF_SMOKE_INTERFACE=120105 plays the same session on a retail client.
 local INTERFACE = tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001
@@ -455,6 +458,12 @@ ClassTrainerFrame = { IsShown = function() return false end }
 money = money + 37; fire("PLAYER_MONEY")
 bolts = 0
 C_Item.GetItemCount = function(id) return id == 2996 and bolts or 0 end
+-- The addon hears its own casts only, not every unit's in a group.
+for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_SENT" }) do
+  local player, party = false, false
+  for _, f in ipairs(frames) do player = player or hears(f, e, "player"); party = party or hears(f, e, "party1") end
+  assert(player and not party, e .. " is registered for the player alone")
+end
 fire("UNIT_SPELLCAST_START", "player", "Cast-1", 2963)
 bolts = 1
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)

@@ -138,7 +138,7 @@ ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
 	-- Every cast replaces the last, so an older cast never names the next loot.
 	target = realName(target)
 	cast = target and not onUnit(target) and { name = target, at = GetTime() } or nil
-end)
+end, "player")
 ns.on("LOOT_READY", "objects", function()
 	local id = ns.lootSource and string.match(ns.lootSource, "^o(%d+)$")
 	if id and cast and GetTime() - cast.at < 10 then

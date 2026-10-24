@@ -212,7 +212,46 @@ local frame = CreateFrame("Frame")
 local listeners = {} -- event -> { { name, fn } }
 local missing = {} -- events this client does not know, for the diagnostics
 
-function ns.on(event, name, fn)
+local function dispatch(list, ...)
+	for _, l in ipairs(list) do
+		ns.safely(l.name, l.fn, ...)
+	end
+end
+
+frame:SetScript("OnEvent", function(_, event, ...)
+	dispatch(listeners[event], ...)
+end)
+
+-- A unit event for one unit only ("player") has a frame of its own, so the client does not call the addon
+-- for every unit in a group: RegisterUnitEvent is per frame. Without it, every unit's.
+local unitListeners = {} -- "event unit" -> { { name, fn } }
+local function onUnit(event, unit, name, fn)
+	local key = event .. " " .. unit
+	if not unitListeners[key] then
+		local list = {}
+		unitListeners[key] = list
+		local f = CreateFrame("Frame")
+		local ok
+		if f.RegisterUnitEvent then
+			ok = pcall(f.RegisterUnitEvent, f, event, unit)
+		else
+			ok = pcall(f.RegisterEvent, f, event)
+		end
+		if not ok then
+			missing[#missing + 1] = event
+		end
+		f:SetScript("OnEvent", function(_, _, ...)
+			dispatch(list, ...)
+		end)
+	end
+	table.insert(unitListeners[key], { name = name, fn = fn })
+end
+
+-- fn(...) on every `event`; with `unit`, only on that unit's.
+function ns.on(event, name, fn, unit)
+	if unit then
+		return onUnit(event, unit, name, fn)
+	end
 	if not listeners[event] then
 		listeners[event] = {}
 		if not pcall(frame.RegisterEvent, frame, event) then
@@ -221,12 +260,6 @@ function ns.on(event, name, fn)
 	end
 	table.insert(listeners[event], { name = name, fn = fn })
 end
-
-frame:SetScript("OnEvent", function(_, event, ...)
-	for _, l in ipairs(listeners[event]) do
-		ns.safely(l.name, l.fn, ...)
-	end
-end)
 
 -- Chat ------------------------------------------------------------------------------------------
 
