@@ -258,6 +258,23 @@ ns.on("ITEM_KEY_ITEM_INFO_RECEIVED", "auction panel", function(itemID)
 	end
 end)
 
+-- Empties Blizzard's own Sell window before the panel posts what it holds: its frame keeps the bag slot,
+-- and once the item has gone it asks that empty slot for an item level and fails (manual test run 001:
+-- "bad argument #1 to 'GetCurrentItemLevel'" after a post). Blizzard's Post button empties it itself.
+local function clearBlizzardSell()
+	local f = AuctionHouseFrame
+	if not f then
+		return
+	end
+	following = true
+	for _, sell in ipairs({ f.ItemSellFrame, f.CommoditiesSellFrame }) do
+		if sell and sell.SetItem and (sell.itemLocation or (sell.GetItem and sell:GetItem())) then
+			pcall(sell.SetItem, sell, nil)
+		end
+	end
+	following = false
+end
+
 -- Puts a bag item in Blizzard's own Sell window, as a click on it in the bags does there; true when it did.
 local function sellItem(location)
 	local f = AuctionHouseFrame
@@ -432,6 +449,7 @@ local function post()
 	local duration = durationOf(r)
 	local loc = r.locations[1]
 	local q = quantity(r)
+	clearBlizzardSell()
 	-- The client says at once whether the post needs confirming (a price far from the going one); then
 	-- the next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
 	local needs
@@ -470,7 +488,8 @@ local function posted()
 		panel.post.note:SetText(Theme.escape(Theme.color.success) .. "Posted.|r")
 	end
 	if next then
-		search(next)
+		-- Into Blizzard's Sell window too, as a click on it does.
+		search(next, true)
 	end
 end
 ns.on("AUCTION_HOUSE_AUCTION_CREATED", "auction panel", posted)
