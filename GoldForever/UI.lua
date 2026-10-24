@@ -380,7 +380,9 @@ function UI.Panel(parent, opts)
 	local f = CreateFrame("Frame", opts.name, parent, classicWindow and "BackdropTemplate" or nil)
 	if classicWindow then
 		f:SetBackdrop(skin.backdrop)
-		f:SetBackdropColor(1, 1, 1, opts.alpha or 0.96)
+		-- Opaque: at 0.96 the world's names showed through (manual test run 001: the auctioneer's green
+		-- name behind the auction panel).
+		f:SetBackdropColor(1, 1, 1, opts.alpha or 1)
 		f:SetBackdropBorderColor(Theme.rgb(Theme.color.borderStrong))
 		return f
 	end
