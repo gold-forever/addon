@@ -2169,18 +2169,29 @@ local function chooseFromBag(link, loc, itemID)
 	refresh()
 end
 
+-- Shift-click on any item while Shopping lists shows adds it to the chosen list.
+local function addToList(link)
+	local id = type(link) == "string" and tonumber(string.match(link, "item:(%d+)"))
+	if id and ns.listsPage and ns.listsPage:IsVisible() then
+		ns.safely("lists add", ns.listsPage.addItem, id)
+	end
+end
 if hooksecurefunc and HandleModifiedItemClick then
 	hooksecurefunc("HandleModifiedItemClick", function(link, loc)
 		if IsAltKeyDown and IsAltKeyDown() then
 			ns.safely("auction alt-click", chooseFromBag, link, loc)
-		elseif IsShiftKeyDown and IsShiftKeyDown() and ns.listsPage and ns.listsPage:IsVisible() then
-			-- Shift-click on any item while Shopping lists shows adds it to the chosen list.
-			local id = type(link) == "string" and tonumber(string.match(link, "item:(%d+)"))
-			if id then
-				ns.safely("lists add", ns.listsPage.addItem, id)
-			end
+		elseif IsShiftKeyDown and IsShiftKeyDown() then
+			addToList(link)
 		end
 	end)
+end
+-- The auction house's own item buttons and chat links send a shift-click's link straight to the chat
+-- link function, not through HandleModifiedItemClick (manual test run 001: shift-click in the auction
+-- house added nothing): hooked too. An item added twice is only chosen again.
+if hooksecurefunc and ChatFrameUtil and ChatFrameUtil.InsertLink then
+	hooksecurefunc(ChatFrameUtil, "InsertLink", addToList)
+elseif hooksecurefunc and ChatEdit_InsertLink then
+	hooksecurefunc("ChatEdit_InsertLink", addToList)
 end
 ns.AuctionPanelAltClick = chooseFromBag
 -- From the hub's Inventory: an item chosen in Post while the auction house is open.

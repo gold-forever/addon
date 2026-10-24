@@ -16,6 +16,7 @@ end
 -- The client's modified-click handler, which the addon hooks (alt-click chooses in Sell, shift-click adds
 -- to a shopping list).
 function HandleModifiedItemClick() end
+ChatFrameUtil = { InsertLink = function() return false end }
 function TakeTaxiNode(slot) end
 tooltipHooks = {}
 itemTooltipHooks, unitTooltipHooks = {}, {}
@@ -952,15 +953,20 @@ do
     HandleModifiedItemClick("|cffffffff|Hitem:2589::::::::30|h[Linen Cloth]|h|r")
     IsShiftKeyDown = shift
     assert(list.entries[1] and list.entries[1].itemId == 2589, "a shift-click adds the item")
+    -- A shift-click in the auction house sends the link to the chat link function only.
+    ChatFrameUtil.InsertLink("|cffffffff|Hitem:2592::::::::30|h[Wool Cloth]|h|r")
+    assert(list.entries[2] and list.entries[2].itemId == 2592, "an auction house shift-click adds it too")
+    ChatFrameUtil.InsertLink("|cffffffff|Hitem:2592::::::::30|h[Wool Cloth]|h|r")
+    assert(#list.entries == 2, "the same item twice is added once")
     c.setPrice("pct", "80")
     c.setMany("20")
-    assert(list.entries[1].pct == 80 and list.entries[1].upTo == 20 and not list.entries[1].maxUnit, "80% of market, up to 20")
+    assert(list.entries[2].pct == 80 and list.entries[2].upTo == 20 and not list.entries[2].maxUnit, "80% of market, up to 20")
     c.setPrice("fixed", "4g 50s")
-    assert(list.entries[1].maxUnit == 45000 and not list.entries[1].pct, "a fixed price replaces the share")
+    assert(list.entries[2].maxUnit == 45000 and not list.entries[2].pct, "a fixed price replaces the share")
     c.rename("Cloth")
     assert(list.name == "Cloth", "renamed")
     local back = ns.Shopping.decode(ns.Shopping.encode({ list }))
-    assert(back[1].entries[1].maxUnit == 45000 and back[1].entries[1].upTo == 20, "its string reads back")
+    assert(back[1].entries[2].maxUnit == 45000 and back[1].entries[2].upTo == 20, "its string reads back")
     c.delete.scripts.OnClick(c.delete)
     assert(#mine == before + 1, "the first Delete only asks")
     c.delete.scripts.OnClick(c.delete)
