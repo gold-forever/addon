@@ -99,6 +99,21 @@
   for the character you are playing. The webhook is added at gold-forever.app/settings; the switch
   needs the companion app, which carries the choice to the site at the next upload.
 
+- **Retail saves are lean**: on a retail client the item tooltip text, the achievement catalogue and the
+  map art are no longer recorded, and an existing retail save drops them at load (about 5 MB on a busy
+  save). They exist to keep WoW: Forever's knowledge; a Forever save keeps everything.
+- Recorded errors are of the version that recorded them: a new addon version starts with none.
+- Statistics and achievements are read a category a frame (a retail client stopped the read as "script
+  ran too long"); the counts of what each mob drops are built over frames after login.
+- Units the client keeps secret (newer clients hide some names and GUIDs) are skipped, never an error.
+- The mail helper never opens a letter a player could have titled like auction mail.
+- The auction house panel never stays locked after a refused buy, cancel or post (it waits at most 5
+  seconds), and a press after a price warning confirms only the price and quantity warned about.
+- Kills: a corpse looted after its fight ended is no longer counted a second time.
+- The HUD switch in Settings → Modules does what it shows; This session counts from the first opening.
+- Switching looks no longer builds new panels each time (the window's, the HUD's, the auction house
+  panel's, the mail helper's, the crafting strip's, the first-run card's).
+
 ## 0.15.0
 
 - Prices from everyone's scans in the item tooltip: "Pool: 12s 34c · min buyout 11s 0c · 3 players ·
