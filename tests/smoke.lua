@@ -1298,7 +1298,15 @@ do
   assert(card and card:IsShown(), "the card shows after login")
   card.show(2)
   card.choose("prices")
+  -- Step 3: a look is seen at once, the card drawn again in it on the same step, the preset kept.
+  card.show(3)
+  card.pickLook("arcane")
+  assert(GoldForeverDB.settings.window.look == "arcane", "the card's look button sets the look")
+  local arcane = ns.FirstRun.card()
+  assert(arcane ~= card and arcane:IsShown() and not card:IsShown(), "the card is drawn again in the new look")
+  card = arcane
   card.finish(false)
+  SlashCmdList.GOLDFOREVER("look web")
   assert(GoldForeverDB.settings.firstRun.done == true and not card:IsShown(), "done, and closed")
   assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
   -- Back to everything on, for the rest of the run.

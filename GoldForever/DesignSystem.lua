@@ -1281,7 +1281,7 @@ local function buildSettings(page)
 					page:GetParent():GetParent():SetScale(window.scale)
 				end, function(v)
 					return v .. "%"
-				end)
+				end, { onRelease = true })
 			end },
 		})
 		settingsCard(g, "Alerts", -146, {
@@ -1537,26 +1537,29 @@ local function tabbed(key, tabs)
 	end
 end
 
+-- The tabbed pages' tabs; the sidebar's search finds a page by a tab's name too.
+local LEDGER_TABS = {
+	{ key = "money", label = "Money", build = buildLedger },
+	{ key = "characters", label = "Characters", build = buildCharacters },
+	{ key = "inventory", label = "Inventory", build = buildInventory },
+	{ key = "sales", label = "Auction sales", build = buildSales },
+}
+local SESSION_TABS = {
+	{ key = "now", label = "This session", build = buildSessionNow },
+	{ key = "levelling", label = "Levelling", build = buildLevelling },
+	{ key = "mobs", label = "Mobs", build = buildMobs },
+}
 local PAGES = {
 	{ key = "home", label = "Home", icon = "coins", group = "Overview", build = buildHome, title = "Home",
 		lede = "Your next moves, from everyone's prices and your own bags." },
 	{ key = "ledger", label = "Ledger", icon = "book-open", group = "Overview", title = "Ledger",
 		lede = "Where your money went and came from, your characters, and everything they hold.",
-		build = tabbed("ledger", {
-			{ key = "money", label = "Money", build = buildLedger },
-			{ key = "characters", label = "Characters", build = buildCharacters },
-			{ key = "inventory", label = "Inventory", build = buildInventory },
-			{ key = "sales", label = "Auction sales", build = buildSales },
-		}) },
+		tabs = LEDGER_TABS, build = tabbed("ledger", LEDGER_TABS) },
 	{ key = "crafting", label = "Crafting", icon = "flask-conical", group = "Trading", build = buildCrafting, title = "Crafting",
 		lede = "Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut." },
 	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
 		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
-		build = tabbed("session", {
-			{ key = "now", label = "This session", build = buildSessionNow },
-			{ key = "levelling", label = "Levelling", build = buildLevelling },
-			{ key = "mobs", label = "Mobs", build = buildMobs },
-		}) },
+		tabs = SESSION_TABS, build = tabbed("session", SESSION_TABS) },
 	{ key = "rares", label = "Rares", icon = "skull", group = "Play", build = buildRares, title = "Rares",
 		lede = "Every rare your characters have seen, where and when last, and what a loot of one has been worth." },
 	{ key = "companion", label = "Companion", icon = "rotate-ccw", group = "Addon", build = buildCompanion, title = "Companion",
@@ -1609,8 +1612,9 @@ end
 
 -- The accent panels draw in this session. Each new colour draws every window and panel anew (frames are
 -- never freed), so a session draws in at most MAX_ACCENTS of them; one more is saved and shows after a
--- /reload.
-local MAX_ACCENTS = 4
+-- /reload. Enough for every swatch in Settings and the look's own (manual test run 001: the fourth
+-- swatch clicked waited for a reload); only typed /gf accent colours past those wait.
+local MAX_ACCENTS = #Theme.accents + 1
 local drawnAccents, drawnCount, sessionAccent, accentRead = {}, 0, nil, false
 local function accent()
 	if not accentRead then

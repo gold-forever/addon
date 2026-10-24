@@ -1,6 +1,7 @@
 -- Gold Forever: the first-run card (design 009, Phase 2; the playground's First run idea). Once per new
 -- install, never in combat (it waits for the fight to end): what Gold Forever records and shares, which
--- parts to start with (three presets over Settings → Modules), and the companion app. Skippable;
+-- parts to start with (three presets over Settings → Modules), the look and accent colour, and the
+-- companion app. Skippable;
 -- "/gf welcome" shows it again. An install that already has characters in its save never sees it.
 
 local _, ns = ...
@@ -62,8 +63,10 @@ local function settingsTables()
 	}
 end
 
-local card
-local STEPS = { "What it records", "Where to start", "The companion" }
+local card, open
+local STEPS = { "What it records", "Where to start", "Look and colour", "The companion" }
+-- The preset picked, kept across the cards of each look (a new look draws the card anew).
+local chosen = "trader"
 
 local function build()
 	if ns.applyLook then
@@ -106,7 +109,6 @@ local function build()
 	-- 2: a preset.
 	local p2 = CreateFrame("Frame", nil, f)
 	p2:SetAllPoints(p1)
-	p2.choice = "trader"
 	p2.rows = {}
 	for i, preset in ipairs(FirstRun.PRESETS) do
 		local row = CreateFrame("Button", nil, p2)
@@ -119,7 +121,7 @@ local function build()
 		row.blurb = UI.Text(row, preset.blurb, { size = "xs", tone = "faint" })
 		row.blurb:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -5)
 		row:SetScript("OnClick", function()
-			p2.choice = preset.id
+			chosen = preset.id
 			p2:Paint()
 		end)
 		row.id = preset.id
@@ -127,7 +129,7 @@ local function build()
 	end
 	function p2:Paint()
 		for _, row in ipairs(self.rows) do
-			local on = row.id == self.choice
+			local on = row.id == chosen
 			row.rim:SetColor(on and Theme.color.accent or Theme.color.border)
 			row.label:SetTextColor(Theme.rgb(on and Theme.color.accent or Theme.color.text))
 		end
@@ -135,22 +137,77 @@ local function build()
 	p2:Paint()
 	pages[2] = p2
 
-	-- 3: the companion.
+	-- 3: the look and accent, as Settings → General sets them. Each is seen at once: the card is drawn
+	-- again in it, on this step.
 	local p3 = CreateFrame("Frame", nil, f)
 	p3:SetAllPoints(p1)
-	local why = UI.Text(p3, "The addon cannot reach the internet. The free companion app brings everyone's prices into the game every hour and uploads your save when the game writes it. Copy the address and open it in your browser:", { size = "sm", tone = "muted", wrap = true })
+	local function redraw(change)
+		f:Hide()
+		change()
+		open(3)
+	end
+	local lookLabel = UI.Text(p3, "Look", { size = "xs", medium = true, tone = "faint" })
+	lookLabel:SetPoint("TOPLEFT")
+	local function pickLook(name)
+		if name ~= Theme.skin.name then
+			redraw(function()
+				ns.commands.look(name)
+			end)
+		end
+	end
+	f.pickLook = pickLook
+	for i, name in ipairs(Theme.order) do
+		local b = UI.Button(p3, Theme.skins[name].label, function()
+			pickLook(name)
+		end, { kind = name == Theme.skin.name and "primary" or nil, width = 110, height = 28 })
+		b:SetPoint("TOPLEFT", (i - 1) * 118, -18)
+	end
+	local accentLabel = UI.Text(p3, "Accent colour", { size = "xs", medium = true, tone = "faint" })
+	accentLabel:SetPoint("TOPLEFT", 0, -68)
+	local current = ns.settings("window", {}).accent
+	local own = UI.Button(p3, "The look's own", function()
+		if current then
+			redraw(function()
+				ns.commands.accent("")
+			end)
+		end
+	end, { kind = current == nil and "primary" or nil, width = 130, height = 28 })
+	own:SetPoint("TOPLEFT", 0, -86)
+	for k, a in ipairs(Theme.accents) do
+		local sw = UI.Swatch(p3, a.hex, function()
+			if current ~= a.hex then
+				redraw(function()
+					ns.commands.accent(a.hex)
+				end)
+			end
+		end)
+		sw:SetPoint("LEFT", own, "RIGHT", 12 + (k - 1) * 30, 0)
+		sw:SetOn(current == a.hex)
+	end
+	local later = UI.Text(p3, "Settings → General changes both any time, and /gf look too.", { size = "xs", tone = "faint" })
+	later:SetPoint("TOPLEFT", 0, -132)
+	pages[3] = p3
+
+	-- 4: the companion.
+	local p4 = CreateFrame("Frame", nil, f)
+	p4:SetAllPoints(p1)
+	local why = UI.Text(p4, "The addon cannot reach the internet. The free companion app brings everyone's prices into the game every hour and uploads your save when the game writes it. Copy the address and open it in your browser:", { size = "sm", tone = "muted", wrap = true })
 	why:SetPoint("TOPLEFT")
-	why:SetPoint("RIGHT", p3, "RIGHT")
-	local url = UI.SearchBox(p3, "", nil)
+	why:SetPoint("RIGHT", p4, "RIGHT")
+	local url = UI.SearchBox(p4, "", nil)
 	url:SetPoint("TOPLEFT", 0, -74)
 	url:SetWidth(320)
 	url:SetText("gold-forever.app/companion")
 	url:SetScript("OnEditFocusGained", function(self)
 		self:HighlightText()
 	end)
-	local copy = UI.Text(p3, "Ctrl+C copies it. Without the companion, prices come from your own scans.", { size = "xs", tone = "faint" })
+	local copy = UI.Text(p4, "Ctrl+C copies it. Without the companion, prices come from your own scans.", { size = "xs", tone = "faint" })
 	copy:SetPoint("TOPLEFT", url, "BOTTOMLEFT", 0, -10)
-	pages[3] = p3
+	-- Said plainly (manual test run 001): a player installs it on their own computer, so they may read it first.
+	local source = UI.Text(p4, Theme.escape(Theme.color.accent) .. "Open source.|r The companion's code is free to read (MIT licence) at github.com/gold-forever/companion: everything it reads and sends is there.", { size = "xs", tone = "muted", wrap = true })
+	source:SetPoint("TOPLEFT", copy, "BOTTOMLEFT", 0, -14)
+	source:SetPoint("RIGHT", p4, "RIGHT")
+	pages[4] = p4
 
 	local step = 1
 	local skip, back, nextButton
@@ -163,7 +220,7 @@ local function build()
 		for i, s in ipairs(STEPS) do
 			parts[i] = i == n and (Theme.escape(Theme.color.accent) .. i .. ". " .. s .. "|r") or (i .. ". " .. s)
 		end
-		steps:SetText(table.concat(parts, "   ·   "))
+		steps:SetText(table.concat(parts, "  ·  "))
 		back:SetShown(n > 1)
 		nextButton.label:SetText(n == #STEPS and "Done" or "Next")
 	end
@@ -171,11 +228,11 @@ local function build()
 		local s = ns.settings("firstRun", {})
 		s.done = true
 		if not skipped then
-			FirstRun.apply(p2.choice, settingsTables())
+			FirstRun.apply(chosen, settingsTables())
 		end
 		f:Hide()
 		ns.say(skipped and "first-run card skipped; everything stays as it was. /gf welcome shows it again."
-			or "started with the " .. p2.choice .. " preset. Settings → Modules changes it any time.")
+			or "started with the " .. chosen .. " preset. Settings → Modules changes it any time.")
 	end
 	skip = UI.Button(f, "Skip", function()
 		finish(true)
@@ -196,7 +253,7 @@ local function build()
 	f.show = show
 	f.finish = finish
 	f.choose = function(id)
-		p2.choice = id
+		chosen = id
 		p2:Paint()
 	end
 	show(1)
@@ -206,7 +263,8 @@ end
 -- One card per look and accent, built the first time it is needed (frames are never freed): every
 -- loading screen asks for the card until it is done or skipped, and it is not built again for that.
 local cards = {}
-local function open()
+-- `step`: the step to show (a new look reopens it on that step), else the first.
+function open(step)
 	if InCombatLockdown and InCombatLockdown() then
 		ns.settings("firstRun", {}).waiting = true
 		return
@@ -223,7 +281,7 @@ local function open()
 	end
 	card = cards[key] or build()
 	cards[key] = card
-	card.show(1)
+	card.show(step or 1)
 	card:Show()
 end
 

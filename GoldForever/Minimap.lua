@@ -191,7 +191,8 @@ function GoldForever_ToggleHud()
 	end)
 end
 
+-- Retail's AddOns list may show no header and cuts a name past about 24 letters: each name says whose it is.
 BINDING_HEADER_GOLDFOREVER = "Gold Forever"
-BINDING_NAME_GOLDFOREVER_WINDOW = "Open or close the window"
-BINDING_NAME_GOLDFOREVER_LOOK = "Switch the window's look"
-BINDING_NAME_GOLDFOREVER_HUD = "Show or hide the session HUD"
+BINDING_NAME_GOLDFOREVER_WINDOW = "Gold Forever window"
+BINDING_NAME_GOLDFOREVER_LOOK = "Gold Forever next look"
+BINDING_NAME_GOLDFOREVER_HUD = "Gold Forever HUD"

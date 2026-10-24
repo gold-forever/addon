@@ -40,8 +40,8 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 
 ### The window
 
-- The Gold Forever window (`/gf`, or the minimap button) is a hub: a sidebar with a page search, the
-  pages in groups, and the addon's own memory and CPU use at its foot.
+- The Gold Forever window (`/gf`, or the minimap button) is a hub: a sidebar with a page search (a tab's
+  name finds its page and opens that tab: "inv" opens Ledger's Inventory), the pages in groups, and the addon's own memory and CPU use at its foot.
 - **Home**: your next moves (when you can scan, what your bags would sell for, the best craft), today's
   money by where it came from, the bag items worth most, and a **gold goal** with the gold a day still
   needed.
@@ -55,16 +55,18 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   worth.
 - **Companion**: whether the companion's prices are loaded, how old they are, and its markets.
 - **Settings**: the look, an accent colour (also `/gf accent #rrggbb`), the minimap button, the window's
-  size, the alerts, and **Modules** to switch any part on or off without a reload. What the save records
+  size (set when you let go of the slider, or type it in its box), the alerts, and **Modules** to switch any part on or off without a reload. What the save records
   stays the same whatever is off.
-- **Guide**: how to use it all, and every command (`/gf help` lists them too).
+- **Guide**: how to use it all, and every command (`/gf help` lists the main ones, `/gf help all` the
+  rest; `/gf check` gives the details for a bug report).
 - Three **looks**: **Web** (like gold-forever.app), **Classic** (like the game's own windows) and
   **Arcane** (deep indigo with a cyan glow). Switch with the minimap button's right-click, the title bar
   or `/gf look`; no reload needed.
 - A minimap button (`/gf minimap` hides it), the addon compartment, and key bindings to open the window,
   switch the look and show the HUD.
-- A **first-run card** for new installs: what Gold Forever records and shares, and a preset to start with
-  (Prices only, Trader, Everything). `/gf welcome` shows it again.
+- A **first-run card** for new installs: what Gold Forever records and shares, a preset to start with
+  (Prices only, Trader, Everything), the look and accent colour (seen at once), and the companion app,
+  which is open source. `/gf welcome` shows it again.
 
 ### While you play
 
