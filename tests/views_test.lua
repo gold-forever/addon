@@ -26,6 +26,13 @@ eq(money[1].t, 50, "in time order")
 eq(money[2].ctx, "loot", "by column name")
 eq(money[4].ctx, nil, "an empty column is nil")
 eq(money[4].char, 2, "the character as a number")
+local mine = V.rows(db, "money", 1)
+eq(#mine, 3, "one character's rows")
+eq(mine[1].t, 50, "still in time order")
+local recent = V.rows(db, "money", 1, 100)
+eq(#recent, 2, "one character's rows from a time on")
+eq(recent[1].t, 100, "the row at the time itself is kept")
+eq(#V.rows(db, "money", nil, 250), 1, "every character's rows from a time on")
 
 -- Rested: as read when online, grown by the inn rule since the save, never past 1.5 levels.
 local xp = { cur = 100, max = 1000, rested = 200, resting = 1, t = 0 }

@@ -355,7 +355,7 @@ local function buildHome(page)
 		end
 
 		-- Today's money for this character, by where it came from.
-		local ledger = me and Views.ledger(Views.rows(db, "money"), Views.rows(db, "flight"), me.ref, Views.dayStart(now)) or { categories = {}, net = 0 }
+		local ledger = me and Views.ledger(Views.rows(db, "money", me.ref, Views.dayStart(now)), Views.rows(db, "flight"), me.ref, Views.dayStart(now)) or { categories = {}, net = 0 }
 		table.sort(ledger.categories, function(a, b)
 			return math.abs(a.net) > math.abs(b.net)
 		end)
@@ -495,7 +495,11 @@ local function buildRares(page)
 		note:SetText(retail and "Rare alerts are off on retail (its cities are full of markers taken for rares); sightings from WoW: Forever show here."
 			or "Logged from nameplates, your target and the minimap. Settings → Modules switches the alerts.")
 		local names = ns.db().catalogue.npcs
-		local mobs, worth = ns.mobStats and ns.mobStats()
+		local mobs, worth = ns.mobStats(function()
+			if page:IsShown() then
+				page:Refresh()
+			end
+		end)
 		local rows = {}
 		for _, r in ipairs(Views.rares(Views.rows(ns.db(), "rare"))) do
 			local m = mobs and mobs[r.npc]
@@ -565,7 +569,7 @@ local function buildSales(page)
 			end
 		end
 		local ref = whose == "me" and me and me.ref or nil
-		local sales = Views.sales(Views.rows(db, "sale"), ref, now - LEDGER_DAYS * 86400)
+		local sales = Views.sales(Views.rows(db, "sale", ref, now - LEDGER_DAYS * 86400), ref, now - LEDGER_DAYS * 86400)
 		cards[1]:Set(tostring(sales.count), sales.count == 1 and "sale" or "sales")
 		cards[2]:Set(UI.layout.money(sales.gross, "gold"), "last " .. LEDGER_DAYS .. " days")
 		cards[3]:Set(UI.layout.money(sales.net, "gold"), UI.layout.money(sales.cut, "gold") .. " to the auction house")
@@ -926,7 +930,7 @@ local function buildLevelling(page)
 			return
 		end
 		page:SetTitle(string.format("Levelling · %s%s|r, level %d", Theme.escape(classColor(me.class)), me.name or "?", me.level or 0))
-		local lv = Views.levelling(Views.rows(db, "level"), Views.rows(db, "xp"), me.ref)
+		local lv = Views.levelling(Views.rows(db, "level", me.ref), Views.rows(db, "xp", me.ref), me.ref)
 		local xp = me.xp
 		if xp and xp.max and xp.max > 0 then
 			local have = math.min(xp.rested or 0, xp.max * Views.RESTED_CAP_LEVELS)
@@ -1006,7 +1010,7 @@ local function buildLedger(page)
 		local db, me, now = ns.db(), ns.me(), ns.now()
 		local ref = whose == "me" and me and me.ref or nil
 		local from = now - LEDGER_DAYS * 86400
-		local ledger = Views.ledger(Views.rows(db, "money"), Views.rows(db, "flight"), ref, from, Encode.day)
+		local ledger = Views.ledger(Views.rows(db, "money", ref, from), Views.rows(db, "flight"), ref, from, Encode.day)
 		gained:Set(UI.layout.money(ledger.gained, "gold"), "last " .. LEDGER_DAYS .. " days")
 		spent:Set(UI.layout.money(ledger.spent, "gold"), "last " .. LEDGER_DAYS .. " days")
 		net:Set(UI.layout.money(ledger.net, "gold"), ledger.net >= 0 and "ahead" or "behind")
@@ -1032,7 +1036,16 @@ local function buildMobs(page)
 	tbl:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local mobs, worth = ns.mobStats()
+		local mobs, worth = ns.mobStats(function()
+			if page:IsShown() then
+				page:Refresh()
+			end
+		end)
+		if not mobs then
+			tbl:SetRows({})
+			tbl.footer:SetText("Counting the loot…")
+			return
+		end
 		local names = ns.db().catalogue.npcs
 		local rows = {}
 		for id, m in pairs(mobs or {}) do
@@ -1510,7 +1523,7 @@ local function tabbed(key, tabs)
 		function page:Refresh()
 			self:SelectTab(self.tab or store.tabs[key])
 		end
-		page:SelectTab(store.tabs[key])
+		-- The window refreshes a page right after building it, which shows this tab.
 		page.tab = store.tabs[key] or tabs[1].key
 	end
 end
@@ -1560,9 +1573,14 @@ local function openIn(window, key)
 	if f then
 		settings().tabs = settings().tabs or {}
 		settings().tabs[f[1]] = f[2]
-		window:SelectPage(f[1])
+		-- The page shows this tab as it opens, rather than refreshing the last one first.
 		local page = window.pages[f[1]]
-		if page and page.SelectTab then
+		if page then
+			page.tab = f[2]
+		end
+		window:SelectPage(f[1])
+		page = window.pages[f[1]]
+		if page and page.SelectTab and page.tab ~= f[2] then
 			page:SelectTab(f[2])
 		end
 	else

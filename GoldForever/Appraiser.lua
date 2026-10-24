@@ -963,10 +963,8 @@ end
 
 -- New loot updates the counts in place, rather than reading every loot row again at the next
 -- tooltip (two weeks of rows, in the tooltip's own frame).
-table.insert(ns.lootListeners, function(_, _, rows)
-	if not mobs then
-		return -- not built yet: the first tooltip reads everything, this loot included
-	end
+local countingRows -- loot rows that came while the counts were being built, counted in after them
+local function countRows(rows)
 	for _, row in ipairs(rows or {}) do
 		local npc = Encode.npcOf(row.src)
 		if npc then
@@ -980,17 +978,48 @@ table.insert(ns.lootListeners, function(_, _, rows)
 			countLoot(npc, row.coin or 0, items)
 		end
 	end
+end
+table.insert(ns.lootListeners, function(_, _, rows)
+	if mobs then
+		countRows(rows)
+	elseif countingRows then
+		countingRows[#countingRows + 1] = rows
+	end -- not started: the build reads everything, this loot included
 end)
 
+-- The counts from every saved loot row. Two weeks of heavy farming is tens of thousands of rows, more
+-- than one frame may spend on: CHUNKS_A_FRAME chunks (500 rows each) a frame, from a list of the chunks
+-- taken at the start (rows written meanwhile come through the listener above). Until it is done the
+-- counts are nil: no tooltip line, and the Mobs page says it is counting.
+local CHUNKS_A_FRAME = 2
+local built = {} -- what to call once the counts are in
 local function buildMobs()
-	mobs = {}
+	if countingRows then
+		return
+	end
 	local db = ns.db()
 	local columns = Encode.columns(db.fields and db.fields.loot)
 	if not (columns.src and columns.coin and columns.items) then
+		mobs = {}
 		return
 	end
+	local chunks = {}
 	for _, bucket in pairs(db.events) do
 		for _, chunk in ipairs(bucket.loot or {}) do
+			chunks[#chunks + 1] = chunk
+		end
+	end
+	countingRows = {}
+	local counted, i = {}, 0
+	local function step()
+		local saved = mobs
+		mobs = counted
+		for _ = 1, CHUNKS_A_FRAME do
+			i = i + 1
+			local chunk = chunks[i]
+			if not chunk then
+				break
+			end
 			for row in string.gmatch(chunk, "[^;]+") do
 				local values = { strsplit(",", row) }
 				local id = Encode.npcOf(values[columns.src])
@@ -999,8 +1028,29 @@ local function buildMobs()
 				end
 			end
 		end
+		if i < #chunks then
+			mobs = saved
+			C_Timer.After(0, function()
+				ns.safely("mob counts", step)
+			end)
+			return
+		end
+		for _, rows in ipairs(countingRows) do
+			countRows(rows)
+		end
+		countingRows = nil
+		for _, fn in ipairs(built) do
+			ns.safely("mob counts", fn)
+		end
+		built = {}
 	end
+	step()
 end
+ns.on("PLAYER_ENTERING_WORLD", "mob counts", function()
+	if not mobs then
+		ns.after(20, "mob counts", buildMobs)
+	end
+end)
 
 local function itemName(id)
 	local row = ns.db().catalogue.items[id]
@@ -1008,9 +1058,13 @@ local function itemName(id)
 end
 
 -- Every NPC looted, for the in-game pages: { [npc] = { loots, coin, items = { [id] = { dropped, units } } } }
--- and what one unit of an item is worth.
-function ns.mobStats()
+-- and what one unit of an item is worth; nil while the counts are built, and `whenBuilt` is called once
+-- they are.
+function ns.mobStats(whenBuilt)
 	if not mobs then
+		if whenBuilt then
+			built[#built + 1] = whenBuilt
+		end
 		buildMobs()
 	end
 	return mobs, worth
@@ -1020,6 +1074,9 @@ end
 local function mobLines(npc)
 	if not mobs then
 		buildMobs()
+		if not mobs then
+			return nil
+		end
 	end
 	local m = mobs[npc]
 	if not m then
