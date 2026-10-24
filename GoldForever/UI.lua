@@ -813,11 +813,14 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 	readout:SetTextColor(Theme.rgb(Theme.color.text))
 	readout:SetJustifyH("CENTER")
 	readout.bg, readout.rim = surface(readout, Theme.color.surfaceSunken, 1, Theme.color.border, radius("control") > 0 and 5 or 0)
+	-- The number as a label, which the client always draws: the edit box's own text went undrawn in the
+	-- Sell panel (manual test run 001, R5.3). The box holds text only while a number is typed.
+	readout.label = UI.Text(readout, "", { size = "xs", align = "CENTER" })
+	readout.label:SetPoint("LEFT", 2, 0)
+	readout.label:SetPoint("RIGHT", -2, 0)
 	local quiet, dragging, current = false, false, value
 	local function show(v)
-		if not readout:HasFocus() then
-			readout:SetText(format(v))
-		end
+		readout.label:SetText(format(v))
 	end
 	s:SetScript("OnValueChanged", function(_, v)
 		v = UI.layout.step(v, min, max, step)
@@ -848,26 +851,26 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 		self:ClearFocus()
 		if n then
 			n = UI.layout.step(n, min, max, step)
-			if n == UI.layout.step(s:GetValue(), min, max, step) then
-				show(n)
-			else
+			if n ~= current then
 				s:SetValue(n)
 			end
-		else
-			show(UI.layout.step(s:GetValue(), min, max, step))
 		end
+		show(current)
 	end)
 	readout:SetScript("OnEscapePressed", function(self)
 		self:ClearFocus()
-		show(UI.layout.step(s:GetValue(), min, max, step))
 	end)
 	readout:SetScript("OnEditFocusGained", function(self)
 		self.rim:SetColor(Theme.color.focus)
+		self.label:Hide()
+		self:SetText(tostring(current))
 		self:HighlightText()
 	end)
 	readout:SetScript("OnEditFocusLost", function(self)
 		self.rim:SetColor(Theme.color.border)
-		show(UI.layout.step(s:GetValue(), min, max, step))
+		self:SetText("")
+		self.label:Show()
+		show(current)
 	end)
 	-- Its number again when shown (manual test run 001: the Sell quantity's box showed empty).
 	readout:SetScript("OnShow", function()
