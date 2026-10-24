@@ -43,13 +43,14 @@ function Mail.isAuction(subject, patterns)
 	return false
 end
 
--- The next auction mail to open from the inbox's headers ({ subject, money, cod, items }), in order: one
--- with something to take, no cash on delivery, and items only while the bags have room for them.
+-- The next auction mail to open from the inbox's headers ({ subject, money, cod, items, canReply }), in
+-- order: one with something to take, no cash on delivery, and items only while the bags have room for
+-- them. A letter that can be answered is a player's, whatever its subject says: never opened.
 -- Returns its index, or nil and why ("none" or "bags").
 function Mail.next(headers, freeSlots, patterns)
 	local blocked = false
 	for i, h in ipairs(headers) do
-		if Mail.isAuction(h.subject, patterns) and (h.cod or 0) == 0 and ((h.money or 0) > 0 or (h.items or 0) > 0) then
+		if Mail.isAuction(h.subject, patterns) and not h.canReply and (h.cod or 0) == 0 and ((h.money or 0) > 0 or (h.items or 0) > 0) then
 			if (h.items or 0) == 0 or (h.items or 0) <= freeSlots then
 				return i
 			end
@@ -75,8 +76,8 @@ end
 local function headers()
 	local out = {}
 	for i = 1, (GetInboxNumItems and GetInboxNumItems() or 0) do
-		local _, _, _, subject, money, cod, _, items = GetInboxHeaderInfo(i)
-		out[i] = { subject = subject, money = money or 0, cod = cod or 0, items = items or 0 }
+		local _, _, _, subject, money, cod, _, items, _, _, _, canReply = GetInboxHeaderInfo(i)
+		out[i] = { subject = subject, money = money or 0, cod = cod or 0, items = items or 0, canReply = canReply }
 	end
 	return out
 end
@@ -96,7 +97,7 @@ end
 local function waiting()
 	local n, gold, items = 0, 0, 0
 	for _, h in ipairs(headers()) do
-		if Mail.isAuction(h.subject, patterns) and h.cod == 0 then
+		if Mail.isAuction(h.subject, patterns) and not h.canReply and h.cod == 0 then
 			n, gold, items = n + 1, gold + h.money, items + h.items
 		end
 	end

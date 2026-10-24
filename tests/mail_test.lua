@@ -37,5 +37,8 @@ local _, why = M.next({ inbox[1], inbox[2] }, 0, P)
 eq(why, "bags", "only items left and no room")
 _, why = M.next({ inbox[1], inbox[4] }, 5, P)
 eq(why, "none", "cash on delivery is never opened")
+-- A player's letter titled like the auction house's (it can be answered): never opened.
+_, why = M.next({ { subject = "Auction successful: Gold", money = 100000, items = 0, canReply = true } }, 5, P)
+eq(why, "none", "a player's letter with an auction subject is not auction mail")
 
 return checks

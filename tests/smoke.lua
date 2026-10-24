@@ -779,13 +779,14 @@ end
 do
   local keep = { GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem }
   local inbox = {
-    { "Kael", "Hello", 500, 0, 0 },
+    { "Kael", "Hello", 500, 0, 0, true },
+    { "Mallory", "Auction successful: Free gold", 700, 0, 0, true },
     { "Alliance Auction House", "Auction expired: Linen Cloth", 0, 0, 1 },
     { "Alliance Auction House", "Auction successful: Wool Cloth", 1900, 0, 0 },
     { "Bob", "Auction won: Ore", 0, 100, 2 },
   }
   function GetInboxNumItems() return #inbox end
-  function GetInboxHeaderInfo(i) local m = inbox[i] if m then return nil, nil, m[1], m[2], m[3], m[4], 20, m[5] end end
+  function GetInboxHeaderInfo(i) local m = inbox[i] if m then return nil, nil, m[1], m[2], m[3], m[4], 20, m[5], false, false, false, m[6] or false end end
   function GetInboxInvoiceInfo() return nil end
   local opened = {}
   function AutoLootMailItem(i) opened[#opened + 1] = inbox[i][2]; table.remove(inbox, i) end
@@ -803,8 +804,8 @@ do
   wait(2)
   fireNow("MAIL_INBOX_UPDATE")
   wait(2)
-  assert(#opened == 2 and opened[1]:find("expired") and opened[2]:find("successful"), "the two auction mails, in order: " .. table.concat(opened, " | "))
-  assert(#inbox == 2 and inbox[1][2] == "Hello", "the letter and the COD mail stay")
+  assert(#opened == 2 and opened[1]:find("expired") and opened[2]:find("Wool"), "the two auction mails, in order: " .. table.concat(opened, " | "))
+  assert(#inbox == 3 and inbox[1][2] == "Hello" and inbox[2][1] == "Mallory", "the letters (one titled like the auction house's) and the COD mail stay")
   -- While the server still works on a mail nothing is taken; a refusal stops the batch.
   local pending = true
   C_Mail = C_Mail or {}
