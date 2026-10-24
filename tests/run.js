@@ -45,6 +45,63 @@ for (const name of addonFiles) {
     console.log(`✓ ${name} compiles`)
   }
 }
+// Lua 5.2+ syntax the game's Lua 5.1 refuses, though fengari (5.3) and LuaJIT accept some of it: goto and
+// ::labels::, // and the bitwise operators. Read with strings and comments taken out.
+function code(source) {
+  let out = ''
+  let i = 0
+  const longBracket = (at) => {
+    const m = /^\[(=*)\[/.exec(source.slice(at, at + 64))
+    return m && m[1].length
+  }
+  while (i < source.length) {
+    const c = source[i]
+    if (c === '-' && source[i + 1] === '-') {
+      const level = longBracket(i + 2)
+      if (level !== null) {
+        const close = source.indexOf(']' + '='.repeat(level) + ']', i)
+        const end = close < 0 ? source.length : close + level + 2
+        out += source.slice(i, end).replace(/[^\n]/g, '')
+        i = end
+      } else {
+        while (i < source.length && source[i] !== '\n') i++
+      }
+      out += ' '
+    } else if (c === '[' && longBracket(i) !== null) {
+      const level = longBracket(i)
+      const close = source.indexOf(']' + '='.repeat(level) + ']', i)
+      const end = close < 0 ? source.length : close + level + 2
+      out += '""' + source.slice(i, end).replace(/[^\n]/g, '')
+      i = end
+    } else if (c === '"' || c === "'") {
+      i++
+      const start = i
+      while (i < source.length && source[i] !== c && source[i] !== '\n') i += source[i] === '\\' ? 2 : 1
+      i++
+      out += '""' + source.slice(start, i).replace(/[^\n]/g, '')
+    } else {
+      out += c
+      i++
+    }
+  }
+  return out
+}
+const NEWER = [
+  [/\bgoto\b/, 'goto'],
+  [/::\s*[A-Za-z_]\w*\s*::/, 'a ::label::'],
+  [/\/\//, 'floor division //'],
+  [/&|\||<<|>>|~(?!=)/, 'a bitwise operator'],
+]
+for (const name of addonFiles) {
+  const lines = code(fs.readFileSync(path.join(addonDir, name), 'utf8')).split('\n')
+  for (const [pattern, what] of NEWER) {
+    const at = lines.findIndex((l) => pattern.test(l))
+    if (at >= 0) {
+      console.error(`✗ ${name}:${at + 1} uses ${what}, which Lua 5.1 does not have`)
+      failed++
+    }
+  }
+}
 for (const name of tests) {
   const L = state()
   const source = fs.readFileSync(path.join(__dirname, name), 'utf8')
