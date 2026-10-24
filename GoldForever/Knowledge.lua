@@ -15,25 +15,62 @@ ns.FIELDS.trainerService = "name,category,icon,cost,skill,skillRank,level"
 
 local levels = {} -- npc ID -> { min, max } seen this session, to widen the level range
 
+-- A name worth keeping: readable (newer clients keep a restricted unit's name secret), not empty,
+-- and not the client's "Unknown" for a name it has not loaded yet. nil otherwise: such a name is
+-- never written, so a later real one fills the row (the server reads "" and "Unknown" as no name).
+local function realName(v)
+	v = ns.readable(v)
+	if type(v) ~= "string" or v == "" or v == "?" or v == "Unknown" or v == UNKNOWNOBJECT or v == UNKNOWN then
+		return nil
+	end
+	return v
+end
+ns.realName = realName
+
+-- A stored row's fields: name, minLevel, maxLevel, classification, type.
+local function fields(row)
+	local out = {}
+	for v in string.gmatch((row or "") .. ",", "([^,]*),") do
+		out[#out + 1] = v
+	end
+	return out
+end
+
+-- Units met while their identity was secret (in combat on newer clients): looked at again out of
+-- combat, when the client shows them.
+local missed = false
+
 local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
 		return
 	end
 	local id = Encode.npcId(ns.readable(UnitGUID(unit)))
 	if not id then
+		missed = missed or ns.secret(UnitGUID(unit))
 		return
 	end
 	local npcs = ns.db().catalogue.npcs
-	local level = UnitLevel(unit)
-	if not level or level <= 0 then
-		return -- "??": too far above the player to show; the range stays as it was
+	local stored = npcs[id] and fields(npcs[id])
+	local named = stored and realName(stored[1]) and stored[1] -- already encoded
+	local name = realName(UnitName(unit))
+	if not name then
+		missed = true
+	end
+	local level = ns.readable(UnitLevel(unit))
+	if type(level) ~= "number" or level <= 0 then
+		-- "??": too far above the player to show; the range stays as it was. A row without a name
+		-- still takes one.
+		if stored and not named and name then
+			stored[1] = Encode.name(name)
+			npcs[id] = table.concat(stored, ",")
+		end
+		return
 	end
 	local range = levels[id]
-	if not range and npcs[id] then
-		local min, max = string.match(npcs[id], "^[^,]*,([^,]*),([^,]*)")
-		range = { tonumber(min), tonumber(max) }
+	if not range and stored then
+		range = { tonumber(stored[2]), tonumber(stored[3]) }
 	end
-	if range and range[1] and range[2] and level >= range[1] and level <= range[2] then
+	if range and range[1] and range[2] and level >= range[1] and level <= range[2] and (named or not name) then
 		levels[id] = range
 		return
 	end
@@ -42,8 +79,9 @@ local function seeUnit(unit)
 	range[2] = math.max(range[2] or level, level)
 	levels[id] = range
 	local kind = ns.readable(UnitCreatureType(unit))
-	npcs[id] = Encode.row(Encode.name(ns.readable(UnitName(unit)) or "?"), range[1], range[2], UnitClassification(unit),
-		kind and Encode.name(kind) or nil)
+	local classification = ns.readable(UnitClassification(unit))
+	npcs[id] = Encode.row(name and Encode.name(name) or named or "", range[1], range[2],
+		classification or (stored and stored[4]) or nil, kind and Encode.name(kind) or (stored and stored[5]) or nil)
 end
 ns.seeUnit = seeUnit
 
@@ -60,6 +98,23 @@ for _, event in ipairs({ "GOSSIP_SHOW", "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST
 		seeUnit("npc")
 	end)
 end
+
+-- Out of combat, and at a corpse's loot window, the units around are looked at again when one was
+-- met unreadable: what combat hid is shown now.
+local function seeAgain()
+	if not missed then
+		return
+	end
+	missed = false
+	for _, unit in ipairs({ "target", "focus", "mouseover" }) do
+		seeUnit(unit)
+	end
+	for i = 1, 40 do
+		seeUnit("nameplate" .. i)
+	end
+end
+ns.on("PLAYER_REGEN_ENABLED", "npcs", seeAgain)
+ns.on("LOOT_READY", "npcs", seeAgain)
 
 -- Objects: a gathering or opening cast names its target; the loot window that follows gives the
 -- object's ID.
@@ -81,8 +136,8 @@ ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
 		return
 	end
 	-- Every cast replaces the last, so an older cast never names the next loot.
-	target = ns.readable(target)
-	cast = target and target ~= "" and not onUnit(target) and { name = target, at = GetTime() } or nil
+	target = realName(target)
+	cast = target and not onUnit(target) and { name = target, at = GetTime() } or nil
 end)
 ns.on("LOOT_READY", "objects", function()
 	local id = ns.lootSource and string.match(ns.lootSource, "^o(%d+)$")
@@ -96,14 +151,29 @@ end)
 -- data carries the object's GUID on newer clients.
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	-- A mob's tooltip names it too: a catalogued mob still without a name takes the name it shows.
 	local function objectTooltip(_, data)
 		-- The GUID and the first line are secret for a unit whose identity the client keeps.
 		local guid = data and ns.readable(data.guid)
 		local src = guid and type(guid) == "string" and Encode.source(guid)
-		local id = src and string.match(src, "^o(%d+)$")
-		local line = id and data.lines and data.lines[1] and ns.readable(data.lines[1].leftText)
-		if id and line and line ~= "" and ns.db() then
-			ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
+		local kind, id
+		if src then
+			kind, id = string.match(src, "^([on])(%d+)$")
+		end
+		local line = id and data.lines and data.lines[1] and realName(data.lines[1].leftText)
+		if not (line and ns.db()) then
+			return
+		end
+		id = tonumber(id)
+		local catalogue = ns.db().catalogue
+		if kind == "o" then
+			catalogue.objects[id] = Encode.name(line)
+		elseif catalogue.npcs[id] then
+			local stored = fields(catalogue.npcs[id])
+			if not realName(stored[1]) then
+				stored[1] = Encode.name(line)
+				catalogue.npcs[id] = table.concat(stored, ",")
+			end
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)

@@ -115,6 +115,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   listing has left (so the site can tell a sale from an auction that ran out), what you sell to and buy
   from vendors, and what you buy on the auction house and your auctions that expire or that you cancel.
   As before, nothing about other players is kept: no buyer or seller names.
+- On retail, mob and object names hidden in combat are no longer saved as "Unknown": the addon looks
+  again after the fight and at the loot window, and fills a missing name in later, so your farming
+  sessions on the site name what you killed and gathered.
 - **Retail saves are lean**: tooltip text, the achievement catalogue and map art are no longer kept on
   retail (about 5 MB on a busy save), and a retail save keeps one full scan per connected realm group, so
   it stays under the site's upload limit. A WoW: Forever save keeps everything.
