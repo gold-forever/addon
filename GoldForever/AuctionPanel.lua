@@ -726,7 +726,7 @@ local function buildShop(page)
 	newList:SetPoint("LEFT", page, "TOPLEFT", 178, -14)
 
 	-- Import and export: one field, the GFL1 string in or out.
-	local field = UI.SearchBox(page, "Paste a GFL1: string, or press Export", nil)
+	local field = UI.SearchBox(page, "Paste a GFL1: string (make one at gold-forever.app/me/lists)", nil)
 	field:SetPoint("TOPLEFT", 0, -36)
 	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
 	local import = UI.Button(page, "Import", function()
@@ -1201,7 +1201,7 @@ local function buildRule(page)
 		describe()
 	end
 	rebuild()
-	local field = UI.SearchBox(page, "Paste a GFP1: profile string", nil)
+	local field = UI.SearchBox(page, "Paste a GFP1: profile (make one at gold-forever.app/me/lists)", nil)
 	field:SetPoint("TOPLEFT", 0, -340)
 	field:SetPoint("RIGHT", page, "RIGHT", -150, 0)
 	local message = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
