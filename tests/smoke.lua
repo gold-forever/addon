@@ -1156,6 +1156,21 @@ do
   GoldForever_ToggleHud()
   assert(GoldForeverDB.settings.appraiser.shown == not first, "the HUD binding toggles the HUD")
   if not GoldForeverDB.settings.appraiser.shown then GoldForever_ToggleHud() end
+  -- Settings → Modules sets the HUD as switched, whatever the frame shows now.
+  ns.setHud(false)
+  assert(GoldForeverDB.settings.appraiser.shown == false, "switched off, it is off")
+  ns.setHud(true)
+  assert(GoldForeverDB.settings.appraiser.shown == true, "switched on, it is on")
+  -- Tucked away in combat, the binding turns it off rather than on.
+  local lockdown, hide = InCombatLockdown, GoldForeverDB.settings.appraiser.hideInCombat
+  GoldForeverDB.settings.appraiser.hideInCombat = true
+  InCombatLockdown = function() return true end
+  fire("PLAYER_REGEN_DISABLED")
+  GoldForever_ToggleHud()
+  assert(GoldForeverDB.settings.appraiser.shown == false, "the binding in combat turns a tucked HUD off")
+  InCombatLockdown, GoldForeverDB.settings.appraiser.hideInCombat = lockdown, hide
+  fire("PLAYER_REGEN_ENABLED")
+  ns.setHud(true)
 end
 -- Performance budget: no once-a-second ticker while the HUD is hidden (the auction panel's is closed).
 do

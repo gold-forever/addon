@@ -1325,10 +1325,11 @@ local function buildSettings(page)
 			{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
 				on = function() return appraiser.shown end,
 				set = function(on)
-					if on ~= appraiser.shown and ns.commands.appraise then
-						ns.commands.appraise()
+					if ns.setHud then
+						ns.setHud(on)
+					else
+						appraiser.shown = on
 					end
-					appraiser.shown = on
 				end },
 			{ icon = "gavel", name = "Auction house panel", blurb = "Scan, post and the rule, beside the auction house.",
 				on = function() return not auction.hidden end,

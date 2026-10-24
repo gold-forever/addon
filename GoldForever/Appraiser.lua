@@ -910,15 +910,24 @@ startTicker = function()
 	end
 end
 
-ns.commands.appraise = function()
-	local s = settings()
-	if hud and hud:IsShown() then
-		s.shown = false
+-- The HUD on or off as the player's choice (Settings → Modules): the saved switch, not whether the
+-- frame shows now (it is not built before the first loot, and tucked away in combat when so set).
+function ns.setHud(on)
+	settings().shown = on
+	if on then
+		show()
+	elseif hud then
 		hud:Hide()
+	end
+end
+
+ns.commands.appraise = function()
+	-- Shown, or on but tucked away in combat: off. Hidden, or not built before the first loot: on.
+	if hud and (hud:IsShown() or (settings().shown and tucked())) then
+		ns.setHud(false)
 		ns.say("session HUD hidden; /gf hud shows it again.")
 	else
-		s.shown = true
-		show()
+		ns.setHud(true)
 	end
 end
 
