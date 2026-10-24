@@ -1374,8 +1374,8 @@ local function buildSettings(page)
 		page.modules:SetShown(key == "modules")
 		page.discord:SetShown(key == "discord")
 		page.looks:SetShown(key == "looks")
-		if key == "discord" then
-			page.discord:Refresh()
+		if page[key].Refresh then
+			page[key]:Refresh()
 		end
 	end, { variant = "underline" })
 	tabs:SetPoint("TOPLEFT")
@@ -1406,75 +1406,102 @@ local function buildSettings(page)
 		for _, name in ipairs(Theme.order) do
 			lookOptions[#lookOptions + 1] = { value = name, label = Theme.skins[name].label }
 		end
+		-- The controls, each set again from the settings at every refresh (a command may have changed one).
+		local c = {}
+		local function bigDrop()
+			return math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000)
+		end
 		settingsCard(g, "Display", 0, {
 			{ side = 0, row = 0, label = "Look", full = true, make = function(cell)
-				return UI.Dropdown(cell, lookOptions, Theme.skin.name, function(v)
+				c.look = UI.Dropdown(cell, lookOptions, ns.currentLook(), function(v)
 					ns.commands.look(v)
 				end)
+				return c.look
 			end },
 			{ side = 0, row = 1, label = "Accent colour", make = function(cell)
 				local row = CreateFrame("Frame", nil, cell)
 				row:SetSize(#Theme.accents * 30 - 6, 24)
+				c.swatches = {}
 				for k, a in ipairs(Theme.accents) do
 					local sw = UI.Swatch(row, a.hex, function()
 						ns.commands.accent(window.accent == a.hex and "" or a.hex)
 					end)
 					sw:SetPoint("LEFT", (k - 1) * 30, 0)
 					sw:SetOn(window.accent == a.hex)
+					c.swatches[k] = sw
 				end
 				return row
 			end },
 			{ side = 1, row = 0, label = "Minimap button", make = function(cell)
-				return UI.Switch(cell, not minimap.hidden, function(on)
+				c.minimap = UI.Switch(cell, not minimap.hidden, function(on)
 					minimap.hidden = not on
 					if ns.refreshMinimap then
 						ns.refreshMinimap()
 					end
 				end)
+				return c.minimap
 			end },
 			{ side = 1, row = 1, label = "Window size", full = true, make = function(cell)
-				return UI.Slider(cell, 70, 130, 5, math.floor((window.scale or 1) * 100 + 0.5), function(v)
+				c.scale = UI.Slider(cell, 70, 130, 5, math.floor((window.scale or 1) * 100 + 0.5), function(v)
 					window.scale = v / 100
-					page:GetParent():GetParent():SetScale(window.scale)
+					local open = ns.hubWindow()
+					if open then
+						open:SetScale(window.scale)
+					end
 				end, function(v)
 					return v .. "%"
 				end, { onRelease = true })
+				return c.scale
 			end },
 		})
 		settingsCard(g, "Alerts", -146, {
 			{ side = 0, row = 0, label = "Hide the HUD in combat", make = function(cell)
-				return UI.Switch(cell, appraiser.hideInCombat, function(on)
+				c.hideInCombat = UI.Switch(cell, appraiser.hideInCombat, function(on)
 					appraiser.hideInCombat = on
 				end)
+				return c.hideInCombat
 			end },
 			{ side = 0, row = 1, label = "Mark rares with a skull", make = function(cell)
-				local sw = UI.Switch(cell, rares.mark, function(on)
+				c.mark = UI.Switch(cell, rares.mark, function(on)
 					rares.mark = on
 				end)
 				if isRetail then
-					sw:Disable()
-					sw:SetAlpha(0.5)
+					c.mark:Disable()
+					c.mark:SetAlpha(0.5)
 				end
-				return sw
+				return c.mark
 			end },
 			{ side = 1, row = 1, label = "Tell my party about rares", make = function(cell)
-			local sw = UI.Switch(cell, rares.party == true, function(on)
-				rares.party = on
-			end)
-			if isRetail then
-				sw:Disable()
-				sw:SetAlpha(0.5)
-			end
-			return sw
-		end },
-		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
-				return UI.Slider(cell, 0, 50, 1, math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000), function(v)
+				c.party = UI.Switch(cell, rares.party == true, function(on)
+					rares.party = on
+				end)
+				if isRetail then
+					c.party:Disable()
+					c.party:SetAlpha(0.5)
+				end
+				return c.party
+			end },
+			{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
+				c.bigDrop = UI.Slider(cell, 0, 50, 1, bigDrop(), function(v)
 					appraiser.bigDrop = v * 10000
 				end, function(v)
 					return v == 0 and "rares" or (v .. "g")
 				end)
+				return c.bigDrop
 			end },
 		})
+		function g:Refresh()
+			c.look:Set(ns.currentLook())
+			for k, a in ipairs(Theme.accents) do
+				c.swatches[k]:SetOn(window.accent == a.hex)
+			end
+			c.minimap:Set(not minimap.hidden)
+			c.scale:Set(math.floor((window.scale or 1) * 100 + 0.5))
+			c.hideInCombat:Set(appraiser.hideInCombat)
+			c.mark:Set(rares.mark)
+			c.party:Set(rares.party == true)
+			c.bigDrop:Set(bigDrop())
+		end
 	end
 	fills.modules = function()
 		-- Modules: each part of the addon a player sees, on or off at once, no reload. The recorder is not
@@ -1524,6 +1551,12 @@ local function buildSettings(page)
 		-- 38 a row: nine modules and the note fit the page (manual test run 001: at 52 the list ran past it).
 		local ROW = 38
 		list:SetHeight(#MODULES * ROW + 8)
+		-- Each row painted from its setting: when drawn, and at every refresh (/gf hud may have changed one).
+		m.rows = {}
+		local function paint(row, on)
+			row.icon:SetTone(on and "accent" or "faint")
+			row.name:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
+		end
 		for i, mod in ipairs(MODULES) do
 			local row = CreateFrame("Frame", nil, list)
 			row:SetHeight(ROW)
@@ -1542,15 +1575,23 @@ local function buildSettings(page)
 			local blurb = UI.Text(row, mod.blurb, { size = "xs", tone = "faint" })
 			blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
 			blurb:SetPoint("RIGHT", row, "RIGHT", -80, 0)
-			local sw = UI.Switch(row, mod.on(), function(on)
+			row.icon, row.name, row.mod = icon, name, mod
+			row.switch = UI.Switch(row, mod.on(), function(on)
 				mod.set(on)
-				icon:SetTone(on and "accent" or "faint")
-				name:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
+				paint(row, on)
 			end)
-			sw:SetPoint("RIGHT", -20, 0)
+			row.switch:SetPoint("RIGHT", -20, 0)
 			if mod.disabled then
-				sw:Disable()
-				sw:SetAlpha(0.5)
+				row.switch:Disable()
+				row.switch:SetAlpha(0.5)
+			end
+			m.rows[i] = row
+		end
+		function m:Refresh()
+			for _, row in ipairs(self.rows) do
+				local on = row.mod.on() and true or false
+				row.switch:Set(on)
+				paint(row, on)
 			end
 		end
 		local note = UI.Text(m, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
@@ -1629,6 +1670,15 @@ local function buildSettings(page)
 		end
 	end
 	page.ensure("general")
+	-- Opened again: every tab drawn shows the settings as they are now.
+	function page:Refresh()
+		for _, key in ipairs({ "general", "modules", "discord" }) do
+			local f = self[key]
+			if f.built and f.Refresh then
+				f:Refresh()
+			end
+		end
+	end
 end
 
 -- The window ----------------------------------------------------------------------------------------------

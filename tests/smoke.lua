@@ -1606,6 +1606,18 @@ for _, look in ipairs({ "classic", "arcane", "web" }) do
     assert(settingsPage[tab].built, "Settings tab drawn: " .. tab)
   end
 end
+-- Settings shows each switch as it is now: the HUD switched by /gf hud, Settings opened again.
+do
+  SlashCmdList.GOLDFOREVER("ui settings")
+  local p = ns.hubWindow().pages.settings
+  p.ensure("modules")
+  ns.setHud(false)
+  SlashCmdList.GOLDFOREVER("ui settings")
+  assert(p.modules.rows[1].switch.on == false, "the Session HUD switch follows /gf hud")
+  ns.setHud(true)
+  SlashCmdList.GOLDFOREVER("ui settings")
+  assert(p.modules.rows[1].switch.on == true, "and back")
+end
 -- A window opened for the first time (a new accent builds one) straight onto This session: the tab's
 -- once-a-second refresh and the footer's 10-second memory reading run at once, and stop when it closes.
 do
