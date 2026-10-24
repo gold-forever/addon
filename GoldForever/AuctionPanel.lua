@@ -142,8 +142,8 @@ local function planned(r, rule, market)
 end
 
 local function price(r)
-	local market, from = ns.Prices.value(r.id)
-	r.market, r.marketFrom = market, from
+	local market, from, trend = ns.Prices.value(r.id)
+	r.market, r.marketFrom, r.trend = market, from, trend
 	local l = live[r.key]
 	if l then
 		r.cheapest, r.cheapestFrom = l.cheapest, "live"
@@ -577,8 +577,14 @@ local function buildPost(page)
 		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or "No price yet: scan first") .. "|r"
 			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. " each|r") or ""))
 		local cheapest = r.cheapest and (money(r.cheapest) .. faint .. (r.cheapestFrom == "live" and " (live)" or " (last scan, yours included)") .. "|r") or (faint .. "none|r")
-		facts:SetText(string.format("Cheapest other %s · market %s%s · floor %s · normal %s", cheapest,
-			r.market and money(r.market) or "—", r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or "",
+		-- The market's trend on the week, when the pool carries one: green rising, red falling.
+		local trend = ""
+		if r.trend then
+			local tone = r.trend >= 1 and Theme.color.success or r.trend <= -1 and Theme.color.danger or Theme.color.textFaint
+			trend = Theme.escape(tone) .. (string.gsub(ns.Prices.trendText(r.trend), "^ · ", " ")) .. "|r"
+		end
+		facts:SetText(string.format("Cheapest other %s · market %s%s%s · floor %s · normal %s", cheapest,
+			r.market and money(r.market) or "—", r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or "", trend,
 			sug and money(sug.floor) or "—", sug and money(sug.normal) or "—"))
 		local l = live[r.key]
 		for i, line in ipairs(listed) do

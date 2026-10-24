@@ -888,6 +888,14 @@ else
   assert(poolLine(2591) == nil, "retail: neither market has it")
   GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
 end
+-- The week's trend, when the companion's file carries the mean of the 7 days before.
+if INTERFACE < 110000 then
+  local e = GoldForever_Prices.markets[POOL_ALLIANCE][2589]
+  e[5] = 1100
+  assert((poolLine(2589) or ""):find("12s 34c · +12% on 7 days", 1, true), "the pool line with its trend: " .. tostring(poolLine(2589)))
+  assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
+  e[5] = nil
+end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
 -- In a zone with a neutral auction house (Tanaris here), the neutral market's line comes first, on
 -- Forever only; elsewhere it is not shown (design 009 decision 9).

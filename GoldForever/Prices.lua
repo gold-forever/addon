@@ -176,13 +176,35 @@ function Prices.markets(market, interface, portal)
 end
 
 -- The first market's valid entry for the item: value, minimum buyout, players, scan time.
+-- An item's entry: { market value, min buyout, players, scanned at[, the mean market value of the 7 days
+-- before] }. The fifth is new (owner's answer, 2026-10-24: a trend at launch); a file without it, or
+-- with it unusable, shows no trend.
 local function entry(data, markets, id)
 	for _, market in ipairs(markets) do
 		local e = field(field(field(data, "markets"), market), id)
 		if e and amount(e[1]) and amount(e[2]) and amount(e[3]) and amount(e[4]) then
-			return e[1], e[2], e[3], e[4]
+			return e[1], e[2], e[3], e[4], (amount(e[5]) and e[5] > 0) and e[5] or nil
 		end
 	end
+end
+
+-- The market value against the week before, in whole percent; nil without both.
+function Prices.trend(value, week)
+	if not value or not week or week <= 0 then
+		return nil
+	end
+	return math.floor((value - week) / week * 100 + 0.5)
+end
+
+-- " · +8% on 7 days", " · steady on 7 days" within 1%, or "" without a trend.
+function Prices.trendText(pct)
+	if not pct then
+		return ""
+	end
+	if math.abs(pct) < 1 then
+		return " · steady on 7 days"
+	end
+	return string.format(" · %s%d%% on 7 days", pct > 0 and "+" or "-", math.abs(pct))
 end
 
 -- Whether data is a prices file this addon reads.
@@ -205,15 +227,15 @@ function Prices.line(data, markets, id, now, label)
 	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil
 	end
-	local value, minBuyout, players, scannedAt = entry(data, markets, id)
+	local value, minBuyout, players, scannedAt, week = entry(data, markets, id)
 	if not value then
 		return nil
 	end
 	players = math.floor(players)
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	return string.format("%s: %s · min buyout %s · %d %s · %s", label or "Pool", coins(value), coins(minBuyout), players,
-		players == 1 and "player" or "players", age), stale
+	return string.format("%s: %s%s · min buyout %s · %d %s · %s", label or "Pool", coins(value), Prices.trendText(Prices.trend(value, week)),
+		coins(minBuyout), players, players == 1 and "player" or "players", age), stale
 end
 
 -- The player's own latest scan (the appraiser's prices), for an item the file lacks.
@@ -272,12 +294,14 @@ end
 
 -- An item's market value for the character being played: the pool's when the companion's file has it,
 -- else the own latest full scan's. Returns value and where it came from ("pool" or "scan"), or nil.
+-- An item's market value and where it came from ("pool" or "scan"), and with the pool's its trend on
+-- the week (Prices.trend), when the file carries one.
 function Prices.value(id)
 	local markets = mine()
 	if markets and Prices.loaded(GoldForever_Prices) then
-		local value = entry(GoldForever_Prices, markets, id)
+		local value, _, _, _, week = entry(GoldForever_Prices, markets, id)
 		if value then
-			return value, "pool"
+			return value, "pool", Prices.trend(value, week)
 		end
 	end
 	local own = ns.price and ns.price.market(id)
