@@ -1044,9 +1044,9 @@ end)
 -- than one frame may spend on: CHUNKS_A_FRAME chunks (500 rows each) a frame, from a list of the chunks
 -- taken at the start (rows written meanwhile come through the listener above). Until it is done the
 -- counts are nil: no tooltip line, and the Mobs page says it is counting.
--- How much a frame takes: BUDGET_MS of work where the client has a timer (debugprofilestop, on both),
--- else ROWS_A_FRAME rows. Chunks of 500 rows were 6 ms each on two weeks of loot, too much for one frame.
-local BUDGET_MS, ROWS_A_FRAME = 3, 250
+-- A frame's share (ns.frameSpent), else ROWS_A_FRAME rows: chunks of 500 rows were 6 ms each on two
+-- weeks of loot, too much for one frame.
+local ROWS_A_FRAME = 250
 local built = {} -- what to call once the counts are in
 local function buildMobs()
 	if countingRows then
@@ -1082,8 +1082,7 @@ local function buildMobs()
 	step = function()
 		local saved = mobs
 		mobs = counted
-		local clock = debugprofilestop
-		local started, rows = clock and clock(), 0
+		local started, rows = ns.frameStart(), 0
 		while chunks[i] do
 			local chunk = chunks[i]
 			local stop = string.find(chunk, ";", pos, true)
@@ -1101,7 +1100,7 @@ local function buildMobs()
 				end
 			end
 			rows = rows + 1
-			if (started and rows % 25 == 0 and clock() - started >= BUDGET_MS) or (not started and rows >= ROWS_A_FRAME) then
+			if ns.frameSpent(started, rows, ROWS_A_FRAME) then
 				break
 			end
 		end

@@ -77,6 +77,20 @@ function ns.safely(name, fn, ...)
 	return ok
 end
 
+-- Work spread over frames takes about FRAME_MS a frame: ns.frameStart() when a frame's share begins,
+-- then ns.frameSpent(started, done, fallback) every so often says whether to yield. Where the client has
+-- no profiling timer, `fallback` units of work a frame instead.
+local FRAME_MS = 3
+function ns.frameStart()
+	return debugprofilestop and debugprofilestop() or nil
+end
+function ns.frameSpent(started, done, fallback)
+	if started then
+		return done % 25 == 0 and debugprofilestop() - started >= FRAME_MS
+	end
+	return done >= fallback
+end
+
 function ns.after(seconds, name, fn)
 	C_Timer.After(seconds, function()
 		ns.safely(name, fn)
