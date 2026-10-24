@@ -358,10 +358,21 @@ local function init()
 	}
 end
 
--- Drops event days older than the retention window (design 002, Retention).
+-- Drops event days older than the retention window (design 002, Retention). A player who exports keeps
+-- the days not yet exported too (an export holds the last one's day on), up to KEEP_MOST days so the file
+-- stays under what the site takes. The companion app uploads the whole file and leaves no mark, so
+-- without an export the window alone decides.
+local KEEP_MOST = 30
 local function prune()
+	local now = GetServerTime()
 	local keep = (db.settings.retentionDays or 14) * 86400
-	local cutoff = Encode.day(GetServerTime() - keep)
+	local cutoff = Encode.day(now - keep)
+	if db.exportedAt then
+		local exported = Encode.day(math.max(db.exportedAt, now - KEEP_MOST * 86400))
+		if exported < cutoff then
+			cutoff = exported
+		end
+	end
 	for day in pairs(db.events) do
 		if day < cutoff then
 			db.events[day] = nil

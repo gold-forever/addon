@@ -1850,6 +1850,10 @@ GoldForeverDB.addon = "0.15.0"
 GoldForeverDB.errors.old = { n = 3, msg = "fixed since", t = now - 86400 }
 -- A newer version wrote the file: its schema stays, the data is not relabelled as the older one's.
 GoldForeverDB.schema = 99
+-- Days older than the 14 kept but not yet exported stay, up to 30 days; an older one goes.
+local exportedBefore = GoldForeverDB.exportedAt
+GoldForeverDB.exportedAt = now - 26 * 86400
+for _, day in ipairs({ "2026-09-01", "2026-09-24", "2026-10-01" }) do GoldForeverDB.events[day] = { sys = {} } end
 for k in pairs(frames) do frames[k] = nil end
 local ns2 = {}
 for _, f in ipairs(tocFiles()) do
@@ -1861,6 +1865,10 @@ fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_W
 assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
 assert(GoldForeverDB.schema == 99, "a newer schema is never lowered")
 GoldForeverDB.schema = 1
+assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"] and not GoldForeverDB.events["2026-09-01"],
+  "days not yet exported are kept, within 30 days")
+GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
+GoldForeverDB.exportedAt = exportedBefore
 local after = ns2.sessionText and ns2.sessionText() or ""
 seen("AFTER RELOAD\n", tostring(after), "Farming 3:57\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 64c|r\nXP: 44400 · 673011/h · level 31 in 4m (~133 kills)\nBags: 8 free")
 do
