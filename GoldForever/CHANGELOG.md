@@ -8,21 +8,26 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 
 ### The auction house
 
-- A **panel beside the auction house** (`/gf ah` hides or brings it back), with five tabs:
-  - **Scan**: the full scan made visible: asking, reading N of M, the cooldown and the last result.
+- A **panel beside the auction house** (`/gf ah` hides or brings it back). Its Buy, Sell and Auctions tabs
+  follow Blizzard's and move them: it opens on the tab Blizzard's window shows. Prices show gold and
+  silver, as the auction house sets them.
+  - **Scan**: the full scan made visible: asking, reading N of M, the cooldown and the last result. A
+    scan starts when you press Scan now, or by itself on opening if you switch "Scan when I open the
+    auction house" on.
     After a scan, one chat line names your list items now listed at or under your price.
-  - **Post**: the items in your bags the auction house takes, each priced by your rule against the
+  - **Sell**: the items in your bags the auction house takes, each priced by your rule against the
     cheapest listing by someone else, with the reason (Undercut, No one else, Normal price, At floor,
     Hold). Click Post or press Space; it waits for the server, then moves to the next item. A price under
     vendor value or far under the market asks for a second press. The duration and the quantity you
     choose are remembered for each item. Alt-click an item in your bags to choose it; its tooltip says
     what Post would ask.
-  - **Shop**: shopping lists of items with the most you pay a unit (or "under market"); shift-click an
+  - **Buy**: shopping lists of items with the most you pay a unit (or "under market"); shift-click an
     item into the field to add it. **Buy next** asks the auction house for the price and a second press
     buys; a price more than 10% above the deal is named first. Lists import and export as `GFL1:`
     strings.
-  - **Cancel**: checks your auctions against other players' listings and cancels the most undercut one
-    a press, past your tolerance (5% at first), showing the cancel cost.
+  - **Auctions**: checks your auctions against other players' listings and cancels the most undercut
+    one a press, past your tolerance (5% at first), showing the cancel cost. Click one to see its
+    listings in Blizzard's window.
   - **Rule**: undercut by 1 silver or a percentage, a floor and a normal price as shares of the market
     value, and hold or post at the floor; **Rule for** adds a rule for one item or a whole category.
     **Sale profiles** (`GFP1:` strings, made at gold-forever.app/me/lists or shared by others) price the

@@ -55,8 +55,9 @@ local function await(key, note)
 	end)
 end
 
+-- Gold and silver: a price rounded to the gold read as wrong beside the auction house's own (8g for 8g 69s).
 local money = function(c)
-	return UI.layout.money(c, "gold")
+	return UI.layout.money(c, "silver")
 end
 
 -- Bags --------------------------------------------------------------------------------------------------
@@ -179,6 +180,45 @@ end
 -- Asks for the chosen row's listings. With `open`, the auction house's own window shows the item too, as
 -- a click on it in Blizzard's browse list does (its buy view, with every price); its search is the one
 -- whose results arrive here. Without it, or on a client without that method, a search of our own.
+-- The panel's tabs and Blizzard's in step (manual test run 001): its Buy, Sell and Auctions modes are
+-- our Buy, Sell and Auctions. `following` is set while the panel itself moves Blizzard's window (a tab
+-- clicked here, an item shown), so that move does not switch the panel back.
+local following = false
+local function tabForMode(mode)
+	local M = AuctionHouseFrameDisplayMode
+	if not M or not mode then
+		return nil
+	end
+	if mode == M.Buy or mode == M.ItemBuy or mode == M.CommoditiesBuy then
+		return "shop"
+	elseif mode == M.ItemSell or mode == M.CommoditiesSell then
+		return "post"
+	elseif mode == M.Auctions then
+		return "cancel"
+	end
+end
+local BLIZZARD_TAB = { shop = "BuyTab", post = "SellTab", cancel = "AuctionsTab" }
+
+local function blizzardMode()
+	local f = AuctionHouseFrame
+	if not f then
+		return nil
+	end
+	return f.GetDisplayMode and f:GetDisplayMode() or f.displayMode
+end
+
+-- Shows an item's listings in Blizzard's window; true when it did.
+local function browse(itemKey)
+	local f = AuctionHouseFrame
+	if not (itemKey and f and f.SelectBrowseResult and f:IsShown()) then
+		return false
+	end
+	following = true
+	local ok = ns.safely("auction browse", f.SelectBrowseResult, f, { itemKey = itemKey })
+	following = false
+	return ok
+end
+
 local function search(r, open)
 	if not (r and C_AuctionHouse.SendSearchQuery and C_AuctionHouse.GetItemKeyFromItem) then
 		return
@@ -188,10 +228,8 @@ local function search(r, open)
 		return
 	end
 	r.itemKey = key
-	if open and AuctionHouseFrame and AuctionHouseFrame.SelectBrowseResult and AuctionHouseFrame:IsShown() then
-		if ns.safely("auction browse", AuctionHouseFrame.SelectBrowseResult, AuctionHouseFrame, { itemKey = key }) then
-			return
-		end
+	if open and browse(key) then
+		return
 	end
 	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
@@ -416,6 +454,14 @@ local function buildScan(page)
 		ns.startScan()
 	end, { kind = "primary", width = 140, height = 30 })
 	button:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, -14)
+	-- Off at first: a scan starts when the player asks (manual test run 001).
+	local scanSettings = ns.settings("scan", { auto = false })
+	local auto = UI.Switch(page, scanSettings.auto, function(on)
+		scanSettings.auto = on
+	end)
+	auto:SetPoint("LEFT", button, "RIGHT", 16, 0)
+	local autoLabel = UI.Text(page, "Scan when I open the auction house", { size = "sm", tone = "muted" })
+	autoLabel:SetPoint("LEFT", auto, "RIGHT", 8, 0)
 	local cards = {}
 	for i, label in ipairs({ "Listings", "Prices", "Took", "Scanned" }) do
 		local c = UI.StatCard(page, label, "", "")
@@ -472,8 +518,8 @@ local function buildPost(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, text = function(r) return r.name .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.count .. "|r" end,
 			color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
-		{ key = "market", title = "Market", width = 72, align = "RIGHT", text = function(r) return r.market and money(r.market) or "—" end, sort = function(r) return r.market or 0 end },
-		{ key = "post", title = "Post at", width = 86, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "—" end,
+		{ key = "market", title = "Market", width = 84, align = "RIGHT", text = function(r) return r.market and money(r.market) or "—" end, sort = function(r) return r.market or 0 end },
+		{ key = "post", title = "Post at", width = 92, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "—" end,
 			sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
 		pageSize = 5,
@@ -1131,7 +1177,11 @@ local function buildCancel(page)
 		{ key = "cheapest", title = "Cheapest", width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "—" or "") end },
 		{ key = "under", title = "Under", width = 56, align = "RIGHT", text = function(r) return r.under and r.under > 0 and (r.under .. "%") or "" end,
 			color = function(r) return r.under and r.under > tolerance() and Theme.color.warning or Theme.color.textMuted end, sort = function(r) return r.under or 0 end },
-	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut." })
+	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut.",
+		-- A click shows the item's listings in Blizzard's window (manual test run 001).
+		onRowClick = function(r)
+			browse(r.itemKey)
+		end })
 	tbl:SetPoint("TOPLEFT", 0, -40)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	local go = UI.Button(page, "Cancel next", function()
@@ -1438,15 +1488,27 @@ local function build()
 	end)
 	p.away = away
 	local pages = {}
-	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "shop", label = "Shop" }, { key = "cancel", label = "Cancel" }, { key = "rule", label = "Rule" } }, function(key)
+	-- Named as Blizzard's tabs are (manual test run 001); the keys stay as the save knows them.
+	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "shop", label = "Buy" }, { key = "post", label = "Sell" }, { key = "cancel", label = "Auctions" }, { key = "rule", label = "Rule" } }, function(key)
+		p.select(key)
+	end, { variant = "underline" })
+	-- A tab chosen here moves Blizzard's window to its own (fromBlizzard: it came from there).
+	function p.select(key, fromBlizzard)
 		p.ensure(key)
+		tabs:Select(key)
 		for k, f in pairs(pages) do
 			f:SetShown(k == key)
 		end
 		p.tab = key
 		bindSpace(p)
+		local b = not fromBlizzard and AuctionHouseFrame and AuctionHouseFrame[BLIZZARD_TAB[key] or ""]
+		if b and b.Click and b:IsShown() and tabForMode(blizzardMode()) ~= key then
+			following = true
+			ns.safely("auction tab", b.Click, b)
+			following = false
+		end
 		refresh()
-	end, { variant = "underline" })
+	end
 	tabs:SetPoint("TOPLEFT", 16, -42)
 	tabs:SetPoint("TOPRIGHT", -16, -42)
 	for _, key in ipairs({ "scan", "post", "shop", "cancel", "rule" }) do
@@ -1516,7 +1578,7 @@ refresh = function()
 			f:SetShown(k == tab)
 		end
 		panel.tab = tab
-		show()
+		show(true)
 		return
 	end
 	if panel.tab == "scan" then
@@ -1554,17 +1616,33 @@ local function reread()
 end
 
 local ticker
-show = function()
+local hooked = false
+-- `redrawn`: the same visit in a new look, on the tab it had; else a new visit, on Blizzard's tab.
+show = function(redrawn)
 	if not AuctionHouseFrame then
 		return
 	end
 	if not panel then
 		build()
 	end
+	-- Blizzard's tab chosen there switches the panel to its own.
+	if not hooked and AuctionHouseFrame.SetDisplayMode and hooksecurefunc then
+		hooked = true
+		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, mode)
+			local key = not following and tabForMode(mode)
+			if key and panel and panel:IsShown() and panel.tab ~= key then
+				ns.safely("auction tab", panel.select, key, true)
+			end
+		end)
+	end
 	panel:ClearAllPoints()
 	panel:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPRIGHT", 6, 0)
 	panel:SetPoint("BOTTOMLEFT", AuctionHouseFrame, "BOTTOMRIGHT", 6, 0)
 	panel:Show()
+	local key = redrawn ~= true and tabForMode(blizzardMode())
+	if key and key ~= panel.tab then
+		panel.select(key, true)
+	end
 	reread()
 	if chosen then
 		search(chosen)
@@ -1676,13 +1754,7 @@ local function chooseFromBag(link, loc, itemID)
 	if not found then
 		return
 	end
-	panel.ensure("post")
-	panel.tabs:Select("post")
-	for k, f in pairs(panel.pages) do
-		f:SetShown(k == "post")
-	end
-	panel.tab = "post"
-	bindSpace(panel)
+	panel.select("post", true)
 	chosen, armed = found, nil
 	search(found, true)
 	refresh()
@@ -1747,14 +1819,7 @@ ns.AuctionPanel = {
 	end,
 	tab = function(key)
 		if panel then
-			panel.ensure(key)
-			panel.tabs:Select(key)
-			for k, f in pairs(panel.pages) do
-				f:SetShown(k == key)
-			end
-			panel.tab = key
-			bindSpace(panel)
-			refresh()
+			panel.select(key)
 		end
 	end,
 	bound = function()

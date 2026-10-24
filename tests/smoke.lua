@@ -426,6 +426,15 @@ wait(10)
 fire("QUEST_TURNED_IN", 62, 450, 75)
 money = money + 75; fire("PLAYER_MONEY")
 wait(10)
+-- No scan at the auction house until the player switches it on (manual test run 001).
+do
+  local before = GoldForeverDB.lastReplicate
+  fire("AUCTION_HOUSE_SHOW")
+  wait(2)
+  assert(GoldForeverDB.lastReplicate == before, "no scan by itself while Scan when I open is off")
+  fire("AUCTION_HOUSE_CLOSED")
+  ns.settings("scan", {}).auto = true
+end
 fire("AUCTION_HOUSE_SHOW")
 fire("REPLICATE_ITEM_LIST_UPDATE")
 wait(70)
@@ -832,6 +841,36 @@ do
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   for _, l in ipairs(GameTooltip.lines) do assert(not l:find("Post at", 1, true), "no Post line away from the auction house") end
   AuctionHouseFrame = nil
+end
+-- Blizzard's tabs and the panel's in step (manual test run 001): it opens on Blizzard's tab, follows it,
+-- and moves it; showing an item from the panel does not switch the panel.
+do
+  local M = { Buy = {}, ItemBuy = {}, CommoditiesBuy = {}, ItemSell = {}, CommoditiesSell = {}, Auctions = {} }
+  AuctionHouseFrameDisplayMode = M
+  local f, clicked = widget(), nil
+  f.displayMode = M.Auctions
+  function f:SetDisplayMode(mode) self.displayMode = mode end
+  function f:SelectBrowseResult() self:SetDisplayMode(M.ItemBuy) end
+  for name, mode in pairs({ BuyTab = M.Buy, SellTab = M.ItemSell, AuctionsTab = M.Auctions }) do
+    f[name] = widget()
+    f[name].Click = function() clicked = name; f:SetDisplayMode(mode) end
+  end
+  AuctionHouseFrame = f
+  fire("AUCTION_HOUSE_SHOW")
+  local p = ns.AuctionPanel.panel()
+  assert(p.tab == "cancel", "opens on Blizzard's tab: Auctions, not " .. tostring(p.tab))
+  f:SetDisplayMode(M.CommoditiesSell)
+  assert(p.tab == "post", "Blizzard's Sell switches the panel to Sell")
+  ns.AuctionPanel.tab("shop")
+  assert(clicked == "BuyTab" and f.displayMode == M.Buy and p.tab == "shop", "the panel's Buy moves Blizzard's window")
+  clicked = nil
+  ns.AuctionPanel.tab("scan")
+  assert(clicked == nil and p.tab == "scan", "Scan leaves Blizzard's window as it is")
+  ns.AuctionPanel.tab("cancel")
+  f:SelectBrowseResult()
+  assert(p.tab == "shop", "an item shown by Blizzard itself is its Buy")
+  fire("AUCTION_HOUSE_CLOSED")
+  AuctionHouseFrame, AuctionHouseFrameDisplayMode = nil, nil
 end
 -- A quest starter drops: recorded, alerted; the mob's tooltip names it.
 GoldForeverDB.catalogue.items[1357] = "Captain Sander's Treasure Map,1,15,12,0,1,0,1,134269"
