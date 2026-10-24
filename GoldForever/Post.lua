@@ -111,6 +111,7 @@ Post.REASONS = {
 	normal = "Normal price",
 	floor = "At floor",
 	hold = "Under your floor", -- not "Hold", read as "keep this many" (manual test run 001)
+	plan = "Plan", -- a sale plan's step; the panel shows the step's own label
 }
 
 -- A second press is asked for when a post looks like a mistake: under what a vendor pays after the

@@ -126,7 +126,6 @@ local PLAN_REASONS = {
 	undercut = "Undercut (plan)", fixed = "Fixed price (plan)", percentile = "Percentile (plan)", ["no-competition"] = "No one else (plan)",
 	["market-moved"] = "The market moved (plan)", ["under-floor"] = "Hold: under the plan's floor", keeping = "Keeping", ["no-price"] = "No price yet",
 }
-Post.REASONS.plan = "Plan"
 
 local function planned(r, rule, market)
 	local book = live[r.commodity and tostring(r.id) or ("item:" .. r.id)]
