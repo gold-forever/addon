@@ -856,6 +856,14 @@ do
     assert(table.concat(used, ",") == "-1:1,split -1:3x5,to 0:1", "25 of two stacks of 20: one whole, five split off: " .. table.concat(used, ","))
     assert(ns.fetchList()[2589] == nil, "and off the list")
     fire("BANKFRAME_CLOSED")
+    -- The bank closed before its last stack was taken: the choice stays for the next visit.
+    inBank[-1][3], used = nil, {}
+    ns.fetchList()[2589] = true
+    fireNow("BANKFRAME_OPENED")
+    fireNow("BANKFRAME_CLOSED")
+    wait(2)
+    assert(#used == 0 and ns.fetchList()[2589] == true, "nothing taken, still chosen: " .. table.concat(used, ","))
+    ns.fetchList()[2589] = nil
     C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots = keep[1], keep[2], keep[3], keep[4]
     C_Container.SplitContainerItem, C_Container.PickupContainerItem = keep[5], keep[6]
     AP.tab("post")
