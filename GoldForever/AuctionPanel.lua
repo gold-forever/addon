@@ -2286,7 +2286,7 @@ local function describe(label, w, out)
 		out[#out + 1] = "  " .. label .. ": not made"
 		return
 	end
-	local fs = w.GetFontString and w:GetFontString() or w.label
+	local fs = w.label or (w.GetFontString and w:GetFontString())
 	local font, size
 	if fs and fs.GetFont then
 		font, size = fs:GetFont()

@@ -512,9 +512,21 @@ function UI.Button(parent, label, onClick, opts)
 	if skin.buttonTemplate and kind ~= "ghost" then
 		b = CreateFrame("Button", nil, parent, skin.buttonTemplate)
 		b:SetHeight(opts.height or 22)
-		b:SetText(label)
-		b.label = b:GetFontString()
-		b:SetWidth(opts.width or math.max(60, (b.label and b.label:GetStringWidth() or 40) + 28))
+		-- The game's red button, with a label of our own over it: the template's own text was now and then
+		-- never placed (manual test run 001, /gf uidebug: the button placed, its text at nil,nil, unseen
+		-- until the panel was opened again). Our labels are always drawn. Yellow as the game's, grey when
+		-- the button is off.
+		b.label = UI.Text(b, label, { size = "sm", align = "CENTER" })
+		b.label:SetPoint("LEFT", 6, 1)
+		b.label:SetPoint("RIGHT", -6, 1)
+		b.label:SetWordWrap(false)
+		local function tint(self)
+			self.label:SetTextColor(Theme.rgb(self:IsEnabled() and "#ffd100" or "#808080"))
+		end
+		tint(b)
+		b:HookScript("OnEnable", tint)
+		b:HookScript("OnDisable", tint)
+		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 28))
 	else
 		b = CreateFrame("Button", nil, parent)
 		b:SetHeight(opts.height or 24)
