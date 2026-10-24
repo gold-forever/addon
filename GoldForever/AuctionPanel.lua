@@ -1893,6 +1893,83 @@ local function buildLists(page)
 end
 ns.buildShoppingLists = buildLists
 
+-- Bank (owner, 2026-10-24): what the bank and mailbox hold that the auction house pays for, most worth
+-- first; a click marks a bank item to take, and the next time the bank opens it moves to the bags
+-- (Inventory.lua). The title row's line says how much, and a click on it opens this tab.
+local function buildBank(page)
+	local note = UI.Text(page, "Click the bank items you want to sell: they move into your bags the next time you open your bank. Mail comes with the mail helper.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT")
+	note:SetPoint("RIGHT", page, "RIGHT")
+	local function wanted()
+		return ns.fetchList and ns.fetchList() or {}
+	end
+	local tbl = UI.Table(page, {
+		{ key = "take", title = "", width = 40, align = "CENTER", text = function(r) return r.take and "take" or "" end,
+			color = function() return Theme.color.accent end },
+		{ key = "name", title = "Item", flex = 3 },
+		{ key = "count", title = "Held", width = 50, align = "RIGHT" },
+		{ key = "place", title = "In", width = 44 },
+		{ key = "worth", title = "Worth", width = 84, align = "RIGHT", text = function(r) return money(r.worth) end, sort = function(r) return r.worth end },
+	}, {
+		pageSize = 10,
+		rowHeight = 24,
+		empty = "Nothing in your bank or mail the auction house pays for.",
+		itemId = function(r) return r.id end,
+		isSelected = function(r) return r.take end,
+		onRowClick = function(r)
+			local want = wanted()
+			if r.place == "bank" then
+				want[r.id] = not want[r.id] or nil
+				page:Refresh()
+			end
+		end,
+	})
+	tbl:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -10)
+	tbl:SetPoint("RIGHT", page, "RIGHT")
+	page.table = tbl
+	local all = UI.Button(page, "Take all", function()
+		local want = wanted()
+		for _, r in ipairs(page.rows or {}) do
+			if r.place == "bank" then
+				want[r.id] = true
+			end
+		end
+		page:Refresh()
+	end, { width = 90, height = 26 })
+	all:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+	local clear = UI.Button(page, "Clear", function()
+		local want = wanted()
+		for id in pairs(want) do
+			want[id] = nil
+		end
+		page:Refresh()
+	end, { width = 70, height = 26 })
+	clear:SetPoint("LEFT", all, "RIGHT", 6, 0)
+	local sum = UI.Text(page, "", { size = "xs", tone = "muted", align = "RIGHT" })
+	sum:SetPoint("RIGHT", page, "RIGHT")
+	sum:SetPoint("TOP", all, "TOP", 0, -6)
+	function page:Refresh()
+		local me = ns.me()
+		local e = me and ns.Views.elsewhere(me, ns.Encode.parseItems, function(id)
+			return (ns.Prices.value(id))
+		end, function(id)
+			local _, _, _, _, n = ns.price.itemInfo(id)
+			return n or (C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
+		end) or { items = {} }
+		local want, rows, n, worth = wanted(), {}, 0, 0
+		for i, it in ipairs(e.items) do
+			local take = it.place == "bank" and want[it.id] == true
+			rows[i] = { id = it.id, name = it.name, count = it.count, place = it.place, worth = it.worth, take = take }
+			if take then
+				n, worth = n + 1, worth + it.worth
+			end
+		end
+		page.rows = rows
+		tbl:SetRows(rows, true)
+		sum:SetText(n > 0 and string.format("%d to take · %s", n, money(worth)) or "")
+	end
+end
+
 -- Space posts only while the Post tab shows: an override binding on a named button, set and cleared as
 -- the tab and the panel change (never in combat, when bindings cannot change). Elsewhere it jumps.
 local function bindSpace(p)
@@ -1938,21 +2015,21 @@ local function build()
 	away:SetSize(220, 18)
 	away.text = UI.Text(away, "", { size = "xs", tone = "muted", align = "RIGHT" })
 	away.text:SetAllPoints()
+	-- Short (manual test run 001: the list of 52 was big and hard to read): what it is, and the click.
 	away:SetScript("OnEnter", function(self)
 		local e = self.list
 		if not e or e.count == 0 then
 			return
 		end
 		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-		GameTooltip:AddLine("Fetch these first: in your bank and mail")
-		for i, it in ipairs(e.items) do
-			if i > 12 then
-				GameTooltip:AddLine(string.format("+%d more", e.count - 12), 0.6, 0.6, 0.6)
-				break
-			end
-			GameTooltip:AddDoubleLine(string.format("%s ×%d (%s)", it.name, it.count, it.place), money(it.worth), 1, 1, 1, 1, 1, 1)
-		end
+		GameTooltip:AddLine(string.format("%d items in your bank and mail sell for %s.", e.count, money(e.total)), 1, 1, 1, true)
+		GameTooltip:AddLine("Click to choose what to take from the bank.", 0.7, 0.7, 0.7, true)
 		GameTooltip:Show()
+	end)
+	away:SetScript("OnClick", function()
+		if panel and panel.select then
+			panel.select("bank")
+		end
 	end)
 	away:SetScript("OnLeave", function()
 		GameTooltip:Hide()
@@ -1960,7 +2037,7 @@ local function build()
 	p.away = away
 	local pages = {}
 	-- Named as Blizzard's tabs are (manual test run 001); the keys stay as the save knows them.
-	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "shop", label = "Buy" }, { key = "post", label = "Sell" }, { key = "cancel", label = "Auctions" } }, function(key)
+	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "shop", label = "Buy" }, { key = "post", label = "Sell" }, { key = "cancel", label = "Auctions" }, { key = "bank", label = "Bank" } }, function(key)
 		p.select(key)
 	end, { variant = "underline" })
 	-- A tab chosen here moves Blizzard's window to its own (fromBlizzard: it came from there).
@@ -1982,7 +2059,7 @@ local function build()
 	end
 	tabs:SetPoint("TOPLEFT", 16, -42)
 	tabs:SetPoint("TOPRIGHT", -16, -42)
-	for _, key in ipairs({ "scan", "post", "shop", "cancel" }) do
+	for _, key in ipairs({ "scan", "post", "shop", "cancel", "bank" }) do
 		local f = CreateFrame("Frame", nil, p)
 		f:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
 		f:SetPoint("BOTTOMRIGHT", -20, 16)
@@ -1990,7 +2067,7 @@ local function build()
 		pages[key] = f
 	end
 	-- Each tab is drawn the first time it is chosen: opening the auction house draws Scan only.
-	local builders = { scan = buildScan, post = buildPost, shop = buildShop, cancel = buildCancel }
+	local builders = { scan = buildScan, post = buildPost, shop = buildShop, cancel = buildCancel, bank = buildBank }
 	function p.ensure(key)
 		local f = pages[key]
 		if f and not f.built then
@@ -2005,7 +2082,7 @@ local function build()
 		end
 	end
 	p.ensure("scan")
-	p.scan, p.post, p.shop, p.cancel, p.tabs, p.pages = pages.scan, pages.post, pages.shop, pages.cancel, tabs, pages
+	p.scan, p.post, p.shop, p.cancel, p.bank, p.tabs, p.pages = pages.scan, pages.post, pages.shop, pages.cancel, pages.bank, tabs, pages
 	p:SetScript("OnShow", bindSpace)
 	p:SetScript("OnHide", bindSpace)
 	panel = p
@@ -2077,6 +2154,8 @@ refresh = function()
 		panel.shop:Refresh()
 	elseif panel.tab == "cancel" then
 		panel.cancel:Refresh()
+	elseif panel.tab == "bank" then
+		panel.bank:Refresh()
 	end
 end
 
