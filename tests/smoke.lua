@@ -208,8 +208,75 @@ function tocFiles()
   return out
 end
 local ns = {}
+-- GF_SMOKE_SAVE=<a copy of a SavedVariables file>: the addon on a real save instead of the session
+-- below, as that save's character, through every page, tab, look and panel, timed (tests/realsave.md).
+local SAVE = os.getenv("GF_SMOKE_SAVE")
+if SAVE then
+  dofile(SAVE)
+  local guid = os.getenv("GF_SMOKE_GUID")
+  if not guid then for g in pairs(GoldForeverDB.characters or {}) do guid = guid or g end end
+  local me = GoldForeverDB.characters[guid] or {}
+  local realm = me.realm or "Shadowsong"
+  UnitGUID = function(u) if u == "npc" then return "Creature-0-4620-0-12-8661-000A" end return guid end
+  UnitName = function() return me.name or "Saved", nil end
+  UnitFactionGroup = function(u) if u == "npc" then return nil end return me.faction or "Horde" end
+  GetNormalizedRealmName = function() return (realm:gsub("[%s%-]", "")) end
+  GetRealmName = function() return realm end
+  now = math.max(now, GoldForeverDB.writtenAt or now)
+end
 for _, f in ipairs(tocFiles()) do
   assert(loadfile(dir .. "/" .. f))("GoldForever", ns)
+end
+if SAVE then
+  local rows = {}
+  local function timed(label, fn)
+    collectgarbage("collect")
+    local kb, t = collectgarbage("count"), os.clock()
+    local ok, err = pcall(fn)
+    local ms = (os.clock() - t) * 1000
+    rows[#rows + 1] = string.format("%-34s %8.1f ms %8.0f KB%s", label, ms, collectgarbage("count") - kb, ok and "" or ("  FAILED: " .. tostring(err)))
+  end
+  timed("load and log in", function()
+    fire("ADDON_LOADED", "GoldForever")
+    fire("PLAYER_LOGIN")
+    fire("PLAYER_ENTERING_WORLD", true, false)
+    wait(20)
+  end)
+  local pages = { "home", "money", "characters", "inventory", "sales", "crafting", "now", "levelling", "mobs", "rares", "companion", "settings", "guide", "design" }
+  for _, look in ipairs({ "web", "classic", "arcane" }) do
+    timed(look .. ": open the hub", function() SlashCmdList.GOLDFOREVER("look " .. look) SlashCmdList.GOLDFOREVER("ui home") end)
+    for _, page in ipairs(pages) do
+      timed(look .. ": " .. page, function() SlashCmdList.GOLDFOREVER("ui " .. page) end)
+    end
+    timed(look .. ": settings tabs", function()
+      local p = ns.hubWindow().pages.settings
+      for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do p.ensure(tab) end
+    end)
+    timed(look .. ": revisit every page", function() for _, page in ipairs(pages) do SlashCmdList.GOLDFOREVER("ui " .. page) end end)
+  end
+  timed("HUD on and off", function() GoldForever_ToggleHud() wait(1) GoldForever_ToggleHud() end)
+  local AP = ns.AuctionPanel
+  AuctionHouseFrame = widget()
+  timed("auction house: open", function() fire("AUCTION_HOUSE_SHOW") end)
+  for _, tab in ipairs({ "scan", "post", "shop", "cancel", "rule" }) do
+    timed("auction house: " .. tab, function() AP.tab(tab) end)
+  end
+  timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
+  timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
+  timed("item tooltips (every catalogued item)", function()
+    for id in pairs(GoldForeverDB.catalogue.items or {}) do
+      for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id, type = 0 }) end
+    end
+  end)
+  timed("logout", function() fire("PLAYER_LOGOUT") end)
+  for _, r in ipairs(rows) do io.write(r, "\n") end
+  local errors = {}
+  for name, e in pairs(GoldForeverDB.errors or {}) do
+    if (e.t or 0) >= now - 3600 then errors[#errors + 1] = name .. ": " .. tostring(e.msg) end
+  end
+  io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
+  io.write(string.format("MEMORY %.0f KB after a full collect\n", (function() collectgarbage("collect") return collectgarbage("count") end)()))
+  os.exit(#errors == 0 and 0 or 1)
 end
 fire("ADDON_LOADED", "GoldForever")
 fire("PLAYER_LOGIN")
