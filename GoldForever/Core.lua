@@ -525,20 +525,32 @@ end
 
 -- Collectors add subcommands: ns.commands.scan = function() ... end
 ns.commands = {
-	check = printCheck,
+	-- For bug reports: what the client offers, then what the addon has stored and any failures.
+	check = function()
+		printCheck()
+		printStatus()
+	end,
 }
 
 SLASH_GOLDFOREVER1 = "/gf"
 SLASH_GOLDFOREVER2 = "/goldforever"
 -- "/gf bigdrop 2" runs ns.commands.bigdrop("2").
--- "/gf" alone opens or closes the hub; "/gf help" lists the commands (owner's answer, 2026-10-24).
-local function help()
-	printStatus()
-	print("  /gf — the Gold Forever window · /gf ui <page> — open a page (home, ledger, crafting, session, rares, companion, settings)")
-	print("  /gf hud — the session HUD · /gf session — the session in chat · /gf reset — a new session · /gf bigdrop <gold> — big-drop alerts")
-	print("  /gf ah — the auction panel · /gf scan · /gf bags — what to do with your loot · /gf shop — crafts to make")
-	print("  /gf look web|classic|arcane · /gf accent #rrggbb · /gf minimap · /gf dings on|off · /gf welcome — the first-run card")
-	print("  /gf prices — the pool's prices file · /gf rares [mark] · /gf check · /gf claim <code> — prove a character is yours · /gf export")
+-- "/gf" alone opens or closes the hub; "/gf help" lists the commands a player uses, "/gf help all" the
+-- rest. The stored counts and failures are for bug reports, under "/gf check" (manual test run 001).
+local function help(rest)
+	print(ns.PREFIX .. " commands:")
+	print("  /gf — open or close the window")
+	print("  /gf hud — show or hide the session HUD")
+	print("  /gf ah — show or hide the auction panel · /gf scan — scan the auction house")
+	print("  /gf bags — what to do with your loot · /gf shop — crafts to make")
+	print("  /gf look web|classic|arcane — change the look · /gf minimap — the minimap button")
+	if rest == "all" then
+		print("  /gf ui <page> — open a page · /gf session — the session in chat · /gf reset — a new session")
+		print("  /gf bigdrop <gold> — big-drop alerts · /gf accent #rrggbb · /gf dings on|off · /gf welcome — the first-run card")
+		print("  /gf prices — the prices file · /gf rares [mark] · /gf claim <code> · /gf export · /gf check — details for a bug report")
+	else
+		print("  More: /gf help all")
+	end
 end
 
 SlashCmdList.GOLDFOREVER = function(message)
@@ -550,7 +562,7 @@ SlashCmdList.GOLDFOREVER = function(message)
 	elseif name == "" and ns.commands.ui then
 		ns.safely("/gf", ns.commands.ui, "")
 	elseif name == "help" or name == "" then
-		help()
+		help(rest)
 	else
 		print(ns.PREFIX .. ": no command \"" .. name .. "\". /gf help lists them.")
 	end

@@ -507,16 +507,18 @@ function UI.Button(parent, label, onClick, opts)
 		b.label = UI.Text(b, skin.titleCaps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
 		b.label:SetPoint("CENTER")
 		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
+		-- A gradient lifts towards white: fading it showed the rounded slices' seams (manual test run 001).
+		local lifted = gradient and { Theme.mix(gradient[1], "#ffffff", 0.18), gradient[2], Theme.mix(gradient[3], "#ffffff", 0.18), gradient[4] }
 		b:SetScript("OnEnter", function(self)
 			if gradient then
-				self.bg:SetAlpha(0.85) -- a gradient lifts by fading a little; its colours stay
+				self.bg:SetGradient("HORIZONTAL", lifted)
 			else
 				self.bg:SetColor(lift, kind == "ghost" and (web and 1 or 0.6) or 1)
 			end
 		end)
 		b:SetScript("OnLeave", function(self)
 			if gradient then
-				self.bg:SetAlpha(1)
+				self.bg:SetGradient("HORIZONTAL", gradient)
 			else
 				self.bg:SetColor(kind == "ghost" and not web and "#000000" or fill, rest)
 			end
@@ -751,8 +753,11 @@ end
 -- A slider: a sunken track, the part up to the thumb in the accent, the thumb, and the value in a small
 -- box at the right (format(value) gives its text). onChange(value) when the player moves it; the wheel
 -- steps it too. sl:Set(value) moves it without calling onChange.
-function UI.Slider(parent, min, max, step, value, onChange, format)
+-- opts.onRelease: a drag calls onChange once, where it is let go (the window's size, which would move the
+-- slider under the pointer). The box at its right takes a typed number too, Enter setting it.
+function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 	format = format or tostring
+	local onRelease = opts and opts.onRelease
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetHeight(20)
 	local s = CreateFrame("Slider", nil, f)
@@ -780,28 +785,73 @@ function UI.Slider(parent, min, max, step, value, onChange, format)
 	if Theme.skin.decor and Theme.skin.decor.bar then
 		UI.gradient(fill, "HORIZONTAL", Theme.skin.decor.bar)
 	end
-	local readout = CreateFrame("Frame", nil, f)
+	local readout = CreateFrame("EditBox", nil, f)
 	readout:SetSize(48, 20)
 	readout:SetPoint("RIGHT")
-	surface(readout, Theme.color.surfaceSunken, 1, Theme.color.border, radius("control") > 0 and 5 or 0)
-	readout.text = UI.Text(readout, "", { size = "xs", align = "CENTER" })
-	readout.text:SetPoint("CENTER")
-	local quiet = false
+	readout:SetAutoFocus(false)
+	UI.setFont(readout, Theme.skin.font, Theme.text.xs, "")
+	readout:SetTextColor(Theme.rgb(Theme.color.text))
+	readout:SetJustifyH("CENTER")
+	readout.bg, readout.rim = surface(readout, Theme.color.surfaceSunken, 1, Theme.color.border, radius("control") > 0 and 5 or 0)
+	local quiet, dragging = false, false
+	local function show(v)
+		if not readout:HasFocus() then
+			readout:SetText(format(v))
+		end
+	end
 	s:SetScript("OnValueChanged", function(_, v)
 		v = UI.layout.step(v, min, max, step)
-		readout.text:SetText(format(v))
-		if not quiet and onChange then
+		show(v)
+		if not quiet and onChange and not (onRelease and dragging) then
 			onChange(v)
+		end
+	end)
+	s:SetScript("OnMouseDown", function()
+		dragging = true
+	end)
+	s:SetScript("OnMouseUp", function(self)
+		if dragging then
+			dragging = false
+			if onRelease and onChange then
+				onChange(UI.layout.step(self:GetValue(), min, max, step))
+			end
 		end
 	end)
 	s:EnableMouseWheel(true)
 	s:SetScript("OnMouseWheel", function(self, delta)
 		self:SetValue(UI.layout.step(self:GetValue() + delta * step, min, max, step))
 	end)
+	-- A typed number, its first digits ("110%" reads 110), stepped into the range.
+	readout:SetScript("OnEnterPressed", function(self)
+		local n = tonumber(string.match(self:GetText() or "", "%-?%d+%.?%d*") or "")
+		self:ClearFocus()
+		if n then
+			n = UI.layout.step(n, min, max, step)
+			if n == UI.layout.step(s:GetValue(), min, max, step) then
+				show(n)
+			else
+				s:SetValue(n)
+			end
+		else
+			show(UI.layout.step(s:GetValue(), min, max, step))
+		end
+	end)
+	readout:SetScript("OnEscapePressed", function(self)
+		self:ClearFocus()
+		show(UI.layout.step(s:GetValue(), min, max, step))
+	end)
+	readout:SetScript("OnEditFocusGained", function(self)
+		self.rim:SetColor(Theme.color.focus)
+		self:HighlightText()
+	end)
+	readout:SetScript("OnEditFocusLost", function(self)
+		self.rim:SetColor(Theme.color.border)
+		show(UI.layout.step(s:GetValue(), min, max, step))
+	end)
 	function f:Set(v)
 		quiet = true
 		s:SetValue(v)
-		readout.text:SetText(format(UI.layout.step(v, min, max, step)))
+		show(UI.layout.step(v, min, max, step))
 		quiet = false
 	end
 	-- A new range (the units of the item in view), without calling onChange.
@@ -1280,12 +1330,19 @@ function UI.layout.navRows(pages, query)
 	local rows, group = {}, nil
 	for _, p in ipairs(pages) do
 		local hay = string.lower((p.label or "") .. " " .. (p.title or ""))
-		if query == "" or string.find(hay, query, 1, true) then
+		local found, tab = query == "" or string.find(hay, query, 1, true), nil
+		-- Else a tab's name: the page is found, opening on that tab.
+		for _, t in ipairs(not found and p.tabs or {}) do
+			if not tab and string.find(string.lower(t.label or ""), query, 1, true) then
+				found, tab = true, t.key
+			end
+		end
+		if found then
 			if p.group and p.group ~= group then
 				rows[#rows + 1] = { head = p.group }
 			end
 			group = p.group
-			rows[#rows + 1] = { page = p }
+			rows[#rows + 1] = { page = p, tab = tab }
 		end
 	end
 	return rows
@@ -1552,8 +1609,8 @@ function UI.Window(name, title, pages, store, opts)
 		item.icon:SetPoint("LEFT", 14, 0)
 		item.label = UI.Text(item, p.label, { size = "md", medium = web, tone = "muted" })
 		item.label:SetPoint("LEFT", 42, 0)
-		item:SetScript("OnClick", function()
-			w:SelectPage(p.key)
+		item:SetScript("OnClick", function(self)
+			w:SelectPage(p.key, self.tab)
 		end)
 		w.items[#w.items + 1] = item
 		if p.group and not w.heads[p.group] then
@@ -1581,6 +1638,7 @@ function UI.Window(name, title, pages, store, opts)
 				for _, item in ipairs(self.items) do
 					if item.key == row.page.key then
 						f = item
+						item.tab = row.tab
 					end
 				end
 			end
@@ -1593,7 +1651,8 @@ function UI.Window(name, title, pages, store, opts)
 		empty:SetShown(#rows == 0)
 	end
 
-	function w:SelectPage(key)
+	-- `tab`: the tab to open on a tabbed page (a search that matched it), else the page's last.
+	function w:SelectPage(key, tab)
 		local def = byKey[key] or pages[1]
 		if not def then
 			return
@@ -1623,6 +1682,9 @@ function UI.Window(name, title, pages, store, opts)
 			self.pages[key] = page
 		end
 		page:Show()
+		if tab and page.SelectTab then
+			page.tab = tab
+		end
 		if page.Refresh then
 			ns.safely("ui " .. key, page.Refresh, page)
 		end

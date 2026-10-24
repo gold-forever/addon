@@ -127,7 +127,7 @@ eq(table.concat(slices.TOP, ","), "0.49,0.51,0,0.5", "the top edge is the middle
 -- The hub's sidebar: headings for the groups with a page left, pages by label or title, any case.
 local pages = {
 	{ key = "characters", label = "Characters", group = "Overview" },
-	{ key = "ledger", label = "Ledger", group = "Overview" },
+	{ key = "ledger", label = "Ledger", group = "Overview", tabs = { { key = "money", label = "Money" }, { key = "inventory", label = "Inventory" } } },
 	{ key = "mobs", label = "Mobs", title = "Mobs, by what a loot is worth", group = "Play" },
 	{ key = "settings", label = "Settings", group = "Addon" },
 }
@@ -142,6 +142,10 @@ eq(nav(""), "#Overview characters ledger #Play mobs #Addon settings", "every gro
 eq(nav("LED"), "#Overview ledger", "a match keeps only its group")
 eq(nav("loot"), "#Play mobs", "the title counts too")
 eq(nav("zzz"), "", "nothing matches")
+-- A tab's name finds its page, and the row says which tab to open (manual test run 001: "inv" found nothing).
+eq(nav("inv"), "#Overview ledger", "a tab's name finds its page")
+eq(L.navRows(pages, "inv")[2].tab, "inventory", "the row names the tab")
+eq(L.navRows(pages, "led")[2].tab, nil, "a page's own name opens it as it was")
 
 -- The footprint line, with and without the profiler.
 eq(L.footprint(2048, 0.0125), "Memory 2.0 MB · CPU 0.013 ms", "memory and CPU")
