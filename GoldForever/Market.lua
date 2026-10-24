@@ -164,7 +164,7 @@ local function finish(s, buckets, n)
 		if n > 0 then
 			ns.dealsPending = true
 			if ns.price then
-				ns.price.market(0)
+				ns.price.own(0) -- builds the own scan's prices
 			end
 		end
 		ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))

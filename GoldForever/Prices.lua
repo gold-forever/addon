@@ -326,7 +326,7 @@ function Prices.value(id)
 			return value, "pool", Prices.trend(value, week), week
 		end
 	end
-	local own = ns.price and ns.price.market(id)
+	local own = ns.ownPrice and ns.ownPrice(id)
 	if own then
 		return own, "scan"
 	end

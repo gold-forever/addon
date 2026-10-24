@@ -143,21 +143,33 @@ local function buildPrices()
 	step()
 end
 
-local function market(id)
+-- The own scan's market value: the cheapest 15% of the units listed, so an item with one listing is
+-- worth what that one asks.
+local function ownMarket(id)
 	if not prices or pricedFrom ~= (ns.scanVersion or 0) then
 		buildPrices()
 	end
 	return prices[id]
 end
 
+-- An item's market value: the shared pool's (many players' scans, outliers dropped, a jump held until a
+-- later scan confirms it), else the own scan's (manual test run 001: Poached Nettlefish "sold for"
+-- 47,499g on the Crafting page from a single listing in the own scan).
+local function market(id)
+	if ns.Prices and ns.Prices.value then
+		return (ns.Prices.value(id))
+	end
+	return ownMarket(id)
+end
+
 local function cheapest(id)
-	market(id) -- builds the prices when needed
+	ownMarket(id) -- builds the prices when needed
 	return cheapestPrices[id]
 end
 
 -- The own scan's market value, cheapest unit and time, for the pool's fallback (Prices.lua).
 function ns.ownPrice(id)
-	local value = market(id)
+	local value = ownMarket(id)
 	if value then
 		return value, cheapestPrices[id], pricedAt
 	end
@@ -282,7 +294,7 @@ end
 
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.
 ns.price = {
-	market = market, cheapest = cheapest, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
+	market = market, own = ownMarket, cheapest = cheapest, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
 }
 
@@ -1237,7 +1249,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
 			return
 		end
-		local m, v = market(data.id), vendor(data.id)
+		local m, v = ownMarket(data.id), vendor(data.id) -- the own scan's line; the pool has its own
 		local de, skill = disenchantWorth(data.id)
 		if not m and not v and not de then
 			return
