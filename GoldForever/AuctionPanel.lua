@@ -789,13 +789,19 @@ local function lists()
 		-- Its prices are kept by item (it is made anew from the queue): s.queuePrices[id] = { maxUnit | pct }.
 		local prices = s.queuePrices or {}
 		for id, n in pairs(needs) do
-			local p = prices[id] or {}
-			entries[#entries + 1] = { itemId = id, upTo = n, maxUnit = p.maxUnit, pct = p.pct, lowest = p.lowest }
+			-- A reagent held already (bags and bank) is not to buy: off the list (manual test run 001).
+			local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id)) or 0
+			if heldHere(id, inBags) < n then
+				local p = prices[id] or {}
+				entries[#entries + 1] = { itemId = id, upTo = n, maxUnit = p.maxUnit, pct = p.pct, lowest = p.lowest }
+			end
 		end
 		table.sort(entries, function(a, b)
 			return a.itemId < b.itemId
 		end)
-		shown[#shown + 1] = { name = "Craft queue", entries = entries, profile = true, queue = true }
+		if #entries > 0 then
+			shown[#shown + 1] = { name = "Craft queue", entries = entries, profile = true, queue = true }
+		end
 	end
 	if p and #p.buy > 0 then
 		local entries = {}
