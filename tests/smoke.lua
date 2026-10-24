@@ -362,6 +362,22 @@ do
   GetRaidTargetIndex = index
   issecretvalue = nil
 end
+-- A unit whose identity the client keeps secret (GUID, name, creature type): nothing read, nothing
+-- recorded, no error (the errors table is checked at the end of the run).
+do
+  local SECRET = {}
+  function issecretvalue(v) return v == SECRET end
+  local guid, name, kind = UnitGUID, UnitName, UnitCreatureType
+  UnitGUID = function(u) if u == "nameplate3" or u == "npc" then return SECRET end return guid(u) end
+  UnitName = function(u) if u == "nameplate3" then return SECRET end return name(u) end
+  UnitCreatureType = function(u) if u == "nameplate3" then return SECRET end return kind(u) end
+  local notices = #raidNotices
+  fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+  fire("PLAYER_TARGET_CHANGED")
+  assert(#raidNotices == notices, "no alert for a unit the client keeps secret")
+  UnitGUID, UnitName, UnitCreatureType = guid, name, kind
+  issecretvalue = nil
+end
 -- "Tell my party": nothing in chat while it is off (the default); on and in a party, one line a spawn.
 do
   local said = {}

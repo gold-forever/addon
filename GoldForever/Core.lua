@@ -31,6 +31,15 @@ function ns.secret(v)
 	return issecretvalue ~= nil and issecretvalue(v) or false
 end
 
+-- A value the addon may read, or nil when the client keeps it secret (UnitGUID, UnitName and
+-- UnitCreatureType are, for a unit whose identity is restricted).
+function ns.readable(v)
+	if ns.secret(v) then
+		return nil
+	end
+	return v
+end
+
 function ns.me()
 	return me
 end

@@ -244,7 +244,7 @@ local function start(manual)
 		market = ns.market(side()),
 		map = C_Map.GetBestMapForUnit("player"),
 		zone = GetSubZoneText(),
-		npc = Encode.source(UnitGUID("npc")),
+		npc = Encode.source(ns.readable(UnitGUID("npc"))),
 		npcFaction = UnitExists("npc") and (UnitFactionGroup("npc") or "none") or nil,
 	}
 	ns.say("scanning the auction house…")
@@ -332,7 +332,7 @@ local function readMerchant()
 			ns.catalogueItem(id)
 		end
 	end
-	local npc = Encode.npcId(UnitGUID("npc"))
+	local npc = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if npc and #sold > 0 then
 		local map, x, y = ns.position()
 		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"))

@@ -60,7 +60,7 @@ local function seeUnit(unit, how)
 	if not RARE[UnitClassification(unit)] then
 		return
 	end
-	local guid = UnitGUID(unit)
+	local guid = ns.readable(UnitGUID(unit))
 	local s = settings()
 	if not guid then
 		return
@@ -87,7 +87,7 @@ local function seeUnit(unit, how)
 		local _, _, _, at = where()
 		local level = UnitLevel(unit)
 		local kind = UnitClassification(unit) == "rareelite" and " elite" or ""
-		alert(string.format("Rare: %s (%s%s)%s", UnitName(unit) or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
+		alert(string.format("Rare: %s (%s%s)%s", ns.readable(UnitName(unit)) or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
 	end
 end
 

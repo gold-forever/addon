@@ -19,7 +19,7 @@ local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
 		return
 	end
-	local id = Encode.npcId(UnitGUID(unit))
+	local id = Encode.npcId(ns.readable(UnitGUID(unit)))
 	if not id then
 		return
 	end
@@ -41,8 +41,9 @@ local function seeUnit(unit)
 	range[1] = math.min(range[1] or level, level)
 	range[2] = math.max(range[2] or level, level)
 	levels[id] = range
-	npcs[id] = Encode.row(Encode.name(UnitName(unit) or "?"), range[1], range[2], UnitClassification(unit),
-		UnitCreatureType(unit) and Encode.name(UnitCreatureType(unit)) or nil)
+	local kind = ns.readable(UnitCreatureType(unit))
+	npcs[id] = Encode.row(Encode.name(ns.readable(UnitName(unit)) or "?"), range[1], range[2], UnitClassification(unit),
+		kind and Encode.name(kind) or nil)
 end
 ns.seeUnit = seeUnit
 
@@ -68,7 +69,7 @@ local cast -- { name, at }
 -- kept, so no player's name can end up as an object's (design 002: no other players' names).
 local function onUnit(target)
 	for _, unit in ipairs({ "player", "target", "mouseover", "focus" }) do
-		if UnitExists(unit) and UnitName(unit) == target then
+		if UnitExists(unit) and ns.readable(UnitName(unit)) == target then
 			return true
 		end
 	end
@@ -210,7 +211,7 @@ local FILTERS = { "available", "unavailable", "used" }
 -- Everything the trainer teaches, with cost and requirements, keyed by trainer NPC. Every filter
 -- is switched on while reading, then put back as the player had it.
 local function readTrainer()
-	local id = Encode.npcId(UnitGUID("npc"))
+	local id = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if not id or not GetNumTrainerServices then
 		return
 	end
