@@ -5,6 +5,8 @@ local timers = {}
 local frames = {}
 function GetServerTime() return now end
 function GetTime() return clock end
+-- The client's profiling timer (milliseconds), which work spread over frames budgets against.
+function debugprofilestop() return os.clock() * 1000 end
 function date(f, t) return os.date(f, t) end
 function print(...) io.write("[chat] ", table.concat({...}, " "), "\n") end
 function hooksecurefunc(a, b, c)
@@ -266,12 +268,32 @@ if SAVE then
     if not ok then failedSteps = (failedSteps or 0) + 1 end
     rows[#rows + 1] = string.format("%-34s %8.1f ms %8.0f KB%s", label, ms, allocated, ok and "" or ("  FAILED: " .. tostring(err)))
   end
+  -- Login and the work it schedules; what stalls the game is the slowest single step, so each timer's
+  -- step is timed too, and the worst one named.
+  local worst, worstAt = 0, "?"
+  local after = C_Timer.After
+  C_Timer.After = function(sec, fn)
+    after(sec, function()
+      local t = os.clock()
+      fn()
+      local ms = (os.clock() - t) * 1000
+      if ms > worst then
+        local info = debug.getinfo(fn, "S")
+        worst, worstAt = ms, info.short_src:match("[^/]+$") .. ":" .. info.linedefined
+      end
+    end)
+  end
   timed("load and log in", function()
+    local t = os.clock()
     fire("ADDON_LOADED", "GoldForever")
     fire("PLAYER_LOGIN")
     fire("PLAYER_ENTERING_WORLD", true, false)
-    wait(20)
+    local ms = (os.clock() - t) * 1000
+    if ms > worst then worst, worstAt = ms, "the login events themselves" end
+    wait(40)
   end)
+  C_Timer.After = after
+  rows[#rows + 1] = string.format("%-34s %8.1f ms  (%s)", "slowest single step after login", worst, worstAt)
   local pages = { "home", "money", "characters", "inventory", "sales", "crafting", "now", "levelling", "mobs", "rares", "companion", "settings", "guide", "design" }
   for _, look in ipairs({ "web", "classic", "arcane" }) do
     timed(look .. ": open the hub", function() SlashCmdList.GOLDFOREVER("look " .. look) SlashCmdList.GOLDFOREVER("ui home") end)

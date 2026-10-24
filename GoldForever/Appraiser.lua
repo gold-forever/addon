@@ -1044,7 +1044,9 @@ end)
 -- than one frame may spend on: CHUNKS_A_FRAME chunks (500 rows each) a frame, from a list of the chunks
 -- taken at the start (rows written meanwhile come through the listener above). Until it is done the
 -- counts are nil: no tooltip line, and the Mobs page says it is counting.
-local CHUNKS_A_FRAME = 2
+-- How much a frame takes: BUDGET_MS of work where the client has a timer (debugprofilestop, on both),
+-- else ROWS_A_FRAME rows. Chunks of 500 rows were 6 ms each on two weeks of loot, too much for one frame.
+local BUDGET_MS, ROWS_A_FRAME = 3, 250
 local built = {} -- what to call once the counts are in
 local function buildMobs()
 	if countingRows then
@@ -1063,7 +1065,7 @@ local function buildMobs()
 		end
 	end
 	countingRows = {}
-	local counted, i = {}, 0
+	local counted, i, pos = {}, 1, 1 -- the chunk and the place in it the next row starts
 	local step
 	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
 	-- them again, rather than showing part of them for the session.
@@ -1080,21 +1082,30 @@ local function buildMobs()
 	step = function()
 		local saved = mobs
 		mobs = counted
-		for _ = 1, CHUNKS_A_FRAME do
-			i = i + 1
+		local clock = debugprofilestop
+		local started, rows = clock and clock(), 0
+		while chunks[i] do
 			local chunk = chunks[i]
-			if not chunk then
-				break
+			local stop = string.find(chunk, ";", pos, true)
+			local row = string.sub(chunk, pos, (stop or 0) - 1)
+			if stop then
+				pos = stop + 1
+			else
+				i, pos = i + 1, 1
 			end
-			for row in string.gmatch(chunk, "[^;]+") do
+			if row ~= "" then
 				local values = { strsplit(",", row) }
 				local id = Encode.npcOf(values[columns.src])
 				if id then
 					countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]))
 				end
 			end
+			rows = rows + 1
+			if (started and rows % 25 == 0 and clock() - started >= BUDGET_MS) or (not started and rows >= ROWS_A_FRAME) then
+				break
+			end
 		end
-		if i < #chunks then
+		if chunks[i] then
 			mobs = saved
 			C_Timer.After(0, guarded)
 			return
