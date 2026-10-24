@@ -56,6 +56,9 @@ eq(err and err:find("Line 1", 1, true) ~= nil, true, "names the line")
 eq((S.decode(wrap("list a\nitem 1 max 0"))), nil, "a zero price")
 eq((S.decode(wrap("list a\nitem 1 cheap"))), nil, "an unknown word")
 eq((S.decode("GFL1:@@@@")), nil, "damaged")
+eq(#S.decode(wrap(string.rep("list a\n", 50))), 50, "fifty lists")
+_, err = S.decode(wrap(string.rep("list a\n", 51)))
+eq(err, "More than 50 lists", "a string cannot fill the save with lists")
 eq(S.decode(wrap("list |cffff0000Free|r\nitem 1 market"))[1].name, "cffff0000Freer", "the game's escapes stripped")
 
 -- The Shop's field: a link or an ID, then a price in gold or none.

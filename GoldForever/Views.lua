@@ -27,8 +27,10 @@ local function split(row)
 end
 
 -- A stream's rows across every saved day, each as { column = value } by the declared columns, in
--- time order. Numbers stay strings; the callers convert what they use.
-function Views.rows(db, stream)
+-- time order. Numbers stay strings; the callers convert what they use. With `char` only that
+-- character's rows, and with `from` only rows from then on: the others are passed over before they
+-- are split (every stream starts "t,char"), which on two weeks of rows is most of the work.
+function Views.rows(db, stream, char, from)
 	local names = {}
 	for name in string.gmatch(db.fields and db.fields[stream] or "", "[^,]+") do
 		names[#names + 1] = name
@@ -37,13 +39,21 @@ function Views.rows(db, stream)
 	for _, bucket in pairs(db.events or {}) do
 		for _, chunk in ipairs(bucket[stream] or {}) do
 			for row in string.gmatch(chunk, "[^;]+") do
-				local values, r = split(row), {}
-				for i, name in ipairs(names) do
-					r[name] = values[i] ~= "" and values[i] or nil
+				if char or from then
+					local t, c = string.match(row, "^(%d*),(%d*)")
+					if (char and tonumber(c) ~= char) or (from and (tonumber(t) or 0) < from) then
+						row = nil
+					end
 				end
-				r.t = tonumber(r.t) or 0
-				r.char = tonumber(r.char)
-				out[#out + 1] = r
+				if row then
+					local values, r = split(row), {}
+					for i, name in ipairs(names) do
+						r[name] = values[i] ~= "" and values[i] or nil
+					end
+					r.t = tonumber(r.t) or 0
+					r.char = tonumber(r.char)
+					out[#out + 1] = r
+				end
 			end
 		end
 	end
@@ -340,6 +350,35 @@ end
 -- closes (combat over and a few seconds to loot), the larger of its kill-XP gains and the creature
 -- corpses looted for the first time. A corpse looted again is no new kill; a grey mob gives no XP but its
 -- corpse counts; a chest or herb (not a creature) never does. `seen` (guid -> true) is updated in place.
+-- Kills to add for a closed fight (or a loot or kill XP outside any), across fights: a kill credited
+-- by its XP whose corpse is looted later, after its fight closed or inside the next one, is not counted
+-- again. `pending` holds the times of XP kills with no corpse yet; a fresh corpse first matches one of
+-- those (from the last MATCH_SECONDS), then counts as a kill of its own. Returns the kills to add.
+Views.MATCH_SECONDS = 120
+function Views.creditKills(pending, xpKills, corpses, seen, now)
+	for i = #pending, 1, -1 do
+		if now - pending[i] > Views.MATCH_SECONDS then
+			table.remove(pending, i)
+		end
+	end
+	local fresh = 0
+	for _, guid in ipairs(corpses or {}) do
+		if string.find(guid, "^Creature%-") and not seen[guid] then
+			seen[guid] = true
+			fresh = fresh + 1
+		end
+	end
+	local matched = math.min(fresh, #pending)
+	for _ = 1, matched do
+		table.remove(pending, 1)
+	end
+	fresh = fresh - matched
+	for _ = 1, (xpKills or 0) - fresh do
+		pending[#pending + 1] = now
+	end
+	return math.max(xpKills or 0, fresh)
+end
+
 function Views.killsInFight(xpKills, corpses, seen)
 	local fresh = 0
 	for _, guid in ipairs(corpses or {}) do

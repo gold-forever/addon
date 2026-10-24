@@ -12,6 +12,11 @@ local SCHEMA = 1
 local VERSION = "0.16.0"
 ns.VERSION = VERSION
 
+-- A retail client keeps a lean save (owner's answer, 2026-10-24): the catalogue exists to keep
+-- WoW: Forever's knowledge, which retail's does not need, so tooltip text, the achievement catalogue
+-- and map art are neither recorded there nor kept. Forever keeps everything.
+ns.lean = (select(4, GetBuildInfo()) or 0) >= 110000
+
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
 	sys = "t,char,kind",
@@ -23,6 +28,21 @@ local reloading = false -- set by the ReloadUI hook just before the UI unloads
 
 function ns.db()
 	return db
+end
+
+-- Whether the client handed us a "secret" value (newer clients hide some unit and marker values from
+-- addons): such a value may be passed back to the client but not compared or read here.
+function ns.secret(v)
+	return issecretvalue ~= nil and issecretvalue(v) or false
+end
+
+-- A value the addon may read, or nil when the client keeps it secret (UnitGUID, UnitName and
+-- UnitCreatureType are, for a unit whose identity is restricted).
+function ns.readable(v)
+	if ns.secret(v) then
+		return nil
+	end
+	return v
 end
 
 function ns.me()
@@ -55,6 +75,20 @@ function ns.safely(name, fn, ...)
 		ns.fail(name, err)
 	end
 	return ok
+end
+
+-- Work spread over frames takes about FRAME_MS a frame: ns.frameStart() when a frame's share begins,
+-- then ns.frameSpent(started, done, fallback) every so often says whether to yield. Where the client has
+-- no profiling timer, `fallback` units of work a frame instead.
+local FRAME_MS = 3
+function ns.frameStart()
+	return debugprofilestop and debugprofilestop() or nil
+end
+function ns.frameSpent(started, done, fallback)
+	if started then
+		return done % 25 == 0 and debugprofilestop() - started >= FRAME_MS
+	end
+	return done >= fallback
 end
 
 function ns.after(seconds, name, fn)
@@ -169,6 +203,11 @@ local function init()
 		ns.say("this file was written by a newer version. Update the addon.")
 	end
 	db.schema = SCHEMA
+	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
+	-- none, so what the player and the site see is only from the build running.
+	if db.addon ~= VERSION then
+		db.errors = nil
+	end
 	db.addon = VERSION
 	db.fields = db.fields or {}
 	for name, columns in pairs(ns.FIELDS) do
@@ -197,6 +236,11 @@ local function init()
 	db.catalogue.legacyRewards = db.catalogue.legacyRewards or {}
 	db.catalogue.achievements = db.catalogue.achievements or {}
 	db.catalogue.statistics = db.catalogue.statistics or {}
+	if ns.lean then
+		db.catalogue.tooltips = {}
+		db.catalogue.achievements = {}
+		db.mapArt = nil
+	end
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
 	db.errors = db.errors or {}
 	for name, e in pairs(errors) do

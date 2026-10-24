@@ -56,7 +56,8 @@
   the server's answer, then moves to the next item. A post under vendor value or far under the market
   asks for a second press. Alt-click an item in your bags to choose it in Post; its tooltip says what Post would ask. The duration you choose for an item, and how many of a stackable item to
   post (all at first), are remembered for it. **Rule**: undercut by 1 silver or a percentage, a floor and a normal price
-  as shares of the market value (the pool's, else your own scan), and hold or post at the floor.
+  as shares of the market value (the pool's, else your own scan), and hold or post at the floor. Prices
+  are whole silver unless the auction house takes copper (the addon asks the game).
   **Shop**: shopping lists of items with the most you pay a unit (or "under market"); shift-click an
   item into the field to add it. Choosing one searches it and shows what you can buy at or under your
   price; **Buy next** asks the auction house for the price, and a second press buys (a price more than
@@ -103,6 +104,25 @@
   - what you sell to and buy from vendors (item, how many, for how much);
   - what you buy on the auction house, and your auctions that expire or that you cancel.
   As before, nothing about other players is kept: no buyer or seller names.
+
+- **Retail saves are lean**: on a retail client the item tooltip text, the achievement catalogue and the
+  map art are no longer recorded, and an existing retail save drops them at load (about 5 MB on a busy
+  save). They exist to keep WoW: Forever's knowledge; a Forever save keeps everything.
+- **Price trend**: with prices from the companion, an item's pool line and Post's market say how the price
+  stands against its 7-day average ("+12% vs 7-day avg", "steady" within 1%), once the server sends it.
+- **Crafting**: Cost, Profit and Margin share one base: the reagents still to buy plus the held ones at
+  what they would sell for.
+- Recorded errors are of the version that recorded them: a new addon version starts with none.
+- Statistics and achievements are read a category a frame (a retail client stopped the read as "script
+  ran too long"); the counts of what each mob drops are built over frames after login.
+- Units the client keeps secret (newer clients hide some names and GUIDs) are skipped, never an error.
+- The mail helper never opens a letter a player could have titled like auction mail.
+- The auction house panel never stays locked after a refused buy, cancel or post (it waits at most 5
+  seconds), and a press after a price warning confirms only the price and quantity warned about.
+- Kills: a corpse looted after its fight ended is no longer counted a second time.
+- The HUD switch in Settings → Modules does what it shows; This session counts from the first opening.
+- Switching looks no longer builds new panels each time (the window's, the HUD's, the auction house
+  panel's, the mail helper's, the crafting strip's, the first-run card's).
 
 ## 0.15.0
 

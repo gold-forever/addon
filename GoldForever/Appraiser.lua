@@ -168,10 +168,34 @@ local function vendorBuy(id)
 	return tonumber(buy) / math.max(1, tonumber(qty) or 1)
 end
 
+-- An item's catalogue row read once a session: { name, quality, ilvl, class, sell }. Tooltips ask for
+-- the same items over and over, and splitting the whole row each time made garbage on every hover.
+-- At most ROWS_KEPT items are kept (a page listing thousands would hold them all); past that it starts over.
+local ROWS_KEPT = 2000
+local rowsRead, rowsKept = {}, 0
+local function catalogueInfo(id)
+	local info = rowsRead[id]
+	if info then
+		return info
+	end
+	local row = ns.db().catalogue.items[id]
+	if not row then
+		return nil -- not catalogued yet: asked again next time
+	end
+	local name, quality, ilvl, class, _, _, sell = strsplit(",", row)
+	info = { name = name, quality = tonumber(quality), ilvl = tonumber(ilvl), class = tonumber(class), sell = tonumber(sell) }
+	if rowsKept >= ROWS_KEPT then
+		rowsRead, rowsKept = {}, 0
+	end
+	rowsRead[id] = info
+	rowsKept = rowsKept + 1
+	return info
+end
+
 -- What a vendor pays, from the catalogue (`sell` is its 7th column), else from the client.
 local function vendor(id)
-	local row = ns.db().catalogue.items[id]
-	local sell = row and tonumber((select(7, strsplit(",", row))))
+	local info = catalogueInfo(id)
+	local sell = info and info.sell
 	if not sell and C_Item and C_Item.GetItemInfo then
 		sell = (select(11, C_Item.GetItemInfo(id)))
 	end
@@ -191,10 +215,9 @@ end
 
 -- Quality (0 poor … 4 epic), item level, class and vendor price, from the catalogue, else the client.
 local function itemInfo(id)
-	local row = ns.db().catalogue.items[id]
-	if row then
-		local name, quality, ilvl, class, _, _, sell = strsplit(",", row)
-		return tonumber(quality), tonumber(ilvl), tonumber(class), tonumber(sell), name
+	local info = catalogueInfo(id)
+	if info then
+		return info.quality, info.ilvl, info.class, info.sell, info.name
 	end
 	if C_Item and C_Item.GetItemInfo then
 		local name, _, quality, ilvl, _, _, _, _, _, _, sell, class = C_Item.GetItemInfo(id)
@@ -225,7 +248,7 @@ local function startsQuest(id)
 	if quest then
 		return quest
 	end
-	local tooltip = catalogue.tooltips[id]
+	local tooltip = catalogue.tooltips[id] or (ns.lean and ns.itemTooltipText(id))
 	return tooltip and (string.find(tooltip, ITEM_STARTS_QUEST or "This Item Begins a Quest", 1, true) and true) or nil
 end
 
@@ -312,16 +335,18 @@ end
 
 -- Kills without the combat log (forbidden on Forever): a fight opens when combat starts and closes a
 -- few seconds after it ends, once its loot is in; its kills are the larger of its kill-XP gains and the
--- creature corpses looted for the first time (Views.killsInFight), so a grey mob counts too.
+-- creature corpses looted for the first time, so a grey mob counts too; a corpse looted after its
+-- fight closed matches the kill XP already counted rather than counting again (Views.creditKills).
 local FIGHT_GRACE = 8 -- seconds after combat for the kill XP (classified 3 s late) and the loot
 local fight -- { xpKills, corpses = { guid } } while one is open
 local corpsesSeen = {} -- corpse GUIDs already counted
+local uncorpsed = {} -- times of kills credited by XP whose corpse is not looted yet (Views.creditKills)
 
 local function closeFight()
 	local f = fight
 	fight = nil
 	if f and session then
-		session.kills = session.kills + ns.Views.killsInFight(f.xpKills, f.corpses, corpsesSeen)
+		session.kills = session.kills + ns.Views.creditKills(uncorpsed, f.xpKills, f.corpses, corpsesSeen, GetTime())
 	end
 end
 
@@ -347,7 +372,8 @@ table.insert(ns.xpListeners, function(gained, kind)
 		if fight then
 			fight.xpKills = fight.xpKills + 1
 		else
-			s.kills = s.kills + 1 -- a kill outside any fight (a pet's, a DoT's after combat)
+			-- a kill outside any fight (a pet's, a DoT's after combat)
+			s.kills = s.kills + ns.Views.creditKills(uncorpsed, 1, nil, corpsesSeen, GetTime())
 		end
 	end
 end)
@@ -373,6 +399,7 @@ end
 -- The session HUD ------------------------------------------------------------------------------------------
 
 local hud -- the one-line HUD; hud.details is the session panel under it
+local huds = {} -- Theme.key -> HUD
 local built -- the Theme.key the HUD was drawn under
 
 local function settings()
@@ -610,6 +637,22 @@ build = function()
 	end
 	local s = settings()
 	local old = hud
+	-- One HUD per look and accent, reused when the look comes back (frames are never freed), placed
+	-- where the player last left either.
+	local cached = huds[Theme.key]
+	if cached then
+		if old and old ~= cached then
+			old:Hide()
+		end
+		hud, built = cached, Theme.key
+		hud:ClearAllPoints()
+		if s.point then
+			hud:SetPoint(s.point[1], UIParent, s.point[2], s.point[3], s.point[4])
+		else
+			hud:SetPoint("TOP", UIParent, "TOP", 0, -110)
+		end
+		return
+	end
 	hud = UI.Panel(UIParent, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
 	hud:SetSize(W, H)
 	hud:SetFrameStrata("MEDIUM")
@@ -725,6 +768,7 @@ build = function()
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
 	hud.details = d
 	built = Theme.key
+	huds[built] = hud
 end
 
 -- Whether the HUD stays out of the way now: in combat, when the player asked for that.
@@ -801,7 +845,7 @@ table.insert(ns.lootListeners, function(coin, taken, rows)
 			table.insert(fight.corpses, guid)
 		end
 	elseif #corpses > 0 then
-		session.kills = session.kills + ns.Views.killsInFight(0, corpses, corpsesSeen)
+		session.kills = session.kills + ns.Views.creditKills(uncorpsed, 0, corpses, corpsesSeen, GetTime())
 	end
 	ns.safely("big drop", bigDrops, taken)
 	session.coin = session.coin + coin
@@ -907,15 +951,24 @@ startTicker = function()
 	end
 end
 
-ns.commands.appraise = function()
-	local s = settings()
-	if hud and hud:IsShown() then
-		s.shown = false
+-- The HUD on or off as the player's choice (Settings → Modules): the saved switch, not whether the
+-- frame shows now (it is not built before the first loot, and tucked away in combat when so set).
+function ns.setHud(on)
+	settings().shown = on
+	if on then
+		show()
+	elseif hud then
 		hud:Hide()
+	end
+end
+
+ns.commands.appraise = function()
+	-- Shown, or on but tucked away in combat: off. Hidden, or not built before the first loot: on.
+	if hud and (hud:IsShown() or (settings().shown and tucked())) then
+		ns.setHud(false)
 		ns.say("session HUD hidden; /gf hud shows it again.")
 	else
-		s.shown = true
-		show()
+		ns.setHud(true)
 	end
 end
 
@@ -963,10 +1016,8 @@ end
 
 -- New loot updates the counts in place, rather than reading every loot row again at the next
 -- tooltip (two weeks of rows, in the tooltip's own frame).
-table.insert(ns.lootListeners, function(_, _, rows)
-	if not mobs then
-		return -- not built yet: the first tooltip reads everything, this loot included
-	end
+local countingRows -- loot rows that came while the counts were being built, counted in after them
+local function countRows(rows)
 	for _, row in ipairs(rows or {}) do
 		local npc = Encode.npcOf(row.src)
 		if npc then
@@ -980,27 +1031,100 @@ table.insert(ns.lootListeners, function(_, _, rows)
 			countLoot(npc, row.coin or 0, items)
 		end
 	end
+end
+table.insert(ns.lootListeners, function(_, _, rows)
+	if mobs then
+		countRows(rows)
+	elseif countingRows then
+		countingRows[#countingRows + 1] = rows
+	end -- not started: the build reads everything, this loot included
 end)
 
+-- The counts from every saved loot row. Two weeks of heavy farming is tens of thousands of rows, more
+-- than one frame may spend on: CHUNKS_A_FRAME chunks (500 rows each) a frame, from a list of the chunks
+-- taken at the start (rows written meanwhile come through the listener above). Until it is done the
+-- counts are nil: no tooltip line, and the Mobs page says it is counting.
+-- A frame's share (ns.frameSpent), else ROWS_A_FRAME rows: chunks of 500 rows were 6 ms each on two
+-- weeks of loot, too much for one frame.
+local ROWS_A_FRAME = 250
+local built = {} -- what to call once the counts are in
 local function buildMobs()
-	mobs = {}
+	if countingRows then
+		return
+	end
 	local db = ns.db()
 	local columns = Encode.columns(db.fields and db.fields.loot)
 	if not (columns.src and columns.coin and columns.items) then
+		mobs = {}
 		return
 	end
+	local chunks = {}
 	for _, bucket in pairs(db.events) do
 		for _, chunk in ipairs(bucket.loot or {}) do
-			for row in string.gmatch(chunk, "[^;]+") do
+			chunks[#chunks + 1] = chunk
+		end
+	end
+	countingRows = {}
+	local counted, i, pos = {}, 1, 1 -- the chunk and the place in it the next row starts
+	local step
+	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
+	-- them again, rather than showing part of them for the session.
+	local function failed(err)
+		mobs, countingRows, built = nil, nil, {}
+		ns.fail("mob counts", err)
+	end
+	local function guarded()
+		local ok, err = pcall(step)
+		if not ok then
+			failed(err)
+		end
+	end
+	step = function()
+		local saved = mobs
+		mobs = counted
+		local started, rows = ns.frameStart(), 0
+		while chunks[i] do
+			local chunk = chunks[i]
+			local stop = string.find(chunk, ";", pos, true)
+			local row = string.sub(chunk, pos, (stop or 0) - 1)
+			if stop then
+				pos = stop + 1
+			else
+				i, pos = i + 1, 1
+			end
+			if row ~= "" then
 				local values = { strsplit(",", row) }
 				local id = Encode.npcOf(values[columns.src])
 				if id then
 					countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]))
 				end
 			end
+			rows = rows + 1
+			if ns.frameSpent(started, rows, ROWS_A_FRAME) then
+				break
+			end
 		end
+		if chunks[i] then
+			mobs = saved
+			C_Timer.After(0, guarded)
+			return
+		end
+		for _, rows in ipairs(countingRows) do
+			countRows(rows)
+		end
+		countingRows = nil
+		for _, fn in ipairs(built) do
+			ns.safely("mob counts", fn)
+		end
+		built = {}
 	end
+	guarded()
 end
+ns.on("PLAYER_ENTERING_WORLD", "mob counts", function()
+	if not mobs then
+		ns.after(20, "mob counts", buildMobs)
+	end
+end)
 
 local function itemName(id)
 	local row = ns.db().catalogue.items[id]
@@ -1008,9 +1132,13 @@ local function itemName(id)
 end
 
 -- Every NPC looted, for the in-game pages: { [npc] = { loots, coin, items = { [id] = { dropped, units } } } }
--- and what one unit of an item is worth.
-function ns.mobStats()
+-- and what one unit of an item is worth; nil while the counts are built, and `whenBuilt` is called once
+-- they are.
+function ns.mobStats(whenBuilt)
 	if not mobs then
+		if whenBuilt then
+			built[#built + 1] = whenBuilt
+		end
 		buildMobs()
 	end
 	return mobs, worth
@@ -1020,6 +1148,9 @@ end
 local function mobLines(npc)
 	if not mobs then
 		buildMobs()
+		if not mobs then
+			return nil
+		end
 	end
 	local m = mobs[npc]
 	if not m then
@@ -1053,59 +1184,70 @@ local function mobLines(npc)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function mobTooltip(tooltip, data)
+		if tooltip ~= GameTooltip or not data or not ns.db() then
+			return
+		end
+		-- A unit the client keeps secret: nothing to look up (tested before any other use of the value).
+		if ns.secret(data.guid) then
+			return
+		end
+		local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
+		if ns.secret(guid) then
+			return
+		end
+		local npc = Encode.npcId(guid)
+		if not npc then
+			return
+		end
+		local summary, drops, starters = mobLines(npc)
+		if summary then
+			tooltip:AddLine(ns.PREFIX .. " " .. summary, 1, 1, 1)
+			if drops then
+				tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
+			end
+			if starters then
+				tooltip:AddLine(starters, 1, 0.82, 0, true)
+			end
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
-		ns.safely("mob tooltip", function()
-			if tooltip ~= GameTooltip or not data or not ns.db() then
-				return
-			end
-			local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
-			local npc = Encode.npcId(guid)
-			if not npc then
-				return
-			end
-			local summary, drops, starters = mobLines(npc)
-			if summary then
-				tooltip:AddLine(ns.PREFIX .. " " .. summary, 1, 1, 1)
-				if drops then
-					tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
-				end
-				if starters then
-					tooltip:AddLine(starters, 1, 0.82, 0, true)
-				end
-			end
-		end)
+		ns.safely("mob tooltip", mobTooltip, tooltip, data)
 	end)
 end
 
 -- Tooltips ----------------------------------------------------------------------------------------------
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function itemTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
+			return
+		end
+		local m, v = market(data.id), vendor(data.id)
+		local de, skill = disenchantWorth(data.id)
+		if not m and not v and not de then
+			return
+		end
+		local parts = {}
+		if m then
+			parts[#parts + 1] = "AH " .. coins(m) .. " (" .. coins(math.floor(m * (1 - CUT))) .. " after cut)"
+		end
+		if v then
+			parts[#parts + 1] = "vendor " .. coins(v)
+		end
+		if #parts > 0 then
+			tooltip:AddLine(ns.PREFIX .. " " .. table.concat(parts, " · "), 1, 1, 1)
+		end
+		if de and de > 0 then
+			local sale = worth(data.id) or 0
+			local verdict = de > sale and " · |cff56c98fbetter than selling|r" or ""
+			local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
+			tooltip:AddLine("Disenchant ≈ " .. coins(de) .. verdict .. short, 1, 1, 1)
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("appraiser tooltip", function()
-			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
-				return
-			end
-			local m, v = market(data.id), vendor(data.id)
-			if not m and not v and not disenchantWorth(data.id) then
-				return
-			end
-			local parts = {}
-			if m then
-				parts[#parts + 1] = "AH " .. coins(m) .. " (" .. coins(math.floor(m * (1 - CUT))) .. " after cut)"
-			end
-			if v then
-				parts[#parts + 1] = "vendor " .. coins(v)
-			end
-			if #parts > 0 then
-				tooltip:AddLine(ns.PREFIX .. " " .. table.concat(parts, " · "), 1, 1, 1)
-			end
-			local de, skill = disenchantWorth(data.id)
-			if de and de > 0 then
-				local sale = worth(data.id) or 0
-				local verdict = de > sale and " · |cff56c98fbetter than selling|r" or ""
-				local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
-				tooltip:AddLine("Disenchant ≈ " .. coins(de) .. verdict .. short, 1, 1, 1)
-			end
-		end)
+		ns.safely("appraiser tooltip", itemTooltip, tooltip, data)
 	end)
 end

@@ -19,7 +19,7 @@ local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
 		return
 	end
-	local id = Encode.npcId(UnitGUID(unit))
+	local id = Encode.npcId(ns.readable(UnitGUID(unit)))
 	if not id then
 		return
 	end
@@ -41,8 +41,9 @@ local function seeUnit(unit)
 	range[1] = math.min(range[1] or level, level)
 	range[2] = math.max(range[2] or level, level)
 	levels[id] = range
-	npcs[id] = Encode.row(Encode.name(UnitName(unit) or "?"), range[1], range[2], UnitClassification(unit),
-		UnitCreatureType(unit) and Encode.name(UnitCreatureType(unit)) or nil)
+	local kind = ns.readable(UnitCreatureType(unit))
+	npcs[id] = Encode.row(Encode.name(ns.readable(UnitName(unit)) or "?"), range[1], range[2], UnitClassification(unit),
+		kind and Encode.name(kind) or nil)
 end
 ns.seeUnit = seeUnit
 
@@ -68,7 +69,7 @@ local cast -- { name, at }
 -- kept, so no player's name can end up as an object's (design 002: no other players' names).
 local function onUnit(target)
 	for _, unit in ipairs({ "player", "target", "mouseover", "focus" }) do
-		if UnitExists(unit) and UnitName(unit) == target then
+		if UnitExists(unit) and ns.readable(UnitName(unit)) == target then
 			return true
 		end
 	end
@@ -80,6 +81,7 @@ ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
 		return
 	end
 	-- Every cast replaces the last, so an older cast never names the next loot.
+	target = ns.readable(target)
 	cast = target and target ~= "" and not onUnit(target) and { name = target, at = GetTime() } or nil
 end)
 ns.on("LOOT_READY", "objects", function()
@@ -93,16 +95,19 @@ end)
 -- Objects by tooltip: mousing over a herb, vein, chest or fishing pool shows a tooltip whose
 -- data carries the object's GUID on newer clients.
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function objectTooltip(_, data)
+		-- The GUID and the first line are secret for a unit whose identity the client keeps.
+		local guid = data and ns.readable(data.guid)
+		local src = guid and type(guid) == "string" and Encode.source(guid)
+		local id = src and string.match(src, "^o(%d+)$")
+		local line = id and data.lines and data.lines[1] and ns.readable(data.lines[1].leftText)
+		if id and line and line ~= "" and ns.db() then
+			ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)
-		ns.safely("objects", function()
-			local guid = data and data.guid
-			local src = guid and type(guid) == "string" and Encode.source(guid)
-			local id = src and string.match(src, "^o(%d+)$")
-			local line = data.lines and data.lines[1] and data.lines[1].leftText
-			if id and line and line ~= "" and ns.db() then
-				ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
-			end
-		end)
+		ns.safely("objects", objectTooltip, _, data)
 	end)
 end
 
@@ -137,7 +142,7 @@ local MAP_BATCH = 100
 local function readMapArt(manual)
 	local db = ns.db()
 	local build = db.client and db.client.build
-	if not manual and db.mapArt and db.mapArt.build == build and db.mapArt.rects then
+	if not manual and (ns.lean or (db.mapArt and db.mapArt.build == build and db.mapArt.rects)) then
 		return
 	end
 	if not (C_Map and C_Map.GetMapArtLayers and C_Map.GetMapArtLayerTextures and C_Map.GetMapInfo) then
@@ -210,7 +215,7 @@ local FILTERS = { "available", "unavailable", "used" }
 -- Everything the trainer teaches, with cost and requirements, keyed by trainer NPC. Every filter
 -- is switched on while reading, then put back as the player had it.
 local function readTrainer()
-	local id = Encode.npcId(UnitGUID("npc"))
+	local id = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if not id or not GetNumTrainerServices then
 		return
 	end

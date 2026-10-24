@@ -20,7 +20,7 @@ ns.FIELDS.scanItem = "item,class,subclass,stack"
 ns.FIELDS.vendor = "buy,limited,t,qty"
 
 local COOLDOWN = 15 * 60
-local BATCH = 500 -- auctions read per frame
+local BATCH = 500 -- auctions read a frame where the client has no profiling timer (ns.frameSpent)
 local KEEP_RECENT = 2 -- the newest full scans kept per market (design 002)
 local KEEP_MAX = 10 -- with one more a day before them, up to this many: a week or so of history
 local NEUTRAL_MAPS = { [1434] = true, [1446] = true, [1452] = true } -- Stranglethorn, Tanaris, Winterspring
@@ -138,17 +138,21 @@ local function finish(s, buckets, n)
 			npcFaction = s.npcFaction,
 			rows = Encode.chunks(rows),
 		}
+		-- Retail's distinct items (sorted and joined, a frame's work of its own on a full scan) go into the
+		-- record the next frame; the save is written at logout, long after.
 		if s.items then
-			local ids = {}
-			for id in pairs(s.items) do
-				ids[#ids + 1] = id
-			end
-			table.sort(ids)
-			local items = {}
-			for k, id in ipairs(ids) do
-				items[k] = s.items[id]
-			end
-			record.items = Encode.chunks(items)
+			ns.after(0, "scan", function()
+				local ids = {}
+				for id in pairs(s.items) do
+					ids[#ids + 1] = id
+				end
+				table.sort(ids)
+				local items = {}
+				for k, id in ipairs(ids) do
+					items[k] = s.items[id]
+				end
+				record.items = Encode.chunks(items)
+			end)
 		end
 		local scans = ns.db().scans
 		scans[#scans + 1] = record
@@ -167,10 +171,16 @@ local function finish(s, buckets, n)
 		scan = nil
 	end
 	local function encode()
-		local stop = math.min(i + ENCODE, #keys)
-		for k = i + 1, stop do
+		local started, done = ns.frameStart(), 0
+		local stop = #keys
+		for k = i + 1, #keys do
 			local b = buckets[keys[k]]
 			rows[k] = Encode.row(b.item, b.unit, b.qty, b.auctions, b.left)
+			done = done + 1
+			if ns.frameSpent(started, done, ENCODE) then
+				stop = k
+				break
+			end
 		end
 		i = stop
 		if i < #keys then
@@ -199,8 +209,9 @@ local function read()
 		s.items = {}
 	end
 	local function batch()
-		local stop = math.min(i + BATCH, n)
-		for index = i, stop - 1 do
+		local started, done = ns.frameStart(), 0
+		local stop = n
+		for index = i, n - 1 do
 			local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID =
 				C_AuctionHouse.GetReplicateItemInfo(index)
 			if itemID and buyout and buyout > 0 and count and count > 0 then
@@ -220,6 +231,11 @@ local function read()
 					s.items[itemID] = ns.Realms.itemRow(itemID, instant, stack)
 				end
 			end
+			done = done + 1
+			if ns.frameSpent(started, done, BATCH) then
+				stop = index + 1
+				break
+			end
 		end
 		i = stop
 		s.done = i
@@ -232,11 +248,16 @@ local function read()
 	batch()
 end
 
+-- A scan still in hand after this long failed partway (an error in reading or saving it ends the step,
+-- not the scan); a real one is read and saved within two minutes, so the next may start.
+local ABANDONED = 600
+
 local function start(manual)
 	local db = ns.db()
-	if scan then
+	if scan and ns.now() - scan.t < ABANDONED then
 		return
 	end
+	scan = nil
 	local wait = (db.lastReplicate or 0) + COOLDOWN - ns.now()
 	if wait > 0 then
 		if manual then
@@ -253,7 +274,7 @@ local function start(manual)
 		market = ns.market(side()),
 		map = C_Map.GetBestMapForUnit("player"),
 		zone = GetSubZoneText(),
-		npc = Encode.source(UnitGUID("npc")),
+		npc = Encode.source(ns.readable(UnitGUID("npc"))),
 		npcFaction = UnitExists("npc") and (UnitFactionGroup("npc") or "none") or nil,
 	}
 	ns.say("scanning the auction house…")
@@ -341,7 +362,7 @@ local function readMerchant()
 			ns.catalogueItem(id)
 		end
 	end
-	local npc = Encode.npcId(UnitGUID("npc"))
+	local npc = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if npc and #sold > 0 then
 		local map, x, y = ns.position()
 		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"))

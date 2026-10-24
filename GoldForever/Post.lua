@@ -15,13 +15,22 @@ Post.DEFAULT = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" 
 
 -- The undercuts a player can pick: an amount in copper, or a share of the cheapest price.
 Post.UNDERCUTS = {
+	{ value = "1c", label = "1 copper (where the auction house takes copper)", copper = 1 },
 	{ value = "1s", label = "1 silver", copper = 100 },
 	{ value = "1%", label = "1 percent", pct = 1 },
 	{ value = "5%", label = "5 percent", pct = 5 },
 }
 
--- Unit prices are whole silver on the auction house: down to the silver, at least one.
+-- Whether this client's auction house takes copper (C_AuctionHouse.SupportsCopperValues, read when it
+-- opens); without it prices are whole silver, as Blizzard's own sell window assumes.
+Post.copper = false
+
+-- A unit price the auction house takes: whole silver (down to it, at least one), or whole copper (at
+-- least one) where the client takes copper.
 function Post.silver(copper)
+	if Post.copper then
+		return math.max(1, math.floor(copper))
+	end
 	return math.max(100, math.floor(copper / 100) * 100)
 end
 
@@ -49,8 +58,8 @@ function Post.suggest(rule, market, cheapest)
 		return { unit = normal, reason = "normal", floor = floor, normal = normal }
 	end
 	if under >= floor then
-		-- Whole silver, and still under the cheapest one.
-		local unit = math.floor(under / 100) * 100
+		-- What the auction house takes (whole silver, or copper), and still under the cheapest one.
+		local unit = Post.copper and math.floor(under) or math.floor(under / 100) * 100
 		if unit >= floor then
 			return { unit = unit, reason = "undercut", floor = floor, normal = normal }
 		end

@@ -29,3 +29,11 @@ jobs:
               exit 1
             fi
           done
+      - name: The whole addon on a made-up save the size of a heavy player's
+        run: |
+          set -o pipefail
+          luajit tests/bigsave.lua > "$RUNNER_TEMP/bigsave.lua"
+          for interface in 16001 120105; do
+            GF_SMOKE_INTERFACE=$interface GF_SMOKE_SAVE="$RUNNER_TEMP/bigsave.lua" GF_SMOKE_GUID=Player-3666-0000000A \
+              luajit tests/smoke.lua GoldForever | grep -v '^\[chat\]'
+          done

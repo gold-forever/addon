@@ -5,6 +5,8 @@ local timers = {}
 local frames = {}
 function GetServerTime() return now end
 function GetTime() return clock end
+-- The client's profiling timer (milliseconds), which work spread over frames budgets against.
+function debugprofilestop() return os.clock() * 1000 end
 function date(f, t) return os.date(f, t) end
 function print(...) io.write("[chat] ", table.concat({...}, " "), "\n") end
 -- As the client's: the hook runs after the original with the same arguments, and every value the
@@ -50,25 +52,60 @@ tailoring = 75
 -- Any widget method not stubbed here is a no-op returning another such widget.
 -- Sizes come back as numbers and text as strings, so the UI kit's layout arithmetic runs.
 local NUMBERS = { GetWidth = 400, GetHeight = 300, GetStringWidth = 60, GetVerticalScroll = 0, GetEffectiveScale = 1, GetScale = 1, GetFrameLevel = 1 }
+-- The widget methods the client documents (tests/widget_methods.lua, generated from Blizzard's API docs),
+-- for the client this run plays; a method the client lacks fails the run, as it would fail in game.
+local METHODS = assert(loadfile((dir or "GoldForever") .. "/../tests/widget_methods.lua"))()
+local FLAVOUR = (tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001) >= 110000 and "retail" or "forever"
+-- Methods Blizzard's own frames, templates and mixins add (not in the widget docs), which the addon calls,
+-- and child frames it reads by key.
+local MIXIN = { AddLine = true, SetOwner = true, SelectBrowseResult = true, GetRecipeInfo = true, GetBagAndSlot = true, AddDoubleLine = true,
+  SetBackdrop = true, SetBackdropColor = true, SetBackdropBorderColor = true }
+local CHILDREN = { CraftingPage = true, SchematicForm = true }
 local function widget(t)
   return setmetatable(t or {}, { __index = function(_, k)
     if NUMBERS[k] then return function() return NUMBERS[k] end end
     if k == "GetText" then return function() return "" end end
     -- Only methods (capitalised, as the client's are); a missing field is nil, as on a real frame.
     if type(k) ~= "string" or not k:match("^%u") then return nil end
+    if CHILDREN[k] then return widget() end
+    -- Anything else the client does not have is nil, as on a real frame: calling it fails as in game.
+    if not METHODS[FLAVOUR][k] and not MIXIN[k] then return nil end
     return function() return widget() end
   end })
 end
+-- The stand-in refuses what the client lacks: a misspelt method is nil, a documented one works.
+assert(widget().SetPointt == nil and type(widget().SetPoint) == "function", "the stand-in knows the client's methods")
 function GetPhysicalScreenSize() return 2560, 1440 end
 UISpecialFrames = {}
 BackdropTemplateMixin = {}
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-function CreateFrame() local f = widget({ events = {}, shown = false })
+-- Frames as the client's: shown when made, visible when their parents are, and OnShow/OnHide (with
+-- hooks) run on a frame and its shown children when what is visible changes.
+local function visible(f)
+  while f do
+    if f.shown == false then return false end
+    f = f.parent
+  end
+  return true
+end
+local function run(f, script)
+  local fn = f.scripts[script]
+  if fn then fn(f) end
+  for _, c in ipairs(f.children) do
+    if c.shown then run(c, script) end
+  end
+end
+function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {} })
+  if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
-  function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn end end
-  function f:Show() self.shown = true end
-  function f:Hide() self.shown = false end
+  function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn end end
+  function f:GetScript(name) return self.scripts[name] end
+  function f:HookScript(name, fn) local old = self.scripts[name]; self.scripts[name] = function(...) if old then old(...) end fn(...) end end
+  function f:Show() if self.shown then return end local was = visible(self) self.shown = true if not was and visible(self) then run(self, "OnShow") end end
+  function f:Hide() if not self.shown then return end local was = visible(self) self.shown = false if was then run(self, "OnHide") end end
+  function f:SetShown(on) if on then self:Show() else self:Hide() end end
   function f:IsShown() return self.shown end
+  function f:IsVisible() return visible(self) end
   function f:CreateFontString() local fs = widget({}); function fs:SetText(t) self.text = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
 UIParent = widget()
@@ -211,8 +248,120 @@ function tocFiles()
   return out
 end
 local ns = {}
+-- GF_SMOKE_SAVE=<a copy of a SavedVariables file>: the addon on a real save instead of the session
+-- below, as that save's character, through every page, tab, look and panel, timed (tests/realsave.md).
+local SAVE = os.getenv("GF_SMOKE_SAVE")
+if SAVE then
+  dofile(SAVE)
+  local guid = os.getenv("GF_SMOKE_GUID")
+  if not guid then for g in pairs(GoldForeverDB.characters or {}) do guid = guid or g end end
+  local me = GoldForeverDB.characters[guid] or {}
+  local realm = me.realm or "Shadowsong"
+  UnitGUID = function(u) if u == "npc" then return "Creature-0-4620-0-12-8661-000A" end return guid end
+  UnitName = function() return me.name or "Saved", nil end
+  UnitFactionGroup = function(u) if u == "npc" then return nil end return me.faction or "Horde" end
+  GetNormalizedRealmName = function() return (realm:gsub("[%s%-]", "")) end
+  GetRealmName = function() return realm end
+  now = math.max(now, GoldForeverDB.writtenAt or now)
+end
 for _, f in ipairs(tocFiles()) do
   assert(loadfile(dir .. "/" .. f))("GoldForever", ns)
+end
+if SAVE then
+  local rows = {}
+  local function timed(label, fn)
+    -- The collector stopped while a step runs, so what it allocates is counted, not what was freed.
+    collectgarbage("collect")
+    collectgarbage("stop")
+    local kb, t = collectgarbage("count"), os.clock()
+    local ok, err = pcall(fn)
+    local ms = (os.clock() - t) * 1000
+    local allocated = collectgarbage("count") - kb
+    collectgarbage("restart")
+    -- A loose budget a step (GF_SMOKE_BUDGET_MS, 1000 by default): it catches work grown tenfold, not noise.
+    if ok and ms > (tonumber(os.getenv("GF_SMOKE_BUDGET_MS")) or 1000) then
+      ok, err = false, "over the budget"
+    end
+    if not ok then failedSteps = (failedSteps or 0) + 1 end
+    rows[#rows + 1] = string.format("%-34s %8.1f ms %8.0f KB%s", label, ms, allocated, ok and "" or ("  FAILED: " .. tostring(err)))
+  end
+  -- Login and the work it schedules; what stalls the game is the slowest single step, so each timer's
+  -- step is timed too, and the worst one named.
+  local worst, worstAt = 0, "?"
+  local after = C_Timer.After
+  C_Timer.After = function(sec, fn)
+    after(sec, function()
+      local t = os.clock()
+      fn()
+      local ms = (os.clock() - t) * 1000
+      if ms > worst then
+        local info = debug.getinfo(fn, "S")
+        worst, worstAt = ms, info.short_src:match("[^/]+$") .. ":" .. info.linedefined
+      end
+    end)
+  end
+  timed("load and log in", function()
+    local t = os.clock()
+    fire("ADDON_LOADED", "GoldForever")
+    fire("PLAYER_LOGIN")
+    fire("PLAYER_ENTERING_WORLD", true, false)
+    local ms = (os.clock() - t) * 1000
+    if ms > worst then worst, worstAt = ms, "the login events themselves" end
+    wait(40)
+  end)
+  C_Timer.After = after
+  rows[#rows + 1] = string.format("%-34s %8.1f ms  (%s)", "slowest single step after login", worst, worstAt)
+  local pages = { "home", "money", "characters", "inventory", "sales", "crafting", "now", "levelling", "mobs", "rares", "companion", "settings", "guide", "design" }
+  for _, look in ipairs({ "web", "classic", "arcane" }) do
+    timed(look .. ": open the hub", function() SlashCmdList.GOLDFOREVER("look " .. look) SlashCmdList.GOLDFOREVER("ui home") end)
+    for _, page in ipairs(pages) do
+      timed(look .. ": " .. page, function() SlashCmdList.GOLDFOREVER("ui " .. page) end)
+    end
+    timed(look .. ": settings tabs", function()
+      local p = ns.hubWindow().pages.settings
+      for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do p.ensure(tab) end
+    end)
+    timed(look .. ": revisit every page", function() for _, page in ipairs(pages) do SlashCmdList.GOLDFOREVER("ui " .. page) end end)
+  end
+  timed("HUD on and off", function() GoldForever_ToggleHud() wait(1) GoldForever_ToggleHud() end)
+  local AP = ns.AuctionPanel
+  AuctionHouseFrame = widget()
+  timed("auction house: open", function() fire("AUCTION_HOUSE_SHOW") end)
+  for _, tab in ipairs({ "scan", "post", "shop", "cancel", "rule" }) do
+    timed("auction house: " .. tab, function() AP.tab(tab) end)
+  end
+  timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
+  timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
+  -- Each item tooltip hook on its own, over every catalogued item, so its share shows.
+  -- Twice: a first look at every item, then a working set shown again and again, as play does.
+  for pass = 1, 2 do
+  for _, h in ipairs(itemTooltipHooks) do
+    local where = debug.getinfo(h, "S")
+    timed("item tooltips" .. (pass == 2 and " again: " or ": ") .. where.short_src:match("[^/]+$") .. ":" .. where.linedefined, function()
+      local data = { id = 0, type = 0 }
+      local ids = {}
+      for id in pairs(GoldForeverDB.catalogue.items or {}) do ids[#ids + 1] = id end
+      -- First a look at every item; again, the same 500 items 40 times over (hovering bags and the AH).
+      local n, rounds = pass == 1 and #ids or math.min(500, #ids), pass == 1 and 1 or 40
+      for _ = 1, rounds do
+        for i = 1, n do
+          GameTooltip.lines[1] = nil
+          data.id = ids[i]
+          h(GameTooltip, data)
+        end
+      end
+    end)
+  end
+  end
+  timed("logout", function() fire("PLAYER_LOGOUT") end)
+  for _, r in ipairs(rows) do io.write(r, "\n") end
+  local errors = {}
+  for name, e in pairs(GoldForeverDB.errors or {}) do
+    if (e.t or 0) >= now - 3600 then errors[#errors + 1] = name .. ": " .. tostring(e.msg) end
+  end
+  io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
+  io.write(string.format("MEMORY %.0f KB after a full collect\n", (function() collectgarbage("collect") return collectgarbage("count") end)()))
+  os.exit((#errors == 0 and not failedSteps) and 0 or 1)
 end
 fire("ADDON_LOADED", "GoldForever")
 fire("PLAYER_LOGIN")
@@ -354,6 +503,41 @@ if INTERFACE >= 110000 then
 else
   assert(#raidNotices == 1 and marks.nameplate3 == 8, "WoW: Forever: the rare is announced once and marked")
 end
+-- A marker the client keeps secret (newer clients): never compared, the rare still marked once.
+do
+  local SECRET = {}
+  function issecretvalue(v) return v == SECRET end
+  local index = GetRaidTargetIndex
+  GetRaidTargetIndex = function() return SECRET end
+  UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC9" end return unitGUID(u) end
+  marks.nameplate3 = nil
+  fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+  if INTERFACE < 110000 then
+    assert(marks.nameplate3 == 8, "marked without reading the secret marker")
+  end
+  GetRaidTargetIndex = index
+  issecretvalue = nil
+end
+-- A unit whose identity the client keeps secret (GUID, name, creature type): nothing read, nothing
+-- recorded, no error (the errors table is checked at the end of the run).
+do
+  local SECRET = {}
+  function issecretvalue(v) return v == SECRET end
+  local guid, name, kind = UnitGUID, UnitName, UnitCreatureType
+  UnitGUID = function(u) if u == "nameplate3" or u == "npc" then return SECRET end return guid(u) end
+  UnitName = function(u) if u == "nameplate3" then return SECRET end return name(u) end
+  UnitCreatureType = function(u) if u == "nameplate3" then return SECRET end return kind(u) end
+  local notices = #raidNotices
+  fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+  fire("PLAYER_TARGET_CHANGED")
+  assert(#raidNotices == notices, "no alert for a unit the client keeps secret")
+  for _, h in ipairs(tooltipHooks) do h(nil, { guid = SECRET, lines = { { leftText = SECRET } } }) end
+  for _, h in ipairs(tooltipHooks) do h(nil, { guid = "GameObject-0-4620-0-12-180683-000D", lines = { { leftText = SECRET } } }) end
+  assert(GoldForeverDB.catalogue.objects[180683] == nil, "no object named from a secret line")
+  fire("UNIT_SPELLCAST_SENT", "player", SECRET, "Cast-10", 2366)
+  UnitGUID, UnitName, UnitCreatureType = guid, name, kind
+  issecretvalue = nil
+end
 -- "Tell my party": nothing in chat while it is off (the default); on and in a party, one line a spawn.
 do
   local said = {}
@@ -454,6 +638,12 @@ do
   assert(over and tostring(over.label):find("(item rule)", 1, true), "Post names the item's rule: " .. tostring(over and over.label))
   GoldForeverDB.settings.auction.overrides.items[2589] = nil
   AP.ruleScope("default")
+  -- Changing the rule's scope again and again builds no new frames (the picker's rows are reused).
+  do
+    local before = #frames
+    for _ = 1, 5 do AP.ruleScope("add-item") AP.ruleScope("default") end
+    assert(#frames == before, "no frames built by scope changes: " .. (#frames - before))
+  end
   AP.tab("post")
   -- A post the client says needs confirming: nothing is waited for, the next press confirms it with the
   -- same four arguments.
@@ -470,7 +660,31 @@ do
     -- A refused post clears the wait at once (AUCTION_HOUSE_POST_ERROR), the item still chosen.
     fire("AUCTION_HOUSE_POST_ERROR")
     assert(select(3, AP.state()) == nil, "the refusal ends the wait")
+    -- Warned, then the quantity changed: the press posts afresh rather than confirming the old one.
+    confirmed, asked = nil, false
+    AP.post()
+    assert(asked and not confirmed, "warned again")
+    local chosenRow = select(2, AP.state())
+    GoldForeverDB.settings.auction.quantities[chosenRow.key] = 1
+    asked = false
+    AP.post()
+    assert(asked and not confirmed, "a changed quantity is posted afresh, not confirmed")
+    GoldForeverDB.settings.auction.quantities[chosenRow.key] = nil
     C_AuctionHouse.PostCommodity = postInner
+    -- A post the server never answers frees the panel after the timeout; a stray game error does not
+    -- end the wait, the auction house's own error does.
+    AP.post()
+    if select(3, AP.state()) == nil then AP.post() end
+    assert(select(3, AP.state()) ~= nil, "waiting for the post's answer")
+    fire("UI_ERROR_MESSAGE", 51, "Not enough mana")
+    assert(select(3, AP.state()) ~= nil, "an unrelated error is not the answer")
+    fire("AUCTION_HOUSE_SHOW_ERROR", 2)
+    assert(select(3, AP.state()) == nil, "the auction house's error is")
+    AP.post()
+    if select(3, AP.state()) == nil then AP.post() end
+    wait(6)
+    assert(select(3, AP.state()) == nil, "no answer: the panel takes presses again after the timeout")
+    for k in pairs(posts) do posts[k] = nil end
   end
   AP.duration(3) -- 48 hours for Linen, remembered for it
   AP.quantity(5) -- 5 of the 7 held, remembered for it
@@ -700,25 +914,47 @@ end
 do
   local keep = { GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem }
   local inbox = {
-    { "Kael", "Hello", 500, 0, 0 },
+    { "Kael", "Hello", 500, 0, 0, true },
+    { "Mallory", "Auction successful: Free gold", 700, 0, 0, true },
     { "Alliance Auction House", "Auction expired: Linen Cloth", 0, 0, 1 },
     { "Alliance Auction House", "Auction successful: Wool Cloth", 1900, 0, 0 },
     { "Bob", "Auction won: Ore", 0, 100, 2 },
   }
   function GetInboxNumItems() return #inbox end
-  function GetInboxHeaderInfo(i) local m = inbox[i] if m then return nil, nil, m[1], m[2], m[3], m[4], 20, m[5] end end
+  function GetInboxHeaderInfo(i) local m = inbox[i] if m then return nil, nil, m[1], m[2], m[3], m[4], 20, m[5], false, false, false, m[6] or false end end
   function GetInboxInvoiceInfo() return nil end
   local opened = {}
   function AutoLootMailItem(i) opened[#opened + 1] = inbox[i][2]; table.remove(inbox, i) end
-  MailFrame = widget()
+  MailFrame = widget({ hooks = {} })
+  function MailFrame:HookScript(name, fn) self.hooks[name] = fn end
   fire("MAIL_SHOW")
+  assert(ns.Mail.panel():IsShown(), "the panel shows beside the mailbox")
+  -- The inbox closed without MAIL_CLOSED (its close button, Escape): the panel goes with it.
+  MailFrame.hooks.OnHide(MailFrame)
+  assert(not ns.Mail.panel():IsShown(), "the panel closes when the inbox does")
+  fire("MAIL_SHOW")
+  assert(ns.Mail.panel():IsShown(), "and shows again at the next mailbox")
   ns.Mail.press()
   fireNow("MAIL_INBOX_UPDATE")
   wait(2)
   fireNow("MAIL_INBOX_UPDATE")
   wait(2)
-  assert(#opened == 2 and opened[1]:find("expired") and opened[2]:find("successful"), "the two auction mails, in order: " .. table.concat(opened, " | "))
-  assert(#inbox == 2 and inbox[1][2] == "Hello", "the letter and the COD mail stay")
+  assert(#opened == 2 and opened[1]:find("expired") and opened[2]:find("Wool"), "the two auction mails, in order: " .. table.concat(opened, " | "))
+  assert(#inbox == 3 and inbox[1][2] == "Hello" and inbox[2][1] == "Mallory", "the letters (one titled like the auction house's) and the COD mail stay")
+  -- While the server still works on a mail nothing is taken; a refusal stops the batch.
+  local pending = true
+  C_Mail = C_Mail or {}
+  C_Mail.IsCommandPending = function() return pending end
+  table.insert(inbox, { "Alliance Auction House", "Auction successful: Silk", 500, 0, 0 })
+  local before = #opened
+  ns.Mail.press()
+  wait(1)
+  assert(#opened == before, "nothing taken while a command is pending")
+  pending = false
+  wait(1)
+  assert(#opened == before + 1, "taken once the server is free")
+  fire("MAIL_FAILED")
+  C_Mail.IsCommandPending = nil
   fire("MAIL_CLOSED")
   GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
   MailFrame = nil
@@ -759,6 +995,14 @@ else
   assert((poolLine(2590) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "retail: the region's commodity price")
   assert(poolLine(2591) == nil, "retail: neither market has it")
   GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
+end
+-- The week's trend, when the companion's file carries the mean of the 7 days before.
+if INTERFACE < 110000 then
+  local e = GoldForever_Prices.markets[POOL_ALLIANCE][2589]
+  e[5] = 1100
+  assert((poolLine(2589) or ""):find("12s 34c · +12% vs 7-day avg", 1, true), "the pool line with its trend: " .. tostring(poolLine(2589)))
+  assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
+  e[5] = nil
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
 -- In a zone with a neutral auction house (Tanaris here), the neutral market's line comes first, on
@@ -1023,6 +1267,37 @@ for _, look in ipairs({ "classic", "arcane", "web" }) do
     assert(settingsPage[tab].built, "Settings tab drawn: " .. tab)
   end
 end
+-- A window opened for the first time (a new accent builds one) straight onto This session: the tab's
+-- once-a-second refresh and the footer's 10-second memory reading run at once, and stop when it closes.
+do
+  local open = ns.hubWindow()
+  if open then open:Hide() end
+  local ones, tens = running(1), running(10)
+  SlashCmdList.GOLDFOREVER("accent #123456")
+  SlashCmdList.GOLDFOREVER("ui now")
+  assert(running(1) == ones + 1, "This session ticks from its first opening: " .. running(1) - ones)
+  assert(running(10) == tens + 1, "the memory line reads from the window's first opening")
+  ns.hubWindow():Hide()
+  assert(running(1) == ones and running(10) == tens, "both stop with the window")
+  SlashCmdList.GOLDFOREVER("accent")
+end
+-- Switching looks back and forth builds nothing new once each look has been drawn: the HUD, the
+-- first-run card and the crafting strip are reused per look (frames are never freed).
+do
+  ns.setHud(true)
+  local function cycle()
+    for _, look in ipairs({ "web", "classic", "arcane" }) do
+      SlashCmdList.GOLDFOREVER("look " .. look)
+      SlashCmdList.GOLDFOREVER("welcome")
+      ns.FirstRun.card():Hide()
+    end
+  end
+  cycle()
+  local before = #frames
+  cycle() cycle()
+  assert(#frames == before, "switching looks again builds no frames: " .. (#frames - before))
+  SlashCmdList.GOLDFOREVER("look web")
+end
 -- The Session page's This session tab reads the HUD's figures.
 do
   local sum = ns.sessionSummary()
@@ -1080,6 +1355,21 @@ do
   GoldForever_ToggleHud()
   assert(GoldForeverDB.settings.appraiser.shown == not first, "the HUD binding toggles the HUD")
   if not GoldForeverDB.settings.appraiser.shown then GoldForever_ToggleHud() end
+  -- Settings → Modules sets the HUD as switched, whatever the frame shows now.
+  ns.setHud(false)
+  assert(GoldForeverDB.settings.appraiser.shown == false, "switched off, it is off")
+  ns.setHud(true)
+  assert(GoldForeverDB.settings.appraiser.shown == true, "switched on, it is on")
+  -- Tucked away in combat, the binding turns it off rather than on.
+  local lockdown, hide = InCombatLockdown, GoldForeverDB.settings.appraiser.hideInCombat
+  GoldForeverDB.settings.appraiser.hideInCombat = true
+  InCombatLockdown = function() return true end
+  fire("PLAYER_REGEN_DISABLED")
+  GoldForever_ToggleHud()
+  assert(GoldForeverDB.settings.appraiser.shown == false, "the binding in combat turns a tucked HUD off")
+  InCombatLockdown, GoldForeverDB.settings.appraiser.hideInCombat = lockdown, hide
+  fire("PLAYER_REGEN_ENABLED")
+  ns.setHud(true)
 end
 -- Performance budget: no once-a-second ticker while the HUD is hidden (the auction panel's is closed).
 do
@@ -1120,9 +1410,45 @@ do
   print("UI LEVELLING levels " .. #lv.levels .. " xp " .. lv.xp .. " perHour " .. tostring(lv.perHour))
 end
 
+-- A retail save is lean: no tooltip text, achievement catalogue or map art; Forever keeps them all.
+do
+  local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end return n end
+  local c = GoldForeverDB.catalogue
+  if FLAVOUR == "retail" then
+    -- (the run seeds a few tooltips itself; Linen is one the addon catalogued)
+    assert(c.items[2589] and c.tooltips[2589] == nil and count(c.achievements) == 0, "retail keeps a lean save")
+    assert(count(c.items) > 0, "but the items the hub names")
+  else
+    assert(c.tooltips[2589] and count(c.achievements) > 0, "Forever keeps its tooltips and achievements")
+  end
+end
+-- Statistics go a category a frame (a retail client has more than one frame may spend on); logout,
+-- with no next frame, refreshes only the values already read.
+do
+  local lists = { GetStatisticsCategoryList, GetCategoryNumAchievements }
+  GetStatisticsCategoryList = function() return { 130, 131, 132 } end
+  GetCategoryNumAchievements = function() return 2 end
+  local reads, stat = 0, GetStatistic
+  GetStatistic = function(id) reads = reads + 1 return stat(id) end
+  ns.me().statistics = nil
+  wait(61)
+  fireNow("CRITERIA_UPDATE")
+  assert(ns.me().statistics == nil and reads == 2, "the first category read, the rest on later frames")
+  wait(1)
+  assert(ns.me().statistics and ns.me().statistics[13201] == "--" and reads == 6, "all three categories read")
+  reads = 0
+  fire("PLAYER_LOGOUT")
+  assert(reads == 6, "logout refreshes the values read")
+  GetStatisticsCategoryList, GetCategoryNumAchievements, GetStatistic = lists[1], lists[2], stat
+end
+
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
 local before = ns.sessionText()
 fire("PLAYER_LOGOUT")
+-- The save was written by an older version, with an error it recorded: the new version starts with none.
+local thisVersion = GoldForeverDB.addon
+GoldForeverDB.addon = "0.15.0"
+GoldForeverDB.errors.old = { n = 3, msg = "fixed since", t = now - 86400 }
 for k in pairs(frames) do frames[k] = nil end
 local ns2 = {}
 for _, f in ipairs(tocFiles()) do
@@ -1130,6 +1456,7 @@ for _, f in ipairs(tocFiles()) do
 end
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
+assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
 local after = ns2.sessionText and ns2.sessionText() or ""
 print("AFTER RELOAD\n" .. tostring(after))
 do

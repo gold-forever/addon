@@ -34,6 +34,7 @@ q = C.quote(bolt, price, function(id) return id == 2589 and 5 or 0 end, 0.05)
 eq(q.cash, 0, "nothing to buy")
 eq(q.ownedValue, 74, "2 × 37c")
 eq(q.profit, 40, "the same profit: owning it is not free")
+eq(q.spend, 74, "what it costs: nothing to buy, the held Linen at 37c each")
 
 -- A vendor reagent is bought at the vendor when that is cheaper.
 local shirt = { output = 2996, yield = 1, reagents = { { id = 2320, count = 1 } } }
@@ -51,6 +52,8 @@ eq(C.margin({ profit = 50, cost = 200 }), 25, "a quarter")
 eq(C.margin({ profit = -30, cost = 200 }), -15, "a loss")
 eq(C.margin({ profit = nil, cost = 200 }), nil, "no profit known")
 eq(C.margin({ profit = 10, cost = 0 }), nil, "nothing to buy: no margin")
+-- One base: sells for 100, 80 of reagents held that would sell for 48: costs 48, profit 52, margin 108%.
+eq(C.margin({ profit = 52, cost = 80, spend = 48 }), 108, "profit over what crafting costs, held reagents at their sale value")
 
 -- "I have these": only what is still to buy counts against the sale.
 eq(C.profitHeld({ revenue = 1000, cash = 300, ownedValue = 200 }), 700, "held reagents cost nothing")

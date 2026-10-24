@@ -30,6 +30,14 @@ eq(P.line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Pool: 12s 34c �
 
 eq(P.line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Pool: 12s 34c · min buyout 11s 0c · 2 players · scanned just now", "a fractional count is not an error")
 
+-- The week's trend, when the file carries the mean of the 7 days before (a fifth field).
+eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Pool: 12s 34c · +12% vs 7-day avg · min buyout 11s 0c · 1 player · scanned just now", "up on the week")
+eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · -20% vs 7-day avg · min buyout 9s 0c · 1 player · scanned just now", "down on the week")
+eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · steady vs 7-day avg · min buyout 9s 0c · 1 player · scanned just now", "within 1%")
+eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Pool: 10s 0c · min buyout 9s 0c · 1 player · scanned just now", "an unusable week shows no trend")
+eq(P.line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Pool: 10s 0c · min buyout 9s 0c · 1 player · scanned just now", "nor a zero one")
+eq(P.trend(nil, 1000), nil, "no value, no trend")
+
 -- Absent: no table, no market, no item.
 eq(P.line(nil, { MARKET }, 2589, NOW), nil, "no data table")
 eq(P.line(data(good, "EU-Other-alliance"), { MARKET }, 2589, NOW), nil, "another market only")

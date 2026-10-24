@@ -67,17 +67,21 @@ function Crafting.quote(recipe, price, stock, cut)
 		cost = cost,
 		cash = cash,
 		ownedValue = ownedValue,
+		-- What crafting costs the player (owner's answer, 2026-10-24): the reagents still to buy, and the
+		-- ones held at what they would sell for. Profit, Cost and Margin share this base.
+		spend = plus(cash, ownedValue),
 		profit = minus(minus(revenue, cash), ownedValue),
 		lines = lines,
 	}
 end
 
--- Profit over what the reagents cost, in whole percent; nil without both. The strip's "margin".
+-- Profit over what crafting costs (a quote's spend; else its cost), in whole percent; nil without both.
 function Crafting.margin(q)
-	if not q or not q.profit or not q.cost or q.cost <= 0 then
+	local base = q and (q.spend or q.cost)
+	if not q or not q.profit or not base or base <= 0 then
 		return nil
 	end
-	return math.floor(q.profit / q.cost * 100 + 0.5)
+	return math.floor(q.profit / base * 100 + 0.5)
 end
 
 -- Profit with "I have these": what the player holds costs nothing, only what is still to buy does.

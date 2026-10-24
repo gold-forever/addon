@@ -10,6 +10,7 @@ local Mail = {}
 ns.Mail = Mail
 
 Mail.BATCH = 10 -- mails a press
+local GAP = 0.3 -- seconds at least between two mails, and between checks while the server is busy
 
 -- The auction house's subjects as the client words them ("Auction successful: %s"), English fallbacks
 -- for the tests; as Lua patterns that match the whole subject.
@@ -17,7 +18,7 @@ function Mail.patterns(formats)
 	formats = formats or {
 		AUCTION_SOLD_MAIL_SUBJECT or "Auction successful: %s",
 		AUCTION_EXPIRED_MAIL_SUBJECT or "Auction expired: %s",
-		AUCTION_REMOVED_MAIL_SUBJECT or "Auction cancelled: %s",
+		AUCTION_REMOVED_MAIL_SUBJECT or "Auction canceled: %s",
 		AUCTION_WON_MAIL_SUBJECT or "Auction won: %s",
 		AUCTION_OUTBID_MAIL_SUBJECT or "Outbid on %s",
 	}
@@ -42,13 +43,14 @@ function Mail.isAuction(subject, patterns)
 	return false
 end
 
--- The next auction mail to open from the inbox's headers ({ subject, money, cod, items }), in order: one
--- with something to take, no cash on delivery, and items only while the bags have room for them.
+-- The next auction mail to open from the inbox's headers ({ subject, money, cod, items, canReply }), in
+-- order: one with something to take, no cash on delivery, and items only while the bags have room for
+-- them. A letter that can be answered is a player's, whatever its subject says: never opened.
 -- Returns its index, or nil and why ("none" or "bags").
 function Mail.next(headers, freeSlots, patterns)
 	local blocked = false
 	for i, h in ipairs(headers) do
-		if Mail.isAuction(h.subject, patterns) and (h.cod or 0) == 0 and ((h.money or 0) > 0 or (h.items or 0) > 0) then
+		if Mail.isAuction(h.subject, patterns) and not h.canReply and (h.cod or 0) == 0 and ((h.money or 0) > 0 or (h.items or 0) > 0) then
 			if (h.items or 0) == 0 or (h.items or 0) <= freeSlots then
 				return i
 			end
@@ -65,6 +67,7 @@ end
 local Theme, UI = ns.Theme, ns.UI
 local patterns
 local panel, built
+local panels = {} -- Theme.key -> panel
 local run -- a batch in progress: { left, waiting }
 
 local function settings()
@@ -74,8 +77,8 @@ end
 local function headers()
 	local out = {}
 	for i = 1, (GetInboxNumItems and GetInboxNumItems() or 0) do
-		local _, _, _, subject, money, cod, _, items = GetInboxHeaderInfo(i)
-		out[i] = { subject = subject, money = money or 0, cod = cod or 0, items = items or 0 }
+		local _, _, _, subject, money, cod, _, items, _, _, _, canReply = GetInboxHeaderInfo(i)
+		out[i] = { subject = subject, money = money or 0, cod = cod or 0, items = items or 0, canReply = canReply }
 	end
 	return out
 end
@@ -95,7 +98,7 @@ end
 local function waiting()
 	local n, gold, items = 0, 0, 0
 	for _, h in ipairs(headers()) do
-		if Mail.isAuction(h.subject, patterns) and h.cod == 0 then
+		if Mail.isAuction(h.subject, patterns) and not h.canReply and h.cod == 0 then
 			n, gold, items = n + 1, gold + h.money, items + h.items
 		end
 	end
@@ -131,15 +134,24 @@ local function step()
 		refresh()
 		return
 	end
+	-- One mail at a time, as Blizzard's Open All does: not while the server still works on the last.
+	if C_Mail and C_Mail.IsCommandPending and C_Mail.IsCommandPending() then
+		C_Timer.After(GAP, function()
+			ns.safely("mail helper", step)
+		end)
+		return
+	end
 	run.left = run.left - 1
 	run.waiting = true
 	if AutoLootMailItem then
 		AutoLootMailItem(index)
 	else
 		TakeInboxMoney(index)
-		local _, _, _, _, _, _, _, items = GetInboxHeaderInfo(index)
-		for a = 1, (items or 0) do
-			TakeInboxItem(index, a)
+		-- Attachment slots can have gaps: every slot, from the last.
+		for a = ATTACHMENTS_MAX_RECEIVE or 16, 1, -1 do
+			if not HasInboxItem or HasInboxItem(index, a) then
+				TakeInboxItem(index, a)
+			end
 		end
 	end
 	-- Next when the inbox changes, or after a moment if it does not say.
@@ -152,10 +164,21 @@ local function step()
 	end)
 end
 
+-- The server refused a take (a full bag, a busy inbox): the batch stops and says so.
+ns.on("MAIL_FAILED", "mail helper", function()
+	if run then
+		run = nil
+		if panel then
+			panel.note:SetText("The mailbox refused that one; press again in a moment.")
+		end
+		refresh()
+	end
+end)
+
 ns.on("MAIL_INBOX_UPDATE", "mail helper", function()
 	if run and run.waiting then
 		run.waiting = false
-		C_Timer.After(0.2, function()
+		C_Timer.After(GAP, function()
 			ns.safely("mail helper", step)
 		end)
 	end
@@ -177,6 +200,14 @@ local function build()
 		ns.applyLook()
 	end
 	patterns = patterns or Mail.patterns()
+	-- One panel per look and accent, reused when the look comes back (frames are never freed).
+	if panels[ns.Theme.key] then
+		if panel and panel ~= panels[ns.Theme.key] then
+			panel:Hide()
+		end
+		panel, built = panels[ns.Theme.key], ns.Theme.key
+		return
+	end
 	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	p:SetSize(260, 150)
 	p:SetFrameStrata("HIGH")
@@ -197,11 +228,28 @@ local function build()
 	p.note:SetWidth(232)
 	panel = p
 	built = ns.Theme.key
+	panels[built] = p
 end
 
+local function close()
+	run = nil
+	if panel then
+		panel:Hide()
+	end
+end
+
+-- The client's mailbox opens and closes through its interaction manager, and MAIL_CLOSED does not come
+-- every time the inbox goes (its close button, Escape, walking away): the panel goes with MailFrame.
+local hooked = false
 ns.on("MAIL_SHOW", "mail helper", function()
 	if settings().helper == false or not MailFrame then
 		return
+	end
+	if not hooked and MailFrame.HookScript then
+		hooked = true
+		MailFrame:HookScript("OnHide", function()
+			ns.safely("mail helper", close)
+		end)
 	end
 	if not panel or built ~= ns.Theme.key then
 		build()
@@ -211,12 +259,7 @@ ns.on("MAIL_SHOW", "mail helper", function()
 	panel:Show()
 	refresh()
 end)
-ns.on("MAIL_CLOSED", "mail helper", function()
-	run = nil
-	if panel then
-		panel:Hide()
-	end
-end)
+ns.on("MAIL_CLOSED", "mail helper", close)
 
 -- For the smoke test.
 Mail.press = function()

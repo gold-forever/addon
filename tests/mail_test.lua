@@ -15,7 +15,7 @@ end
 local P = M.patterns()
 eq(M.isAuction("Auction successful: Wool Cloth", P), true, "sold")
 eq(M.isAuction("Auction expired: Linen Cloth (20)", P), true, "expired, with a stack in brackets")
-eq(M.isAuction("Auction cancelled: Silk Cloth", P), true, "cancelled")
+eq(M.isAuction("Auction canceled: Silk Cloth", P), true, "canceled, as the client spells it")
 eq(M.isAuction("Auction won: Iron Ore", P), true, "won")
 eq(M.isAuction("Outbid on Copper Bar", P), true, "outbid")
 eq(M.isAuction("Re: Auction successful: lol", P), false, "a player's reply is not")
@@ -37,5 +37,8 @@ local _, why = M.next({ inbox[1], inbox[2] }, 0, P)
 eq(why, "bags", "only items left and no room")
 _, why = M.next({ inbox[1], inbox[4] }, 5, P)
 eq(why, "none", "cash on delivery is never opened")
+-- A player's letter titled like the auction house's (it can be answered): never opened.
+_, why = M.next({ { subject = "Auction successful: Gold", money = 100000, items = 0, canReply = true } }, 5, P)
+eq(why, "none", "a player's letter with an auction subject is not auction mail")
 
 return checks
