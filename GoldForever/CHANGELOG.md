@@ -9,7 +9,8 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 ### The auction house
 
 - A **panel beside the auction house** (`/gf ah` hides or brings it back). Its Buy, Sell and Auctions tabs
-  follow Blizzard's and move them: it opens on the tab Blizzard's window shows. Prices show gold and
+  follow Blizzard's and move them. It opens on Scan when a full scan may start, else on the tab
+  Blizzard's window shows. Prices show gold and
   silver, as the auction house sets them.
   - **Scan**: the full scan made visible: asking, reading N of M, the cooldown and the last result. A
     scan starts when you press Scan now, or by itself on opening if you switch "Scan when I open the
