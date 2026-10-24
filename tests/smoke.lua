@@ -765,8 +765,15 @@ do
   function GetInboxInvoiceInfo() return nil end
   local opened = {}
   function AutoLootMailItem(i) opened[#opened + 1] = inbox[i][2]; table.remove(inbox, i) end
-  MailFrame = widget()
+  MailFrame = widget({ hooks = {} })
+  function MailFrame:HookScript(name, fn) self.hooks[name] = fn end
   fire("MAIL_SHOW")
+  assert(ns.Mail.panel():IsShown(), "the panel shows beside the mailbox")
+  -- The inbox closed without MAIL_CLOSED (its close button, Escape): the panel goes with it.
+  MailFrame.hooks.OnHide(MailFrame)
+  assert(not ns.Mail.panel():IsShown(), "the panel closes when the inbox does")
+  fire("MAIL_SHOW")
+  assert(ns.Mail.panel():IsShown(), "and shows again at the next mailbox")
   ns.Mail.press()
   fireNow("MAIL_INBOX_UPDATE")
   wait(2)

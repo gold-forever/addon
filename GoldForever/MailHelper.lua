@@ -220,9 +220,25 @@ local function build()
 	built = ns.Theme.key
 end
 
+local function close()
+	run = nil
+	if panel then
+		panel:Hide()
+	end
+end
+
+-- The client's mailbox opens and closes through its interaction manager, and MAIL_CLOSED does not come
+-- every time the inbox goes (its close button, Escape, walking away): the panel goes with MailFrame.
+local hooked = false
 ns.on("MAIL_SHOW", "mail helper", function()
 	if settings().helper == false or not MailFrame then
 		return
+	end
+	if not hooked and MailFrame.HookScript then
+		hooked = true
+		MailFrame:HookScript("OnHide", function()
+			ns.safely("mail helper", close)
+		end)
 	end
 	if not panel or built ~= ns.Theme.key then
 		build()
@@ -232,12 +248,7 @@ ns.on("MAIL_SHOW", "mail helper", function()
 	panel:Show()
 	refresh()
 end)
-ns.on("MAIL_CLOSED", "mail helper", function()
-	run = nil
-	if panel then
-		panel:Hide()
-	end
-end)
+ns.on("MAIL_CLOSED", "mail helper", close)
 
 -- For the smoke test.
 Mail.press = function()
