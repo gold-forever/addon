@@ -128,7 +128,7 @@ end)
 -- XP -------------------------------------------------------------------------------------------------
 
 local seen -- { cur, max, rested }: the last reading
-local questAt, combatAt, zoneAt, bossAt, exploredAt = -math.huge, -math.huge, -math.huge, -math.huge, -math.huge
+local combatAt, zoneAt, bossAt, exploredAt = -math.huge, -math.huge, -math.huge, -math.huge
 
 local function read()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0 }
@@ -142,7 +142,7 @@ local function kindAt(at, fighting)
 	local function near(t)
 		return math.abs(at - t) <= WINDOW
 	end
-	if near(questAt) then
+	if near(ns.questAt or -math.huge) then
 		return "quest"
 	elseif near(bossAt) then
 		return "boss"
@@ -191,9 +191,6 @@ ns.on("UPDATE_EXHAUSTION", "xp", function()
 	if seen and rested > seen.rested then
 		seen.rested = rested
 	end
-end)
-ns.on("QUEST_TURNED_IN", "xp", function()
-	questAt = GetTime()
 end)
 -- A boss fight's end: won, its kill's XP is boss XP. Every fight is kept, wipes too.
 ns.on("ENCOUNTER_END", "boss", function(encounter, name, difficulty, size, success)

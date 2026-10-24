@@ -85,6 +85,14 @@ function Encode.name(text)
 	return (string.gsub(text, ",", "\226\128\154"))
 end
 
+-- Free text in a catalogue row: no commas (columns), semicolons (rows) or line breaks; nil for none.
+function Encode.text(s)
+	if not s or s == "" then
+		return nil
+	end
+	return (Encode.name(s):gsub(";", "."):gsub("[\r\n]+", " "))
+end
+
 -- Item key of an item link or item string: "itemId", or "itemId:suffixId" for random-suffix
 -- items. nil when the text is not an item.
 function Encode.itemKey(link)

@@ -25,13 +25,7 @@ local function perkText(definition)
 	return name, spell, description
 end
 
--- Free text in a catalogue row: no commas (columns), semicolons or line breaks.
-local function text(s)
-	if not s or s == "" then
-		return nil
-	end
-	return (Encode.name(s):gsub(";", ".") :gsub("[\r\n]+", " "))
-end
+local text = Encode.text
 
 -- Legacy has a perk tree per tab. 1187 (professions) came from the trace; the others are found by
 -- asking the configuration for its trees and, failing that, by searching tree IDs for ones paid

@@ -23,6 +23,11 @@ E.append(single, "a")
 E.append(single, "b")
 eq(single[1], "a;b", "rows join with ;")
 
+-- Free text for a catalogue row: commas become the look-alike, semicolons full stops, line breaks a space.
+eq(E.text("Gold, more; less\r\nmore"), "Gold\226\128\154 more. less more", "free text in a row")
+eq(E.text(""), nil, "no text")
+eq(E.text(nil), nil, "nil text")
+
 -- Item lists: stable order, suffix keys kept as given.
 eq(E.items({ [14047] = 2, ["10221:612"] = 1, [2589] = 20 }), "10221:612*1+14047*2+2589*20", "items sorted as text")
 eq(E.items({}), "", "no items")

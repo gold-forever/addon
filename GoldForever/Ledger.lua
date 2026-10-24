@@ -107,7 +107,6 @@ end)
 
 local money -- last known GetMoney()
 local open = {} -- windows open now: merchant, auction, mail, trainer, taxi, ...
-local questAt -- GetTime() of the last quest turned in
 
 -- The interaction manager's names for windows the older events name too, as those name them, so one
 -- window is one word in `ctx` on every client (retail wrote "auction+auctioneer").
@@ -152,7 +151,7 @@ local function context()
 	if ns.lootAt and GetTime() - ns.lootAt < 2 then
 		return "loot"
 	end
-	if questAt and GetTime() - questAt < 3 then
+	if ns.questAt and GetTime() - ns.questAt < 3 then
 		return "quest"
 	end
 	for name in pairs(open) do
@@ -234,8 +233,9 @@ ns.on("QUEST_ACCEPTED", "quest", function(a, b)
 	-- Mainline passes the quest ID first; older clients pass the log index, then the ID.
 	quest(b or a, "accept")
 end)
+-- ns.questAt: GetTime() of the last quest turned in, for money and XP from it (Levelling.lua).
 ns.on("QUEST_TURNED_IN", "quest", function(id, xp, reward)
-	questAt = GetTime()
+	ns.questAt = GetTime()
 	quest(id, "done", xp, reward)
 end)
 
