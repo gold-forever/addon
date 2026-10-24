@@ -1731,6 +1731,8 @@ ns.commands.ui = function(page)
 	local window = windowFor(look())
 	window:Restore()
 	window:Show()
+	-- In front every time, an open window too (manual test run 001: Rule › left it under the panel).
+	window:Raise()
 	if page and page ~= "" then
 		openIn(window, page)
 	end

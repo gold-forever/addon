@@ -891,6 +891,11 @@ do
   ns.AuctionPanel.tab("shop")
   ns.AuctionPanel.shopChoose({ itemId = 2589 })
   assert(browsed == 2 and p.tab == "shop", "chosen on Buy: its listings in Blizzard's window")
+  -- The widget report runs on what the client has.
+  ns.AuctionPanel.tab("post")
+  SlashCmdList.GOLDFOREVER("uidebug")
+  assert(not GoldForeverDB.errors["/gf uidebug"], "uidebug: " .. tostring(GoldForeverDB.errors["/gf uidebug"] and GoldForeverDB.errors["/gf uidebug"].msg))
+  ns.AuctionPanel.tab("shop")
   -- A browse result carries a price, as Blizzard's list hands it; one Blizzard refuses falls back to its
   -- search bar.
   local given
