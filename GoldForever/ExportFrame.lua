@@ -101,3 +101,57 @@ ns.commands.export = function(arg)
 	Export.markSent(db, picked)
 	show(text, picked)
 end
+
+-- A box of text to copy: a report the player pastes into a bug report (/gf uidebug). Many lines,
+-- scrolling; all of it selected so Ctrl+C takes it whole.
+local copy
+function ns.showCopy(title, text)
+	if not copy then
+		copy = UI.Panel(UIParent, { name = "GoldForeverCopy" })
+		copy:SetSize(640, 420)
+		copy:SetPoint("CENTER")
+		copy:SetFrameStrata("DIALOG")
+		copy:SetMovable(true)
+		copy:EnableMouse(true)
+		copy:RegisterForDrag("LeftButton")
+		copy:SetScript("OnDragStart", copy.StartMoving)
+		copy:SetScript("OnDragStop", copy.StopMovingOrSizing)
+		table.insert(UISpecialFrames, "GoldForeverCopy") -- Escape closes it
+		copy.title = UI.Text(copy, "", { size = "lg" })
+		copy.title:SetPoint("TOPLEFT", 16, -14)
+		local how = UI.Text(copy, "Ctrl+A, then Ctrl+C to copy it all.", { tone = "faint" })
+		how:SetPoint("TOPLEFT", copy.title, "BOTTOMLEFT", 0, -6)
+		local scroll = CreateFrame("ScrollFrame", nil, copy, "UIPanelScrollFrameTemplate")
+		scroll:SetPoint("TOPLEFT", how, "BOTTOMLEFT", 0, -10)
+		scroll:SetPoint("BOTTOMRIGHT", -36, 52)
+		local box = CreateFrame("EditBox", nil, scroll)
+		box:SetMultiLine(true)
+		box:SetAutoFocus(false)
+		box:SetMaxLetters(0)
+		box:SetFontObject(ChatFontNormal)
+		box:SetWidth(580)
+		box:SetTextColor(Theme.rgb(Theme.color.text))
+		box:SetScript("OnEscapePressed", function()
+			copy:Hide()
+		end)
+		box:SetScript("OnTextChanged", function(self, typed)
+			if typed and copy.text then
+				self:SetText(copy.text)
+				self:HighlightText()
+			end
+		end)
+		scroll:SetScrollChild(box)
+		copy.box = box
+		local close = UI.Button(copy, "Close", function()
+			copy:Hide()
+		end)
+		close:SetPoint("BOTTOMRIGHT", -16, 14)
+	end
+	copy.title:SetText(title)
+	copy.text = text
+	copy.box:SetText(text)
+	copy:Show()
+	copy:Raise()
+	copy.box:SetFocus()
+	copy.box:HighlightText()
+end
