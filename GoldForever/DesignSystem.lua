@@ -671,12 +671,16 @@ local function buildCrafting(page)
 		return c and UI.layout.amount(c) or (Theme.escape(Theme.color.textFaint) .. "unknown|r")
 	end
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Recipe", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "name", title = "Recipe", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
+			text = function(r) return r.name .. (r.gear and (Theme.escape(Theme.color.textFaint) .. "  any quality|r") or "") end },
 		{ key = "cost", title = "Cost", width = 84, align = "RIGHT", text = function(r) return money(r.cost) end, sort = function(r) return r.cost or -1 end },
 		{ key = "revenue", title = "Sells for", width = 84, align = "RIGHT", text = function(r) return money(r.revenue) end, sort = function(r) return r.revenue or -1 end },
-		{ key = "profit", title = "Profit", width = 84, align = "RIGHT", text = function(r) return money(r.profit) end, sort = function(r) return r.profit or -math.huge end },
+		-- Gear: shown in grey and sorted last, its price being one for every quality.
+		{ key = "profit", title = "Profit", width = 84, align = "RIGHT", text = function(r) return r.gear and (Theme.escape(Theme.color.textFaint) .. UI.layout.plain(money(r.profit)) .. "|r") or money(r.profit) end,
+			sort = function(r) return (not r.gear and r.profit) or -math.huge end },
 		{ key = "margin", title = "Margin", width = 64, align = "RIGHT", text = function(r) return r.margin and (r.margin .. "%") or "—" end,
-			color = function(r) return Theme.color[BAND_COLOR[ns.Crafting.band(r.margin)] or "textFaint"] end, sort = function(r) return r.margin or -math.huge end },
+			color = function(r) return r.gear and Theme.color.textFaint or Theme.color[BAND_COLOR[ns.Crafting.band(r.margin)] or "textFaint"] end,
+			sort = function(r) return (not r.gear and r.margin) or -math.huge end },
 	}, {
 		pageSize = 8,
 		empty = "No priced recipe yet: open your professions once, and scan the auction house.",
@@ -749,7 +753,7 @@ local function buildCrafting(page)
 				local cost = held and q.cash or q.spend
 				rows[#rows + 1] = {
 					id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "× ") or "") .. itemName(r.output), quality = itemQuality(r.output),
-					cost = cost, revenue = q.revenue, profit = profit,
+					cost = cost, revenue = q.revenue, profit = profit, gear = q.gear,
 					margin = profit and cost and cost > 0 and math.floor(profit / cost * 100 + 0.5) or nil,
 				}
 			end

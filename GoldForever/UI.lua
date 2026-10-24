@@ -77,6 +77,11 @@ end
 
 -- Coins as coloured text: "12g 4s 50c" with the game's coin colours, the larger units only when
 -- there are any (and "gold" precision drops silver and copper above a gold).
+-- Text without its colour codes, to show it in one tone (a greyed amount).
+function UI.layout.plain(text)
+	return (string.gsub(string.gsub(text or "", "|c%x%x%x%x%x%x%x%x", ""), "|r", ""))
+end
+
 -- A whole number in groups of three, with the client's separator ("3,000,000").
 function UI.layout.group(n)
 	local sign, digits = string.match(tostring(math.floor(n or 0)), "^(%-?)(%d+)$")

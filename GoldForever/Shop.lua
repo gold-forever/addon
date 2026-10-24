@@ -42,7 +42,19 @@ local function recipe(id, cols)
 	return { id = id, output = output, yield = (min + max) / 2, reagents = reagents }
 end
 
--- Every known recipe that makes a profit, best first, each with its quote.
+-- Whether a recipe makes gear (a weapon or armor): its price is one for every quality and item level,
+-- so its profit is not to be trusted (owner's answer, 2026-10-24: Tracker's Chitin Cuffs "sold for"
+-- 1,425g at skill 4). Gear is marked, its profit greyed, and it is never "the best craft".
+local function isGear(id)
+	local _, _, class = ns.price.itemInfo(id)
+	if not class and C_Item and C_Item.GetItemInfoInstant then
+		class = select(6, C_Item.GetItemInfoInstant(id))
+	end
+	return class == 2 or class == 4
+end
+ns.isGear = isGear
+
+-- Every known recipe that makes a profit, best first, each with its quote; gear left out.
 local function profitable()
 	local me = ns.me()
 	if not me then
@@ -58,7 +70,7 @@ local function profitable()
 			local r = recipe(tonumber(id), cols)
 			if r then
 				local q = ns.Crafting.quote(r, p, have, p.cut)
-				if q.profit and q.profit > 0 then
+				if q.profit and q.profit > 0 and not isGear(r.output) then
 					q.recipe = r
 					local fromStock = math.huge
 					for _, x in ipairs(r.reagents) do
@@ -143,6 +155,7 @@ function ns.allCraftQuotes()
 				local q = ns.Crafting.quote(r, ns.price, have, ns.price.cut)
 				q.recipe = r
 				q.prof = prof.name or ("Profession " .. tostring(line)) -- for the page's profession filter
+				q.gear = isGear(r.output)
 				out[#out + 1] = q
 			end
 		end
