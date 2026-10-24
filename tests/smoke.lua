@@ -1515,24 +1515,27 @@ do
     assert(c.tooltips[2589] and count(c.achievements) > 0, "Forever keeps its tooltips and achievements")
   end
 end
--- Statistics go a category a frame (a retail client has more than one frame may spend on); logout,
--- with no next frame, refreshes only the values already read.
+-- Statistics go entry by entry on the frame budget (a retail category can be more than a frame may
+-- spend on: "script ran too long"); logout, with no next frame, refreshes only the values already read.
 do
-  local lists = { GetStatisticsCategoryList, GetCategoryNumAchievements }
+  local lists = { GetStatisticsCategoryList, GetCategoryNumAchievements, debugprofilestop }
   GetStatisticsCategoryList = function() return { 130, 131, 132 } end
-  GetCategoryNumAchievements = function() return 2 end
+  GetCategoryNumAchievements = function() return 20 end
+  -- A clock 10 ms on at every look: the budget runs out at its first check, after 25 entries.
+  local ms = 0
+  debugprofilestop = function() ms = ms + 10 return ms end
   local reads, stat = 0, GetStatistic
   GetStatistic = function(id) reads = reads + 1 return stat(id) end
   ns.me().statistics = nil
   wait(61)
   fireNow("CRITERIA_UPDATE")
-  assert(ns.me().statistics == nil and reads == 2, "the first category read, the rest on later frames")
+  assert(ns.me().statistics == nil and reads == 25, "the first frame's share read, the rest on later frames: " .. reads)
   wait(1)
-  assert(ns.me().statistics and ns.me().statistics[13201] == "--" and reads == 6, "all three categories read")
+  assert(ns.me().statistics and ns.me().statistics[13201] == "--" and reads == 60, "all three categories read: " .. reads)
   reads = 0
   fire("PLAYER_LOGOUT")
-  assert(reads == 6, "logout refreshes the values read")
-  GetStatisticsCategoryList, GetCategoryNumAchievements, GetStatistic = lists[1], lists[2], stat
+  assert(reads > 0, "logout refreshes the values read")
+  GetStatisticsCategoryList, GetCategoryNumAchievements, debugprofilestop, GetStatistic = lists[1], lists[2], lists[3], stat
 end
 
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.

@@ -21,20 +21,33 @@ local function categoryName(category)
 end
 
 -- A retail client has thousands of achievements and statistics, more than one frame may spend on: the
--- reads go a category a frame (the client stops a script that runs too long), then finish with `done`.
-local function eachCategory(name, categories, perCategory, done)
-	local i = 0
+-- reads go entry by entry on the frame budget (a category a frame was too much for retail's largest
+-- ones: "script ran too long", manual test run 001), then finish with `done`. count(category) is its
+-- number of entries; perEntry(category, index, group) reads one, group the category's name.
+local function eachEntry(name, categories, count, perEntry, done)
+	local c, i, n, group = 1, 0, nil, nil
 	local function step()
-		i = i + 1
-		local category = categories[i]
-		if category == nil then
-			done()
-			return
+		local started, work = ns.frameStart(), 0
+		while categories[c] ~= nil do
+			local category = categories[c]
+			if n == nil then
+				n, group = count(category) or 0, categoryName(category)
+			end
+			i = i + 1
+			if i > n then
+				c, i, n = c + 1, 0, nil
+			else
+				perEntry(category, i, group)
+				work = work + 1
+				if ns.frameSpent(started, work, 100) then
+					C_Timer.After(0, function()
+						ns.safely(name, step)
+					end)
+					return
+				end
+			end
 		end
-		perCategory(category)
-		C_Timer.After(0, function()
-			ns.safely(name, step)
-		end)
+		done()
 	end
 	step()
 end
@@ -50,14 +63,11 @@ local function readStatistics()
 	local names = ns.db().catalogue.statistics
 	local values = {}
 	reading = GetTime()
-	eachCategory("statistics", GetStatisticsCategoryList() or {}, function(category)
-		local group = categoryName(category)
-		for i = 1, GetCategoryNumAchievements(category) or 0 do
-			local id, name = GetAchievementInfo(category, i)
-			if id then
-				values[id] = GetStatistic(id)
-				names[id] = Encode.row(text(name), group)
-			end
+	eachEntry("statistics", GetStatisticsCategoryList() or {}, GetCategoryNumAchievements, function(category, i, group)
+		local id, name = GetAchievementInfo(category, i)
+		if id then
+			values[id] = GetStatistic(id)
+			names[id] = Encode.row(text(name), group)
 		end
 	end, function()
 		reading = nil
@@ -91,17 +101,16 @@ local function readAchievements()
 	local db = ns.db()
 	local catalogue = db.catalogue.achievements
 	local earned = {}
-	eachCategory("achievements", GetCategoryList() or {}, function(category)
-		local group = categoryName(category)
-		for i = 1, GetCategoryNumAchievements(category, true) or 0 do
-			local id, name, points, completed, month, day, year, description, _, icon, reward = GetAchievementInfo(category, i)
-			if id then
-				if not ns.lean then
-					catalogue[id] = Encode.row(text(name), points, group, icon, text(description), text(reward))
-				end
-				if completed then
-					earned[#earned + 1] = string.format("%d:20%02d-%02d-%02d", id, year or 0, month or 0, day or 0)
-				end
+	eachEntry("achievements", GetCategoryList() or {}, function(category)
+		return GetCategoryNumAchievements(category, true)
+	end, function(category, i, group)
+		local id, name, points, completed, month, day, year, description, _, icon, reward = GetAchievementInfo(category, i)
+		if id then
+			if not ns.lean then
+				catalogue[id] = Encode.row(text(name), points, group, icon, text(description), text(reward))
+			end
+			if completed then
+				earned[#earned + 1] = string.format("%d:20%02d-%02d-%02d", id, year or 0, month or 0, day or 0)
 			end
 		end
 	end, function()
