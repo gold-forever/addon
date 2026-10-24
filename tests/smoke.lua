@@ -1184,6 +1184,18 @@ do
   print("UI LEVELLING levels " .. #lv.levels .. " xp " .. lv.xp .. " perHour " .. tostring(lv.perHour))
 end
 
+-- A retail save is lean: no tooltip text, achievement catalogue or map art; Forever keeps them all.
+do
+  local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end return n end
+  local c = GoldForeverDB.catalogue
+  if FLAVOUR == "retail" then
+    -- (the run seeds a few tooltips itself; Linen is one the addon catalogued)
+    assert(c.items[2589] and c.tooltips[2589] == nil and count(c.achievements) == 0, "retail keeps a lean save")
+    assert(count(c.items) > 0, "but the items the hub names")
+  else
+    assert(c.tooltips[2589] and count(c.achievements) > 0, "Forever keeps its tooltips and achievements")
+  end
+end
 -- Statistics go a category a frame (a retail client has more than one frame may spend on); logout,
 -- with no next frame, refreshes only the values already read.
 do

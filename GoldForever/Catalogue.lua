@@ -33,6 +33,9 @@ local function tooltip(id)
 	return table.concat(lines, "\n")
 end
 
+-- For a lean (retail) save, which keeps none: an item's tooltip text read when asked.
+ns.itemTooltipText = tooltip
+
 local function write(id)
 	local name, _, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind = GetItemInfo(id)
 	if not name then
@@ -41,7 +44,9 @@ local function write(id)
 	local catalogue = ns.db().catalogue
 	catalogue.items[id] = Encode.row(Encode.name(name), quality, ilvl, class, subclass, stack, sell, bind, icon,
 		minLevel, equipLoc ~= "" and equipLoc or nil)
-	catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
+	if not ns.lean then
+		catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
+	end
 	return true
 end
 
@@ -94,7 +99,7 @@ end
 function ns.catalogueItem(key)
 	local id = Encode.itemId(key)
 	local catalogue = ns.db().catalogue
-	if not id or (catalogue.items[id] and catalogue.tooltips[id]) or pending[id] or queued[id] or tried[id] then
+	if not id or (catalogue.items[id] and (ns.lean or catalogue.tooltips[id])) or pending[id] or queued[id] or tried[id] then
 		return
 	end
 	queued[id] = true
@@ -110,7 +115,7 @@ end
 -- once a session.
 local backfilled = false
 ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
-	if backfilled then
+	if backfilled or ns.lean then
 		return
 	end
 	backfilled = true

@@ -140,7 +140,7 @@ local MAP_BATCH = 100
 local function readMapArt(manual)
 	local db = ns.db()
 	local build = db.client and db.client.build
-	if not manual and db.mapArt and db.mapArt.build == build and db.mapArt.rects then
+	if not manual and (ns.lean or (db.mapArt and db.mapArt.build == build and db.mapArt.rects)) then
 		return
 	end
 	if not (C_Map and C_Map.GetMapArtLayers and C_Map.GetMapArtLayerTextures and C_Map.GetMapInfo) then

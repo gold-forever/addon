@@ -12,6 +12,11 @@ local SCHEMA = 1
 local VERSION = "0.16.0"
 ns.VERSION = VERSION
 
+-- A retail client keeps a lean save (owner's answer, 2026-10-24): the catalogue exists to keep
+-- WoW: Forever's knowledge, which retail's does not need, so tooltip text, the achievement catalogue
+-- and map art are neither recorded there nor kept. Forever keeps everything.
+ns.lean = (select(4, GetBuildInfo()) or 0) >= 110000
+
 -- Column dictionary; each collector adds its own entries when its file loads.
 ns.FIELDS = {
 	sys = "t,char,kind",
@@ -212,6 +217,11 @@ local function init()
 	db.catalogue.legacyRewards = db.catalogue.legacyRewards or {}
 	db.catalogue.achievements = db.catalogue.achievements or {}
 	db.catalogue.statistics = db.catalogue.statistics or {}
+	if ns.lean then
+		db.catalogue.tooltips = {}
+		db.catalogue.achievements = {}
+		db.mapArt = nil
+	end
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
 	db.errors = db.errors or {}
 	for name, e in pairs(errors) do

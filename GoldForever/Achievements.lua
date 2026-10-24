@@ -94,7 +94,9 @@ local function readAchievements()
 		for i = 1, GetCategoryNumAchievements(category, true) or 0 do
 			local id, name, points, completed, month, day, year, description, _, icon, reward = GetAchievementInfo(category, i)
 			if id then
-				catalogue[id] = Encode.row(text(name), points, group, icon, text(description), text(reward))
+				if not ns.lean then
+					catalogue[id] = Encode.row(text(name), points, group, icon, text(description), text(reward))
+				end
 				if completed then
 					earned[#earned + 1] = string.format("%d:20%02d-%02d-%02d", id, year or 0, month or 0, day or 0)
 				end
