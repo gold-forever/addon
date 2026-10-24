@@ -887,6 +887,10 @@ do
   info = { isCommodity = true }
   fire("ITEM_KEY_ITEM_INFO_RECEIVED", 2589)
   assert(browsed == 1, "shown when it arrives")
+  -- An item chosen on Buy is shown in Blizzard's window too.
+  ns.AuctionPanel.tab("shop")
+  ns.AuctionPanel.shopChoose({ itemId = 2589 })
+  assert(browsed == 2 and p.tab == "shop", "chosen on Buy: its listings in Blizzard's window")
   C_AuctionHouse.GetItemKeyInfo = keyInfo
   fire("AUCTION_HOUSE_CLOSED")
   AuctionHouseFrame, AuctionHouseFrameDisplayMode = nil, nil
