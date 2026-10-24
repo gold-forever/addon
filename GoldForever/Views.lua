@@ -324,9 +324,9 @@ end
 function Views.worthList(held, worth)
 	local list, total, unpriced = {}, 0, 0
 	for id, n in pairs(held or {}) do
-		local w = worth(id)
+		local w, where = worth(id)
 		if w then
-			list[#list + 1] = { id = id, count = n, value = w * n }
+			list[#list + 1] = { id = id, count = n, value = w * n, where = where }
 			total = total + w * n
 		else
 			unpriced = unpriced + n

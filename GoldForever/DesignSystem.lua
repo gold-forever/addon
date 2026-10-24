@@ -207,7 +207,7 @@ local function buildHome(page)
 		local card = CreateFrame("Button", nil, page)
 		card:SetSize(cardW, 72)
 		card:SetPoint("TOPLEFT", (i - 1) * (cardW + GAP), 0)
-		UI.surface(card, Theme.color.surfaceRaised, 1, Theme.color.border, Theme.skin.radius and Theme.skin.radius.card or 0)
+		local _, rim = UI.surface(card, Theme.color.surfaceRaised, 1, Theme.color.border, Theme.skin.radius and Theme.skin.radius.card or 0)
 		local box = CreateFrame("Frame", nil, card)
 		box:SetSize(38, 38)
 		box:SetPoint("LEFT", 14, 0)
@@ -220,9 +220,25 @@ local function buildHome(page)
 		card.line = UI.Text(card, "", { size = "xs", tone = "faint" })
 		card.line:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -5)
 		card.line:SetWidth(cardW - 76)
+		-- A card that opens a page says so: "Open ›" in its corner, and its edge lights up under the pointer
+		-- (manual test run 001: hard to know it can be clicked).
 		if a.go then
+			local open = UI.Text(card, "Open ›", { size = "xs", tone = "faint" })
+			open:SetPoint("TOPRIGHT", -10, -8)
 			card:SetScript("OnClick", function()
 				ns.openPage(a.go)
+			end)
+			card:SetScript("OnEnter", function()
+				if rim then
+					rim:SetColor(Theme.color.accent)
+				end
+				open:SetTextColor(Theme.rgb(Theme.color.accent))
+			end)
+			card:SetScript("OnLeave", function()
+				if rim then
+					rim:SetColor(Theme.color.border)
+				end
+				open:SetTextColor(Theme.rgb(Theme.color.textFaint))
 			end)
 		end
 		actions[i] = card
@@ -259,7 +275,18 @@ local function buildHome(page)
 	local goalBar = UI.Bar(goalStrip, 100, {}, 6)
 	goalBar:SetPoint("TOPLEFT", goalText, "BOTTOMLEFT", 0, -8)
 	goalBar:SetPoint("RIGHT", goalStrip, "RIGHT", -310, 0)
-	local goalGold = UI.SearchBox(goalStrip, "Goal in gold", nil)
+	-- The field groups the digits as they are typed ("3,000,000"); Set reads the digits alone.
+	local goalGold
+	goalGold = UI.SearchBox(goalStrip, "Goal in gold", function(text)
+		local digits = string.gsub(text, "%D", "")
+		local grouped = digits ~= "" and UI.layout.group(tonumber(digits)) or ""
+		if grouped ~= text then
+			goalGold:SetText(grouped)
+			goalGold:SetCursorPosition(#grouped)
+		end
+	end)
+	-- As tall as the dropdown and the button beside it, in every look (it was shorter in some).
+	goalGold:SetHeight(28)
 	goalGold:SetPoint("TOPRIGHT", -196, 2)
 	goalGold:SetWidth(100)
 	local DAYS = { { value = 7, label = "in 7 days" }, { value = 14, label = "in 14 days" }, { value = 30, label = "in 30 days" }, { value = 60, label = "in 60 days" } }
@@ -267,7 +294,7 @@ local function buildHome(page)
 	goalDays:SetPoint("TOPRIGHT", -84, 2)
 	goalDays:SetWidth(106)
 	local goalSet = UI.Button(goalStrip, "Set", function()
-		local gold = tonumber(goalGold:GetText() or "")
+		local gold = tonumber((string.gsub(goalGold:GetText() or "", "%D", "")))
 		local s = settings()
 		if gold and gold > 0 then
 			s.goal = { gold = math.floor(gold * 10000), by = ns.now() + (goalDays.value or 30) * 86400 }
@@ -307,7 +334,35 @@ local function buildHome(page)
 		r.value = UI.Text(r, "", { size = "md", align = "RIGHT" })
 		r.value:SetPoint("RIGHT", -8, 0)
 		r.value:SetWidth(120)
+		-- The item's own tooltip on hover.
+		r:EnableMouse(true)
+		r:SetScript("OnEnter", function(self)
+			if self.itemId and GameTooltip then
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				if GameTooltip.SetItemByID then
+					GameTooltip:SetItemByID(self.itemId)
+				else
+					GameTooltip:SetHyperlink("item:" .. self.itemId)
+				end
+				GameTooltip:Show()
+			end
+		end)
+		r:SetScript("OnLeave", function()
+			if GameTooltip then
+				GameTooltip:Hide()
+			end
+		end)
 	end
+
+	-- Kept current while it shows: money as it moves, the bags as they are read (manual test run 001: Home
+	-- stayed as it was after a fight). A moment's wait gathers a burst of changes into one refresh.
+	local soon = ns.throttle("ui home", 2, function()
+		if page:IsVisible() then
+			page:Refresh()
+		end
+	end)
+	ns.on("PLAYER_MONEY", "ui home", soon)
+	ns.onBagsRead(soon)
 
 	function page:Refresh()
 		local db, me, now = ns.db(), ns.me(), ns.now()
@@ -326,7 +381,9 @@ local function buildHome(page)
 		-- The bags: what they would sell for.
 		local held = me and Encode.parseItems(me.bags and me.bags.items) or {}
 		local list, total, unpriced = Views.worthList(held, function(id)
-			return ns.price and ns.price.worth(id)
+			if ns.price then
+				return ns.price.worth(id)
+			end
 		end)
 		actions[2].title:SetText("Sell your bags")
 		actions[2].line:SetText(#list > 0 and string.format("%d items, about %s", #list, UI.layout.money(total, "gold")) or "Nothing priced in your bags")
@@ -376,12 +433,13 @@ local function buildHome(page)
 		for i, r in ipairs(sell.rows) do
 			local it = list[i]
 			r:SetShown(it ~= nil)
+			r.itemId = it and it.id
 			if it then
 				local quality = itemQuality(it.id)
 				local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.id) or (GetItemIcon and GetItemIcon(it.id))
 				r.icon:SetTexture(icon or 134400)
 				r.name:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. itemName(it.id) .. "|r" .. faint .. " ×" .. it.count .. "|r")
-				r.hint:SetText("at the better of auction and vendor")
+				r.hint:SetText(it.where == "vendor" and "to a vendor" or "at the auction house, after its cut")
 				r.value:SetText(UI.layout.money(it.value, "gold"))
 			end
 		end
