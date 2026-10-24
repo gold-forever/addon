@@ -70,23 +70,7 @@ function Shopping.text(lists)
 end
 
 function Shopping.encode(lists)
-	-- What the Shop's field holds: an item (a shift-clicked link, or an ID typed) and, after it, a price in
--- gold ("12", "1.5", "0.25g"); returns the item ID and the price in copper, or nil for "under market".
-function Shopping.parseAdd(text)
-	text = text or ""
-	local id, rest = string.match(text, "|Hitem:(%d+)[^|]*|h.-|h|r(.*)$")
-	if not id then
-		id, rest = string.match(text, "^%s*(%d+)(.*)$")
-	end
-	if not id then
-		return nil
-	end
-	local gold = tonumber(string.match(rest or "", "^%s*([%d%.]+)%s*g?%s*$") or "")
-	local copper = gold and math.floor(gold * 10000 + 0.5) or nil
-	return tonumber(id), (copper and copper > 0) and copper or nil
-end
-
-return Shopping.PREFIX .. Encode.base64(Shopping.text(lists))
+	return Shopping.PREFIX .. Encode.base64(Shopping.text(lists))
 end
 
 -- Reads a list string someone shared: untrusted, so bounded and stripped of the game's "|" escapes.
@@ -143,6 +127,41 @@ function Shopping.decode(input)
 		end
 	end
 	return lists
+end
+
+-- What the Shop's field holds: an item (a shift-clicked link, or an ID typed) and, after it, a price in
+-- gold ("12", "1.5", "0.25g"); returns the item ID and the price in copper, or nil for "under market".
+function Shopping.parseAdd(text)
+	text = text or ""
+	local id, rest = string.match(text, "|Hitem:(%d+)[^|]*|h.-|h|r(.*)$")
+	if not id then
+		id, rest = string.match(text, "^%s*(%d+)(.*)$")
+	end
+	if not id then
+		return nil
+	end
+	local gold = tonumber(string.match(rest or "", "^%s*([%d%.]+)%s*g?%s*$") or "")
+	local copper = gold and math.floor(gold * 10000 + 0.5) or nil
+	return tonumber(id), (copper and copper > 0) and copper or nil
+end
+
+-- The entries listed at or under their price in a scan: cheapest(id) is the scan's cheapest unit and
+-- market(id) the market value (for "under market" entries). Each item once, in list order.
+function Shopping.underPrice(lists, cheapest, market)
+	local out, seen = {}, {}
+	for _, l in ipairs(lists or {}) do
+		for _, e in ipairs(l.entries or {}) do
+			if not seen[e.itemId] then
+				local limit = Shopping.limit(e, market(e.itemId))
+				local low = cheapest(e.itemId)
+				if limit and low and low <= limit then
+					seen[e.itemId] = true
+					out[#out + 1] = e.itemId
+				end
+			end
+		end
+	end
+	return out
 end
 
 return Shopping

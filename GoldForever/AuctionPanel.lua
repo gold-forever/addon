@@ -607,6 +607,27 @@ local function shopDeal(e)
 	return ns.Shopping.deal(e, l.levels, ns.Prices.value(e.itemId)), l
 end
 
+-- After a full scan: one chat line naming the list items now listed at or under their price.
+function ns.announceDeals()
+	if settings().dealsAlert == false then
+		return
+	end
+	local _, _, shown = lists()
+	local under = ns.Shopping.underPrice(shown, ns.price.cheapest, function(id)
+		return ns.Prices.value(id)
+	end)
+	if #under == 0 then
+		return
+	end
+	local names = {}
+	for i = 1, math.min(3, #under) do
+		local _, _, _, _, name = ns.price.itemInfo(under[i])
+		names[i] = name or ("item " .. under[i])
+	end
+	ns.say(string.format("%d %s on your lists %s at or under your price: %s%s. Open the Shop.", #under, #under == 1 and "item" or "items",
+		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", …" or ""))
+end
+
 local function searchEntry(e)
 	if not (e and C_AuctionHouse.MakeItemKey and C_AuctionHouse.SendSearchQuery) then
 		return

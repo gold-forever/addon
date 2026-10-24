@@ -14,6 +14,11 @@ local function eq(actual, expected, what)
 end
 local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
 
+-- Every function is there as soon as the file loads (one was once defined inside encode by mistake).
+for _, name in ipairs({ "limit", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice" }) do
+	eq(type(S[name]), "function", "defined at load: " .. name)
+end
+
 -- entryLimit
 eq(S.limit({ itemId = 1, maxUnit = 500 }, 900), 500, "its own price")
 eq(S.limit({ itemId = 1 }, 900), 899, "a copper under market")
@@ -65,5 +70,14 @@ eq(id .. "/" .. max, "2589/2500", "an ID typed, a price with g")
 eq(S.parseAdd("Linen"), nil, "no item")
 id, max = S.parseAdd(link .. " cheap")
 eq(id .. tostring(max), "2589nil", "a price not understood is none")
+
+-- After a scan: the items listed at or under their price, each once.
+local scan = { [1] = 900, [2] = 2000, [3] = 500 }
+local market = { [3] = 600 }
+local under = S.underPrice({
+	{ entries = { { itemId = 1, maxUnit = 1000 }, { itemId = 2, maxUnit = 1500 }, { itemId = 3 } } },
+	{ entries = { { itemId = 1, maxUnit = 950 }, { itemId = 4, maxUnit = 99 } } },
+}, function(id) return scan[id] end, function(id) return market[id] end)
+eq(table.concat(under, ","), "1,3", "under the max, under market; once each; unlisted items left out")
 
 return checks

@@ -69,6 +69,16 @@ local function priceItem(id, l, into, low)
 	low[id] = Encode.cheapestFlat(l)
 end
 
+-- After a scan's prices are in: the deals line, once (AuctionPanel.lua says it).
+local function pricesReady()
+	if ns.dealsPending and ns.announceDeals then
+		ns.dealsPending = nil
+		C_Timer.After(0, function()
+			ns.safely("deals", ns.announceDeals)
+		end)
+	end
+end
+
 local function buildPrices()
 	local version = ns.scanVersion or 0
 	local latest = latestScan()
@@ -82,6 +92,7 @@ local function buildPrices()
 			priceItem(id, l, newPrices, newLow)
 		end
 		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest and latest.t
+		pricesReady()
 		return
 	end
 	if building == version then
@@ -114,6 +125,7 @@ local function buildPrices()
 			if j >= #ids then
 				prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
 				building = nil
+				pricesReady()
 				return
 			end
 		end

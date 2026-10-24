@@ -53,7 +53,8 @@
   item into the field to add it. Choosing one searches it and shows what you can buy at or under your
   price; **Buy next** asks the auction house for the price, and a second press buys (a price more than
   10% above the deal is named first). Gear is bought one auction a press. Lists import and export as
-  `GFL1:` strings to share.
+  `GFL1:` strings to share. After a full scan, one chat line names the list items now listed at or under
+  your price (Settings → Modules: "Deals after a scan").
   **Cancel**: checks your auctions one by one against other players' listings (a single cheap unit far
   under the rest is ignored) and lists those undercut past your tolerance (5% at first); **Cancel next**
   cancels the most undercut one a press, showing the cancel cost. The items come back by mail.
