@@ -131,7 +131,10 @@ function GetLocale() return "enUS" end
 function GetCurrentRegionName() return "" end
 function GetCurrentRegion() return 3 end
 function GetCVar() return "test" end
-function UnitRace() return "Human", "Human" end
+-- GF_SMOKE_FACTION=Horde plays the session as a Horde character (an Orc) instead of an Alliance Human.
+SIDE = os.getenv("GF_SMOKE_FACTION") == "Horde" and "Horde" or "Alliance"
+local side, otherSide = string.lower(SIDE), SIDE == "Horde" and "alliance" or "horde"
+function UnitRace() if SIDE == "Horde" then return "Orc", "Orc" end return "Human", "Human" end
 function UnitClass() return "Priest", "PRIEST" end
 function UnitName() return "Testchar", "Testguild" end
 function UnitLevel(u) return u == "player" and 30 or (u == "npc" and 25 or 12) end
@@ -157,7 +160,7 @@ filters = { available = true, unavailable = false, used = false }
 function GetTrainerServiceTypeFilter(f) return filters[f] end
 function SetTrainerServiceTypeFilter(f, on) filters[f] = on end
 function UnitGUID(u) if u == "npc" then return "Creature-0-4620-0-12-8661-000A" end return "Player-4620-006C0FC1" end
-function UnitFactionGroup(u) if u == "npc" then return nil end return "Alliance" end
+function UnitFactionGroup(u) if u == "npc" then return nil end return SIDE end
 function GetMaxPlayerLevel() return 60 end
 xpmax = 47400
 function UnitXP() return xpcur or 2570 end function UnitXPMax() return xpmax end
@@ -261,6 +264,11 @@ if SAVE then
   UnitName = function() return me.name or "Saved", nil end
   UnitFactionGroup = function(u) if u == "npc" then return nil end return me.faction or "Horde" end
   GetNormalizedRealmName = function() return (realm:gsub("[%s%-]", "")) end
+  -- The realm's connected realms as the client lists them (GF_SMOKE_CONNECTED="Aszune,Shadowsong"),
+  -- else the realm alone: on retail they name the market.
+  local connected = {}
+  for name in (os.getenv("GF_SMOKE_CONNECTED") or realm):gmatch("[^,]+") do connected[#connected + 1] = name end
+  C_AutoComplete = { GetAutoCompleteRealms = function() return connected end }
   GetRealmName = function() return realm end
   now = math.max(now, GoldForeverDB.writtenAt or now)
 end
@@ -322,6 +330,19 @@ if SAVE then
       for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do p.ensure(tab) end
     end)
     timed(look .. ": revisit every page", function() for _, page in ipairs(pages) do SlashCmdList.GOLDFOREVER("ui " .. page) end end)
+  end
+  -- The character's own latest scan gives prices: an item of it is priced.
+  do
+    local latest
+    for _, sc in ipairs(GoldForeverDB.scans or {}) do if sc.kind == "full" and (not latest or sc.t > latest.t) then latest = sc end end
+    local id = latest and latest.rows[1] and tonumber(latest.rows[1]:match("^(%d+)"))
+    if id then
+      local value = ns.price.market(id)
+      wait(5)
+      value = ns.price.market(id)
+      rows[#rows + 1] = string.format("%-34s %s (scan %s, item %d)", "own scan prices", value and "yes" or "NO", latest.market, id)
+      if not value then failedSteps = (failedSteps or 0) + 1 end
+    end
   end
   timed("HUD on and off", function() GoldForever_ToggleHud() wait(1) GoldForever_ToggleHud() end)
   local AP = ns.AuctionPanel
@@ -449,7 +470,7 @@ SlashCmdList.GOLDFOREVER("claim bcdf-2345")
 C_Background.GetThing()
 wait(60)
 -- Appraiser: a scan of the character's market, then two loot windows.
-table.insert(GoldForeverDB.scans, { t = 1792520000, kind = "full", market = "EU-Classic Beta PvE 2-alliance", rows = { "2589,40,100,10;2589,50,200,5;2934,500,3,1" } })
+table.insert(GoldForeverDB.scans, { t = 1792520000, kind = "full", market = "EU-Classic Beta PvE 2-" .. side, rows = { "2589,40,100,10;2589,50,200,5;2934,500,3,1" } })
 ns.scanVersion = (ns.scanVersion or 0) + 1
 GoldForeverDB.catalogue.items[2589] = "Linen Cloth,1,5,7,5,20,13,0,132889"
 GoldForeverDB.settings.appraiser = nil
@@ -471,7 +492,7 @@ GoldForeverDB.catalogue.items[271206] = "Leftover Abomination Skin,3,20,4,1,1,68
 GoldForeverDB.catalogue.tooltips[271206] = "Leftover Abomination Skin"
 GoldForeverDB.catalogue.items[251962] = "Violet Sash,2,36,4,1,1,1585,1,132493,0,INVTYPE_WAIST"
 GoldForeverDB.catalogue.items[11137] = "Vision Dust,1,40,7,12,20,1,0,132858"
-table.insert(GoldForeverDB.scans, { t = 1792520100, kind = "full", market = "EU-Classic Beta PvE 2-alliance",
+table.insert(GoldForeverDB.scans, { t = 1792520100, kind = "full", market = "EU-Classic Beta PvE 2-" .. side,
   rows = { "2589,40,100,10;2589,50,200,5;2934,500,3,1;11137,2850,40,8;11135,3851,10,2;11139,25743,2,2" } })
 ns.scanVersion = (ns.scanVersion or 0) + 1
 slots = { { kind = 1, link = "|Hitem:271206::::::::30|h[Skin]|h", qty = 1, sources = { "Creature-0-4620-0-12-1922-000H", 1 } } }
@@ -560,7 +581,7 @@ do
   IsInGroup = function() return false end
 end
 -- The craft list at the auction house: Bolt of Linen Cloth from 2 Linen, Bolts selling at 2s.
-table.insert(GoldForeverDB.scans, { t = 1792520200, kind = "full", market = "EU-Classic Beta PvE 2-alliance",
+table.insert(GoldForeverDB.scans, { t = 1792520200, kind = "full", market = "EU-Classic Beta PvE 2-" .. side,
   rows = { "2589,40,100,10;2589,50,200,5;2996,200,20,4;2934,500,3,1" } })
 ns.scanVersion = (ns.scanVersion or 0) + 1
 GoldForeverDB.catalogue.items[2996] = "Bolt of Linen Cloth,1,10,7,5,10,25,0,132890"
@@ -988,9 +1009,10 @@ do
   print = saved
 end
 assert(#said == 1 and said[1]:find("no prices file loaded", 1, true), "/gf prices without a file: " .. tostring(said[1]))
--- The server's key for this character's market ("EU-Classic Beta PvE 2-alliance" on Forever).
-local POOL_ALLIANCE, POOL_HORDE = "forever-EU-normal-alliance", "forever-EU-normal-horde"
-GoldForever_Prices = { v = 1, at = now, markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
+-- The server's key for this character's market ("EU-Classic Beta PvE 2-alliance" on Forever), and the
+-- other side's.
+local POOL_MINE, POOL_OTHER = "forever-EU-normal-" .. side, "forever-EU-normal-" .. otherSide
+GoldForever_Prices = { v = 1, at = now, markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
 local pool = poolLine(2589)
 print("POOL " .. tostring(pool))
 if INTERFACE < 110000 then
@@ -1003,11 +1025,11 @@ else
   assert((poolLine(2589) or ""):find("Pool: 1s 0c · min buyout 90c · 2 players", 1, true), "retail: the group's price first")
   assert((poolLine(2590) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "retail: the region's commodity price")
   assert(poolLine(2591) == nil, "retail: neither market has it")
-  GoldForever_Prices.markets = { [POOL_ALLIANCE] = { [2589] = { 1234, 1100, 3, now } } }
+  GoldForever_Prices.markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 -- The week's trend, when the companion's file carries the mean of the 7 days before.
 if INTERFACE < 110000 then
-  local e = GoldForever_Prices.markets[POOL_ALLIANCE][2589]
+  local e = GoldForever_Prices.markets[POOL_MINE][2589]
   e[5] = 1100
   assert((poolLine(2589) or ""):find("12s 34c · +12% vs 7-day avg", 1, true), "the pool line with its trend: " .. tostring(poolLine(2589)))
   assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
@@ -1017,7 +1039,7 @@ assert(poolLine(2590) == nil, "no pool line for an item without a price")
 -- In a zone with a neutral auction house (Tanaris here), the neutral market's line comes first, on
 -- Forever only; elsewhere it is not shown (design 009 decision 9).
 if INTERFACE < 110000 then
-  local neutralKey = POOL_ALLIANCE:gsub("%-alliance$", "-neutral")
+  local neutralKey = POOL_MINE:gsub("%-" .. side .. "$", "-neutral")
   GoldForever_Prices.markets[neutralKey] = { [2589] = { 5000, 4500, 2, now } }
   assert(poolLine(2589, "Neutral AH: ") == nil, "no neutral line outside a neutral zone")
   local where = C_Map.GetBestMapForUnit
@@ -1047,10 +1069,10 @@ if INTERFACE < 110000 then
   -- Older than three days: greyed, the words kept.
   local fresh, freshShade = poolLine(2589)
   assert(freshShade == 1, "a fresh price is white")
-  GoldForever_Prices.markets[POOL_ALLIANCE][2589][4] = now - 3 * 86400 - 1
+  GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400 - 1
   local old, oldShade = poolLine(2589)
   assert(old:find("scanned 3d ago", 1, true) and oldShade < 1, "a price older than three days is greyed: " .. tostring(oldShade))
-  GoldForever_Prices.markets[POOL_ALLIANCE][2589][4] = now - 3 * 86400
+  GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400
   assert(select(2, poolLine(2589)) == 1, "three days old is not greyed yet")
   -- The file lacks the item: the player's own latest scan, labelled as theirs.
   assert(poolLine(2589, "Your scan: ") == nil, "no own-scan line when the file has the item")
@@ -1065,23 +1087,24 @@ if INTERFACE < 110000 then
   print = saved
   print("PRICES " .. table.concat(said, " / "))
   assert(said[1]:find("prices file written just now · 1 market", 1, true), "/gf prices: the file")
-  assert(said[2] and said[2]:find("forever-EU-normal-alliance: 1 item · this character's", 1, true), "/gf prices: the market")
+  assert(said[2] and said[2]:find(POOL_MINE .. ": 1 item · this character's", 1, true), "/gf prices: the market")
 end
-GoldForever_Prices.markets = { [POOL_HORDE] = { [2589] = { 1234, 1100, 3, now } }, [ns.market("alliance")] = { [2589] = { 1234, 1100, 3, now } } }
+GoldForever_Prices.markets = { [POOL_OTHER] = { [2589] = { 1234, 1100, 3, now } }, [ns.market(side)] = { [2589] = { 1234, 1100, 3, now } } }
 assert(poolLine(2589) == nil, "no pool line from another side's market or the addon's own key")
-GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = { [2589] = { "x", 1100 } } } }
+GoldForever_Prices = { v = 1, markets = { [POOL_MINE] = { [2589] = { "x", 1100 } } } }
 assert(poolLine(2589) == nil, "no pool line from a malformed entry")
-GoldForever_Prices = { v = 1, markets = { [POOL_ALLIANCE] = "x" } }
+GoldForever_Prices = { v = 1, markets = { [POOL_MINE] = "x" } }
 assert(poolLine(2589) == nil, "no pool line from a malformed market")
 -- One file with both factions and two regions (contract T05): each character reads its own market.
 GoldForever_Prices = { v = 1, at = now, markets = {
-  [POOL_ALLIANCE] = { [2589] = { 100, 90, 2, now } },
-  [POOL_HORDE] = { [2589] = { 200, 190, 4, now } },
+  ["forever-EU-normal-alliance"] = { [2589] = { 100, 90, 2, now } },
+  ["forever-EU-normal-horde"] = { [2589] = { 200, 190, 4, now } },
   ["forever-NA-normal-horde"] = { [2589] = { 300, 290, 6, now } },
 } }
 if INTERFACE < 110000 then
   local me, client = ns.me(), ns.db().client
   local faction, region = me.faction, client.region
+  me.faction = "Alliance"
   assert((poolLine(2589) or ""):find("Pool: 1s 0c · min buyout 90c · 2 players", 1, true), "the Alliance character reads its market")
   me.faction = "Horde"
   assert((poolLine(2589) or ""):find("Pool: 2s 0c · min buyout 1s 90c · 4 players", 1, true), "a Horde character reads its market")
@@ -1195,7 +1218,7 @@ print("ZONE ROWS " .. tostring(lday.zone and lday.zone[1]))
 print("BOSS ROWS " .. tostring(lday.boss and lday.boss[1]) .. " | instance " .. tostring(GoldForeverDB.catalogue.instances and GoldForeverDB.catalogue.instances[389]))
 -- Scans from three days, several a day: the newest two and one from each earlier day stay.
 for _, t in ipairs({ 1792300000, 1792300900, 1792390000, 1792390900 }) do
-  table.insert(GoldForeverDB.scans, 1, { t = t, kind = "full", market = "EU-Classic Beta PvE 2-alliance", rows = {} })
+  table.insert(GoldForeverDB.scans, 1, { t = t, kind = "full", market = "EU-Classic Beta PvE 2-" .. side, rows = {} })
 end
 -- The in-game window: every page builds and fills from the saved file.
 SlashCmdList.GOLDFOREVER("ui")
@@ -1524,9 +1547,9 @@ do
   local chat = print
   print = function(...) local line = table.concat({ ... }, " ") if line:find("at or under your price", 1, true) then dealsLine = line end chat(...) end
   GoldForeverDB.settings.auction.lists = { { name = "Mats", entries = { { itemId = 2589, maxUnit = 4500 } } } }
-  -- At an Alliance auctioneer, so the scan is this character's market and its prices are rebuilt.
+  -- At an auctioneer of the character's side, so the scan is its market and its prices are rebuilt.
   local factionOf = UnitFactionGroup
-  UnitFactionGroup = function(u) if u == "npc" then return "Alliance" end return factionOf(u) end
+  UnitFactionGroup = function(u) if u == "npc" then return SIDE end return factionOf(u) end
   GoldForeverDB.lastReplicate = 0
   now = 1792600000 -- after every scan in the file, so this one is the newest
   fire("AUCTION_HOUSE_SHOW")

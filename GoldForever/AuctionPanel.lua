@@ -574,8 +574,10 @@ local function buildPost(page)
 		local sug = r.suggestion
 		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  ×" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
+		local hint = Post.trendHint(r.trend)
 		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or "No price yet: scan first") .. "|r"
-			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. " each|r") or ""))
+			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. " each|r") or "")
+			.. (hint and ("  " .. Theme.escape(r.trend > 0 and Theme.color.warning or Theme.color.textFaint) .. hint .. "|r") or ""))
 		local cheapest = r.cheapest and (money(r.cheapest) .. faint .. (r.cheapestFrom == "live" and " (live)" or " (last scan, yours included)") .. "|r") or (faint .. "none|r")
 		-- The market's trend on the week, when the pool carries one: green rising, red falling.
 		local trend = ""

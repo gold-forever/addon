@@ -12,6 +12,8 @@ GF_SMOKE_INTERFACE=120105 GF_SMOKE_SAVE=/tmp/save.lua GF_SMOKE_GUID=Player-3666-
 ```
 
 `GF_SMOKE_GUID` picks the character (any key of the save's `characters`); without it, the first one.
+On retail, `GF_SMOKE_CONNECTED` lists the realm's connected realms as the client does (the owner's
+Shadowsong: `Aszune,Shadowsong`), which name its market; without it, the realm alone.
 The run writes nothing back. Timings are of the addon's Lua against stand-in frames, so they show
 where the addon's own work grows with the data, not what the client spends drawing.
 
