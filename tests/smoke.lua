@@ -441,7 +441,17 @@ fire("PLAYER_TARGET_CHANGED")
 fire("UNIT_SPELLCAST_SENT", "player", "Peacebloom", "Cast-9", 2366)
 slots = { { kind = 1, link = "|Hitem:2447::::::::30|h[Peacebloom]|h", qty = 2, sources = { "GameObject-0-4620-0-12-1618-000C", 2 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-fire("TRAINER_SHOW")
+-- The client may say the trainer changed whenever a filter is switched: the read's own switches start no
+-- read of their own (they did, once a second, while the window stayed open).
+do
+  local reads, set, count = 0, SetTrainerServiceTypeFilter, GetNumTrainerServices
+  function SetTrainerServiceTypeFilter(f, on) filters[f] = on fireNow("TRAINER_UPDATE") end
+  function GetNumTrainerServices() reads = reads + 1 return count() end
+  fire("TRAINER_SHOW")
+  wait(5)
+  SetTrainerServiceTypeFilter, GetNumTrainerServices = set, count
+  assert(reads == 1, "the trainer read once: " .. reads)
+end
 for _, h in ipairs(tooltipHooks) do h(nil, { guid = "GameObject-0-4620-0-12-180682-000D", lines = { { leftText = "Oily Blackmouth School" } } }) end
 fishing = true
 slots = { { kind = 1, link = "|Hitem:6358::::::::30|h[Oily Blackmouth]|h", qty = 1, sources = { "GameObject-0-4620-0-12-180682-000D", 1 } } }
