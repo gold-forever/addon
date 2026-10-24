@@ -116,22 +116,22 @@ local under = S.underPrice({
 }, function(id) return scan[id] end, function(id) return market[id] end)
 eq(table.concat(under, ","), "1,3", "under the max, under market; once each; unlisted items left out")
 
--- Merging what the companion carries (decision 11): by id, the newer wins, the loser kept once.
-local n = 0
-local function newId() n = n + 1 return "new" .. n end
+-- Merging what the companion carries: by id, the newer wins, the other dropped; no copies (owner, 2026-10-24).
 local mine = { { id = "a", edited = 100, name = "Mats" }, { id = "b", edited = 300, name = "Snipe" } }
 local merged, changed = S.merge(mine, {
-	{ id = "a", edited = 200, name = "Mats v2" }, -- newer from the site: replaces, the game's kept as a copy
-	{ id = "b", edited = 250, name = "Snipe old" }, -- older from the site: the game's stays, the site's kept as a copy
+	{ id = "a", edited = 200, name = "Mats v2" }, -- newer from the site: replaces
+	{ id = "b", edited = 250, name = "Snipe old" }, -- older from the site: the game's stays
 	{ id = "c", edited = 50, name = "Herbs" }, -- new: added
-}, newId)
+})
 local names = {}
 for i, l in ipairs(merged) do names[i] = l.name end
-eq(table.concat(names, "|"), "Mats v2|Snipe|Mats (older copy)|Snipe old (older copy)|Herbs", "replaced, kept, copied, added")
-eq(changed, 3, "three changes")
-local again, changedAgain = S.merge(merged, { { id = "b", edited = 250, name = "Snipe old" } }, newId)
-eq(#again .. ":" .. changedAgain, "5:0", "a loser already kept is not kept twice")
-local same, none = S.merge({ { id = "a", edited = 100, name = "x" } }, { { id = "a", edited = 100, name = "x" } }, newId)
-eq(#same .. ":" .. none, "1:0", "the same edit: nothing")
+eq(table.concat(names, "|"), "Mats v2|Snipe|Herbs", "replaced, kept, added; no copies")
+eq(changed, 2, "two changes")
+local again, changedAgain = S.merge(merged, { { id = "b", edited = 250, name = "Snipe old" } })
+eq(#again .. ":" .. changedAgain, "3:0", "the site's stale version again: nothing")
+-- The copies earlier merges kept are taken out.
+local withCopies = { { id = "a", name = "Mats" }, { id = "x", name = "Mats (older copy)", copyOf = "a" }, { id = "y", name = "Mine" } }
+eq(S.dropCopies(withCopies), 1, "one copy dropped")
+eq(#withCopies .. withCopies[2].name, "2Mine", "the player's own lists stay")
 
 return checks

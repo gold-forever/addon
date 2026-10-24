@@ -2457,11 +2457,19 @@ ns.AuctionPanel = {
 }
 
 -- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
--- by id, the newer edit wins and the loser is kept once as an older copy (Shopping.merge). A file
+-- by id, the newer edit wins and the other is dropped (Shopping.merge; no copies since 2026-10-24). A file
 -- already merged is not merged again.
 local function mergeShared()
 	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
 	local s = settings()
+	-- Once: the "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up).
+	if not s.copiesDropped then
+		s.copiesDropped = true
+		local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
+		if n > 0 then
+			ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
+		end
+	end
 	if not shared or shared.at == s.sharedAt then
 		return
 	end
@@ -2481,8 +2489,8 @@ local function mergeShared()
 		end
 	end
 	local a, b
-	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, newId)
-	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, newId)
+	s.lists, a = ns.Shopping.merge(s.lists or {}, lists)
+	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles)
 	s.sharedAt = shared.at
 	if a + b > 0 then
 		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))
