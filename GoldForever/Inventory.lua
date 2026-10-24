@@ -196,3 +196,40 @@ ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "bank", function(kind)
 		bankClosed()
 	end
 end)
+
+-- "Held" in item tooltips (owner's answer, 2026-10-24): how many every character holds, from what the
+-- save has of their bags, bank and mail. The index is built again only when one of those changed.
+local held, heldStamp
+local function stamp()
+	local sum, n = 0, 0
+	for _, c in pairs(ns.db().characters or {}) do
+		n = n + 1
+		for _, place in ipairs(ns.Views.PLACES) do
+			sum = sum + (c[place] and c[place].t or 0)
+		end
+	end
+	return sum * 1000 + n
+end
+
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function heldTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
+			return
+		end
+		if ns.settings("prices", { tooltip = true }).held == false then
+			return
+		end
+		local now = stamp()
+		if not held or heldStamp ~= now then
+			held, heldStamp = ns.Views.holdings(ns.db().characters, Encode.parseItems), now
+		end
+		local line = ns.Views.heldText(held[data.id])
+		if line then
+			tooltip:AddLine(ns.PREFIX .. " " .. line, 0.8, 0.8, 0.8, true)
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("held tooltip", heldTooltip, tooltip, data)
+	end)
+end

@@ -970,6 +970,15 @@ local function poolLine(id, label)
   for _, l in ipairs(GameTooltip.lines) do if l:find(label or "Pool: ", 1, true) then return l, GameTooltip.shades[l] end end
 end
 assert(poolLine(2589) == nil and poolLine(2589, "Your scan: ") == nil, "no pool line without GoldForever_Prices, nor the own scan's (the appraiser shows it)")
+-- Held: how many each character holds, from the saved bags, bank and mail; Settings → Modules switches it.
+do
+  local line = poolLine(2589, "Held ")
+  assert(line and line:find("Held %d+: Testchar %d+ %(") , "the character's Linen in the tooltip: " .. tostring(line))
+  GoldForeverDB.settings.prices.held = false
+  assert(poolLine(2589, "Held ") == nil, "switched off, no line")
+  GoldForeverDB.settings.prices.held = nil
+  assert(poolLine(999999, "Held ") == nil, "nobody holds it, no line")
+end
 -- /gf prices without a file.
 local said = {}
 do

@@ -231,4 +231,25 @@ eq(V.goal(0, 12000000, { gold = 10000000, by = 86400 }).pct, 100, "never over 10
 local late = V.goal(2 * 86400, 100, { gold = 10000000, by = 86400 })
 eq(tostring(late.late) .. tostring(late.perDay), "truenil", "past the date, not reached")
 
+-- Holdings: what every character holds of an item, most first, for the tooltip's Held line.
+do
+  local function parse(text)
+    local out = {}
+    for id, n in string.gmatch(text or "", "(%d+)%*(%d+)") do out[tonumber(id)] = (out[tonumber(id)] or 0) + tonumber(n) end
+    return out
+  end
+  local chars = {
+    a = { name = "Zerie", bags = { items = "2589*8+4306*1" }, bank = { items = "2589*2" } },
+    b = { name = "Zeripala", mail = { items = "2589*2" } },
+    c = { name = "Alt", bags = { items = "4306*3" } },
+  }
+  local index = V.holdings(chars, parse)
+  eq(index[2589].total, 12, "every character's Linen")
+  eq(index[2589].by[1].name, "Zerie", "the most first")
+  eq(V.heldText(index[2589]), "Held 12: Zerie 10 (bags 8, bank 2), Zeripala 2 (mail)", "where each holds it")
+  eq(V.heldText(index[4306]), "Held 4: Alt 3 (bags), Zerie 1 (bags)", "a place alone without its count")
+  eq(V.heldText(index[2589], 1), "Held 12: Zerie 10 (bags 8, bank 2), +1 more", "at most so many characters")
+  eq(V.heldText(index[9999]), nil, "nobody holds it")
+end
+
 return checks
