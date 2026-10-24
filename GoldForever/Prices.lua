@@ -367,9 +367,38 @@ function Prices.neutralMarkets()
 	return Prices.markets(ns.market("neutral"), client.interface, client.portal)
 end
 
+-- At login: the warning when the companion's prices file is older than a day (owner's answer,
+-- 2026-10-24), at most once a day; nil when there is nothing to say (no file, a fresh one, warned today).
+Prices.STALE_FILE = 86400
+function Prices.staleWarning(data, now, lastWarned)
+	if type(data) ~= "table" or not amount(data.at) then
+		return nil
+	end
+	local age = now - data.at
+	if age <= Prices.STALE_FILE or (lastWarned and now - lastWarned < 86400) then
+		return nil
+	end
+	local days = math.floor(age / 86400)
+	return string.format("everyone's prices are %d %s old: is the companion app running? gold-forever.app/companion", days, days == 1 and "day" or "days")
+end
+
 -- This character's market keys, for the Companion page.
 Prices.mine = function()
 	return mine()
+end
+
+if ns.on then
+	ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
+		if not isInitialLogin then
+			return
+		end
+		local s = ns.settings("prices", { tooltip = true })
+		local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
+		if text then
+			s.staleWarned = GetServerTime()
+			ns.say(text)
+		end
+	end)
 end
 
 ns.commands.prices = function()

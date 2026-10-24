@@ -250,4 +250,11 @@ eq(st.missing[1], "forever-EU-normal-neutral", "named")
 -- A line's label: "Pool" unless named (the neutral auction house's line).
 eq((P.line({ v = 1, at = NOW, markets = { m = { [5] = good } } }, { "m" }, 5, NOW, "Neutral AH") or ""):sub(1, 11), "Neutral AH:", "a named line")
 
+-- The stale-file warning at login: over a day old, at most once a day; nothing without a file.
+eq(P.staleWarning(nil, NOW, nil), nil, "no file, no warning")
+eq(P.staleWarning({ at = NOW - 3600 }, NOW, nil), nil, "a fresh file")
+eq(P.staleWarning({ at = NOW - 2 * DAY - 5 }, NOW, nil), "everyone's prices are 2 days old: is the companion app running? gold-forever.app/companion", "two days")
+eq(P.staleWarning({ at = NOW - DAY - 5 }, NOW, nil):find("1 day old", 1, true) ~= nil, true, "one day")
+eq(P.staleWarning({ at = NOW - 2 * DAY }, NOW, NOW - 3600), nil, "warned an hour ago")
+
 return checks

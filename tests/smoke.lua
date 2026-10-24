@@ -993,6 +993,18 @@ do
 end
 print("SAME TOTALS " .. tostring((before:match("Total: [^|]*")) == (after:match("Total: [^|]*"))))
 assert(before:match("Total: [^|]*") and before:match("Total: [^|]*") == after:match("Total: [^|]*"), "the session survives a /reload")
+-- An old prices file: one line at login, not again the same day.
+do
+  local prices, warned = GoldForever_Prices, 0
+  GoldForever_Prices = { v = 1, at = now - 3 * 86400, markets = {} }
+  local chat = print
+  print = function(...) if table.concat({ ... }, " "):find("is the companion app running", 1, true) then warned = warned + 1 end chat(...) end
+  fire("PLAYER_ENTERING_WORLD", true, false)
+  fire("PLAYER_ENTERING_WORLD", true, false)
+  print = chat
+  assert(warned == 1, "one warning for an old file: " .. warned)
+  GoldForever_Prices = prices
+end
 -- /gf export: the first holds everything, the next only what is new; both build without error.
 SlashCmdList.GOLDFOREVER("export")
 local firstAt = GoldForeverDB.exportedAt
