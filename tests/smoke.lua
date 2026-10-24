@@ -544,10 +544,19 @@ if INTERFACE >= 110000 then
 else
   assert(#raidNotices == 1 and marks.nameplate3 == 8, "WoW: Forever: the rare is announced once and marked")
 end
--- A marker the client keeps secret (newer clients): never compared, the rare still marked once.
+-- A value the client keeps secret (newer clients): anything but type() and issecretvalue() on it fails,
+-- as in game: reading it as text, comparing it, indexing it, counting it, doing sums with it.
+local function secretValue()
+  local function refuse() error("attempt to use a secret value", 2) end
+  return setmetatable({}, { __tostring = refuse, __concat = refuse, __eq = refuse, __lt = refuse, __le = refuse,
+    __index = refuse, __newindex = refuse, __len = refuse, __call = refuse, __unm = refuse,
+    __add = refuse, __sub = refuse, __mul = refuse, __div = refuse, __mod = refuse, __pow = refuse })
+end
+assert(not pcall(function() return secretValue().find end) and not pcall(function() return secretValue() < 1 end), "a secret refuses use")
+-- A marker the client keeps secret: never compared, the rare still marked once.
 do
-  local SECRET = {}
-  function issecretvalue(v) return v == SECRET end
+  local SECRET = secretValue()
+  function issecretvalue(v) return rawequal(v, SECRET) end
   local index = GetRaidTargetIndex
   GetRaidTargetIndex = function() return SECRET end
   UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC9" end return unitGUID(u) end
@@ -562,8 +571,8 @@ end
 -- A unit whose identity the client keeps secret (GUID, name, creature type): nothing read, nothing
 -- recorded, no error (the errors table is checked at the end of the run).
 do
-  local SECRET = {}
-  function issecretvalue(v) return v == SECRET end
+  local SECRET = secretValue()
+  function issecretvalue(v) return rawequal(v, SECRET) end
   local guid, name, kind = UnitGUID, UnitName, UnitCreatureType
   UnitGUID = function(u) if u == "nameplate3" or u == "npc" then return SECRET end return guid(u) end
   UnitName = function(u) if u == "nameplate3" then return SECRET end return name(u) end
@@ -582,8 +591,8 @@ end
 -- A mob whose name is secret but whose GUID is not: recorded without a name, no error; out of combat
 -- the readable name fills the row.
 do
-  local SECRET = {}
-  function issecretvalue(v) return v == SECRET end
+  local SECRET = secretValue()
+  function issecretvalue(v) return rawequal(v, SECRET) end
   local guid, name = UnitGUID, UnitName
   UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-61234-0000ABD1" end return guid(u) end
   UnitName = function(u) if u == "nameplate3" then return SECRET end return name(u) end
