@@ -8,7 +8,7 @@ local S, E = ns.Shopping, ns.Encode
 local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
 
 -- Every function is there as soon as the file loads (one was once defined inside encode by mistake).
-for _, name in ipairs({ "limit", "take", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge" }) do
+for _, name in ipairs({ "limit", "take", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge", "refind" }) do
 	eq(type(S[name]), "function", "defined at load: " .. name)
 end
 
@@ -144,5 +144,20 @@ eq(#kept .. kept[1].name, "1Edited after", "deleted stays deleted; edited after 
 local withCopies = { { id = "a", name = "Mats" }, { id = "x", name = "Mats (older copy)", copyOf = "a" }, { id = "y", name = "Mine" } }
 eq(S.dropCopies(withCopies), 1, "one copy dropped")
 eq(#withCopies .. withCopies[2].name, "2Mine", "the player's own lists stay")
+
+-- The entry in use found again after copies are dropped (review B-11): profiles [A copy, B, C] with B in
+-- use (2); after the drop B is at 1, not C at 2.
+do
+	local A, B, C = { id = "a" }, { id = "b" }, { id = "c" }
+	local items = { { id = "x", copyOf = "a" }, B, C, A }
+	local was = items[2]
+	S.dropCopies(items)
+	eq(S.refind(items, was), 1, "the same profile, at its new place")
+	local newer = { id = "b", edited = 9 }
+	eq(S.refind({ A, newer, C }, B), 2, "replaced by a newer copy: found by its id")
+	eq(S.refind({ A, C }, { id = "y", copyOf = "c" }), 2, "a dropped copy: the one it was copied from")
+	eq(S.refind({ A, C }, B), nil, "gone")
+	eq(S.refind({ A }, nil), nil, "nothing in use")
+end
 
 return checks()

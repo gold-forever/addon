@@ -317,4 +317,20 @@ function Shopping.dropCopies(items)
 	return n
 end
 
+-- Where an item is now after a merge or a drop moved things: the same table, else the one with its id,
+-- else, for a copy, the one it was copied from. Returns the index, or nil when it is gone.
+function Shopping.refind(items, was)
+	if not was then
+		return nil
+	end
+	for _, id in ipairs({ false, was.id or false, type(was.copyOf) == "string" and was.copyOf or false }) do
+		for i, x in ipairs(items or {}) do
+			if (id == false and x == was) or (id and x.id == id) then
+				return i
+			end
+		end
+	end
+	return nil
+end
+
 return Shopping

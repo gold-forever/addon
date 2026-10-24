@@ -1215,6 +1215,14 @@ do
   for _, l in ipairs(auction.lists) do
     assert(l.id ~= "s1" and l.id ~= "c1", "neither the deleted list nor a site copy came back: " .. tostring(l.name))
   end
+  -- The profile in use stays in use when an earlier merge's copy before it is dropped (review B-11).
+  local keepProfiles, keepProfile = auction.profiles, auction.profile
+  local B, C = { id = "pb", name = "B", author = "", sell = {}, buy = {} }, { id = "pc", name = "C", author = "", sell = {}, buy = {} }
+  auction.profiles = { { id = "pa", name = "A (older copy)", author = "", sell = {}, buy = {}, copyOf = "pz" }, B, C }
+  auction.profile = 2
+  ns.mergeShared()
+  assert(#auction.profiles == 2 and auction.profiles[auction.profile] == B, "B still in use, not C: " .. tostring(auction.profile and auction.profiles[auction.profile] and auction.profiles[auction.profile].name))
+  auction.profiles, auction.profile = keepProfiles, keepProfile
   GoldForever_Prices = prices
 end
 -- The mail helper: one press opens the auction mails in turn (a player's letter and a COD mail stay),

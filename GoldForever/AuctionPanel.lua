@@ -2703,6 +2703,21 @@ end
 local function mergeShared()
 	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
 	local s = settings()
+	-- The list and profile in use are kept by index: found again once the drop and the merge are done.
+	local before = #(s.lists or {})
+	local listWas = s.list and (s.lists or {})[s.list]
+	local generated = s.list and s.list > before and s.list - before or nil
+	local profileWas = s.profile and (s.profiles or {})[s.profile]
+	local function restore()
+		if profileWas then
+			s.profile = ns.Shopping.refind(s.profiles, profileWas)
+		end
+		if listWas then
+			s.list = ns.Shopping.refind(s.lists, listWas) or 1
+		elseif generated then
+			s.list = #(s.lists or {}) + generated
+		end
+	end
 	-- The "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up),
 	-- marked or only named so.
 	for _, items in ipairs({ s.lists or {}, s.profiles or {} }) do
@@ -2715,6 +2730,7 @@ local function mergeShared()
 		ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
 	end
 	if not shared or shared.at == s.sharedAt then
+		restore()
 		return
 	end
 	local lists, profiles = {}, {}
@@ -2739,6 +2755,7 @@ local function mergeShared()
 	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, s.removedShared)
 	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, s.removedShared)
 	s.sharedAt = shared.at
+	restore()
 	if a + b > 0 then
 		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))
 	end
