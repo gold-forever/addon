@@ -684,6 +684,7 @@ local function buildCrafting(page)
 	}, {
 		pageSize = 8,
 		empty = "No priced recipe yet: open your professions once, and scan the auction house.",
+		itemId = function(r) return r.q and r.q.recipe and r.q.recipe.output end,
 		sort = sortOf("crafting", 4),
 		isSelected = function(r) return chosen and r.id == chosen end,
 		onRowClick = function(r)
@@ -724,7 +725,27 @@ local function buildCrafting(page)
 		local v = UI.Text(detail, "", { size = "xs", align = "RIGHT", tone = "muted" })
 		v:SetPoint("TOPRIGHT", -14, -30 - (i - 1) * 18)
 		v:SetWidth(260)
-		lines[i] = { name = l, value = v }
+		-- The reagent's own tooltip on hover (manual test run 001).
+		local hover = CreateFrame("Button", nil, detail)
+		hover:SetPoint("TOPLEFT", l, "TOPLEFT")
+		hover:SetPoint("BOTTOMRIGHT", v, "BOTTOMRIGHT")
+		hover:SetScript("OnEnter", function(self)
+			if self.itemId and GameTooltip then
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				if GameTooltip.SetItemByID then
+					GameTooltip:SetItemByID(self.itemId)
+				else
+					GameTooltip:SetHyperlink("item:" .. self.itemId)
+				end
+				GameTooltip:Show()
+			end
+		end)
+		hover:SetScript("OnLeave", function()
+			if GameTooltip then
+				GameTooltip:Hide()
+			end
+		end)
+		lines[i] = { name = l, value = v, hover = hover }
 	end
 	function page:Refresh()
 		local rows, profs, seenProf = {}, { { value = "all", label = "All professions" } }, {}
@@ -769,6 +790,7 @@ local function buildCrafting(page)
 		if not sel then
 			head:SetText("")
 			for _, l in ipairs(lines) do
+				l.hover.itemId = nil
 				l.name:SetText("")
 				l.value:SetText("")
 			end
@@ -783,6 +805,7 @@ local function buildCrafting(page)
 		queued:SetText(crafts > 0 and string.format("In the queue: %d %s. The Buy tab's \"Craft queue\" list buys what is missing.", crafts, crafts == 1 and "craft" or "crafts") or "The queue is empty.")
 		for i, l in ipairs(lines) do
 			local x = sel.q.lines[i]
+			l.hover.itemId = x and x.id
 			if x then
 				l.name:SetText(x.needed .. "× " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  (" .. x.owned .. " held)|r") or ""))
 				l.value:SetText(x.unit and (UI.layout.amount(x.unit) .. " each, " .. (x.from == "vendor" and "vendor" or "AH")) or "no price")

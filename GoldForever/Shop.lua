@@ -45,12 +45,17 @@ end
 -- Whether a recipe makes gear (a weapon or armor): its price is one for every quality and item level,
 -- so its profit is not to be trusted (owner's answer, 2026-10-24: Tracker's Chitin Cuffs "sold for"
 -- 1,425g at skill 4). Gear is marked, its profit greyed, and it is never "the best craft".
+-- Anything worn counts, profession tools and gear too (class 19: Skinner's Cap at 6,760g, 39,665%).
+local GEAR_CLASS = { [2] = true, [4] = true, [19] = true }
 local function isGear(id)
+	if C_Item and C_Item.IsEquippableItem and C_Item.IsEquippableItem(id) then
+		return true
+	end
 	local _, _, class = ns.price.itemInfo(id)
 	if not class and C_Item and C_Item.GetItemInfoInstant then
 		class = select(6, C_Item.GetItemInfoInstant(id))
 	end
-	return class == 2 or class == 4
+	return GEAR_CLASS[class] == true
 end
 ns.isGear = isGear
 
