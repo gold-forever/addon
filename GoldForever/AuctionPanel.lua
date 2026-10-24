@@ -1411,6 +1411,32 @@ local function build()
 	mark:SetPoint("TOPLEFT", 16, -16)
 	local title = UI.Text(p, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "lg", medium = true })
 	title:SetPoint("LEFT", mark, "RIGHT", 8, 0)
+	-- What the bank and mailbox hold that the auction house pays for: fetch it first. A hover lists it.
+	local away = CreateFrame("Button", nil, p)
+	away:SetPoint("TOPRIGHT", -16, -16)
+	away:SetSize(220, 18)
+	away.text = UI.Text(away, "", { size = "xs", tone = "muted", align = "RIGHT" })
+	away.text:SetAllPoints()
+	away:SetScript("OnEnter", function(self)
+		local e = self.list
+		if not e or e.count == 0 then
+			return
+		end
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+		GameTooltip:AddLine("Fetch these first: in your bank and mail")
+		for i, it in ipairs(e.items) do
+			if i > 12 then
+				GameTooltip:AddLine(string.format("+%d more", e.count - 12), 0.6, 0.6, 0.6)
+				break
+			end
+			GameTooltip:AddDoubleLine(string.format("%s ×%d (%s)", it.name, it.count, it.place), money(it.worth), 1, 1, 1, 1, 1, 1)
+		end
+		GameTooltip:Show()
+	end)
+	away:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	p.away = away
 	local pages = {}
 	local tabs = UI.TabBar(p, { { key = "scan", label = "Scan" }, { key = "post", label = "Post" }, { key = "shop", label = "Shop" }, { key = "cancel", label = "Cancel" }, { key = "rule", label = "Rule" } }, function(key)
 		p.ensure(key)
@@ -1451,10 +1477,35 @@ local function build()
 	p.tab = "scan"
 end
 
+-- The title row's bank-and-mail line, worked out again only when the bank, the mail or the prices change.
+local awayStamp = {}
+local function drawAway()
+	local me, away = ns.me(), panel and panel.away
+	if not me or not away then
+		return
+	end
+	local file = GoldForever_Prices
+	local bankT, mailT = me.bank and me.bank.t, me.mail and me.mail.t
+	local fileAt = type(file) == "table" and file.at or nil
+	if away.list and awayStamp.bank == bankT and awayStamp.mail == mailT and awayStamp.scan == ns.scanVersion and awayStamp.file == fileAt then
+		return
+	end
+	awayStamp.bank, awayStamp.mail, awayStamp.scan, awayStamp.file = bankT, mailT, ns.scanVersion, fileAt
+	away.list = ns.Views.elsewhere(me, ns.Encode.parseItems, function(id)
+		return (ns.Prices.value(id))
+	end, function(id)
+		local _, _, _, _, name = ns.price.itemInfo(id)
+		return name or (C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
+	end)
+	local e = away.list
+	away.text:SetText(e.count > 0 and string.format("Bank & mail: %d %s · %s", e.count, e.count == 1 and "item" or "items", money(e.total)) or "")
+end
+
 refresh = function()
 	if not panel or not panel:IsShown() then
 		return
 	end
+	ns.safely("auction panel away", drawAway)
 	if built ~= Theme.key then
 		local tab = panel.tab
 		panel:Hide()
@@ -1691,6 +1742,9 @@ end
 
 -- For the smoke test: pick a tab, post the chosen row, and read the rows.
 ns.AuctionPanel = {
+	panel = function()
+		return panel
+	end,
 	tab = function(key)
 		if panel then
 			panel.ensure(key)

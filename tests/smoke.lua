@@ -659,6 +659,21 @@ do
   assert(over and tostring(over.label):find("(item rule)", 1, true), "Post names the item's rule: " .. tostring(over and over.label))
   GoldForeverDB.settings.auction.overrides.items[2589] = nil
   AP.ruleScope("default")
+  -- The title row names what the bank and mailbox hold that the auction house pays for; a hover lists it.
+  do
+    local me = ns.me()
+    local bank = me.bank
+    me.bank = { items = "2589*40", t = now + 1 }
+    AP.tab("post")
+    local away = AP.panel().away
+    assert((away.text.text or ""):find("Bank & mail: 1 item", 1, true), "the bank's Linen in the title row: " .. tostring(away.text.text))
+    GameTooltip.lines = {}
+    away.scripts.OnEnter(away)
+    local listed = false
+    for _, l in ipairs(GameTooltip.lines) do if l:find("Fetch these first", 1, true) then listed = true end end
+    assert(listed, "the hover lists them")
+    me.bank = bank
+  end
   -- Changing the rule's scope again and again builds no new frames (the picker's rows are reused).
   do
     local before = #frames

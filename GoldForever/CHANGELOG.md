@@ -111,6 +111,8 @@
 - **Price trend**: with prices from the companion, an item's pool line and Post's market say how the price
   stands against its 7-day average ("+12% vs 7-day avg", "steady" within 1%), once the server sends it.
   Post adds advice at 10% either way: "rising: maybe wait", or "falling".
+- At the auction house, the panel's title row says what your bank and mailbox hold that the auction
+  house pays for ("Bank & mail: 3 items · 45g"); a hover lists them, dearest first, to fetch first.
 - **Held counts in tooltips**: how many each of your characters holds of an item, in bags, bank and mail
   ("Held 12: Zerie 10 (bags 8, bank 2), Zeripala 2 (mail)"). Settings → Modules switches it off.
 - **Crafting**: Cost, Profit and Margin share one base: the reagents still to buy plus the held ones at
