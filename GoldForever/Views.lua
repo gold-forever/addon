@@ -655,3 +655,12 @@ function Views.bagWorth(bags, parse, worth)
 	end
 	return Views.worthList(sellable, worth)
 end
+
+-- n lines in room rows: all of them when they fit, else room - 1 and a last row for the rest. Returns how
+-- many show and how many are left for "+N more".
+function Views.fit(n, room)
+	if n <= room then
+		return n, 0
+	end
+	return room - 1, n - room + 1
+end

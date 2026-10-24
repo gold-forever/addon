@@ -300,4 +300,9 @@ do
 	eq(#V.bagWorth(nil, parse, function() return 100 end), 0, "no bags, nothing")
 end
 
+-- The Crafting detail's reagent lines: all that fit, else one row kept for "+N more".
+eq(table.concat({ V.fit(3, 4) }, " "), "3 0", "three reagents in four lines: all")
+eq(table.concat({ V.fit(4, 4) }, " "), "4 0", "four in four: all")
+eq(table.concat({ V.fit(6, 4) }, " "), "3 3", "six in four: three and +3 more")
+
 return checks()

@@ -809,12 +809,17 @@ local function buildCrafting(page)
 			crafts = crafts + q.count
 		end
 		queued:SetText(crafts > 0 and string.format("In the queue: %d %s. The Buy tab's \"Craft queue\" list buys what is missing.", crafts, crafts == 1 and "craft" or "crafts") or "The queue is empty.")
+		-- More reagents than lines: the last line says how many more (the queue window lists them all).
+		local fits, more = Views.fit(#sel.q.lines, #lines)
 		for i, l in ipairs(lines) do
-			local x = sel.q.lines[i]
+			local x = i <= fits and sel.q.lines[i] or nil
 			l.hover.itemId = x and x.id
 			if x then
 				l.name:SetText(x.needed .. "× " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  (" .. x.owned .. " held)|r") or ""))
 				l.value:SetText(x.unit and (UI.layout.amount(x.unit) .. " each, " .. (x.from == "vendor" and "vendor" or "AH")) or "no price")
+			elseif i == fits + 1 and more > 0 then
+				l.name:SetText(Theme.escape(Theme.color.textFaint) .. "+" .. more .. " more " .. (more == 1 and "reagent" or "reagents") .. "|r")
+				l.value:SetText("")
 			else
 				l.name:SetText(i == 1 and "No reagents" or "")
 				l.value:SetText("")
