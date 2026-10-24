@@ -1,6 +1,7 @@
 -- Gold Forever: the auction mail helper (owner's answer, 2026-10-24): beside the mailbox, one press
--- opens a batch of the auction house's mail, sold gold, bought, expired, cancelled and outbid items,
--- one mail after the other as the server answers, stopping when the bags are full. A player's letter,
+-- opens all the auction house's mail, sold gold, bought, expired, cancelled and outbid items, one mail
+-- after the other as fast as the server takes them (manual test run 001: ten a press, at least 0.3 s
+-- apart, was slow next to other mail tools), stopping when the bags are full. A player's letter,
 -- and any mail asking for cash on delivery, is never touched.
 
 local _, ns = ...
@@ -9,8 +10,9 @@ ns = ns or {}
 local Mail = {}
 ns.Mail = Mail
 
-Mail.BATCH = 10 -- mails a press
-local GAP = 0.3 -- seconds at least between two mails, and between checks while the server is busy
+Mail.BATCH = 500 -- mails a press: all of them (a guard against a loop, not a limit)
+local GAP = 0.05 -- seconds between a take's answer and the next, and between checks while the server is busy
+local WAIT = 0.5 -- seconds to wait for an answer the client never sends
 
 -- The auction house's subjects as the client words them ("Auction successful: %s"), English fallbacks
 -- for the tests; as Lua patterns that match the whole subject.
@@ -129,7 +131,12 @@ local function step()
 	end
 	local index, why = Mail.next(headers(), freeSlots(), patterns)
 	if not index or run.left <= 0 then
-		panel.note:SetText(why == "bags" and "Your bags are full: make room and press again." or (run.left <= 0 and "Done for this press; press again for more." or "All auction mail opened."))
+		-- The client shows 50 mails at a time; the rest arrive when the mailbox refreshes.
+		local shown, total = GetInboxNumItems()
+		local more = total and shown and total > shown and (total - shown) or 0
+		panel.note:SetText(why == "bags" and "Your bags are full: make room and press again."
+			or more > 0 and string.format("All shown auction mail opened. %d more %s arrive when the mailbox refreshes (within a minute): press again then.", more, more == 1 and "mail" or "mails")
+			or "All auction mail opened.")
 		run = nil
 		refresh()
 		return
@@ -154,9 +161,9 @@ local function step()
 			end
 		end
 	end
-	-- Next when the inbox changes, or after a moment if it does not say.
+	-- Next when the take succeeds or the inbox changes, or after a moment if neither says.
 	local mine = run
-	C_Timer.After(1, function()
+	C_Timer.After(WAIT, function()
 		if run == mine and mine.waiting then
 			mine.waiting = false
 			ns.safely("mail helper", step)
@@ -175,13 +182,17 @@ ns.on("MAIL_FAILED", "mail helper", function()
 	end
 end)
 
-ns.on("MAIL_INBOX_UPDATE", "mail helper", function()
+local function answered()
 	if run and run.waiting then
 		run.waiting = false
 		C_Timer.After(GAP, function()
 			ns.safely("mail helper", step)
 		end)
 	end
+end
+ns.on("MAIL_SUCCESS", "mail helper", answered)
+ns.on("MAIL_INBOX_UPDATE", "mail helper", function()
+	answered()
 	refresh()
 end)
 
@@ -219,7 +230,7 @@ local function build()
 	p.count = UI.Text(p, "", { size = "sm", wrap = true })
 	p.count:SetPoint("TOPLEFT", 14, -40)
 	p.count:SetWidth(232)
-	p.open = UI.Button(p, "Open auction mail", function()
+	p.open = UI.Button(p, "Open all auction mail", function()
 		ns.safely("mail helper", press)
 	end, { kind = "primary", width = 232, height = 30 })
 	p.open:SetPoint("TOPLEFT", 14, -78)
