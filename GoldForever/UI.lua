@@ -888,6 +888,7 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 		quiet = false
 	end
 	f.slider = s
+	f.readout = readout
 	f:Set(value)
 	return f
 end

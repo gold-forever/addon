@@ -593,6 +593,7 @@ local function buildPost(page)
 		end
 	end, { width = 72, height = 24 })
 	ruleButton:SetPoint("TOPRIGHT", -10, -8)
+	page.ruleButton = ruleButton
 	local reason = UI.Text(detail, "", { size = "sm" })
 	reason:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
 	reason:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
@@ -999,6 +1000,7 @@ local function buildShop(page)
 		refresh()
 	end, { width = 90, height = 26 })
 	remove:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+	page.remove = remove
 
 	-- The lists' own buttons; Import and Export open the string field under them.
 	local exchange = CreateFrame("Frame", nil, page)
@@ -1945,6 +1947,45 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("auction tooltip", postTooltip, tooltip, data)
 	end)
+end
+
+-- "/gf uidebug": what the client says of the widgets seen without their text (manual test run 001: Buy's
+-- Remove, Sell's Rule › and quantity box, now and then right after opening), for finding why.
+local function describe(label, w)
+	if not w then
+		print("  " .. label .. ": not made")
+		return
+	end
+	local fs = w.GetFontString and w:GetFontString() or w.label
+	local font, size = nil, nil
+	if fs and fs.GetFont then
+		font, size = fs:GetFont()
+	elseif w.GetFont then
+		font, size = w:GetFont()
+	end
+	local function v(x)
+		return type(x) == "number" and string.format("%.2f", x) or tostring(x)
+	end
+	local function call(obj, method)
+		return obj and obj[method] and v(obj[method](obj)) or "-"
+	end
+	print("  " .. label .. ": shown " .. call(w, "IsShown") .. " visible " .. call(w, "IsVisible") .. " alpha " .. call(w, "GetAlpha")
+		.. "/" .. call(w, "GetEffectiveAlpha") .. " size " .. call(w, "GetWidth") .. "x" .. call(w, "GetHeight") .. " level " .. call(w, "GetFrameLevel")
+		.. " text [" .. call(w, "GetText") .. "] fs [" .. call(fs, "GetText") .. "] fs shown " .. call(fs, "IsShown") .. " fs alpha " .. call(fs, "GetAlpha")
+		.. " fs width " .. call(fs, "GetStringWidth") .. " font " .. tostring(font) .. " " .. v(size))
+end
+ns.commands.uidebug = function()
+	local n = 0
+	for key, p in pairs(panels) do
+		n = n + 1
+		print(string.format("%s panel %s: shown %s, tab %s, the one in use %s, level %s", ns.PREFIX, key, tostring(p:IsShown()), tostring(p.tab), tostring(p == panel), tostring(p:GetFrameLevel())))
+	end
+	print(string.format("  %d panels; Theme.key %s; built %s", n, tostring(Theme.key), tostring(built)))
+	if panel then
+		describe("Buy Remove", panel.shop and panel.shop.remove)
+		describe("Sell Rule", panel.post and panel.post.ruleButton)
+		describe("Sell quantity box", panel.post and panel.post.quantity and panel.post.quantity.readout)
+	end
 end
 
 -- "/gf ah" shows or hides the panel at the auction house, and remembers.
