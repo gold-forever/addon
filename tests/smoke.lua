@@ -915,12 +915,17 @@ do
   SlashCmdList.GOLDFOREVER("ui settings")
   print("SETTINGS FRAMES at opening: " .. (#frames - before))
 end
+-- The Guide names only commands the addon has.
+for _, c in ipairs(ns.GUIDE_COMMANDS) do
+  local word = c[1]:match("^/gf%s*(%S*)")
+  assert(word == "" or ns.commands[word], "the Guide's command exists: " .. c[1])
+end
 -- A gold goal, so Home draws its strip with one.
 GoldForeverDB.settings.window.goal = { gold = 10000000, by = now + 10 * 86400 }
 -- The hub: every page builds in every look, and an accent goes over the look and back.
 for _, look in ipairs({ "classic", "arcane", "web" }) do
   SlashCmdList.GOLDFOREVER("look " .. look)
-  for _, page in ipairs({ "home", "ledger", "characters", "inventory", "money", "sales", "crafting", "session", "now", "levelling", "mobs", "rares", "companion", "settings", "design" }) do
+  for _, page in ipairs({ "home", "ledger", "characters", "inventory", "money", "sales", "crafting", "session", "now", "levelling", "mobs", "rares", "companion", "settings", "guide", "design" }) do
     SlashCmdList.GOLDFOREVER("ui " .. page)
   end
   -- Every Settings tab, drawn as a click would.

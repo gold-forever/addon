@@ -778,6 +778,62 @@ local function buildSessionNow(page)
 	end)
 end
 
+-- Guide -------------------------------------------------------------------------------------------------------
+
+-- How to use Gold Forever, for players at launch (owner's answer, 2026-10-24): short sections, the keys
+-- and the commands. Every command named here exists (the tests check GUIDE_COMMANDS).
+local GUIDE = {
+	{ "Getting started", "Gold Forever records your characters, money, loot and auction scans for your pages on gold-forever.app, and brings everyone's prices into the game. Install the free companion app (gold-forever.app/companion): it uploads your save when the game writes it and brings prices in every hour. /gf opens this window; the minimap coin does too (right-click switches the look)." },
+	{ "At the auction house", "A panel opens beside the auction house. Scan shows the full scan (one every 15 minutes). Post lists what your bags can sell, priced by your rule against the cheapest listing by someone else; alt-click an item in your bags to choose it, then click Post or press Space. A price far under the market or a vendor's asks for a second press. Your bag items' tooltips say what Post would ask." },
+	{ "Shop and Cancel", "Shop keeps lists of items with the most you pay: shift-click an item into the field, add a gold price or none for \"under market\". Choose one and Buy next asks the auction house for a price; a second press buys. Cancel checks your auctions and cancels the most undercut one a press (the item comes back by mail)." },
+	{ "Rules and profiles", "Rule sets how you undercut, the floor and the normal price; \"Rule for\" adds a rule for one item or a whole category. A sale profile (a GFP1 string, made at gold-forever.app/me/lists or shared by others) prices the items it names: keep so many, undercut, a fixed price or a point in the supply." },
+	{ "Crafting", "The Crafting page lists your recipes by profit; \"I have these\" counts what you hold at no cost. Queue crafts there or on the strip beside the profession window, and the Shop's \"Craft queue\" list buys only what is missing." },
+	{ "While you play", "The session HUD shows gold, XP and kills an hour; click it for the session. Big drops and rares get a message. The mail helper beside the mailbox opens auction mail a batch a press. Settings → Modules switches any part off; what the save records stays the same." },
+	{ "Discord", "Add a Discord webhook at gold-forever.app/settings, then switch \"Announce dings\" on in Settings → Discord for the character you play: each level-up posts a picture and a public page." },
+}
+local GUIDE_COMMANDS = {
+	{ "/gf", "this window (and /gf help: every command)" }, { "/gf hud", "the session HUD" }, { "/gf ah", "the auction panel" },
+	{ "/gf look arcane", "a look (web, classic, arcane)" }, { "/gf accent #2fd1a8", "an accent colour" }, { "/gf dings on", "Discord dings" },
+	{ "/gf scan", "a full scan at the auction house" }, { "/gf welcome", "the first-run card" }, { "/gf prices", "the prices file" },
+}
+ns.GUIDE_COMMANDS = GUIDE_COMMANDS
+
+local function buildGuide(page)
+	local scroll = CreateFrame("ScrollFrame", nil, page)
+	scroll:SetAllPoints()
+	local body = CreateFrame("Frame", nil, scroll)
+	body:SetSize(680, 900)
+	scroll:SetScrollChild(body)
+	scroll:EnableMouseWheel(true)
+	scroll:SetScript("OnMouseWheel", function(self, delta)
+		local max = math.max(0, body:GetHeight() - self:GetHeight())
+		self:SetVerticalScroll(math.min(max, math.max(0, self:GetVerticalScroll() - delta * 48)))
+	end)
+	page:SetScript("OnSizeChanged", function(_, w)
+		body:SetWidth(w)
+	end)
+	local y = 0
+	for _, section in ipairs(GUIDE) do
+		local h = UI.Text(body, Theme.skin.titleCaps and string.upper(section[1]) or section[1], { size = "md", medium = true, tone = "accent" })
+		h:SetPoint("TOPLEFT", 0, y)
+		local t = UI.Text(body, section[2], { size = "sm", tone = "muted", wrap = true })
+		t:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -6)
+		t:SetWidth(660)
+		y = y - 26 - math.max(36, (t:GetStringHeight() or 36)) - 14
+	end
+	local h = UI.Text(body, Theme.skin.titleCaps and "COMMANDS" or "Commands", { size = "md", medium = true, tone = "accent" })
+	h:SetPoint("TOPLEFT", 0, y)
+	y = y - 24
+	for _, c in ipairs(GUIDE_COMMANDS) do
+		local k = UI.Text(body, c[1], { size = "sm" })
+		k:SetPoint("TOPLEFT", 0, y)
+		local v = UI.Text(body, c[2], { size = "sm", tone = "muted" })
+		v:SetPoint("TOPLEFT", 200, y)
+		y = y - 20
+	end
+	body:SetHeight(-y + 20)
+end
+
 -- Characters ----------------------------------------------------------------------------------------------
 
 local function buildCharacters(page)
@@ -1485,6 +1541,8 @@ local PAGES = {
 		lede = "Everyone's prices in the game, and your save on the site: what the companion app has brought in." },
 	{ key = "settings", label = "Settings", icon = "settings", group = "Addon", build = buildSettings, title = "Settings",
 		lede = "How Gold Forever looks and behaves. Changes apply at once." },
+	{ key = "guide", label = "Guide", icon = "circle-help", group = "Addon", build = buildGuide, title = "Guide",
+		lede = "How to use Gold Forever: the auction house panel, crafting, the session, Discord, and the commands." },
 	{ key = "design", label = "Design system", icon = "palette", group = "Addon", build = buildDesign, title = "Design system",
 		lede = "Every part of the window kit with example data, in the look in use." },
 }

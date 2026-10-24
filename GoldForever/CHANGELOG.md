@@ -34,6 +34,7 @@
   seen, and what a loot of one has been worth.
 - When everyone's prices in the game are more than a day old, one line at login asks whether the
   companion app is running (at most once a day).
+- A **Guide** page: how to use the auction house panel, crafting, the session, Discord, and the commands.
 - A **Companion** page: whether the companion's prices are loaded and when they were written, its
   markets with their items (this character's first, and any it has no prices for yet), and this
   character's Discord dings.

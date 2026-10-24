@@ -7,7 +7,7 @@ set -euo pipefail
 src="${1:?the lucide-static directory}"
 out="$(dirname "$0")/../GoldForever/Media/Icons"
 mkdir -p "$out"
-ICONS=(coins users trending-up book-open skull package settings palette search chevron-down check x rotate-ccw timer gavel tag backpack flask-conical)
+ICONS=(coins users trending-up book-open skull package settings palette search chevron-down check x rotate-ccw timer gavel tag backpack flask-conical circle-help)
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 for name in "${ICONS[@]}"; do
