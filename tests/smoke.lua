@@ -570,7 +570,31 @@ do
     -- A refused post clears the wait at once (AUCTION_HOUSE_POST_ERROR), the item still chosen.
     fire("AUCTION_HOUSE_POST_ERROR")
     assert(select(3, AP.state()) == nil, "the refusal ends the wait")
+    -- Warned, then the quantity changed: the press posts afresh rather than confirming the old one.
+    confirmed, asked = nil, false
+    AP.post()
+    assert(asked and not confirmed, "warned again")
+    local chosenRow = select(2, AP.state())
+    GoldForeverDB.settings.auction.quantities[chosenRow.key] = 1
+    asked = false
+    AP.post()
+    assert(asked and not confirmed, "a changed quantity is posted afresh, not confirmed")
+    GoldForeverDB.settings.auction.quantities[chosenRow.key] = nil
     C_AuctionHouse.PostCommodity = postInner
+    -- A post the server never answers frees the panel after the timeout; a stray game error does not
+    -- end the wait, the auction house's own error does.
+    AP.post()
+    if select(3, AP.state()) == nil then AP.post() end
+    assert(select(3, AP.state()) ~= nil, "waiting for the post's answer")
+    fire("UI_ERROR_MESSAGE", 51, "Not enough mana")
+    assert(select(3, AP.state()) ~= nil, "an unrelated error is not the answer")
+    fire("AUCTION_HOUSE_SHOW_ERROR", 2)
+    assert(select(3, AP.state()) == nil, "the auction house's error is")
+    AP.post()
+    if select(3, AP.state()) == nil then AP.post() end
+    wait(6)
+    assert(select(3, AP.state()) == nil, "no answer: the panel takes presses again after the timeout")
+    for k in pairs(posts) do posts[k] = nil end
   end
   AP.duration(3) -- 48 hours for Linen, remembered for it
   AP.quantity(5) -- 5 of the 7 held, remembered for it
