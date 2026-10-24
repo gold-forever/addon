@@ -81,6 +81,7 @@ ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
 		return
 	end
 	-- Every cast replaces the last, so an older cast never names the next loot.
+	target = ns.readable(target)
 	cast = target and target ~= "" and not onUnit(target) and { name = target, at = GetTime() } or nil
 end)
 ns.on("LOOT_READY", "objects", function()
@@ -96,10 +97,11 @@ end)
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
 	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)
 		ns.safely("objects", function()
-			local guid = data and data.guid
+			-- The GUID and the first line are secret for a unit whose identity the client keeps.
+			local guid = data and ns.readable(data.guid)
 			local src = guid and type(guid) == "string" and Encode.source(guid)
 			local id = src and string.match(src, "^o(%d+)$")
-			local line = data.lines and data.lines[1] and data.lines[1].leftText
+			local line = id and data.lines and data.lines[1] and ns.readable(data.lines[1].leftText)
 			if id and line and line ~= "" and ns.db() then
 				ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
 			end

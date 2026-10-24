@@ -375,6 +375,10 @@ do
   fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
   fire("PLAYER_TARGET_CHANGED")
   assert(#raidNotices == notices, "no alert for a unit the client keeps secret")
+  for _, h in ipairs(tooltipHooks) do h(nil, { guid = SECRET, lines = { { leftText = SECRET } } }) end
+  for _, h in ipairs(tooltipHooks) do h(nil, { guid = "GameObject-0-4620-0-12-180683-000D", lines = { { leftText = SECRET } } }) end
+  assert(GoldForeverDB.catalogue.objects[180683] == nil, "no object named from a secret line")
+  fire("UNIT_SPELLCAST_SENT", "player", SECRET, "Cast-10", 2366)
   UnitGUID, UnitName, UnitCreatureType = guid, name, kind
   issecretvalue = nil
 end
@@ -1111,6 +1115,26 @@ do
   print("UI LEDGER " .. table.concat(cats, " ") .. " net " .. led.net)
   local lv = V.levelling(V.rows(db, "level"), V.rows(db, "xp"), ns.me().ref)
   print("UI LEVELLING levels " .. #lv.levels .. " xp " .. lv.xp .. " perHour " .. tostring(lv.perHour))
+end
+
+-- Statistics go a category a frame (a retail client has more than one frame may spend on); logout,
+-- with no next frame, refreshes only the values already read.
+do
+  local lists = { GetStatisticsCategoryList, GetCategoryNumAchievements }
+  GetStatisticsCategoryList = function() return { 130, 131, 132 } end
+  GetCategoryNumAchievements = function() return 2 end
+  local reads, stat = 0, GetStatistic
+  GetStatistic = function(id) reads = reads + 1 return stat(id) end
+  ns.me().statistics = nil
+  wait(61)
+  fireNow("CRITERIA_UPDATE")
+  assert(ns.me().statistics == nil and reads == 2, "the first category read, the rest on later frames")
+  wait(1)
+  assert(ns.me().statistics and ns.me().statistics[13201] == "--" and reads == 6, "all three categories read")
+  reads = 0
+  fire("PLAYER_LOGOUT")
+  assert(reads == 6, "logout refreshes the values read")
+  GetStatisticsCategoryList, GetCategoryNumAchievements, GetStatistic = lists[1], lists[2], stat
 end
 
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
