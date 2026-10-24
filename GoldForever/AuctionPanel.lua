@@ -318,24 +318,26 @@ ns.auctionRefresh = function()
 	end
 end
 
+-- The cheapest other listing in a book: one sneaky-price guard for Sell, Cancel and the sale plans.
+local function honest(levels, itemID)
+	return Post.honestCheapest(levels, ns.Prices and ns.Prices.value and (ns.Prices.value(itemID)) or nil)
+end
+
 -- Commodities: the cheapest unit left after the player's own.
 ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction panel", function(itemID)
 	local n = C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
-	local cheapest, list, levels = nil, {}, {}
+	local list, levels = {}, {}
 	-- The book as the Shop reads it ({ unitPrice, quantity, own }), the cheapest LEVELS of it.
 	for i = 1, math.min(n, LEVELS) do
 		local res = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, i)
 		if res then
-			if not cheapest and (res.quantity or 0) - (res.numOwnerItems or 0) > 0 then
-				cheapest = res.unitPrice
-			end
 			if #list < LISTED then
 				list[#list + 1] = { unit = res.unitPrice, qty = res.quantity or 0, own = (res.numOwnerItems or 0) > 0 }
 			end
 			levels[#levels + 1] = { unitPrice = res.unitPrice, quantity = res.quantity or 0, own = res.numOwnerItems or 0 }
 		end
 	end
-	live[tostring(itemID)] = { cheapest = cheapest, list = list, total = n, levels = levels, commodity = true, at = GetTime() }
+	live[tostring(itemID)] = { cheapest = honest(levels, itemID), list = list, total = n, levels = levels, commodity = true, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -347,16 +349,13 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 		return
 	end
 	local n = C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
-	local cheapest, all = nil, {}
+	local all = {}
 	for i = 1, n do
 		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
 		if res and res.buyoutAmount and res.buyoutAmount > 0 then
 			local unit = math.floor(res.buyoutAmount / math.max(1, res.quantity or 1) + 0.5)
 			all[#all + 1] = { unit = unit, qty = res.quantity or 1, own = res.containsOwnerItem and true or false,
 				auctionID = res.auctionID, buyout = res.buyoutAmount }
-			if not res.containsOwnerItem then
-				cheapest = cheapest and math.min(cheapest, unit) or unit
-			end
 		end
 	end
 	table.sort(all, function(a, b)
@@ -366,15 +365,16 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 	for i = 1, math.min(LISTED, #all) do
 		list[i] = all[i]
 	end
-	for _, r in ipairs(rows) do
-		if r.itemKey and r.itemKey.itemID == itemKey.itemID and r.itemKey.itemLevel == itemKey.itemLevel then
-			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
-		end
-	end
 	-- For the Shop: every auction of the item, cheapest first, as levels and with what PlaceBid needs.
 	local levels = {}
 	for i, a in ipairs(all) do
 		levels[i] = { unitPrice = a.unit, quantity = a.qty, own = a.own and a.qty or 0, auctionID = a.auctionID, buyout = a.buyout }
+	end
+	local cheapest = honest(levels, itemKey.itemID)
+	for _, r in ipairs(rows) do
+		if r.itemKey and r.itemKey.itemID == itemKey.itemID and r.itemKey.itemLevel == itemKey.itemLevel then
+			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
+		end
 	end
 	live["item:" .. itemKey.itemID] = { cheapest = cheapest, levels = levels, commodity = false, at = GetTime() }
 	if refresh then
@@ -1106,7 +1106,7 @@ end
 -- Cancel undercut ----------------------------------------------------------------------------------------------
 
 -- The player's own auctions (design 009, Cancel undercut; owner: build it now, 5% by default): each
--- searched in turn against other players' listings (a sneaky single cheap unit passed over); those
+-- searched in turn against other players' listings (a few sneaky cheap units passed over); those
 -- undercut by more than the tolerance are listed, and Cancel next cancels the most undercut one a press
 -- (CancelAuction is a hardware event, and costs the deposit). The items come back by mail.
 local TOLERANCES = { { value = 1, label = "1%" }, { value = 5, label = "5%" }, { value = 10, label = "10%" } }
@@ -1120,7 +1120,7 @@ end
 -- The cheapest other listing for an owned auction, from the last search of its item.
 local function cheapestFor(a)
 	local book = live[a.commodity and tostring(a.itemID) or ("item:" .. a.itemID)]
-	return book and book.levels and Post.honestCheapest(book.levels) or nil, book ~= nil
+	return book and book.cheapest or nil, book ~= nil
 end
 
 local function readOwned()

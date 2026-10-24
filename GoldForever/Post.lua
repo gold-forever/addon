@@ -135,28 +135,12 @@ function Post.undercutPct(mine, other)
 	return math.floor((mine - other) / mine * 1000 + 0.5) / 10
 end
 
--- The cheapest other listing worth reacting to, from levels { unitPrice, quantity, own }: a level of
--- fewer than `units` (2) other units more than `pct` (30%) under the next level is a "sneaky price"
--- and is passed over (design 009 decision 13's defaults). Returns the unit price, or nil.
-function Post.honestCheapest(levels, units, pct)
-	units, pct = units or 2, pct or 30
-	local others = {}
-	for _, l in ipairs(levels or {}) do
-		local n = (l.quantity or 0) - (l.own or 0)
-		if n > 0 then
-			others[#others + 1] = { unit = l.unitPrice, n = n }
-		end
-	end
-	table.sort(others, function(a, b)
-		return a.unit < b.unit
-	end)
-	for i, o in ipairs(others) do
-		local nextUnit = others[i + 1] and others[i + 1].unit
-		if not (o.n < units and nextUnit and o.unit < nextUnit * (1 - pct / 100)) then
-			return o.unit
-		end
-	end
-	return nil
+-- The cheapest other listing worth reacting to, from levels { unitPrice, quantity, own }: the sale
+-- plans' sneaky-price guard (SalePlan.clean, design 009 decision 13), so Sell, Cancel and a sale plan
+-- undercut the same price. `market` judges a book of a few units only. Returns the unit price, or nil.
+function Post.honestCheapest(levels, market)
+	local kept = ns.SalePlan.clean(levels, nil, market)
+	return kept[1] and kept[1].unitPrice or nil
 end
 
 -- The rule an item posts by (design 009: one default, overridable per item category and per item): the

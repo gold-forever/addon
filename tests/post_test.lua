@@ -2,6 +2,7 @@
 
 local ns = {}
 assert(load(SOURCES["Post.lua"], "@Post.lua"))("GoldForever", ns)
+assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P = ns.Post
 
 local rule = P.DEFAULT
@@ -47,13 +48,21 @@ eq(P.undercutPct(2100, 1900), 9.5, "9.5% under")
 eq(P.undercutPct(2100, 2100), 0, "level")
 eq(P.undercutPct(2100, 2500), 0, "dearer")
 eq(P.undercutPct(2100, nil), 0, "nobody")
--- The sneaky-price guard: one unit far under the next is passed over; two units, or close, count.
+-- The sneaky-price guard, the sale plans' own (SalePlan.clean): up to two cheap units far under the next
+-- price are passed over; more, or close, count.
 local function lv(u, q, own) return { unitPrice = u, quantity = q, own = own or 0 } end
 eq(P.honestCheapest({ lv(1000, 1), lv(2000, 20) }), 2000, "a single cheap unit far under is a sneaky price")
-eq(P.honestCheapest({ lv(1000, 2), lv(2000, 20) }), 1000, "two units count")
+eq(P.honestCheapest({ lv(1000, 2), lv(2000, 20) }), 2000, "two units are too")
+eq(P.honestCheapest({ lv(1000, 3), lv(2000, 20) }), 1000, "three units count")
 eq(P.honestCheapest({ lv(1900, 1), lv(2000, 20) }), 1900, "one unit close to the next counts")
 eq(P.honestCheapest({ lv(1500, 5, 5), lv(2000, 20) }), 2000, "the player's own units are left out")
 eq(P.honestCheapest({}), nil, "an empty book")
+-- Two definitions once disagreed here (review B-12): 100 by one, 1000 by the other.
+eq(P.honestCheapest({ lv(100, 1), lv(110, 1), lv(1000, 50) }), 1000, "two cheap single units under a real price")
+local kept = ns.SalePlan.clean({ lv(100, 1), lv(110, 1), lv(1000, 50) })
+eq(kept[1].unitPrice, 1000, "the sale plan's guard agrees")
+eq(P.honestCheapest({ lv(500, 1) }, 2000), nil, "a few units far under the market: none to react to")
+eq(P.honestCheapest({ lv(500, 1) }), 500, "no market: kept")
 
 -- Overrides: an item's over its category's over the default; only the fields an override holds change.
 local base = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" }
