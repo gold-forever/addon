@@ -1831,9 +1831,14 @@ show = function(redrawn)
 	-- placed (manual test run 001, /gf uidebug: Sell's Rule ›, quantity and Post with no rect, Remove's
 	-- text unseen) until the panel was anchored anew, as closing and opening did.
 	C_Timer.After(0, anchor)
-	local key = redrawn ~= true and tabForMode(blizzardMode())
-	if key and key ~= panel.tab then
-		panel.select(key, true)
+	-- A new visit opens on Scan while a full scan may start, to prod the player into one (owner's answer,
+	-- 2026-10-24); else on Blizzard's tab.
+	if redrawn ~= true then
+		local st = ns.scanState and ns.scanState()
+		local key = st and st.wait == 0 and st.phase == "idle" and "scan" or tabForMode(blizzardMode())
+		if key and key ~= panel.tab then
+			panel.select(key, true)
+		end
 	end
 	reread()
 	if chosen then

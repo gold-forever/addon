@@ -871,9 +871,19 @@ do
     f[name].Click = function() clicked = name; f:SetDisplayMode(mode) end
   end
   AuctionHouseFrame = f
+  -- A full scan possible: the panel opens on Scan, to prod one; else on Blizzard's tab.
+  local lastScan, auto = GoldForeverDB.lastReplicate, ns.settings("scan", {}).auto
+  GoldForeverDB.lastReplicate = 0
+  ns.settings("scan", {}).auto = false
   fire("AUCTION_HOUSE_SHOW")
   local p = ns.AuctionPanel.panel()
-  assert(p.tab == "cancel", "opens on Blizzard's tab: Auctions, not " .. tostring(p.tab))
+  assert(p.tab == "scan", "a scan possible: opens on Scan, not " .. tostring(p.tab))
+  fire("AUCTION_HOUSE_CLOSED")
+  GoldForeverDB.lastReplicate = now
+  fire("AUCTION_HOUSE_SHOW")
+  assert(p.tab == "cancel", "in the cooldown: opens on Blizzard's tab, Auctions, not " .. tostring(p.tab))
+  GoldForeverDB.lastReplicate = lastScan
+  ns.settings("scan", {}).auto = auto
   f:SetDisplayMode(M.CommoditiesSell)
   assert(p.tab == "post", "Blizzard's Sell switches the panel to Sell")
   ns.AuctionPanel.tab("shop")
