@@ -398,3 +398,41 @@ function Views.sales(rows, ref, from)
 	end)
 	return out
 end
+
+-- The Inventory tab's rows: everything the characters hold ({ [guid] = { name, bags, bank, mail } }, each
+-- place's items read by parse), one row an item, filtered by filter = { char = guid, place = "bags" |
+-- "bank" | "mail", quality = minimum, query = lower-case text }; with where it is held and its worth
+-- (worth(id) a unit, quality(id), name(id)). Returns rows and totals { items, units, worth }.
+Views.PLACES = { "bags", "bank", "mail" }
+function Views.inventory(characters, parse, worth, quality, name, filter)
+	filter = filter or {}
+	local byItem = {}
+	for guid, c in pairs(characters or {}) do
+		if not filter.char or filter.char == guid then
+			for _, place in ipairs(Views.PLACES) do
+				if not filter.place or filter.place == place then
+					for id, n in pairs(parse(c[place] and c[place].items)) do
+						local it = byItem[id] or { held = 0, where = {} }
+						byItem[id] = it
+						it.held = it.held + n
+						it.where[#it.where + 1] = string.format("%s %d (%s)", c.name or "?", n, place)
+					end
+				end
+			end
+		end
+	end
+	local rows, totals = {}, { items = 0, units = 0, worth = 0 }
+	for id, it in pairs(byItem) do
+		local q = quality(id) or 1
+		local label = name(id)
+		if (not filter.quality or q >= filter.quality) and (not filter.query or filter.query == "" or string.find(string.lower(label), filter.query, 1, true)) then
+			table.sort(it.where)
+			local value = (worth(id) or 0) * it.held
+			rows[#rows + 1] = { id = id, name = label, quality = q, held = it.held, where = table.concat(it.where, ", "), holders = it.where, value = value }
+			totals.items = totals.items + 1
+			totals.units = totals.units + it.held
+			totals.worth = totals.worth + value
+		end
+	end
+	return rows, totals
+end

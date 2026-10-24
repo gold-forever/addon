@@ -1482,14 +1482,14 @@ local function bagSlot(loc)
 	return loc.bag, loc.slot
 end
 
-local function chooseFromBag(link, loc)
+local function chooseFromBag(link, loc, itemID)
 	if not panel or not panel:IsShown() then
 		return
 	end
 	reread()
 	local bag, slot = bagSlot(loc)
 	local key = link and ns.Encode.itemKey(link)
-	local id = link and ns.Encode.itemId(key)
+	local id = itemID or (link and ns.Encode.itemId(key))
 	local found
 	for _, r in ipairs(rows) do
 		for _, l in ipairs(r.locations) do
@@ -1498,7 +1498,7 @@ local function chooseFromBag(link, loc)
 				found = r
 			end
 		end
-		if not found and not bag and (r.key == key or (r.commodity and r.id == id)) then
+		if not found and not bag and (r.key == key or ((r.commodity or itemID) and r.id == id)) then
 			found = r
 		end
 	end
@@ -1525,6 +1525,10 @@ if hooksecurefunc and HandleModifiedItemClick then
 	end)
 end
 ns.AuctionPanelAltClick = chooseFromBag
+-- From the hub's Inventory: an item chosen in Post while the auction house is open.
+function ns.auctionChoose(itemID)
+	ns.safely("auction choose", chooseFromBag, nil, nil, itemID)
+end
 
 -- While the panel shows, a bag item's tooltip says what Post would ask for it (owner's answer,
 -- 2026-10-24): the same price and reason as the Post tab, rule, override or profile.

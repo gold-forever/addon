@@ -16,6 +16,8 @@
 - The window is a hub: the Gold Forever emblem and a page search at the top of a sidebar, the pages in
   groups with an icon each, a large page title over art in the look's colours, and a footer with
   Reload UI and Close. The sidebar's foot shows the addon's own memory and CPU use.
+- **Inventory** (Ledger tab) filters by character, place (bags, bank, mail) and quality, with totals that
+  follow; at the auction house a click on an item chooses it in Post.
 - Fewer rows in the hub: **Ledger** holds Money, Characters, Inventory and **Auction sales** (what sold,
   for how much, after the cut) as tabs, and **Session** holds **This session** (the HUD's figures at full
   size, with the session's loot), Levelling and Mobs; each page remembers its tab, and `/gf ui levelling` and the like still work.

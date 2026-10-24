@@ -946,56 +946,87 @@ end
 -- Inventory ---------------------------------------------------------------------------------------------
 
 local function buildInventory(page)
-	local title = header(page)
-	local query = ""
-	local tbl
-	local search = UI.SearchBox(page, "Search items…", function(text)
-		query = string.lower(text)
+	-- Filters: whose, where, how good, and a search; the totals follow them (Views.inventory).
+	local filter = { query = "" }
+	local QUALITY = { { value = 0, label = "Any quality" }, { value = 1, label = "White and better" }, { value = 2, label = "Green and better" }, { value = 3, label = "Blue and better" } }
+	local PLACE = { { value = "all", label = "Bags, bank, mail" }, { value = "bags", label = "Bags" }, { value = "bank", label = "Bank" }, { value = "mail", label = "Mail" } }
+	local function chars()
+		local out = { { value = "all", label = "All characters" } }
+		for guid, c in pairs(ns.db().characters or {}) do
+			out[#out + 1] = { value = guid, label = c.name or "?" }
+		end
+		return out
+	end
+	local refresh = function()
 		if page.Refresh then
 			page:Refresh()
 		end
+	end
+	local who = UI.Dropdown(page, chars(), "all", function(v)
+		filter.char = v ~= "all" and v or nil
+		refresh()
+	end)
+	who:SetPoint("TOPLEFT")
+	who:SetWidth(150)
+	local where = UI.Dropdown(page, PLACE, "all", function(v)
+		filter.place = v ~= "all" and v or nil
+		refresh()
+	end)
+	where:SetPoint("LEFT", who, "RIGHT", 8, 0)
+	where:SetWidth(140)
+	local quality = UI.Dropdown(page, QUALITY, 0, function(v)
+		filter.quality = v > 0 and v or nil
+		refresh()
+	end)
+	quality:SetPoint("LEFT", where, "RIGHT", 8, 0)
+	quality:SetWidth(150)
+	local search = UI.SearchBox(page, "Search items…", function(text)
+		filter.query = string.lower(text)
+		refresh()
 	end)
 	search:SetPoint("TOPRIGHT")
-	search:SetWidth(220)
-	local total = UI.StatCard(page, "Worth", "", "")
-	total:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
-	total:SetWidth(220)
-	local count = UI.StatCard(page, "Items held", "", "")
-	count:SetPoint("LEFT", total, "RIGHT", 12, 0)
-	count:SetWidth(220)
-	tbl = UI.Table(page, {
+	search:SetPoint("LEFT", quality, "RIGHT", 8, 0)
+	local cards = {}
+	for i, label in ipairs({ "Worth", "Items", "Units" }) do
+		local c = UI.StatCard(page, label, "", "")
+		c:SetWidth(200)
+		if i == 1 then
+			c:SetPoint("TOPLEFT", who, "BOTTOMLEFT", 0, -12)
+		else
+			c:SetPoint("LEFT", cards[i - 1], "RIGHT", 12, 0)
+		end
+		cards[i] = c
+	end
+	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 2, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		{ key = "held", title = "Held", width = 60, align = "RIGHT" },
 		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end, tooltip = function(r) return r.holders end },
 		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
-	}, { pageSize = 11, empty = "Nothing matches.", sort = sortOf("inventory", 4) })
-	tbl:SetPoint("TOPLEFT", total, "BOTTOMLEFT", 0, -12)
+	}, {
+		pageSize = 9,
+		empty = "Nothing matches.",
+		sort = sortOf("inventory", 4),
+		-- At the auction house, a click chooses the item in Post.
+		onRowClick = function(r)
+			if ns.auctionChoose then
+				ns.auctionChoose(r.id)
+			end
+		end,
+	})
+	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local byItem = {}
-		for _, c in pairs(ns.db().characters) do
-			for _, place in ipairs({ "bags", "bank", "mail" }) do
-				for id, n in pairs(Encode.parseItems(c[place] and c[place].items)) do
-					local it = byItem[id] or { held = 0, where = {} }
-					byItem[id] = it
-					it.held = it.held + n
-					it.where[#it.where + 1] = string.format("%s %d (%s)", c.name or "?", n, place)
-				end
-			end
-		end
-		local rows, worth, units = {}, 0, 0
-		for id, it in pairs(byItem) do
-			local name = itemName(id)
-			if query == "" or string.find(string.lower(name), query, 1, true) then
-				local unit = ns.price and ns.price.worth(id) or 0
-				rows[#rows + 1] = { name = name, quality = itemQuality(id), held = it.held, where = table.concat(it.where, ", "), holders = it.where, value = (unit or 0) * it.held }
-				worth = worth + (unit or 0) * it.held
-				units = units + it.held
-			end
-		end
-		total:Set(UI.layout.money(worth, "gold"), "at the better of auction and vendor")
-		count:Set(tostring(#rows), units .. " units")
+		local rows, totals = Views.inventory(ns.db().characters, Encode.parseItems, function(id)
+			return ns.price and ns.price.worth(id)
+		end, itemQuality, itemName, filter)
+		cards[1]:Set(UI.layout.money(totals.worth, "gold"), "at the better of auction and vendor")
+		cards[2]:Set(tostring(totals.items), "different items")
+		cards[3]:Set(tostring(totals.units), "in all")
 		tbl:SetRows(rows)
+	end
+	page.setFilter = function(f)
+		filter = f
+		page:Refresh()
 	end
 end
 

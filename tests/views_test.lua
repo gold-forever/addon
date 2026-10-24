@@ -176,4 +176,28 @@ eq(sales.cut, 145, "the cut")
 eq(sales.net, 2755, "after the cut")
 eq(V.sales({ { t = 100, char = 1, item = "A", price = "100", cut = "5" }, { t = 50, char = 2, item = "B", price = "10", cut = "1" } }, nil, 60).count, 1, "all characters, from a time")
 
+-- The Inventory tab: filters by character, place, quality and text; totals follow them.
+local chars = {
+	a = { name = "Zerie", bags = { items = "2589*7" }, bank = { items = "2589*3;14047*1" } },
+	b = { name = "Alt", mail = { items = "2589*20" } },
+}
+local function parse(s)
+	local out = {}
+	for id, n in string.gmatch(s or "", "(%d+)%*(%d+)") do out[tonumber(id)] = (out[tonumber(id)] or 0) + tonumber(n) end
+	return out
+end
+local worthOf = { [2589] = 10, [14047] = 1000 }
+local qualityOf = { [2589] = 1, [14047] = 2 }
+local function inv(f) return V.inventory(chars, parse, function(id) return worthOf[id] end, function(id) return qualityOf[id] end, function(id) return id == 2589 and "Linen Cloth" or "Runecloth" end, f) end
+local rows, t = inv()
+eq(t.items .. "/" .. t.units .. "/" .. t.worth, "2/31/1300", "all: two items, 31 units, 1300c")
+rows, t = inv({ char = "a" })
+eq(t.units, 11, "one character")
+rows, t = inv({ place = "bank" })
+eq(t.units .. "/" .. t.worth, "4/1030", "the bank only")
+rows, t = inv({ quality = 2 })
+eq(#rows .. ":" .. rows[1].id, "1:14047", "green and better")
+rows, t = inv({ query = "linen" })
+eq(rows[1].where, "Alt 20 (mail), Zerie 3 (bank), Zerie 7 (bags)", "where it is held, sorted")
+
 return checks
