@@ -1133,7 +1133,8 @@ local function buildInventory(page)
 	-- Filters: whose, where, how good, and a search; the totals follow them (Views.inventory).
 	local filter = { query = "" }
 	local QUALITY = { { value = 0, label = "Any quality" }, { value = 1, label = "White and better" }, { value = 2, label = "Green and better" }, { value = 3, label = "Blue and better" } }
-	local PLACE = { { value = "all", label = "Bags, bank, mail" }, { value = "bags", label = "Bags" }, { value = "bank", label = "Bank" }, { value = "mail", label = "Mail" } }
+	local PLACE = { { value = "all", label = "Bags, bank, mail" }, { value = "bags", label = "Bags" }, { value = "bank", label = "Bank" }, { value = "mail", label = "Mail" },
+		{ value = "gear", label = "Equipped" } }
 	local function chars()
 		local out = { { value = "all", label = "All characters" } }
 		for guid, c in pairs(ns.db().characters or {}) do
@@ -1173,7 +1174,7 @@ local function buildInventory(page)
 	local cards = {}
 	for i, label in ipairs({ "Worth", "Items", "Units" }) do
 		local c = UI.StatCard(page, label, "", "")
-		c:SetWidth(200)
+		c:SetWidth(160)
 		if i == 1 then
 			c:SetPoint("TOPLEFT", who, "BOTTOMLEFT", 0, -12)
 		else
@@ -1181,8 +1182,19 @@ local function buildInventory(page)
 		end
 		cards[i] = c
 	end
+	-- Tradeable only: soulbound units left out (they count at a vendor's price otherwise).
+	local tradeable = UI.Switch(page, false, function(on)
+		filter.tradeable = on or nil
+		refresh()
+	end)
+	tradeable:SetPoint("LEFT", cards[3], "RIGHT", 16, 0)
+	local tradeableLabel = UI.Text(page, "Tradeable only", { size = "sm", tone = "muted" })
+	tradeableLabel:SetPoint("LEFT", tradeable, "RIGHT", 8, 0)
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 2, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "name", title = "Item", flex = 2, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
+			text = function(r)
+				return r.name .. (r.bound > 0 and (Theme.escape(Theme.color.textFaint) .. (r.bound == r.held and "  bound" or ("  " .. r.bound .. " bound")) .. "|r") or "")
+			end },
 		{ key = "held", title = "Held", width = 60, align = "RIGHT" },
 		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end, tooltip = function(r) return r.holders end },
 		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
@@ -1190,6 +1202,7 @@ local function buildInventory(page)
 		pageSize = 9,
 		empty = "Nothing matches.",
 		sort = sortOf("inventory", 4),
+		itemId = function(r) return r.id end,
 		-- At the auction house, a click chooses the item in Post.
 		onRowClick = function(r)
 			if ns.auctionChoose then
@@ -1201,9 +1214,13 @@ local function buildInventory(page)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
 		local rows, totals = Views.inventory(ns.db().characters, Encode.parseItems, function(id)
-			return ns.price and ns.price.worth(id)
-		end, itemQuality, itemName, filter)
-		cards[1]:Set(UI.layout.money(totals.worth, "gold"), "at the better of auction and vendor")
+			if ns.price then
+				return ns.price.worth(id)
+			end
+		end, itemQuality, itemName, filter, function(id)
+			return ns.price and ns.price.vendor(id)
+		end)
+		cards[1]:Set(UI.layout.money(totals.worth, "gold"), filter.place == "gear" and "equipped: not counted" or "bound items at a vendor's price")
 		cards[2]:Set(tostring(totals.items), "different items")
 		cards[3]:Set(tostring(totals.units), "in all")
 		tbl:SetRows(rows)

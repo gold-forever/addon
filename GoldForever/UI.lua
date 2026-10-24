@@ -1299,6 +1299,25 @@ function UI.Table(parent, columns, opts)
 				cut[i] = clipped(cell)
 			end
 			local tip = UI.layout.overflowTip(columns, self.row, cut)
+			-- opts.itemId(row): the row's item, whose own tooltip shows, the cut cells under it (manual test
+			-- run 001: hovering an item should show it).
+			local id = opts.itemId and opts.itemId(self.row)
+			if id and GameTooltip then
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				if GameTooltip.SetItemByID then
+					GameTooltip:SetItemByID(id)
+				else
+					GameTooltip:SetHyperlink("item:" .. id)
+				end
+				for _, part in ipairs(tip) do
+					GameTooltip:AddLine(part.title, Theme.rgb(Theme.color.textMuted))
+					for _, text in ipairs(part.lines) do
+						GameTooltip:AddLine(text, 1, 1, 1, true)
+					end
+				end
+				GameTooltip:Show()
+				return
+			end
 			if #tip == 0 or not GameTooltip then
 				return
 			end

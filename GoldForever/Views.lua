@@ -443,18 +443,44 @@ end
 -- "bank" | "mail", quality = minimum, query = lower-case text }; with where it is held and its worth
 -- (worth(id) a unit, quality(id), name(id)). Returns rows and totals { items, units, worth }.
 Views.PLACES = { "bags", "bank", "mail" }
-function Views.inventory(characters, parse, worth, quality, name, filter)
+-- The equipped gear of a character as counts: c.gear is { [slot] = key }.
+local function gearCounts(c, parse)
+	local out = {}
+	for slot, key in pairs(c.gear or {}) do
+		if type(slot) == "number" then
+			for id in pairs(parse(key .. "*1")) do
+				out[id] = (out[id] or 0) + 1
+			end
+		end
+	end
+	return out
+end
+
+-- Rows of what the characters hold. filter.place "gear" shows equipped items, which are worth nothing
+-- here (they are not for sale); otherwise bags, bank and mail. Soulbound units (a place's `bound`) are
+-- worth what a vendor pays, vendor(id), and filter.tradeable leaves them out (owner's answers,
+-- 2026-10-24, manual test run 001).
+function Views.inventory(characters, parse, worth, quality, name, filter, vendor)
 	filter = filter or {}
 	local byItem = {}
+	local places = filter.place == "gear" and { "gear" } or Views.PLACES
 	for guid, c in pairs(characters or {}) do
 		if not filter.char or filter.char == guid then
-			for _, place in ipairs(Views.PLACES) do
+			for _, place in ipairs(places) do
 				if not filter.place or filter.place == place then
-					for id, n in pairs(parse(c[place] and c[place].items)) do
-						local it = byItem[id] or { held = 0, where = {} }
-						byItem[id] = it
-						it.held = it.held + n
-						it.where[#it.where + 1] = string.format("%s %d (%s)", c.name or "?", n, place)
+					local held = place == "gear" and gearCounts(c, parse) or parse(c[place] and c[place].items)
+					local bound = place ~= "gear" and parse(c[place] and c[place].bound) or {}
+					for id, n in pairs(held) do
+						local b = math.min(n, bound[id] or 0)
+						if filter.tradeable then
+							n, b = n - b, 0
+						end
+						if n > 0 then
+							local it = byItem[id] or { held = 0, bound = 0, where = {} }
+							byItem[id] = it
+							it.held, it.bound = it.held + n, it.bound + b
+							it.where[#it.where + 1] = string.format("%s %d (%s)", c.name or "?", n, place == "gear" and "equipped" or place)
+						end
 					end
 				end
 			end
@@ -466,8 +492,11 @@ function Views.inventory(characters, parse, worth, quality, name, filter)
 		local label = name(id)
 		if (not filter.quality or q >= filter.quality) and (not filter.query or filter.query == "" or string.find(string.lower(label), filter.query, 1, true)) then
 			table.sort(it.where)
-			local value = (worth(id) or 0) * it.held
-			rows[#rows + 1] = { id = id, name = label, quality = q, held = it.held, where = table.concat(it.where, ", "), holders = it.where, value = value }
+			local value = 0
+			if filter.place ~= "gear" then
+				value = (worth(id) or 0) * (it.held - it.bound) + ((vendor and vendor(id)) or 0) * it.bound
+			end
+			rows[#rows + 1] = { id = id, name = label, quality = q, held = it.held, bound = it.bound, where = table.concat(it.where, ", "), holders = it.where, value = value }
 			totals.items = totals.items + 1
 			totals.units = totals.units + it.held
 			totals.worth = totals.worth + value
@@ -540,9 +569,12 @@ end
 function Views.elsewhere(character, parse, value, name)
 	local out = { items = {}, total = 0, count = 0 }
 	for _, place in ipairs({ "bank", "mail" }) do
+		-- Soulbound units never go to the auction house: left out.
+		local bound = parse(character and character[place] and character[place].bound)
 		for id, n in pairs(parse(character and character[place] and character[place].items)) do
 			local unit = value(id)
-			if unit and unit > 0 then
+			n = n - math.min(n, bound[id] or 0)
+			if unit and unit > 0 and n > 0 then
 				local worth = unit * n
 				out.items[#out.items + 1] = { id = id, name = name(id), count = n, place = place, worth = worth }
 				out.total = out.total + worth

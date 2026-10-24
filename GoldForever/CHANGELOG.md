@@ -62,8 +62,10 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   money by where it came from, the bag items worth most (each says whether it sells best at the auction
   house or to a vendor; hover for the item), and a **gold goal** with the gold a day still needed. It
   keeps up as your money and bags change. Large gold amounts are grouped (3,000,000g).
-- **Ledger**: Money, Characters, **Inventory** (filter by character, place and quality) and **Auction
-  sales** (what sold, for how much, after the cut).
+- **Ledger**: Money, Characters, **Inventory** (filter by character, place and quality; soulbound items
+  marked and counted at a vendor's price, **Tradeable only** leaves them out; **Equipped** shows what you
+  wear, not counted; hover an item for its tooltip) and **Auction sales** (what sold, for how much, after
+  the cut).
 - **Crafting**: every recipe your characters know, by profit, with cost, price after the cut and margin;
   "I have these" counts what you hold at no cost. **Queue** a recipe and the Buy tab's "Craft queue" list
   buys only the reagents still missing. `/gf shop` opens it; the old floating "crafts to make" window at

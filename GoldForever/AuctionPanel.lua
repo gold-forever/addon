@@ -610,6 +610,7 @@ local function buildPost(page)
 		pageSize = 5,
 		rowHeight = 24,
 		empty = "Nothing in your bags the auction house takes.",
+		itemId = function(r) return r.id end,
 		isSelected = function(r) return chosen and r.key == chosen.key end,
 		onRowClick = function(r)
 			chosen, armed = r, nil
@@ -1005,6 +1006,7 @@ local function buildShop(page)
 		pageSize = 9,
 		rowHeight = 24,
 		empty = "Nothing on this list yet: Edit lists adds items.",
+		itemId = function(r) return r.itemId end,
 		isSelected = function(r) return shopChosen and r.itemId == shopChosen.itemId end,
 		onRowClick = function(r)
 			shopChosen, purchase = r.entry, nil
@@ -1226,7 +1228,7 @@ local function buildCancel(page)
 		{ key = "cheapest", title = "Cheapest", width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "—" or "") end },
 		{ key = "under", title = "Under", width = 56, align = "RIGHT", text = function(r) return r.under and r.under > 0 and (r.under .. "%") or "" end,
 			color = function(r) return r.under and r.under > tolerance() and Theme.color.warning or Theme.color.textMuted end, sort = function(r) return r.under or 0 end },
-	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut.",
+	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut.", itemId = function(r) return r.itemID end,
 		-- A click shows the item's listings in Blizzard's window (manual test run 001).
 		onRowClick = function(r)
 			browse(r.itemKey)
@@ -1636,6 +1638,7 @@ local function buildLists(page)
 		pageSize = 6,
 		rowHeight = 24,
 		empty = "No items yet.",
+		itemId = function(r) return r.itemId end,
 		isSelected = function(r) return r.itemId == chosenItem end,
 		onRowClick = function(r)
 			chosenItem = r.itemId
