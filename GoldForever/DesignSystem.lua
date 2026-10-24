@@ -196,6 +196,20 @@ end
 
 -- Home ------------------------------------------------------------------------------------------------------
 
+-- Every window's Home, kept current while it shows: money as it moves, the bags as they are read (manual
+-- test run 001: Home stayed as it was after a fight). A moment's wait gathers a burst of changes into one
+-- refresh. Listened for once here, not once a window.
+local homes = {}
+local homeSoon = ns.throttle("ui home", 2, function()
+	for _, page in ipairs(homes) do
+		if page:IsVisible() then
+			ns.safely("ui home", page.Refresh, page)
+		end
+	end
+end)
+ns.on("PLAYER_MONEY", "ui home", homeSoon)
+ns.onBagsRead(homeSoon)
+
 -- The next moves, from the save and the prices: scan, sell what the bags hold, the best craft; today's
 -- money by where it came from; and the bag items worth most.
 local function buildHome(page)
@@ -354,15 +368,7 @@ local function buildHome(page)
 		end)
 	end
 
-	-- Kept current while it shows: money as it moves, the bags as they are read (manual test run 001: Home
-	-- stayed as it was after a fight). A moment's wait gathers a burst of changes into one refresh.
-	local soon = ns.throttle("ui home", 2, function()
-		if page:IsVisible() then
-			page:Refresh()
-		end
-	end)
-	ns.on("PLAYER_MONEY", "ui home", soon)
-	ns.onBagsRead(soon)
+	homes[#homes + 1] = page
 
 	function page:Refresh()
 		local db, me, now = ns.db(), ns.me(), ns.now()
