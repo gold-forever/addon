@@ -38,6 +38,13 @@ ns.on("UNIT_SPELLCAST_START", "craft", function(unit, cast, spell)
 	end
 end, "player")
 
+-- A cast that never finishes forgets its count.
+for _, event in ipairs({ "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED" }) do
+	ns.on(event, "craft", function(_, cast)
+		before[cast] = nil
+	end, "player")
+end
+
 -- What a craft made: the game's "You create: [Bolt of Linen Cloth]x2." says it exactly. Counting the
 -- bags instead misses with "Create All", where the next cast starts before this one's items arrive.
 -- A craft waits for its message a moment, then falls back to the bag count.
@@ -99,13 +106,18 @@ end)
 -- Money ------------------------------------------------------------------------------------------
 
 local money -- last known GetMoney()
-local open = {} -- windows open now: merchant, auctioneer, mail, trainer, taxi, ...
+local open = {} -- windows open now: merchant, auction, mail, trainer, taxi, ...
 local questAt -- GetTime() of the last quest turned in
+
+-- The interaction manager's names for windows the older events name too, as those name them, so one
+-- window is one word in `ctx` on every client (retail wrote "auction+auctioneer").
+local SAME = { auctioneer = "auction", mailinfo = "mail", tradepartner = "trade", taxinode = "taxi" }
 
 -- Interaction types by number, so every window the interaction manager opens has a name.
 local INTERACTION = {}
 for name, id in pairs(Enum and Enum.PlayerInteractionType or {}) do
-	INTERACTION[id] = string.lower(name)
+	local lower = string.lower(name)
+	INTERACTION[id] = SAME[lower] or lower
 end
 
 -- The Blizzard frames behind window names. A close event does not always come (the mailbox, a
@@ -113,13 +125,9 @@ end
 local FRAMES = {
 	merchant = { "MerchantFrame" },
 	auction = { "AuctionHouseFrame", "AuctionFrame" },
-	auctioneer = { "AuctionHouseFrame", "AuctionFrame" },
 	mail = { "MailFrame" },
-	mailinfo = { "MailFrame" },
 	trade = { "TradeFrame" },
-	tradepartner = { "TradeFrame" },
 	taxi = { "TaxiFrame", "FlightMapFrame" },
-	taxinode = { "TaxiFrame", "FlightMapFrame" },
 	trainer = { "ClassTrainerFrame" },
 	gossip = { "GossipFrame" },
 	banker = { "BankFrame" },

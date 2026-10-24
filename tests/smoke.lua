@@ -205,6 +205,8 @@ C_Map = { GetBestMapForUnit = function() return 1429 end,
   GetMapRectOnMap = function(m, c) return 0.4, 0.6, 0.3, 0.5 end,
   GetMapInfo = function(m) return m == 1429 and { name = "Elwynn Forest", mapType = 3, parentMapID = 1415 } or { name = "Eastern Kingdoms", mapType = 2, parentMapID = 0 } end }
 Enum = { TooltipDataType = { Item = 0, Unit = 2 }, GameRule = { XpRate = 1, NoTrade = 2 }, LootSlotType = { None = 0, Item = 1, Money = 2 }, BagIndex = { Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, Bank = -1, BankBag_1 = 6 } }
+-- Retail's interaction manager names its windows as well as the older events do.
+if INTERFACE >= 110000 then Enum.PlayerInteractionType = { TradePartner = 1, Merchant = 5, TaxiNode = 6, Trainer = 7, MailInfo = 17, Auctioneer = 21 } end
 bagFree = 10
 C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return bagFree, 0 end return 0, 0 end, GetContainerNumSlots = function(b) return b == 0 and (bagsFull and 3 or 2) or 0 end,
   GetContainerItemInfo = function(b, s)
@@ -510,6 +512,24 @@ wait(10)
 fire("QUEST_TURNED_IN", 62, 450, 75)
 money = money + 75; fire("PLAYER_MONEY")
 wait(10)
+-- Money changed at the auction house has "auction" in ctx once, whichever events said the window opened.
+do
+  local day = GoldForeverDB.events[ns.Encode.day(now)]
+  local rows = {}
+  for i, chunk in ipairs(day.money or {}) do rows[i] = chunk end
+  fire("AUCTION_HOUSE_SHOW")
+  if Enum.PlayerInteractionType then fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", Enum.PlayerInteractionType.Auctioneer) end
+  money = money - 20; fire("PLAYER_MONEY")
+  fire("AUCTION_HOUSE_CLOSED")
+  if Enum.PlayerInteractionType then fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", Enum.PlayerInteractionType.Auctioneer) end
+  local last
+  for _, r in ipairs(ns.Views.rows(GoldForeverDB, "money")) do if not last or r.t >= last.t then last = r end end
+  assert(last and last.delta == "-20" and ("+" .. tostring(last.ctx) .. "+"):find("+auction+", 1, true) and not last.ctx:find("auctioneer"), "auction money ctx: " .. tostring(last and last.ctx))
+  -- Given back, and both rows taken out again, so the rest of the session is as it was.
+  money = money + 20; fire("PLAYER_MONEY")
+  day.money = rows
+  wait(10)
+end
 -- No scan at the auction house until the player switches it on (manual test run 001).
 do
   local before = GoldForeverDB.lastReplicate
