@@ -592,14 +592,11 @@ local LEDGER_DAYS = 14
 -- What sold on the auction house, from the "sold" mail the addon reads: for this character or all,
 -- with the cut and what it brought, over the two weeks the save keeps.
 local function buildSales(page)
-	local whose = settings().ledger or "me"
 	local tabs = UI.TabBar(page, { { key = "me", label = "This character" }, { key = "all", label = "All characters" } }, function(key)
-		whose = key
 		settings().ledger = key
 		page:Refresh()
 	end)
 	tabs:SetPoint("TOPLEFT")
-	tabs:Select(whose)
 	local cards = {}
 	for i, label in ipairs({ "Sold", "Sold for", "After the cut" }) do
 		local c = UI.StatCard(page, label, "", "")
@@ -622,6 +619,9 @@ local function buildSales(page)
 	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
+		-- Shared with Money: whichever tab chose last.
+		local whose = settings().ledger or "me"
+		tabs:Select(whose)
 		local db, me, now = ns.db(), ns.me(), ns.now()
 		for _, c in pairs(db.characters or {}) do
 			if c.ref then
@@ -1105,14 +1105,11 @@ end
 -- Ledger ----------------------------------------------------------------------------------------------------
 
 local function buildLedger(page)
-	local whose = settings().ledger or "me"
 	local tabs = UI.TabBar(page, { { key = "me", label = "This character" }, { key = "all", label = "All characters" } }, function(key)
-		whose = key
 		settings().ledger = key
 		page:Refresh()
 	end)
 	tabs:SetPoint("TOPLEFT")
-	tabs:Select(whose)
 	local lede = tabs
 	local gained = UI.StatCard(page, "Money in", "", "")
 	gained:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
@@ -1142,6 +1139,9 @@ local function buildLedger(page)
 	tbl:SetPoint("TOPLEFT", gained, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
+		-- Shared with Auction sales: whichever tab chose last.
+		local whose = settings().ledger or "me"
+		tabs:Select(whose)
 		local db, me, now = ns.db(), ns.me(), ns.now()
 		local ref = whose == "me" and me and me.ref or nil
 		local from = now - LEDGER_DAYS * 86400
