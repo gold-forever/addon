@@ -226,7 +226,12 @@ local function build()
 		local s = ns.settings("firstRun", {})
 		s.done = true
 		if not skipped then
-			FirstRun.apply(chosen, settingsTables())
+			local tables = settingsTables()
+			FirstRun.apply(chosen, tables)
+			-- The HUD on screen goes with its switch, as Settings → Modules does it.
+			if ns.setHud then
+				ns.setHud(tables.appraiser.shown)
+			end
 		end
 		f:Hide()
 		ns.say(skipped and "first-run card skipped; everything stays as it was. /gf welcome shows it again."

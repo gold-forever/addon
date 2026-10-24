@@ -1563,7 +1563,11 @@ do
   local arcane = ns.FirstRun.card()
   assert(arcane ~= card and arcane:IsShown() and not card:IsShown(), "the card is drawn again in the new look")
   card = arcane
+  local setHud, hudSet = ns.setHud, nil
+  ns.setHud = function(on) hudSet = on setHud(on) end
   card.finish(false)
+  ns.setHud = setHud
+  assert(hudSet == false, "prices only: the HUD on screen goes too")
   SlashCmdList.GOLDFOREVER("look web")
   assert(GoldForeverDB.settings.firstRun.done == true and not card:IsShown(), "done, and closed")
   assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
