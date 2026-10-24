@@ -1010,6 +1010,16 @@ local function buildShop(page)
 	function page:Refresh()
 		rebuildPick() -- names and the chosen list as the Shopping lists page left them
 		local _, list = lists()
+		-- An item no longer on the list in view (the queue cleared, the list changed) is let go.
+		local still = false
+		for _, e in ipairs(list.entries) do
+			if shopChosen and e.itemId == shopChosen.itemId then
+				still = true
+			end
+		end
+		if shopChosen and not still then
+			shopChosen, purchase, overArmed = nil, nil, nil
+		end
 		local shown = {}
 		for i, e in ipairs(list.entries) do
 			local quality, _, _, _, name = ns.price.itemInfo(e.itemId)
