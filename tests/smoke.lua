@@ -251,16 +251,20 @@ end
 if SAVE then
   local rows = {}
   local function timed(label, fn)
+    -- The collector stopped while a step runs, so what it allocates is counted, not what was freed.
     collectgarbage("collect")
+    collectgarbage("stop")
     local kb, t = collectgarbage("count"), os.clock()
     local ok, err = pcall(fn)
     local ms = (os.clock() - t) * 1000
+    local allocated = collectgarbage("count") - kb
+    collectgarbage("restart")
     -- A loose budget a step (GF_SMOKE_BUDGET_MS, 1000 by default): it catches work grown tenfold, not noise.
     if ok and ms > (tonumber(os.getenv("GF_SMOKE_BUDGET_MS")) or 1000) then
       ok, err = false, "over the budget"
     end
     if not ok then failedSteps = (failedSteps or 0) + 1 end
-    rows[#rows + 1] = string.format("%-34s %8.1f ms %8.0f KB%s", label, ms, collectgarbage("count") - kb, ok and "" or ("  FAILED: " .. tostring(err)))
+    rows[#rows + 1] = string.format("%-34s %8.1f ms %8.0f KB%s", label, ms, allocated, ok and "" or ("  FAILED: " .. tostring(err)))
   end
   timed("load and log in", function()
     fire("ADDON_LOADED", "GoldForever")
@@ -289,11 +293,27 @@ if SAVE then
   end
   timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
   timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
-  timed("item tooltips (every catalogued item)", function()
-    for id in pairs(GoldForeverDB.catalogue.items or {}) do
-      for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id, type = 0 }) end
-    end
-  end)
+  -- Each item tooltip hook on its own, over every catalogued item, so its share shows.
+  -- Twice: a first look at every item, then a working set shown again and again, as play does.
+  for pass = 1, 2 do
+  for _, h in ipairs(itemTooltipHooks) do
+    local where = debug.getinfo(h, "S")
+    timed("item tooltips" .. (pass == 2 and " again: " or ": ") .. where.short_src:match("[^/]+$") .. ":" .. where.linedefined, function()
+      local data = { id = 0, type = 0 }
+      local ids = {}
+      for id in pairs(GoldForeverDB.catalogue.items or {}) do ids[#ids + 1] = id end
+      -- First a look at every item; again, the same 500 items 40 times over (hovering bags and the AH).
+      local n, rounds = pass == 1 and #ids or math.min(500, #ids), pass == 1 and 1 or 40
+      for _ = 1, rounds do
+        for i = 1, n do
+          GameTooltip.lines[1] = nil
+          data.id = ids[i]
+          h(GameTooltip, data)
+        end
+      end
+    end)
+  end
+  end
   timed("logout", function() fire("PLAYER_LOGOUT") end)
   for _, r in ipairs(rows) do io.write(r, "\n") end
   local errors = {}

@@ -168,10 +168,34 @@ local function vendorBuy(id)
 	return tonumber(buy) / math.max(1, tonumber(qty) or 1)
 end
 
+-- An item's catalogue row read once a session: { name, quality, ilvl, class, sell }. Tooltips ask for
+-- the same items over and over, and splitting the whole row each time made garbage on every hover.
+-- At most ROWS_KEPT items are kept (a page listing thousands would hold them all); past that it starts over.
+local ROWS_KEPT = 2000
+local rowsRead, rowsKept = {}, 0
+local function catalogueInfo(id)
+	local info = rowsRead[id]
+	if info then
+		return info
+	end
+	local row = ns.db().catalogue.items[id]
+	if not row then
+		return nil -- not catalogued yet: asked again next time
+	end
+	local name, quality, ilvl, class, _, _, sell = strsplit(",", row)
+	info = { name = name, quality = tonumber(quality), ilvl = tonumber(ilvl), class = tonumber(class), sell = tonumber(sell) }
+	if rowsKept >= ROWS_KEPT then
+		rowsRead, rowsKept = {}, 0
+	end
+	rowsRead[id] = info
+	rowsKept = rowsKept + 1
+	return info
+end
+
 -- What a vendor pays, from the catalogue (`sell` is its 7th column), else from the client.
 local function vendor(id)
-	local row = ns.db().catalogue.items[id]
-	local sell = row and tonumber((select(7, strsplit(",", row))))
+	local info = catalogueInfo(id)
+	local sell = info and info.sell
 	if not sell and C_Item and C_Item.GetItemInfo then
 		sell = (select(11, C_Item.GetItemInfo(id)))
 	end
@@ -191,10 +215,9 @@ end
 
 -- Quality (0 poor … 4 epic), item level, class and vendor price, from the catalogue, else the client.
 local function itemInfo(id)
-	local row = ns.db().catalogue.items[id]
-	if row then
-		local name, quality, ilvl, class, _, _, sell = strsplit(",", row)
-		return tonumber(quality), tonumber(ilvl), tonumber(class), tonumber(sell), name
+	local info = catalogueInfo(id)
+	if info then
+		return info.quality, info.ilvl, info.class, info.sell, info.name
 	end
 	if C_Item and C_Item.GetItemInfo then
 		local name, _, quality, ilvl, _, _, _, _, _, _, sell, class = C_Item.GetItemInfo(id)
@@ -1151,66 +1174,70 @@ local function mobLines(npc)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function mobTooltip(tooltip, data)
+		if tooltip ~= GameTooltip or not data or not ns.db() then
+			return
+		end
+		-- A unit the client keeps secret: nothing to look up (tested before any other use of the value).
+		if ns.secret(data.guid) then
+			return
+		end
+		local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
+		if ns.secret(guid) then
+			return
+		end
+		local npc = Encode.npcId(guid)
+		if not npc then
+			return
+		end
+		local summary, drops, starters = mobLines(npc)
+		if summary then
+			tooltip:AddLine(ns.PREFIX .. " " .. summary, 1, 1, 1)
+			if drops then
+				tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
+			end
+			if starters then
+				tooltip:AddLine(starters, 1, 0.82, 0, true)
+			end
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
-		ns.safely("mob tooltip", function()
-			if tooltip ~= GameTooltip or not data or not ns.db() then
-				return
-			end
-			-- A unit the client keeps secret: nothing to look up (tested before any other use of the value).
-			if ns.secret(data.guid) then
-				return
-			end
-			local guid = data.guid or (tooltip.GetUnit and select(2, tooltip:GetUnit()))
-			if ns.secret(guid) then
-				return
-			end
-			local npc = Encode.npcId(guid)
-			if not npc then
-				return
-			end
-			local summary, drops, starters = mobLines(npc)
-			if summary then
-				tooltip:AddLine(ns.PREFIX .. " " .. summary, 1, 1, 1)
-				if drops then
-					tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
-				end
-				if starters then
-					tooltip:AddLine(starters, 1, 0.82, 0, true)
-				end
-			end
-		end)
+		ns.safely("mob tooltip", mobTooltip, tooltip, data)
 	end)
 end
 
 -- Tooltips ----------------------------------------------------------------------------------------------
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function itemTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
+			return
+		end
+		local m, v = market(data.id), vendor(data.id)
+		local de, skill = disenchantWorth(data.id)
+		if not m and not v and not de then
+			return
+		end
+		local parts = {}
+		if m then
+			parts[#parts + 1] = "AH " .. coins(m) .. " (" .. coins(math.floor(m * (1 - CUT))) .. " after cut)"
+		end
+		if v then
+			parts[#parts + 1] = "vendor " .. coins(v)
+		end
+		if #parts > 0 then
+			tooltip:AddLine(ns.PREFIX .. " " .. table.concat(parts, " · "), 1, 1, 1)
+		end
+		if de and de > 0 then
+			local sale = worth(data.id) or 0
+			local verdict = de > sale and " · |cff56c98fbetter than selling|r" or ""
+			local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
+			tooltip:AddLine("Disenchant ≈ " .. coins(de) .. verdict .. short, 1, 1, 1)
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("appraiser tooltip", function()
-			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
-				return
-			end
-			local m, v = market(data.id), vendor(data.id)
-			if not m and not v and not disenchantWorth(data.id) then
-				return
-			end
-			local parts = {}
-			if m then
-				parts[#parts + 1] = "AH " .. coins(m) .. " (" .. coins(math.floor(m * (1 - CUT))) .. " after cut)"
-			end
-			if v then
-				parts[#parts + 1] = "vendor " .. coins(v)
-			end
-			if #parts > 0 then
-				tooltip:AddLine(ns.PREFIX .. " " .. table.concat(parts, " · "), 1, 1, 1)
-			end
-			local de, skill = disenchantWorth(data.id)
-			if de and de > 0 then
-				local sale = worth(data.id) or 0
-				local verdict = de > sale and " · |cff56c98fbetter than selling|r" or ""
-				local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
-				tooltip:AddLine("Disenchant ≈ " .. coins(de) .. verdict .. short, 1, 1, 1)
-			end
-		end)
+		ns.safely("appraiser tooltip", itemTooltip, tooltip, data)
 	end)
 end

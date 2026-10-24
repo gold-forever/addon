@@ -312,36 +312,38 @@ function Prices.value(id)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function poolTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
+			return
+		end
+		-- Settings → Modules can switch the line off.
+		if ns.settings("prices", { tooltip = true }).tooltip == false then
+			return
+		end
+		local now = GetServerTime()
+		-- In a zone with a neutral auction house, its market's line first (design 009 decision 9).
+		local neutral = Prices.neutralMarkets()
+		if neutral then
+			local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
+			if nline then
+				local shade = nstale and STALE_SHADE or 1
+				tooltip:AddLine(ns.PREFIX .. " " .. nline, shade, shade, shade)
+			end
+		end
+		local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
+		-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
+		if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
+			local value, cheapest, scannedAt = ns.ownPrice(data.id)
+			line, stale = Prices.ownLine(value, cheapest, scannedAt, now)
+		end
+		if line then
+			local shade = stale and STALE_SHADE or 1
+			tooltip:AddLine(ns.PREFIX .. " " .. line, shade, shade, shade)
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("pool tooltip", function()
-			if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
-				return
-			end
-			-- Settings → Modules can switch the line off.
-			if ns.settings("prices", { tooltip = true }).tooltip == false then
-				return
-			end
-			local now = GetServerTime()
-			-- In a zone with a neutral auction house, its market's line first (design 009 decision 9).
-			local neutral = Prices.neutralMarkets()
-			if neutral then
-				local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
-				if nline then
-					local shade = nstale and STALE_SHADE or 1
-					tooltip:AddLine(ns.PREFIX .. " " .. nline, shade, shade, shade)
-				end
-			end
-			local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
-			-- Without a file the appraiser's own line is the price; with one, an item it lacks shows the own scan.
-			if not line and Prices.loaded(GoldForever_Prices) and ns.ownPrice then
-				local value, cheapest, scannedAt = ns.ownPrice(data.id)
-				line, stale = Prices.ownLine(value, cheapest, scannedAt, now)
-			end
-			if line then
-				local shade = stale and STALE_SHADE or 1
-				tooltip:AddLine(ns.PREFIX .. " " .. line, shade, shade, shade)
-			end
-		end)
+		ns.safely("pool tooltip", poolTooltip, tooltip, data)
 	end)
 end
 

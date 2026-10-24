@@ -95,17 +95,19 @@ end)
 -- Objects by tooltip: mousing over a herb, vein, chest or fishing pool shows a tooltip whose
 -- data carries the object's GUID on newer clients.
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function objectTooltip(_, data)
+		-- The GUID and the first line are secret for a unit whose identity the client keeps.
+		local guid = data and ns.readable(data.guid)
+		local src = guid and type(guid) == "string" and Encode.source(guid)
+		local id = src and string.match(src, "^o(%d+)$")
+		local line = id and data.lines and data.lines[1] and ns.readable(data.lines[1].leftText)
+		if id and line and line ~= "" and ns.db() then
+			ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
+		end
+	end
 	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)
-		ns.safely("objects", function()
-			-- The GUID and the first line are secret for a unit whose identity the client keeps.
-			local guid = data and ns.readable(data.guid)
-			local src = guid and type(guid) == "string" and Encode.source(guid)
-			local id = src and string.match(src, "^o(%d+)$")
-			local line = id and data.lines and data.lines[1] and ns.readable(data.lines[1].leftText)
-			if id and line and line ~= "" and ns.db() then
-				ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
-			end
-		end)
+		ns.safely("objects", objectTooltip, _, data)
 	end)
 end
 
