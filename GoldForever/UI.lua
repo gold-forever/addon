@@ -116,12 +116,13 @@ function UI.layout.money(copper, precision)
 	return sign .. table.concat(parts, " ")
 end
 
--- Money in a table cell: a faint dash for nothing, so rows of "0c" don't drown the amounts.
+-- Money in a table cell: a faint dash for nothing, so rows of "0c" don't drown the amounts; gold and
+-- silver unless told otherwise (manual test run 001: "17g 70s 0c" in Auction sales, "1,425g 0s 0c").
 function UI.layout.amount(copper, precision)
 	if math.floor(math.abs(copper or 0) + 0.5) == 0 then
 		return Theme.escape(Theme.color.textFaint) .. "—|r"
 	end
-	return UI.layout.money(copper, precision)
+	return UI.layout.money(copper, precision or "silver")
 end
 
 -- What a row's tooltip shows for the cells too narrow for their text: each column's title and its

@@ -50,7 +50,7 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   unit far under the rest is ignored when pricing ("sneaky prices").
 - The panel's title row says what your bank and mailbox hold that the auction house pays for; a hover
   lists it, to fetch before posting.
-- A **mail helper** beside the mailbox: one press opens up to ten auction-house mails in turn (sold gold,
+- A **mail helper** beside the mailbox: one press opens all the auction-house mails in turn, quickly (sold gold,
   bought, expired, cancelled and outbid items), stopping when your bags are full. A player's letter or a
   cash-on-delivery mail is never touched.
 

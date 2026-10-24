@@ -95,6 +95,7 @@ eq(plain(L.amount(0)), "—", "nothing in a cell is a dash")
 eq(plain(L.amount(0.4)), "—", "under half a copper rounds to nothing")
 eq(plain(L.amount(nil)), "—", "no amount is a dash")
 eq(plain(L.amount(1484)), "14s 84c", "an amount is money")
+eq(plain(L.amount(177000)), "17g 70s", "gold and silver in a cell, no 0c")
 
 -- Tooltips for cells cut short: only those, as their full text or the column's own lines.
 local cols = {
