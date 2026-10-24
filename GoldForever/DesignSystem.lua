@@ -320,9 +320,6 @@ local function buildHome(page)
 		page:Refresh()
 	end, { kind = "ghost", width = 76, height = 28 })
 	goalSet:SetPoint("TOPRIGHT", 0, 2)
-	page.setGoal = function(gold, days)
-		settings().goal = gold and { gold = gold, by = ns.now() + days * 86400 } or nil
-	end
 
 	local today, todayLabel = column(0, "TODAY", 7, 36)
 	for _, r in ipairs(today.rows) do
@@ -1307,10 +1304,6 @@ local function buildInventory(page)
 		cards[2]:Set(tostring(totals.items), "different items")
 		cards[3]:Set(tostring(totals.units), "in all")
 		tbl:SetRows(rows)
-	end
-	page.setFilter = function(f)
-		filter = f
-		page:Refresh()
 	end
 end
 
