@@ -669,6 +669,20 @@ do
   assert(over and tostring(over.label):find("(item rule)", 1, true), "Post names the item's rule: " .. tostring(over and over.label))
   GoldForeverDB.settings.auction.overrides.items[2589] = nil
   AP.ruleScope("default")
+  -- Held under the floor: Post anyway posts at the undercut price on a second press, never the first.
+  do
+    local _, row = AP.state()
+    local inner, sent = C_AuctionHouse.PostCommodity, nil
+    C_AuctionHouse.PostCommodity = function(_, _, _, unit) sent = unit end
+    row.suggestion = { reason = "hold", floor = 9000 }
+    row.anyway = 4200
+    AP.post()
+    assert(sent == nil and (AP.panel().post.note.text or ""):find("Press again to post anyway", 1, true), "the first press only warns: " .. tostring(AP.panel().post.note.text))
+    AP.post()
+    assert(sent == 4200, "the second posts at the undercut price: " .. tostring(sent))
+    C_AuctionHouse.PostCommodity = inner
+    fire("AUCTION_HOUSE_SHOW_ERROR", 2) -- let the wait go
+  end
   -- The title row names what the bank and mailbox hold that the auction house pays for; a hover lists it.
   do
     local me = ns.me()

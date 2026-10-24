@@ -143,8 +143,9 @@ local function planned(r, rule, market)
 end
 
 local function price(r)
-	local market, from, trend = ns.Prices.value(r.id)
-	r.market, r.marketFrom, r.trend = market, from, trend
+	local value, valueFrom, trend, week = ns.Prices.value(r.id)
+	local market, from = ns.Prices.sellBase(value, valueFrom, week)
+	r.market, r.marketFrom, r.trend, r.anyway = market, from, trend, nil
 	local l = live[r.key]
 	if l then
 		r.cheapest, r.cheapestFrom = l.cheapest, "live"
@@ -161,6 +162,16 @@ local function price(r)
 		local postRule, from = Post.resolve(settings().rule, settings().overrides, r.id, class)
 		if market then
 			r.suggestion = Post.suggest(postRule, market, r.cheapest)
+			-- Held under the floor: what undercutting would ask anyway, for Post anyway (owner's answer,
+			-- 2026-10-24).
+			if r.suggestion.reason == "hold" and r.cheapest then
+				local loose = {}
+				for k, x in pairs(postRule) do
+					loose[k] = x
+				end
+				loose.floor = 1
+				r.anyway = Post.suggest(loose, market, r.cheapest).unit
+			end
 		elseif r.cheapest then
 			-- No market value: the cheapest other listing stands in for it.
 			r.suggestion = Post.suggest(postRule, r.cheapest, r.cheapest)
@@ -377,10 +388,23 @@ end
 -- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
 local function post()
 	local r = chosen
-	if not r or waiting or not r.suggestion or not r.suggestion.unit then
+	if not r or waiting or not r.suggestion then
 		return
 	end
-	local unit = r.suggestion.unit
+	local unit, forced = r.suggestion.unit, false
+	-- Held under the floor: Post anyway posts at the undercut price on a second press.
+	if not unit and r.anyway then
+		if armed ~= r.key .. ":anyway" then
+			armed = r.key .. ":anyway"
+			panel.post.note:SetText(Theme.escape(Theme.color.warning) .. string.format("%s is under your floor of %s. Press again to post anyway.",
+				money(r.anyway), money(r.suggestion.floor)) .. "|r")
+			return
+		end
+		unit, forced = r.anyway, true
+	end
+	if not unit then
+		return
+	end
 	-- The client warned about this post: the press confirms it, as its own window's button does.
 	-- Only for what was warned about: the price or quantity changed since, and the press posts afresh.
 	local args = confirm and confirm.key == r.key and confirm.args
@@ -397,8 +421,8 @@ local function post()
 		return
 	end
 	confirm = nil
-	local warning = Post.check(unit, r.market, r.vendor, ns.price.cut)
-		or (r.suggestion.ask and "at the plan's fixed price though the market moved")
+	local warning = not forced and (Post.check(unit, r.market, r.vendor, ns.price.cut)
+		or (r.suggestion.ask and "at the plan's fixed price though the market moved"))
 	if warning and armed ~= r.key then
 		armed = r.key
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "Press again to post " .. warning .. ".|r")
@@ -692,13 +716,14 @@ local function buildPost(page)
 			line.qty:SetText(x and ("×" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
 		end
 		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
-		local can = sug and sug.unit and not waiting
+		local can = sug and (sug.unit or r.anyway) and not waiting
 		if can then
-			button.label:SetText((Theme.skin.titleCaps and "POST " or "Post ") .. quantity(r) .. " × " .. money(sug.unit))
+			local label = sug.unit and ("Post " .. quantity(r) .. " × " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " × " .. money(r.anyway))
+			button.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
 			button:Enable()
 			button:SetAlpha(1)
 		else
-			button.label:SetText(sug and sug.reason == "hold" and "Hold: under your floor" or "Post")
+			button.label:SetText(sug and sug.reason == "hold" and "Under your floor" or "Post")
 			button:Disable()
 			button:SetAlpha(0.5)
 		end
