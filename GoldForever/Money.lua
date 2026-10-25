@@ -28,15 +28,18 @@ function Money.group(n)
 	return (sign or "") .. out
 end
 
+-- A loss keeps its minus sign: "-1s 50c" for -150.
 local function plain(copper)
 	copper = math.floor(copper + 0.5)
+	local sign = copper < 0 and "-" or ""
+	copper = math.abs(copper)
 	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
 	if g > 0 then
-		return string.format("%dg %ds %dc", g, s, c)
+		return sign .. string.format("%dg %ds %dc", g, s, c)
 	elseif s > 0 then
-		return string.format("%ds %dc", s, c)
+		return sign .. string.format("%ds %dc", s, c)
 	end
-	return string.format("%dc", c)
+	return sign .. string.format("%dc", c)
 end
 
 local function colour(copper, precision)

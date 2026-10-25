@@ -18,8 +18,9 @@ eq(E.money(10000), "1g 0s 0c", "plain a gold keeps its zeros")
 eq(E.money(30000000000), "3000000g 0s 0c", "plain gold not grouped")
 eq(E.money(36.5), "37c", "plain half a copper rounds up")
 eq(E.money(36.4), "36c", "plain under half rounds down")
-eq(E.money(-150), "98s 50c", "plain a loss reads as the rest of a gold")
-eq(E.money(-150000), "0c", "plain a loss of whole gold")
+eq(E.money(-150), "-1s 50c", "plain a loss with its minus sign")
+eq(E.money(-150000), "-15g 0s 0c", "plain a loss of whole gold")
+eq(E.money(-37), "-37c", "plain a loss of copper")
 
 -- Coloured: the game's coin colours, the larger units only when there are any.
 local G, S, C = "|cfff2c94c", "|cffc9ced6", "|cffc97b3e"
