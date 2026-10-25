@@ -188,23 +188,16 @@ local function buildCancel(page)
 		tbl:SetRows(ah.owned)
 		local first = list[1]
 		if ah.checking == 0 then
-			go.label:SetText("Reading…")
+			go:SetLabel("Reading…")
 		elseif ah.checking then
-			go.label:SetText(string.format("Checking %d of %d…", ah.checking, #ah.owned))
+			go:SetLabel(string.format("Checking %d of %d…", ah.checking, #ah.owned))
 		elseif first then
 			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
-			go.label:SetText("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
+			go:SetLabel("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
 		else
-			go.label:SetText("Cancel next")
+			go:SetLabel("Cancel next")
 		end
-		local can = first and not ah.checking and not busy()
-		if can then
-			go:Enable()
-			go:SetAlpha(1)
-		else
-			go:Disable()
-			go:SetAlpha(0.5)
-		end
+		go:SetEnabled((first and not ah.checking and not busy()) and true or false)
 		if not ah.checking and page.note:GetText() == "Reading your auctions…" then
 			page.note:SetText(#ah.owned == 0 and "You have no auctions up."
 				or string.format("%d of your %d auctions are undercut past %d%%.", #list, #ah.owned, tolerance()))

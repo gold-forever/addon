@@ -133,15 +133,9 @@ local function buildBank(page)
 		name:SetText(c and c.name or Theme.escape(Theme.color.textFaint) .. "Choose an item.|r")
 		line:SetText(c and (c.place == "mail" and string.format("%d in your mail: the mail helper takes it.", c.count)
 			or string.format("%d in the bank · %s%s", c.count, money(c.worth), c.take == true and " · taking all" or c.take and (" · taking " .. c.take) or "")) or "")
-		local can = c and c.place == "bank"
+		local can = c and c.place == "bank" or false
 		for _, b in ipairs({ all, some, none }) do
-			if can then
-				b:Enable()
-				b:SetAlpha(1)
-			else
-				b:Disable()
-				b:SetAlpha(0.5)
-			end
+			b:SetEnabled(can)
 		end
 		sum:SetText(n > 0 and string.format("%d chosen: they move into your bags the next time you open your bank.", n) or "Choose items to take from the bank: they move into your bags the next time you open it.")
 	end

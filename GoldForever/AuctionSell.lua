@@ -353,8 +353,7 @@ local function buildPost(page)
 			name:SetText(faint .. "Choose an item.|r")
 			reason:SetText("")
 			facts:SetText("Space posts the chosen item while this panel shows.")
-			button:Disable()
-			button:SetAlpha(0.5)
+			button:SetEnabled(false)
 			return
 		end
 		local r = ah.chosen
@@ -392,15 +391,11 @@ local function buildPost(page)
 		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
 		local can = sug and (sug.unit or r.anyway) and not busy()
 		if can then
-			local label = sug.unit and ("Post " .. quantity(r) .. " × " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " × " .. money(r.anyway))
-			button.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
-			button:Enable()
-			button:SetAlpha(1)
+			button:SetLabel(sug.unit and ("Post " .. quantity(r) .. " × " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " × " .. money(r.anyway)))
 		else
-			button.label:SetText(sug and sug.reason == "hold" and "Under your floor" or "Post")
-			button:Disable()
-			button:SetAlpha(0.5)
+			button:SetLabel(sug and sug.reason == "hold" and "Under your floor" or "Post")
 		end
+		button:SetEnabled(can and true or false)
 	end
 end
 

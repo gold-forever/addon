@@ -54,13 +54,7 @@ local function buildScan(page)
 			bar:Set(1, { { value = st.wait > 0 and 1 or 0, color = Theme.color.accent } })
 		end
 		line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60) or "A full scan can start now.")
-		if st.wait > 0 or st.phase ~= "idle" then
-			button:Disable()
-			button:SetAlpha(0.5)
-		else
-			button:Enable()
-			button:SetAlpha(1)
-		end
+		button:SetEnabled(st.wait <= 0 and st.phase == "idle")
 		local last = st.last
 		if not last then
 			-- After a /reload: the newest scan in the save.

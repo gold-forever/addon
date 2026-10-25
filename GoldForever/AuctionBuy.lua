@@ -224,15 +224,8 @@ local function buildShop(page)
 		local deal = ah.shopChosen and shopDeal(ah.shopChosen)
 		local label = ah.purchase and ah.purchase.quoted and ("Confirm: " .. ah.purchase.quantity .. " for " .. money(ah.purchase.quoted))
 			or (deal and ("Buy " .. deal.quantity .. " for " .. money(deal.total))) or "Buy next"
-		buy.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
-		local can = ah.shopChosen and not busy()
-		if can then
-			buy:Enable()
-			buy:SetAlpha(1)
-		else
-			buy:Disable()
-			buy:SetAlpha(0.5)
-		end
+		buy:SetLabel(label)
+		buy:SetEnabled((ah.shopChosen and not busy()) and true or false)
 	end
 end
 
