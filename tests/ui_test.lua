@@ -196,4 +196,72 @@ eq(arcane.decor.rule[1], "#6ee7ff", "the look's own table untouched")
 eq(T.apply("arcane"), arcane, "no accent: the look itself")
 T.apply("web")
 
+-- Text takes Classic's room in every look: a stub font whose line is as wide as its letters times its size
+-- times a factor per font file, Friz Quadrata the widest.
+local WIDTH = {
+	["Fonts\\FRIZQT__.TTF"] = 0.6,
+	["Interface\\AddOns\\GoldForever\\Media\\Roboto-Regular.ttf"] = 0.5,
+	["Interface\\AddOns\\GoldForever\\Media\\Roboto-Medium.ttf"] = 0.52,
+	["Interface\\AddOns\\GoldForever\\Media\\Exo2-Regular.ttf"] = 0.55,
+	["Interface\\AddOns\\GoldForever\\Media\\Exo2-SemiBold.ttf"] = 0.58,
+}
+local function stubFonts(loads)
+	UIParent = {}
+	CreateFrame = function()
+		return {
+			Hide = function() end,
+			CreateFontString = function()
+				local fs = {}
+				function fs:SetFont(file, size)
+					if not loads then
+						return false
+					end
+					self.factor, self.size = WIDTH[file], size
+					return true
+				end
+				function fs:SetText(text)
+					self.text = text
+				end
+				function fs:GetStringWidth()
+					return #self.text * self.size * self.factor
+				end
+				return fs
+			end,
+		}
+	end
+end
+local function lineWidth(skin, size, field)
+	return WIDTH[skin[field]] * size
+end
+stubFonts(true)
+eq(T.text.md, 14, "before login the web keeps its own sizes")
+T.canMeasure = true
+local classicText = T.skins.classic.text
+for _, name in ipairs({ "web", "arcane" }) do
+	local skin = T.apply(name)
+	for k, size in pairs(classicText) do
+		local oneMoreTooWide = false
+		for _, field in ipairs({ "font", "fontMedium" }) do
+			local ref = lineWidth(T.skins.classic, size, field)
+			eq(lineWidth(skin, T.text[k], field) <= ref, true, name .. " " .. k .. " " .. field .. " is no wider than Classic")
+			oneMoreTooWide = oneMoreTooWide or lineWidth(skin, T.text[k] + 1, field) > ref
+		end
+		eq(oneMoreTooWide, true, name .. " " .. k .. " is as large as fits")
+	end
+end
+T.apply("web")
+eq(T.text.sm, 12, "web sm: Classic's 11 times 0.6 / 0.52, rounded down")
+T.apply("classic")
+eq(T.text.sm, 11, "Classic keeps its own sizes")
+T.apply("web")
+
+-- A font that does not load is no measurement: the look keeps its own sizes.
+local fresh = {}
+assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", fresh)
+stubFonts(false)
+fresh.Theme.canMeasure = true
+fresh.Theme.apply("web")
+eq(fresh.Theme.text.sm, 13, "unmeasured, the web's own sm")
+CreateFrame, UIParent = nil, nil
+
 return checks()

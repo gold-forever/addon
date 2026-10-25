@@ -40,6 +40,8 @@ ns.sessionAccent = accent
 
 -- In the saved look from login, before anything is drawn.
 ns.on("PLAYER_LOGIN", "look", function()
+	-- By now the addon's fonts are loaded, so the look's text can be measured against Classic's (Theme.lua).
+	Theme.canMeasure = true
 	ns.applyLook()
 end)
 
