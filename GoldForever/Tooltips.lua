@@ -8,8 +8,7 @@ local price = ns.price
 local ownMarket, vendor, worth, disenchantWorth, enchanting, coins = price.own, price.vendor, price.worth, price.disenchant, price.enchanting, price.coins
 
 local function itemName(id)
-	local row = ns.db().catalogue.items[id]
-	return (row and string.match(row, "^([^,]+)")) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or ("item " .. id)
+	return Catalogue.name("item", id) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or ("item " .. id)
 end
 
 -- "looted 40× · ~7c a loot" and the three likeliest drops, for an NPC looted before.

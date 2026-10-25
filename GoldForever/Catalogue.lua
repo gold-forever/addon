@@ -132,6 +132,36 @@ ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
 	end)
 end)
 
+-- One column of an entry's row, by its name in ns.FIELDS (kind "item" reads catalogue.items, "npc"
+-- catalogue.npcs); nil when there is no row or the column is empty.
+local patterns = {} -- "kind column" -> a pattern capturing that column
+local function column(kind, id, name)
+	local section = ns.db().catalogue[kind .. "s"]
+	local row = section and section[id]
+	if not row then
+		return nil
+	end
+	local key = kind .. " " .. name
+	local pattern = patterns[key]
+	if pattern == nil then
+		local i = Encode.columns(ns.FIELDS[kind])[name]
+		pattern = i and ("^" .. string.rep("[^,]*,", i - 1) .. "([^,]*)") or false
+		patterns[key] = pattern
+	end
+	local value = pattern and string.match(row, pattern)
+	return value ~= "" and value or nil
+end
+
+-- An entry's name as the catalogue has it ("item", "npc", "object", …).
+function Catalogue.name(kind, id)
+	return column(kind, id, "name")
+end
+
+-- An item's quality (0 poor … 4 epic) as the catalogue has it.
+function Catalogue.quality(id)
+	return tonumber(column("item", id, "quality"))
+end
+
 -- The quest an item starts: its ID when a loot window said so, true when only its tooltip does.
 function Catalogue.startsQuest(id)
 	local catalogue = ns.db().catalogue

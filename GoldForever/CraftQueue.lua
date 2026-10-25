@@ -19,11 +19,6 @@ local function settings()
 	return ns.settings("craftQueue", { closed = false })
 end
 
-local function itemName(id)
-	local _, _, _, _, name = ns.price.itemInfo(id)
-	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
-end
-
 -- The guild bank of the character's guild, as last read: counts by item.
 local function guildCounts()
 	local me = ns.me()
@@ -161,7 +156,7 @@ function CraftQueue.refresh()
 	local crafts = {}
 	for _, q in ipairs(queue) do
 		local r = ns.recipeOf and ns.recipeOf(q.recipe)
-		crafts[#crafts + 1] = q.count .. "× " .. (r and itemName(r.output) or ("recipe " .. q.recipe))
+		crafts[#crafts + 1] = q.count .. "× " .. (r and ns.itemName(r.output) or ("recipe " .. q.recipe))
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
 	local rows, buy, vendors, ready = {}, 0, 0, true
@@ -179,7 +174,7 @@ function CraftQueue.refresh()
 		end
 		-- A reagent all in the bags is done: not listed (owner, 2026-10-25).
 		if r.bags < r.need then
-			rows[#rows + 1] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
+			rows[#rows + 1] = { id = r.id, name = ns.itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
 		end
 		if r.buy > 0 and not r.vendor then
 			buy = buy + 1
@@ -307,7 +302,7 @@ local function buyFromMerchant()
 					left = left - take
 				end
 				if n > 0 then
-					bought[#bought + 1] = n .. "× " .. itemName(id)
+					bought[#bought + 1] = n .. "× " .. ns.itemName(id)
 					spent, money = spent + n * unit, money - n * unit
 				end
 			end

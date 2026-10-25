@@ -204,6 +204,7 @@ end
 -- At most ROWS_KEPT items are kept (a page listing thousands would hold them all); past that it starts over.
 local ROWS_KEPT = 2000
 local rowsRead, rowsKept = {}, 0
+local ITEM -- the item row's columns (ns.FIELDS.item), read at the first row
 local function catalogueInfo(id)
 	local info = rowsRead[id]
 	if info then
@@ -213,8 +214,10 @@ local function catalogueInfo(id)
 	if not row then
 		return nil -- not catalogued yet: asked again next time
 	end
-	local name, quality, ilvl, class, _, _, sell = strsplit(",", row)
-	info = { name = name, quality = tonumber(quality), ilvl = tonumber(ilvl), class = tonumber(class), sell = tonumber(sell) }
+	ITEM = ITEM or Encode.columns(ns.FIELDS.item)
+	local values = { strsplit(",", row) }
+	info = { name = values[ITEM.name], quality = tonumber(values[ITEM.quality]), ilvl = tonumber(values[ITEM.ilvl]), class = tonumber(values[ITEM.class]),
+		sell = tonumber(values[ITEM.sell]) }
 	if rowsKept >= ROWS_KEPT then
 		rowsRead, rowsKept = {}, 0
 	end
@@ -257,6 +260,12 @@ local function itemInfo(id)
 		local name, _, quality, ilvl, _, _, _, _, _, _, sell, class = C_Item.GetItemInfo(id)
 		return quality, ilvl, class, sell, name
 	end
+end
+
+-- An item's name: the catalogue's, else the client's, else "item <id>".
+function ns.itemName(id)
+	local _, _, _, _, name = itemInfo(id)
+	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
 end
 
 local function enchanting()
