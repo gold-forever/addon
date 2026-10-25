@@ -160,4 +160,19 @@ do
 	eq(S.refind({ A }, nil), nil, "nothing in use")
 end
 
+-- The Buy tab's deal for an entry (review C-14): lowest, How many, or neither.
+do
+	local book = { lv(250, 20), lv(300, 10, 4), lv(420, 30) }
+	local d = S.entryDeal({ itemId = 1, maxUnit = 300 }, book, 99, nil)
+	eq(d.quantity .. " " .. d.total .. " " .. d.topUnit, "26 6800 300", "no How many: every unit at or under the price, held not counted")
+	d = S.entryDeal({ itemId = 1, maxUnit = 300, upTo = 30 }, book, 10, nil)
+	eq(d.quantity .. " " .. d.total .. " " .. d.topUnit .. " " .. d.limit, "20 5000 250 300", "How many 30 holding 10: 20 more, cheapest first")
+	eq(S.entryDeal({ itemId = 1, maxUnit = 300, upTo = 30 }, book, 30, nil), nil, "holding enough: nothing")
+	eq(S.entryDeal({ itemId = 1, upTo = 30 }, book, 0, nil), nil, "under market with no market: nothing")
+	eq(S.entryDeal({ itemId = 1, maxUnit = 100, upTo = 30 }, book, 0, nil), nil, "nothing cheap enough")
+	local low = S.entryDeal({ itemId = 7, lowest = 120, upTo = 20 }, { lv(1300, 50), lv(1500, 10) }, 7, 1000)
+	eq(low.quantity .. " " .. tostring(low.over), "13 true", "lowest with How many: as lowestDeal")
+	eq(S.entryDeal({ itemId = 7, lowest = 120 }, { lv(900, 10) }, 0, 1000).quantity, 10, "lowest without How many: a plain deal at its share")
+end
+
 return checks()

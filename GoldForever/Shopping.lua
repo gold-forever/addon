@@ -95,6 +95,27 @@ function Shopping.lowestDeal(entry, held, levels, market)
 	return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = top, over = true, share = entry.lowest }
 end
 
+-- The deal for a list entry from its item's book: a `lowest` entry's as Shopping.lowestDeal; an entry
+-- with How many (a profile's buy rule) up to it, counting `held` (decision 12); else Shopping.deal. `held`
+-- is what this character holds, read only for an entry with How many.
+function Shopping.entryDeal(entry, levels, held, market)
+	if entry.lowest and entry.upTo then
+		return Shopping.lowestDeal(entry, held, levels, market)
+	end
+	if entry.upTo then
+		local limit = Shopping.limit(entry, market)
+		if not limit then
+			return nil
+		end
+		local quantity, total, top = Shopping.take(levels, limit, math.max(0, entry.upTo - held))
+		if quantity == 0 then
+			return nil
+		end
+		return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
+	end
+	return Shopping.deal(entry, levels, market)
+end
+
 -- A quote dearer than the deal by more than `pct` percent (10 by default): Buy next asks again.
 function Shopping.moved(expected, quoted, pct)
 	return quoted > expected * (1 + (pct or 10) / 100)

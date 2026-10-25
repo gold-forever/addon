@@ -764,25 +764,13 @@ local function shopDeal(e)
 	if not l or not l.levels then
 		return nil, l
 	end
-	if e.lowest and e.upTo then
-		-- What the player needs: the cheapest first, and past its share of market, asked first.
-		local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(e.itemId)) or 0
-		return ns.Shopping.lowestDeal(e, heldHere(e.itemId, inBags), l.levels, ns.Prices.value(e.itemId)), l
-	end
+	-- Held counts only for an entry with How many.
+	local held = 0
 	if e.upTo then
-		-- A profile's buy rule: up to its target, counting what this character holds (decision 12).
 		local inBags = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(e.itemId)) or 0
-		local limit = ns.Shopping.limit(e, ns.Prices.value(e.itemId))
-		if not limit then
-			return nil, l
-		end
-		local step = ns.SalePlan.buy({ itemID = e.itemId, upTo = e.upTo, maxUnit = limit }, heldHere(e.itemId, inBags), l.levels)
-		if step.quantity == 0 then
-			return nil, l
-		end
-		return { itemId = e.itemId, quantity = step.quantity, total = step.total, topUnit = step.topUnit, limit = limit }, l
+		held = heldHere(e.itemId, inBags)
 	end
-	return ns.Shopping.deal(e, l.levels, ns.Prices.value(e.itemId)), l
+	return ns.Shopping.entryDeal(e, l.levels, held, ns.Prices.value(e.itemId)), l
 end
 
 
@@ -1027,22 +1015,8 @@ local function cheapestFor(a)
 end
 
 local function readOwned()
-	owned = {}
 	local n = C_AuctionHouse.GetNumOwnedAuctions and C_AuctionHouse.GetNumOwnedAuctions() or 0
-	for i = 1, n do
-		local info = C_AuctionHouse.GetOwnedAuctionInfo(i)
-		-- Active ones only (status 0); sold ones wait in the list for their mail.
-		if info and info.itemKey and (info.status or 0) == 0 and info.buyoutAmount and info.buyoutAmount > 0 then
-			local keyInfo = C_AuctionHouse.GetItemKeyInfo and C_AuctionHouse.GetItemKeyInfo(info.itemKey)
-			local commodity = keyInfo and keyInfo.isCommodity or false
-			local qty = info.quantity or 1
-			-- ASSUMED: a commodity's buyoutAmount is its unit price, an item's the whole auction's.
-			local unit = commodity and info.buyoutAmount or math.floor(info.buyoutAmount / math.max(1, qty) + 0.5)
-			local quality, _, _, _, name = ns.price.itemInfo(info.itemKey.itemID)
-			owned[#owned + 1] = { auctionID = info.auctionID, itemID = info.itemKey.itemID, itemKey = info.itemKey, quantity = qty,
-				unit = unit, commodity = commodity, name = (keyInfo and keyInfo.itemName) or name or ("item " .. info.itemKey.itemID), quality = quality or 1 }
-		end
-	end
+	owned = Post.readOwned(n, C_AuctionHouse.GetOwnedAuctionInfo, C_AuctionHouse.GetItemKeyInfo, ns.price.itemInfo)
 end
 
 -- Searches the next owned auction's item; the results event moves the check on.
