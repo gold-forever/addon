@@ -9,7 +9,7 @@ local cheapest = { [2589] = 37, [2996] = 110 }
 local vendor = { [2320] = 9 }
 local price = {
 	market = function(id) return market[id] end,
-	cheapest = function(id) return cheapest[id] end,
+	buy = function(id) return cheapest[id] end,
 	vendorBuy = function(id) return vendor[id] end,
 }
 local bolt = { output = 2996, yield = 1, reagents = { { id = 2589, count = 2 } } }

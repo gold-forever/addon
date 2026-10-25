@@ -112,6 +112,8 @@ end
 function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {} })
   if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
+  -- One unit's event only: the client passes the unit first, and calls the frame for no other.
+  function f:RegisterUnitEvent(e, ...) self:RegisterEvent(e) self.units = self.units or {} self.units[e] = {} for _, u in ipairs({...}) do self.units[e][u] = true end end
   function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn end end
   function f:GetScript(name) return self.scripts[name] end
   function f:HookScript(name, fn) local old = self.scripts[name]; self.scripts[name] = function(...) if old then old(...) end fn(...) end end
@@ -142,9 +144,10 @@ function tick(every)
 end
 -- The timers due by `upto`; a chain that never ends (more than 5,000 in one go) fails the run.
 local function runTimers(upto) local i = 0 while #timers > 0 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end assert(i < 5000, "more than 5,000 timers in one go"); local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
-function fire(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end runTimers() end
+local function hears(f, e, unit) return f.events[e] and not (f.units and f.units[e] and not f.units[e][unit]) end
+function fire(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end runTimers() end
 -- An event without running the timers due, for orderings within a second.
-function fireNow(e, ...) for _, f in ipairs(frames) do if f.events[e] then f.handler(f, e, ...) end end end
+function fireNow(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end end
 function wait(s) runTimers(clock + s) clock = clock + s end
 -- GF_SMOKE_INTERFACE=120105 plays the same session on a retail client.
 local INTERFACE = tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001
@@ -202,6 +205,8 @@ C_Map = { GetBestMapForUnit = function() return 1429 end,
   GetMapRectOnMap = function(m, c) return 0.4, 0.6, 0.3, 0.5 end,
   GetMapInfo = function(m) return m == 1429 and { name = "Elwynn Forest", mapType = 3, parentMapID = 1415 } or { name = "Eastern Kingdoms", mapType = 2, parentMapID = 0 } end }
 Enum = { TooltipDataType = { Item = 0, Unit = 2 }, GameRule = { XpRate = 1, NoTrade = 2 }, LootSlotType = { None = 0, Item = 1, Money = 2 }, BagIndex = { Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, Bank = -1, BankBag_1 = 6 } }
+-- Retail's interaction manager names its windows as well as the older events do.
+if INTERFACE >= 110000 then Enum.PlayerInteractionType = { TradePartner = 1, Merchant = 5, TaxiNode = 6, Trainer = 7, MailInfo = 17, Auctioneer = 21 } end
 bagFree = 10
 C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return bagFree, 0 end return 0, 0 end, GetContainerNumSlots = function(b) return b == 0 and (bagsFull and 3 or 2) or 0 end,
   GetContainerItemInfo = function(b, s)
@@ -436,7 +441,17 @@ fire("PLAYER_TARGET_CHANGED")
 fire("UNIT_SPELLCAST_SENT", "player", "Peacebloom", "Cast-9", 2366)
 slots = { { kind = 1, link = "|Hitem:2447::::::::30|h[Peacebloom]|h", qty = 2, sources = { "GameObject-0-4620-0-12-1618-000C", 2 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-fire("TRAINER_SHOW")
+-- The client may say the trainer changed whenever a filter is switched: the read's own switches start no
+-- read of their own (they did, once a second, while the window stayed open).
+do
+  local reads, set, count = 0, SetTrainerServiceTypeFilter, GetNumTrainerServices
+  function SetTrainerServiceTypeFilter(f, on) filters[f] = on fireNow("TRAINER_UPDATE") end
+  function GetNumTrainerServices() reads = reads + 1 return count() end
+  fire("TRAINER_SHOW")
+  wait(5)
+  SetTrainerServiceTypeFilter, GetNumTrainerServices = set, count
+  assert(reads == 1, "the trainer read once: " .. reads)
+end
 for _, h in ipairs(tooltipHooks) do h(nil, { guid = "GameObject-0-4620-0-12-180682-000D", lines = { { leftText = "Oily Blackmouth School" } } }) end
 fishing = true
 slots = { { kind = 1, link = "|Hitem:6358::::::::30|h[Oily Blackmouth]|h", qty = 1, sources = { "GameObject-0-4620-0-12-180682-000D", 1 } } }
@@ -455,6 +470,12 @@ ClassTrainerFrame = { IsShown = function() return false end }
 money = money + 37; fire("PLAYER_MONEY")
 bolts = 0
 C_Item.GetItemCount = function(id) return id == 2996 and bolts or 0 end
+-- The addon hears its own casts only, not every unit's in a group.
+for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_SENT" }) do
+  local player, party = false, false
+  for _, f in ipairs(frames) do player = player or hears(f, e, "player"); party = party or hears(f, e, "party1") end
+  assert(player and not party, e .. " is registered for the player alone")
+end
 fire("UNIT_SPELLCAST_START", "player", "Cast-1", 2963)
 bolts = 1
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)
@@ -475,12 +496,50 @@ wait(3)
 seen("CRAFTS ", tostring(GoldForeverDB.events["2026-10-20"].craft and GoldForeverDB.events["2026-10-20"].craft[1]), "1792517415,1,2963,2996,1,75,1429;1792517415,1,2963,2996,1,76,1429;1792517415,1,2963,2996,2,76,1429")
 Enum.FlightPathState = { Current = 0 }
 TakeTaxiNode(2)
+-- /gf check shows the flights' cost with the addon's own money text, which works on retail too.
+do
+  local me, said, saved = ns.me(), {}, print
+  local cost = me.flights.cost
+  me.flights.cost = 12345
+  function print(...) said[#said + 1] = table.concat({...}, " ") end
+  SlashCmdList.GOLDFOREVER("check")
+  print = saved
+  me.flights.cost = cost
+  local line
+  for _, l in ipairs(said) do if l:find("paid flights", 1, true) then line = l end end
+  assert(line and line:find(ns.price.coins(12345), 1, true) and not line:find("12345c", 1, true), "flights line: " .. tostring(line))
+end
+-- A settings table saved before a default was added gets it; what the player set stays.
+do
+  GoldForeverDB.settings.smokeOld = { shown = false }
+  local s = ns.settings("smokeOld", { shown = true, added = 3 })
+  assert(s.shown == false and s.added == 3, "a later default reaches an older table")
+  GoldForeverDB.settings.smokeOld = nil
+end
 C_QuestLog = { GetTitleForQuestID = function() return "The Fargodeep Mine, part 2" end }
 fire("QUEST_ACCEPTED", 62)
 wait(10)
 fire("QUEST_TURNED_IN", 62, 450, 75)
 money = money + 75; fire("PLAYER_MONEY")
 wait(10)
+-- Money changed at the auction house has "auction" in ctx once, whichever events said the window opened.
+do
+  local day = GoldForeverDB.events[ns.Encode.day(now)]
+  local rows = {}
+  for i, chunk in ipairs(day.money or {}) do rows[i] = chunk end
+  fire("AUCTION_HOUSE_SHOW")
+  if Enum.PlayerInteractionType then fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", Enum.PlayerInteractionType.Auctioneer) end
+  money = money - 20; fire("PLAYER_MONEY")
+  fire("AUCTION_HOUSE_CLOSED")
+  if Enum.PlayerInteractionType then fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", Enum.PlayerInteractionType.Auctioneer) end
+  local last
+  for _, r in ipairs(ns.Views.rows(GoldForeverDB, "money")) do if not last or r.t >= last.t then last = r end end
+  assert(last and last.delta == "-20" and ("+" .. tostring(last.ctx) .. "+"):find("+auction+", 1, true) and not last.ctx:find("auctioneer"), "auction money ctx: " .. tostring(last and last.ctx))
+  -- Given back, and both rows taken out again, so the rest of the session is as it was.
+  money = money + 20; fire("PLAYER_MONEY")
+  day.money = rows
+  wait(10)
+end
 -- No scan at the auction house until the player switches it on (manual test run 001).
 do
   local before = GoldForeverDB.lastReplicate
@@ -508,6 +567,12 @@ end
 SlashCmdList.GOLDFOREVER("scan")
 C_Background.GetThing()
 SlashCmdList.GOLDFOREVER("legacy")
+-- Legacy is WoW: Forever's own: read there, never on retail.
+if INTERFACE >= 110000 then
+  assert(not (GoldForeverDB.account and (GoldForeverDB.account.legacy or GoldForeverDB.account.legacyTreeSearch)), "no Legacy read on retail")
+else
+  assert(GoldForeverDB.account and GoldForeverDB.account.legacy and GoldForeverDB.account.legacy.renown == 16, "Legacy read on WoW: Forever")
+end
 -- A claim code from the site, typed on this character (security review finding 4).
 SlashCmdList.GOLDFOREVER("claim bcdf-2345")
 C_Background.GetThing()
@@ -543,7 +608,7 @@ fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin — 6s 87c")
 GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
-seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 53s 66c · |cff56c98fbetter than selling|r", "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 1c")
+seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 53s 66c · |cff56c98fbetter than selling|r", "|cffe0ac45Gold Forever|r Vendor 15s 85c") -- no disenchant value on retail: the table is the classic one
 bagsFull = true
 -- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
 -- Blizzard's own call: the first press says what, the second sells, once.
@@ -807,6 +872,14 @@ do
     assert(table.concat(used, ",") == "-1:1,split -1:3x5,to 0:1", "25 of two stacks of 20: one whole, five split off: " .. table.concat(used, ","))
     assert(ns.fetchList()[2589] == nil, "and off the list")
     fire("BANKFRAME_CLOSED")
+    -- The bank closed before its last stack was taken: the choice stays for the next visit.
+    inBank[-1][3], used = nil, {}
+    ns.fetchList()[2589] = true
+    fireNow("BANKFRAME_OPENED")
+    fireNow("BANKFRAME_CLOSED")
+    wait(2)
+    assert(#used == 0 and ns.fetchList()[2589] == true, "nothing taken, still chosen: " .. table.concat(used, ","))
+    ns.fetchList()[2589] = nil
     C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots = keep[1], keep[2], keep[3], keep[4]
     C_Container.SplitContainerItem, C_Container.PickupContainerItem = keep[5], keep[6]
     AP.tab("post")
@@ -1406,6 +1479,13 @@ local pool = poolLine(2589)
 seen("POOL ", tostring(pool), "Market 12s 34c · min 11s 0c", "nil")
 if INTERFACE < 110000 then
   assert(pool and pool:find("Market 12s 34c · min 11s 0c", 1, true), "the pool line")
+  -- A reagent with no own listing costs the pool's minimum, so a craft from it shows its profit.
+  assert(ns.price.cheapest(2590) == nil and ns.price.buy(2590) == nil, "no price of 2590 anywhere")
+  GoldForever_Prices.markets[POOL_MINE][2590] = { 1500, 1400, 2, now }
+  assert(ns.price.buy(2590) == 1400 and ns.price.cheapest(2590) == nil, "bought at the pool's minimum: " .. tostring(ns.price.buy(2590)))
+  local q = ns.Crafting.quote({ output = 2589, yield = 1, reagents = { { id = 2590, count = 1 } } }, ns.price, function() return 0 end, ns.price.cut)
+  assert(q.cost == 1400, "the craft's cost from the pool: " .. tostring(q.cost))
+  GoldForever_Prices.markets[POOL_MINE][2590] = nil
 else
   assert(pool == nil, "no Forever market on retail")
   -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.
@@ -1516,7 +1596,7 @@ assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
   TooltipDataProcessor = nil
-  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Views = ns.Views, Realms = ns.Realms, commands = {} })
+  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, commands = {} })
   TooltipDataProcessor = saved
   assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
 end
@@ -1934,6 +2014,11 @@ do
   ns.safely("next frame", function() end)
   assert(not GoldForeverDB.stopped, "nothing recorded as stopped")
   assert(GoldForeverDB.errors.erring and GoldForeverDB.errors.erring.n == 1, "the caught error is recorded")
+  local stack = GoldForeverDB.errors.erring.stack
+  assert(type(stack) == "string" and stack:find("smoke") and #stack <= 800, "with a trimmed stack that names where it came from: " .. tostring(stack))
+  ns.safely("erring with arguments", function(a, b, c) assert(a == 1 and b == nil and c == 3) error("caught") end, 1, nil, 3)
+  assert(GoldForeverDB.errors["erring with arguments"].msg:find("caught"), "the arguments, a nil among them, reach the call")
+  GoldForeverDB.errors["erring with arguments"] = nil
   GoldForeverDB.errors.erring = nil
 end
 assert(tablesMade > 0, "the session made tables")
@@ -1953,6 +2038,12 @@ fire("PLAYER_LOGOUT")
 local thisVersion = GoldForeverDB.addon
 GoldForeverDB.addon = "0.15.0"
 GoldForeverDB.errors.old = { n = 3, msg = "fixed since", t = now - 86400 }
+-- A newer version wrote the file: its schema stays, the data is not relabelled as the older one's.
+GoldForeverDB.schema = 99
+-- Days older than the 14 kept but not yet exported stay, up to 30 days; an older one goes.
+local exportedBefore = GoldForeverDB.exportedAt
+GoldForeverDB.exportedAt = now - 26 * 86400
+for _, day in ipairs({ "2026-09-01", "2026-09-24", "2026-10-01" }) do GoldForeverDB.events[day] = { sys = {} } end
 for k in pairs(frames) do frames[k] = nil end
 local ns2 = {}
 for _, f in ipairs(tocFiles()) do
@@ -1962,6 +2053,12 @@ tablesHaveHeights(ns2)
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
 assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
+assert(GoldForeverDB.schema == 99, "a newer schema is never lowered")
+GoldForeverDB.schema = 1
+assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"] and not GoldForeverDB.events["2026-09-01"],
+  "days not yet exported are kept, within 30 days")
+GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
+GoldForeverDB.exportedAt = exportedBefore
 local after = ns2.sessionText and ns2.sessionText() or ""
 seen("AFTER RELOAD\n", tostring(after), "Farming 3:57\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 64c|r\nXP: 44400 · 673011/h · level 31 in 4m (~133 kills)\nBags: 8 free")
 do
@@ -2062,6 +2159,19 @@ do
     clock = clock + 0.001
   end
   print(string.format("PRICE REBUILD after a %d-auction scan: %d frames, worst %.2f ms", N, rframes, rworst))
+  -- A rebuild that fails part-way leaves no build marked as running: the next price asked starts again.
+  do
+    local itemId = ns2.Encode.itemId
+    ns2.Encode.itemId = function() error("a bad row") end
+    ns2.scanVersion = ns2.scanVersion + 1
+    assert(not pcall(ns2.price.market, 2001), "the rebuild failed")
+    ns2.Encode.itemId = itemId
+    local waiting = #timers
+    ns2.price.market(2001)
+    assert(#timers > waiting, "a new rebuild started after the failed one")
+    local n = 0
+    while #timers > 0 and n < 400 do step() n = n + 1 clock = clock + 0.001 end
+  end
   -- The deals line once the prices were in: the list's Linen (up to 45s) is listed cheaper in this scan.
   assert(dealsLine, "the deals line after the scan")
   seen("DEALS ", dealsLine, "|cffe0ac45Gold Forever|r: 1 item on your lists is at or under your price: Linen Cloth. Open the Buy tab.")
@@ -2104,6 +2214,32 @@ do
   assert(rows == 0, "with no rows")
   wait(5)
   assert(dealsLine == nil, "no deals line after a partial scan: " .. tostring(dealsLine))
+  fire("AUCTION_HOUSE_CLOSED")
+  C_AuctionHouse.GetReplicateItemInfo = info
+end
+-- On WoW: Forever an auction may have a bid and no buyout. A scan where a fifth of the listings are such is
+-- read whole: it is stored full, its prices from the listings with a buyout.
+do
+  local scans = GoldForeverDB.scans
+  local before = #scans
+  local info = C_AuctionHouse.GetReplicateItemInfo
+  C_AuctionHouse.GetReplicateItemInfo = function(i)
+    if i % 5 == 0 then
+      return "x", 0, 1 + i % 20, 1, true, 1, 0, 50, 1, 0, 0, false, nil, nil, nil, 0, 2000 + i % 3000, true
+    end
+    return info(i)
+  end
+  GoldForeverDB.lastReplicate = 0
+  now = now + 3600
+  fire("AUCTION_HOUSE_SHOW")
+  wait(2)
+  fire("REPLICATE_ITEM_LIST_UPDATE")
+  wait(5)
+  local rec = scans[#scans]
+  assert(#scans == before + 1 and rec.kind == "full" and not rec.partial, "a scan with bid-only listings is full: " .. tostring(rec.kind) .. " " .. tostring(rec.partial))
+  local rows = 0
+  for _, c in ipairs(rec.rows or {}) do for row in c:gmatch("[^;]+") do rows = rows + 1; assert(not row:find("^[^,]*,0,"), "no price of 0: " .. row) end end
+  assert(rows > 0 and ns2.lastScan.kind == "full", "with its prices")
   fire("AUCTION_HOUSE_CLOSED")
   C_AuctionHouse.GetReplicateItemInfo = info
 end

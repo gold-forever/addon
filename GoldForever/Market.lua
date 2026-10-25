@@ -229,21 +229,24 @@ local function read()
 		for index = i, n - 1 do
 			local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID =
 				C_AuctionHouse.GetReplicateItemInfo(index)
-			-- Read: a listing with its price and count. Once the auction house is closed the client still
-			-- gives the item but not those (manual test run 001: "322407 of 322407 read" on a cut scan).
-			if itemID and buyout and buyout > 0 and count and count > 0 then
+			-- Read: a listing with its count. Once the auction house is closed the client still gives the item
+			-- but not that (manual test run 001: "322407 of 322407 read" on a cut scan). A bid-only listing is
+			-- read too, though it has no buyout to price.
+			if itemID and count and count > 0 then
 				s.read = (s.read or 0) + 1
-				local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
-				local unit = math.floor(buyout / count + 0.5)
-				local bucket = key .. "|" .. unit
-				local b = buckets[bucket]
-				if not b then
-					b = { item = key, unit = unit, qty = 0, auctions = 0 }
-					buckets[bucket] = b
-					ns.catalogueItem(key)
+				if buyout and buyout > 0 then
+					local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
+					local unit = math.floor(buyout / count + 0.5)
+					local bucket = key .. "|" .. unit
+					local b = buckets[bucket]
+					if not b then
+						b = { item = key, unit = unit, qty = 0, auctions = 0 }
+						buckets[bucket] = b
+						ns.catalogueItem(key)
+					end
+					b.qty = b.qty + count
+					b.auctions = b.auctions + 1
 				end
-				b.qty = b.qty + count
-				b.auctions = b.auctions + 1
 				if s.items and not s.items[itemID] then
 					s.items[itemID] = ns.Realms.itemRow(itemID, instant, stack)
 				end

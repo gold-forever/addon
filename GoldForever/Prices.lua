@@ -19,8 +19,11 @@ local REGION_IDS = { ["1"] = "NA", ["2"] = "KR", ["3"] = "EU", ["4"] = "TW", ["5
 local BETA_REGION, BETA_PORTAL = "110", "test"
 local MAX_REGION_CODE, MAX_RULESET = 8, 32
 
+-- A number the file may carry: a price, a count or a time, none of them above a million gold's copper
+-- (a time stays under it until the year 2286), so an absurd price never reaches a post.
+local MAX = ns.Encode.MAX_COPPER
 local function amount(x)
-	return type(x) == "number" and x >= 0 and x < math.huge
+	return type(x) == "number" and x >= 0 and x <= MAX
 end
 
 local function field(t, key)
@@ -349,6 +352,25 @@ function Prices.value(id)
 	if own then
 		return own, "scan"
 	end
+end
+
+-- What buying one costs at the auction house: the pool's minimum buyout, picked against the own scan's
+-- cheapest unit as the value is (Prices.pick), else the own scan's. A craft's reagents are priced so, the
+-- same source as its output's value, so a player with the prices file and no scan of their own sees profits.
+function Prices.cheapest(id)
+	local own, ownAt
+	if ns.ownPrice then
+		local _, low, at = ns.ownPrice(id)
+		own, ownAt = low, at
+	end
+	local markets = mine()
+	if markets and Prices.loaded(GoldForever_Prices) then
+		local _, low, _, scannedAt = entry(GoldForever_Prices, markets, id)
+		if low and low > 0 then
+			return (Prices.pick(low, scannedAt, own, ownAt))
+		end
+	end
+	return own
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then

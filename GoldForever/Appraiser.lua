@@ -10,7 +10,6 @@ local Encode = ns.Encode
 
 local CUT = 0.05 -- a faction auction house's cut; the character sells on its own
 local IDLE_SECONDS = 15 * 60 -- the web app's session split
-local MIN_RATE_SECONDS = 60 -- no gold per hour for the first minute: one lucky drop is not a rate
 local TOP_ITEMS = 4
 local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 ns.BIG_DROP = BIG_DROP
@@ -26,6 +25,7 @@ local pricedAt -- when that scan was taken
 -- before it staying in use until it is done (design 009, Performance budget: a retail scan's ~110,000
 -- rows took ~100 ms to read in one go, a hitch at the first tooltip after a scan or a login).
 local SYNC_CHUNKS = 10 -- of Encode.ROWS_PER_CHUNK (500) rows: 5,000 rows
+-- Without a profiling timer, this much a frame; with one, the frame budget (ns.frameSpent).
 local CHUNKS_PER_FRAME = 2
 local ITEMS_PER_FRAME = 500
 local building -- the scan version a build in progress is for
@@ -111,34 +111,58 @@ local function buildPrices()
 	prices, cheapestPrices = prices or {}, cheapestPrices or {}
 	local listings, newPrices, newLow, i = {}, {}, {}, 0
 	local ids, j
+	local rows = Encode.ROWS_PER_CHUNK
+	-- One frame's share; true when the build is done.
+	local function share()
+		local started, done = ns.frameStart(), 0
+		if i < #chunks then
+			-- Counted in rows, so the budget is looked at after every chunk.
+			while i < #chunks do
+				i = i + 1
+				readChunk(chunks[i], listings)
+				done = done + rows
+				if ns.frameSpent(started, done, CHUNKS_PER_FRAME * rows) then
+					break
+				end
+			end
+			return false
+		end
+		if not ids then
+			ids, j = {}, 0
+			for id in pairs(listings) do
+				ids[#ids + 1] = id
+			end
+		end
+		while j < #ids do
+			j = j + 1
+			priceItem(ids[j], listings[ids[j]], newPrices, newLow)
+			done = done + 1
+			if ns.frameSpent(started, done, ITEMS_PER_FRAME) then
+				break
+			end
+		end
+		if j < #ids then
+			return false
+		end
+		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
+		building = nil
+		pricesReady()
+		return true
+	end
 	local function step()
 		if building ~= version then
 			return -- a newer scan started its own build
 		end
-		if i < #chunks then
-			for k = i + 1, math.min(i + CHUNKS_PER_FRAME, #chunks) do
-				readChunk(chunks[k], listings)
-			end
-			i = math.min(i + CHUNKS_PER_FRAME, #chunks)
-		else
-			if not ids then
-				ids, j = {}, 0
-				for id in pairs(listings) do
-					ids[#ids + 1] = id
-				end
-			end
-			for k = j + 1, math.min(j + ITEMS_PER_FRAME, #ids) do
-				priceItem(ids[k], listings[ids[k]], newPrices, newLow)
-			end
-			j = math.min(j + ITEMS_PER_FRAME, #ids)
-			if j >= #ids then
-				prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
-				building = nil
-				pricesReady()
-				return
-			end
+		-- A share that fails ends this build, so the next price asked starts a new one: left marked as
+		-- building, the prices would stay those of the scan before for the rest of the session.
+		local ok, finished = pcall(share)
+		if not ok then
+			building = nil
+			error(finished, 0)
 		end
-		ns.after(0, "prices", step)
+		if not finished then
+			ns.after(0, "prices", step)
+		end
 	end
 	step()
 end
@@ -165,6 +189,15 @@ end
 local function cheapest(id)
 	ownMarket(id) -- builds the prices when needed
 	return cheapestPrices[id]
+end
+
+-- What buying one costs at the auction house: the pool's minimum when the prices file has it, picked as
+-- the market value is, else the own scan's cheapest (Prices.lua).
+local function buy(id)
+	if ns.Prices and ns.Prices.cheapest then
+		return ns.Prices.cheapest(id)
+	end
+	return cheapest(id)
 end
 
 -- The own scan's market value, cheapest unit and time, for the pool's fallback (Prices.lua).
@@ -255,8 +288,13 @@ local function enchanting()
 	return p and p.skill or 0
 end
 
--- What disenchanting one is worth, and the skill it needs; nil when it cannot be disenchanted.
+-- What disenchanting one is worth, and the skill it needs; nil when it cannot be disenchanted. The table
+-- is the classic one (Disenchant.lua): on retail it would value greens in Illusion Dust, so none there.
 local function disenchantWorth(id)
+	local client = ns.db().client
+	if ns.Realms.isRetail(client and client.interface) then
+		return nil
+	end
 	local quality, ilvl, class = itemInfo(id)
 	local de = quality and ns.Disenchant.of(quality, ilvl, class)
 	if not de then
@@ -301,7 +339,7 @@ end
 
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.
 ns.price = {
-	market = market, own = ownMarket, cheapest = cheapest, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
+	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
 }
 
@@ -431,67 +469,54 @@ end
 
 local hud -- the one-line HUD; hud.details is the session panel under it
 local huds = {} -- Theme.key -> HUD
-local built -- the Theme.key the HUD was drawn under
+local hudThemeKey -- the Theme.key the HUD was drawn under
 
 local function settings()
 	return ns.settings("appraiser", { shown = true })
 end
 
+-- The session in words, from its figures (ns.sessionSummary).
 local function text()
-	if not session then
+	local sum = ns.sessionSummary()
+	if not sum then
 		return "Loot something to start a session."
 	end
-	-- An ended session stops its clock at its last loot (or at Stop).
-	local elapsed = (idle() and session.last or GetTime()) - session.start
-	local value, unpriced = itemsValue()
-	local total = session.coin + value
+	local elapsed, r = sum.elapsed, sum.rates
 	local lines = {
-		string.format("%s%d:%02d", idle() and "Ended after " or "Farming ", math.floor(elapsed / 60), math.floor(elapsed % 60)),
-		"Coin: " .. coins(session.coin),
-		"Items: " .. coins(value) .. (unpriced > 0 and string.format(" (+%d unpriced)", unpriced) or ""),
-		"|cffffffffTotal: " .. coins(total) .. "|r",
+		string.format("%s%d:%02d", sum.ended and "Ended after " or "Farming ", math.floor(elapsed / 60), math.floor(elapsed % 60)),
+		"Coin: " .. coins(sum.coin),
+		"Items: " .. coins(sum.value) .. (sum.unpriced > 0 and string.format(" (+%d unpriced)", sum.unpriced) or ""),
+		"|cffffffffTotal: " .. coins(r.total) .. "|r",
 	}
-	local rated = elapsed >= MIN_RATE_SECONDS
-	if rated then
-		table.insert(lines, "|cffffd100Per hour: " .. coins(total * 3600 / elapsed) .. "|r")
+	if r.rated then
+		table.insert(lines, "|cffffd100Per hour: " .. coins(r.goldPerHour) .. "|r")
 	else
 		table.insert(lines, "|cff999999Per hour: after a minute|r")
 	end
 	-- XP, and when the next level comes at this pace (not at the level cap: no XP to gain).
-	if session.xp > 0 and xpSeen and xpSeen.max > 0 then
-		local line = "XP: " .. number(session.xp)
-		if rated then
-			local perHour = session.xp * 3600 / elapsed
-			line = line .. " · " .. number(perHour) .. "/h · level " .. (xpSeen.level + 1) .. " in "
-				.. Encode.duration((xpSeen.max - xpSeen.cur) / perHour * 3600)
+	if sum.xp > 0 and xpSeen and xpSeen.max > 0 then
+		local line = "XP: " .. number(sum.xp)
+		if r.rated then
+			line = line .. " · " .. number(r.xpPerHour) .. "/h · level " .. sum.nextLevel .. " in " .. Encode.duration(r.dingIn or 0)
 		end
 		if (session.xpKills or 0) > 0 and session.killXp > 0 then
-			line = line .. string.format(" (~%s kills)", number(math.ceil((xpSeen.max - xpSeen.cur) / (session.killXp / session.xpKills))))
+			line = line .. string.format(" (~%s kills)", number(r.killsToLevel or 0))
 		end
 		table.insert(lines, line)
 	end
 	-- Bags: free slots, and when they run out at the rate they have been filling.
-	local used = session.bagBase - session.bagFree
-	local filling = GetTime() - session.bagBaseAt
-	local bags = "Bags: " .. session.bagFree .. " free"
-	if session.bagFree == 0 then
+	local bags = "Bags: " .. sum.bagFree .. " free"
+	if sum.bagFree == 0 then
 		bags = "|cffff5555Bags full|r"
-	elseif used >= 1 and filling >= 120 then
-		bags = bags .. " · full in ~" .. Encode.duration(session.bagFree / (used / filling))
+	elseif sum.fullIn then
+		bags = bags .. " · full in ~" .. Encode.duration(sum.fullIn)
 	end
 	table.insert(lines, bags)
 	-- The most valuable items so far.
-	local ranked = {}
-	for id, n in pairs(session.items) do
-		ranked[#ranked + 1] = { id = id, n = n, value = (worth(id) or 0) * n }
-	end
-	table.sort(ranked, function(a, b)
-		return a.value > b.value
-	end)
-	for i = 1, math.min(TOP_ITEMS, #ranked) do
-		local r = ranked[i]
-		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(r.id)) or ("item " .. r.id)
-		table.insert(lines, string.format("|cffaaaaaa%d× %s: %s|r", r.n, name, r.value > 0 and coins(r.value) or "no price"))
+	for i = 1, math.min(TOP_ITEMS, #sum.ranked) do
+		local item = sum.ranked[i]
+		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(item.id)) or ("item " .. item.id)
+		table.insert(lines, string.format("|cffaaaaaa%d× %s: %s|r", item.n, name, item.value > 0 and coins(item.value) or "no price"))
 	end
 	return table.concat(lines, "\n")
 end
@@ -549,7 +574,7 @@ local function refresh()
 		return
 	end
 	local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
-	if built ~= Theme.key then
+	if hudThemeKey ~= Theme.key then
 		local open = hud.details:IsShown()
 		hud:Hide()
 		build()
@@ -676,7 +701,7 @@ build = function()
 		if old and old ~= cached then
 			old:Hide()
 		end
-		hud, built = cached, Theme.key
+		hud, hudThemeKey = cached, Theme.key
 		hud:ClearAllPoints()
 		if s.point then
 			hud:SetPoint(s.point[1], UIParent, s.point[2], s.point[3], s.point[4])
@@ -799,7 +824,7 @@ build = function()
 	end, { width = 130, height = 26 })
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
 	hud.details = d
-	built = Theme.key
+	hudThemeKey = Theme.key
 	-- The clock runs whenever the HUD shows, however it came back (after combat, a loading screen, a new
 	-- look): manual test run 001, the HUD stood still at "1m · warming up…" in a delve until a /reload.
 	hud:HookScript("OnShow", function()
@@ -807,7 +832,7 @@ build = function()
 			startTicker()
 		end
 	end)
-	huds[built] = hud
+	huds[hudThemeKey] = hud
 end
 
 -- Whether the HUD stays out of the way now: in combat, when the player asked for that.
@@ -1087,7 +1112,7 @@ end)
 -- A frame's share (ns.frameSpent), else ROWS_A_FRAME rows: chunks of 500 rows were 6 ms each on two
 -- weeks of loot, too much for one frame.
 local ROWS_A_FRAME = 250
-local built = {} -- what to call once the counts are in
+local mobCountWaiters = {} -- what to call once the counts are in
 local function buildMobs()
 	if countingRows then
 		return
@@ -1110,7 +1135,7 @@ local function buildMobs()
 	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
 	-- them again, rather than showing part of them for the session.
 	local function failed(err)
-		mobs, countingRows, built = nil, nil, {}
+		mobs, countingRows, mobCountWaiters = nil, nil, {}
 		ns.fail("mob counts", err)
 	end
 	local function guarded()
@@ -1153,10 +1178,10 @@ local function buildMobs()
 			countRows(rows)
 		end
 		countingRows = nil
-		for _, fn in ipairs(built) do
+		for _, fn in ipairs(mobCountWaiters) do
 			ns.safely("mob counts", fn)
 		end
-		built = {}
+		mobCountWaiters = {}
 	end
 	guarded()
 end
@@ -1177,7 +1202,7 @@ end
 function ns.mobStats(whenBuilt)
 	if not mobs then
 		if whenBuilt then
-			built[#built + 1] = whenBuilt
+			mobCountWaiters[#mobCountWaiters + 1] = whenBuilt
 		end
 		buildMobs()
 	end

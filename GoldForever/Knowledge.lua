@@ -138,7 +138,7 @@ ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
 	-- Every cast replaces the last, so an older cast never names the next loot.
 	target = realName(target)
 	cast = target and not onUnit(target) and { name = target, at = GetTime() } or nil
-end)
+end, "player")
 ns.on("LOOT_READY", "objects", function()
 	local id = ns.lootSource and string.match(ns.lootSource, "^o(%d+)$")
 	if id and cast and GetTime() - cast.at < 10 then
@@ -284,7 +284,7 @@ local FILTERS = { "available", "unavailable", "used" }
 
 -- Everything the trainer teaches, with cost and requirements, keyed by trainer NPC. Every filter
 -- is switched on while reading, then put back as the player had it.
-local function readTrainer()
+local function readTrainerNow()
 	local id = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if not id or not GetNumTrainerServices then
 		return
@@ -355,11 +355,27 @@ ns.on("PLAYER_LEVEL_UP", "training", function(level)
 	end
 end)
 
+-- Switching the filters while reading may fire TRAINER_UPDATE, which would read again, and again: an
+-- update while reading is the read's own.
+local reading = false
+local function readTrainer()
+	reading = true
+	local ok, err = pcall(readTrainerNow)
+	reading = false
+	if not ok then
+		error(err, 0)
+	end
+end
+
 local trainerSoon = ns.throttle("trainer", 1, readTrainer)
 ns.on("TRAINER_SHOW", "trainer", function()
 	ns.after(0.5, "trainer", readTrainer)
 end)
-ns.on("TRAINER_UPDATE", "trainer", trainerSoon)
+ns.on("TRAINER_UPDATE", "trainer", function()
+	if not reading then
+		trainerSoon()
+	end
+end)
 
 -- Client API -------------------------------------------------------------------------------------
 

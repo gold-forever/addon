@@ -37,14 +37,15 @@ local function lower(a, b)
 end
 
 -- recipe: { output = itemId, yield = n, reagents = { { id, count }, … } }
--- price: { market = fn(id), cheapest = fn(id), vendorBuy = fn(id) }, each a copper value or nil
+-- price: { market = fn(id), buy = fn(id), vendorBuy = fn(id) }, each a copper value or nil: buy is what
+-- one costs at the auction house
 -- stock: fn(id) → units owned. Returns { revenue, cost, cash, ownedValue, profit, lines = { … } },
 -- where profit is "use what I have" and any unknown price makes the sums it touches nil.
 function Crafting.quote(recipe, price, stock, cut)
 	local cost, cash, ownedValue = 0, 0, 0
 	local lines = {}
 	for _, r in ipairs(recipe.reagents) do
-		local vendor, auction = price.vendorBuy(r.id), price.cheapest(r.id)
+		local vendor, auction = price.vendorBuy(r.id), price.buy(r.id)
 		local from, unit
 		if vendor and (not auction or vendor <= auction) then
 			from, unit = "vendor", vendor

@@ -22,6 +22,20 @@ local single = {}
 E.append(single, "a")
 E.append(single, "b")
 eq(single[1], "a;b", "rows join with ;")
+-- A stream's last chunk changed outside append (a test, an older save) is counted again, not trusted.
+single[1] = "x"
+E.append(single, "y")
+eq(single[1], "x;y", "a chunk replaced from outside is appended to")
+local full = {}
+E.append(full, "first")
+full[1] = string.rep("r;", E.ROWS_PER_CHUNK - 1) .. "r"
+E.append(full, "next")
+eq(#full, 2, "a chunk filled from outside is counted full")
+
+-- Free text for a catalogue row: commas become the look-alike, semicolons full stops, line breaks a space.
+eq(E.text("Gold, more; less\r\nmore"), "Gold\226\128\154 more. less more", "free text in a row")
+eq(E.text(""), nil, "no text")
+eq(E.text(nil), nil, "nil text")
 
 -- Item lists: stable order, suffix keys kept as given.
 eq(E.items({ [14047] = 2, ["10221:612"] = 1, [2589] = 20 }), "10221:612*1+14047*2+2589*20", "items sorted as text")

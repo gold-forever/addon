@@ -209,7 +209,7 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "skillup", function(unit, _, spell)
 	if unit == "player" then
 		lastSpell = { id = spell, at = GetTime() }
 	end
-end)
+end, "player")
 ns.on("SKILL_LINES_CHANGED", "skillup", checkSkills)
 ns.on("CHAT_MSG_SKILL", "skillup", checkSkills)
 ns.on("PLAYER_LOGIN", "skillup", checkSkills)

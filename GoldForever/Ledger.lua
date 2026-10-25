@@ -36,7 +36,14 @@ ns.on("UNIT_SPELLCAST_START", "craft", function(unit, cast, spell)
 	if output then
 		before[cast] = GetItemCount(output)
 	end
-end)
+end, "player")
+
+-- A cast that never finishes forgets its count.
+for _, event in ipairs({ "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED" }) do
+	ns.on(event, "craft", function(_, cast)
+		before[cast] = nil
+	end, "player")
+end
 
 -- What a craft made: the game's "You create: [Bolt of Linen Cloth]x2." says it exactly. Counting the
 -- bags instead misses with "Create All", where the next cast starts before this one's items arrive.
@@ -71,7 +78,7 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft", function(unit, cast, spell)
 			end
 		end
 	end)
-end)
+end, "player")
 
 ns.on("CHAT_MSG_LOOT", "craft", function(message)
 	if #crafting == 0 then
@@ -99,13 +106,17 @@ end)
 -- Money ------------------------------------------------------------------------------------------
 
 local money -- last known GetMoney()
-local open = {} -- windows open now: merchant, auctioneer, mail, trainer, taxi, ...
-local questAt -- GetTime() of the last quest turned in
+local open = {} -- windows open now: merchant, auction, mail, trainer, taxi, ...
+
+-- The interaction manager's names for windows the older events name too, as those name them, so one
+-- window is one word in `ctx` on every client (retail wrote "auction+auctioneer").
+local SAME = { auctioneer = "auction", mailinfo = "mail", tradepartner = "trade", taxinode = "taxi" }
 
 -- Interaction types by number, so every window the interaction manager opens has a name.
 local INTERACTION = {}
 for name, id in pairs(Enum and Enum.PlayerInteractionType or {}) do
-	INTERACTION[id] = string.lower(name)
+	local lower = string.lower(name)
+	INTERACTION[id] = SAME[lower] or lower
 end
 
 -- The Blizzard frames behind window names. A close event does not always come (the mailbox, a
@@ -113,13 +124,9 @@ end
 local FRAMES = {
 	merchant = { "MerchantFrame" },
 	auction = { "AuctionHouseFrame", "AuctionFrame" },
-	auctioneer = { "AuctionHouseFrame", "AuctionFrame" },
 	mail = { "MailFrame" },
-	mailinfo = { "MailFrame" },
 	trade = { "TradeFrame" },
-	tradepartner = { "TradeFrame" },
 	taxi = { "TaxiFrame", "FlightMapFrame" },
-	taxinode = { "TaxiFrame", "FlightMapFrame" },
 	trainer = { "ClassTrainerFrame" },
 	gossip = { "GossipFrame" },
 	banker = { "BankFrame" },
@@ -144,7 +151,7 @@ local function context()
 	if ns.lootAt and GetTime() - ns.lootAt < 2 then
 		return "loot"
 	end
-	if questAt and GetTime() - questAt < 3 then
+	if ns.questAt and GetTime() - ns.questAt < 3 then
 		return "quest"
 	end
 	for name in pairs(open) do
@@ -226,8 +233,9 @@ ns.on("QUEST_ACCEPTED", "quest", function(a, b)
 	-- Mainline passes the quest ID first; older clients pass the log index, then the ID.
 	quest(b or a, "accept")
 end)
+-- ns.questAt: GetTime() of the last quest turned in, for money and XP from it (Levelling.lua).
 ns.on("QUEST_TURNED_IN", "quest", function(id, xp, reward)
-	questAt = GetTime()
+	ns.questAt = GetTime()
 	quest(id, "done", xp, reward)
 end)
 

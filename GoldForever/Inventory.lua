@@ -212,7 +212,9 @@ local function fetchFromBank()
 	local function step()
 		i = i + 1
 		local m = moves[i]
-		if not m or not bankOpen then
+		-- The bank closed, or a fight began, mid-fetch: this stack was not taken, so it stays to look for.
+		if not m or not bankOpen or (InCombatLockdown and InCombatLockdown()) then
+			i = i - 1
 			done()
 			return
 		end

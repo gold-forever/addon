@@ -141,15 +141,6 @@ local placed = V.worthList({ [1] = 1, [2] = 1 }, function(id) return 100, id == 
 eq(placed[1].where .. " " .. placed[2].where, "auction vendor", "where each sells best")
 eq(V.dayStart(86400 * 3 + 5000), 86400 * 3, "the UTC day's start")
 
--- Kills in a fight, as the playground's killsInFight: the larger of kill XP and fresh creature corpses.
-eq(V.killsInFight(2, { "Creature-0-1-a", "Creature-0-1-b" }, {}), 2, "two kills, two corpses")
-eq(V.killsInFight(1, {}, {}), 1, "killed, not looted")
-eq(V.killsInFight(0, { "Creature-0-1-rat" }, {}), 1, "a grey mob: no XP, a corpse")
-local seenCorpses = {}
-eq(V.killsInFight(1, { "Creature-0-1-a" }, seenCorpses), 1, "the first loot")
-eq(V.killsInFight(0, { "Creature-0-1-a" }, seenCorpses), 0, "a corpse looted again is no new kill")
-eq(V.killsInFight(0, { "GameObject-0-1-chest" }, {}), 0, "a chest is no kill")
-
 -- Across fights: a corpse looted after its fight closed is the kill its XP already counted.
 do
   local pending, seen = {}, {}
@@ -164,6 +155,8 @@ do
   -- A kill never looted is let go after MATCH_SECONDS: a later grey mob still counts.
   eq(V.creditKills(pending, 1, {}, seen, 400), 1, "killed, never looted")
   eq(V.creditKills(pending, 0, { "Creature-0-1-rat2" }, seen, 400 + V.MATCH_SECONDS + 1), 1, "a grey mob long after")
+  eq(V.creditKills(pending, 0, { "Creature-0-1-rat2" }, seen, 900), 0, "a corpse looted again is no new kill")
+  eq(V.creditKills(pending, 0, { "GameObject-0-1-chest" }, seen, 900), 0, "a chest is no kill")
 end
 eq(V.sessionRates({ coin = 0, xp = 900, killXp = 900, kills = 5, xpKills = 3 }, 30, 0, 9000).killsToLevel, 30, "XP a kill from the kills that gave XP")
 
@@ -242,6 +235,29 @@ do
 	eq(l.bags .. "/" .. l.bank .. "/" .. l.guild .. "/" .. l.others[1].name .. " " .. l.others[1].n .. "/" .. l.buy, "5/8/3/Alt 4/0", "bags, bank, guild, Alt, nothing to buy")
 	local enough = V.queuePlan({ [2589] = 4 }, { bags = { [2589] = 1 }, bank = { [2589] = 8 }, mail = {} }, {}, {})
 	eq(enough[1].bank .. "/" .. enough[1].buy, "3/0", "only what is needed from the bank")
+	local mailed = V.queuePlan({ [2589] = 10 }, { bags = {}, bank = { [2589] = 10 }, mail = { [2589] = 10 } }, {}, {})
+	eq(mailed[1].bank .. "/" .. mailed[1].buy, "0/0", "the mail covers it: nothing from the bank")
+	local some = V.queuePlan({ [2589] = 10 }, { bags = { [2589] = 2 }, bank = { [2589] = 10 }, mail = { [2589] = 5 } }, {}, {})
+	eq(some[1].bank, 3, "the bank gives what the bags and mail leave")
+end
+
+-- The loot advisor: each stack where it brings the most; a bound one is never posted, and disenchanting
+-- needs the skill.
+do
+	local price = {
+		vendor = function(id) return ({ [1] = 10, [2] = 5, [3] = 100 })[id] end,
+		market = function(id) return ({ [1] = 100, [2] = 1000 })[id] end,
+		disenchant = function(id) if id == 3 then return 500, 50 end end,
+		itemInfo = function(id) return nil, nil, nil, nil, id == 1 and "Linen" or nil end,
+		cut = 0.05,
+	}
+	local stacks = { { id = 1, count = 2 }, { id = 2, count = 1, bound = true }, { id = 3, count = 1 } }
+	local lists, totals = V.adviseStacks(stacks, price, 75)
+	eq(lists.post[1].name .. " " .. lists.post[1].value, "Linen 190", "posted, after the cut")
+	eq(lists.vendor[1].id .. " " .. totals.vendor, "2 5", "bound: vendored, though the market is higher")
+	eq(lists.disenchant[1].id .. " " .. totals.disenchant, "3 500", "disenchanted with the skill")
+	lists = V.adviseStacks(stacks, price, 10)
+	eq(#lists.disenchant .. " " .. lists.vendor[1].id, "0 3", "without it, vendored")
 end
 
 -- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.
