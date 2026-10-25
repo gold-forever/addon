@@ -205,11 +205,16 @@ ns.commands.ui = function(page)
 	if f and fresh and window.pages[f[1]] then
 		window.pages[f[1]].tab = f[2]
 	end
+	-- Another page than the one it shows opens refreshed once, by openIn, not first the old one as it
+	-- shows (review C-18).
+	local other = page and page ~= "" and not (fresh and showing(window, page))
 	window:Restore()
+	window.opening = other
 	window:Show()
+	window.opening = nil
 	-- In front every time, an open window too (manual test run 001: Rule › left it under the panel).
 	window:Raise()
-	if page and page ~= "" and not (fresh and showing(window, page)) then
+	if other then
 		openIn(window, page)
 	end
 end

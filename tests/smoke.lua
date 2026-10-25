@@ -1928,6 +1928,17 @@ do
   ns.hubWindow():Hide()
   SlashCmdList.GOLDFOREVER("ui home")
   assert(n == 1, "Home refreshed once as the window opens on it: " .. n)
+  -- Onto another page: that page refreshed once, the one it showed not first (review C-18).
+  local ledger = ns.hubWindow().pages.ledger
+  assert(ledger and ledger.Refresh, "the ledger page was built before")
+  local ledgerRefresh, m = ledger.Refresh, 0
+  ledger.Refresh = function(self) m = m + 1 return ledgerRefresh(self) end
+  n = 0
+  ns.hubWindow():Hide()
+  SlashCmdList.GOLDFOREVER("ui ledger")
+  assert(n == 0, "Home is not refreshed as the window opens on the ledger: " .. n)
+  assert(m == 1, "the ledger refreshed once: " .. m)
+  ledger.Refresh = ledgerRefresh
   home.Refresh = refresh
 end
 -- A window opened for the first time (a new accent builds one) straight onto This session: the tab's

@@ -150,10 +150,12 @@ function UI.Window(name, title, pages, store, opts)
 		end
 	end
 	-- Opened again: the page in view shows what changed while it was closed (manual test run 001).
+	-- w.opening: shown to open on another page, which its SelectPage refreshes; the page it showed
+	-- last is not refreshed first (review C-18).
 	w:SetScript("OnShow", function()
 		w:Raise()
 		started()
-		local page = w.pages and w.pages[store.page]
+		local page = not w.opening and w.pages and w.pages[store.page]
 		if page and page.Refresh then
 			ns.safely("ui " .. store.page, page.Refresh, page)
 		end
