@@ -264,8 +264,13 @@ local function enchanting()
 	return p and p.skill or 0
 end
 
--- What disenchanting one is worth, and the skill it needs; nil when it cannot be disenchanted.
+-- What disenchanting one is worth, and the skill it needs; nil when it cannot be disenchanted. The table
+-- is the classic one (Disenchant.lua): on retail it would value greens in Illusion Dust, so none there.
 local function disenchantWorth(id)
+	local client = ns.db().client
+	if ns.Realms.isRetail(client and client.interface) then
+		return nil
+	end
 	local quality, ilvl, class = itemInfo(id)
 	local de = quality and ns.Disenchant.of(quality, ilvl, class)
 	if not de then

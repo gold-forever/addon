@@ -608,7 +608,7 @@ fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin — 6s 87c")
 GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
-seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 53s 66c · |cff56c98fbetter than selling|r", "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 1c")
+seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 53s 66c · |cff56c98fbetter than selling|r", "|cffe0ac45Gold Forever|r Vendor 15s 85c") -- no disenchant value on retail: the table is the classic one
 bagsFull = true
 -- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
 -- Blizzard's own call: the first press says what, the second sells, once.
