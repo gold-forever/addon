@@ -17,6 +17,7 @@ local CONFIRM_TIMEOUT = ns.ah.CONFIRM_TIMEOUT
 
 local settings = ns.auctionSettings
 local ah = ns.ah
+local Blizzard = ns.AuctionBlizzard
 
 -- An item's book in `live`: a commodity's by its id; other items' by id and item level, as one gear item
 -- at two item levels is two books with two prices.
@@ -143,102 +144,6 @@ end
 -- Asks for the chosen row's listings. With `open`, the auction house's own window shows the item too, as
 -- a click on it in Blizzard's browse list does (its buy view, with every price); its search is the one
 -- whose results arrive here. Without it, or on a client without that method, a search of our own.
--- The panel's tabs and Blizzard's in step (manual test run 001): its Buy, Sell and Auctions modes are
--- our Buy, Sell and Auctions. `following` is set while the panel itself moves Blizzard's window (a tab
--- clicked here, an item shown), so that move does not switch the panel back.
-local following = false
-local function tabForMode(mode)
-	local M = AuctionHouseFrameDisplayMode
-	if not M or not mode then
-		return nil
-	end
-	if mode == M.Buy or mode == M.ItemBuy or mode == M.CommoditiesBuy then
-		return "shop"
-	elseif mode == M.ItemSell or mode == M.CommoditiesSell then
-		return "post"
-	elseif mode == M.Auctions then
-		return "cancel"
-	end
-end
-local BLIZZARD_TAB = { shop = "BuyTab", post = "SellTab", cancel = "AuctionsTab" }
-
-local function blizzardMode()
-	local f = AuctionHouseFrame
-	if not f then
-		return nil
-	end
-	return f.GetDisplayMode and f:GetDisplayMode() or f.displayMode
-end
-
--- Shows an item's listings in Blizzard's window; true when it did. Blizzard's SelectBrowseResult reads
--- the item key's info and fails when the client has not loaded it yet (manual test run 001: "attempt to
--- index local itemKeyInfo"): the client is asked for it, and the item is shown when it arrives.
-local waitingKey
-local function browse(itemKey)
-	local f = AuctionHouseFrame
-	if not (itemKey and f and f.SelectBrowseResult and f:IsShown()) then
-		return false
-	end
-	if C_AuctionHouse.GetItemKeyInfo and not C_AuctionHouse.GetItemKeyInfo(itemKey) then
-		waitingKey = itemKey
-		return false
-	end
-	waitingKey = nil
-	following = true
-	-- A browse result as Blizzard's list hands it: it shows minPrice at once ("rawCopper" nil without it,
-	-- manual test run 001), before its own search brings the listings; the market value stands in.
-	local price = ns.Prices and ns.Prices.value and ns.Prices.value(itemKey.itemID)
-	local ok = pcall(f.SelectBrowseResult, f, { itemKey = itemKey, minPrice = math.floor(price or 0), totalQuantity = 0 })
-	if not ok then
-		-- Else the item's name in Blizzard's search bar, searched there.
-		local bar = f.SearchBar
-		local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemKey.itemID)
-		if bar and bar.SearchBox and bar.StartSearch and name then
-			if f.SetDisplayMode and AuctionHouseFrameDisplayMode then
-				pcall(f.SetDisplayMode, f, AuctionHouseFrameDisplayMode.Buy)
-			end
-			bar.SearchBox:SetText(name)
-			ok = ns.safely("auction search bar", bar.StartSearch, bar)
-		end
-	end
-	following = false
-	return ok
-end
-ns.on("ITEM_KEY_ITEM_INFO_RECEIVED", "auction panel", function(itemID)
-	if waitingKey and waitingKey.itemID == itemID then
-		browse(waitingKey)
-	end
-end)
-
--- Empties Blizzard's own Sell window before the panel posts what it holds: its frame keeps the bag slot,
--- and once the item has gone it asks that empty slot for an item level and fails (manual test run 001:
--- "bad argument #1 to 'GetCurrentItemLevel'" after a post). Blizzard's Post button empties it itself.
-local function clearBlizzardSell()
-	local f = AuctionHouseFrame
-	if not f then
-		return
-	end
-	following = true
-	for _, sell in ipairs({ f.ItemSellFrame, f.CommoditiesSellFrame }) do
-		if sell and sell.SetItem and (sell.itemLocation or (sell.GetItem and sell:GetItem())) then
-			pcall(sell.SetItem, sell, nil)
-		end
-	end
-	following = false
-end
-
--- Puts a bag item in Blizzard's own Sell window, as a click on it in the bags does there; true when it did.
-local function sellItem(location)
-	local f = AuctionHouseFrame
-	if not (location and f and f.SetPostItem and f:IsShown()) then
-		return false
-	end
-	following = true
-	local ok = ns.safely("auction sell item", f.SetPostItem, f, location)
-	following = false
-	return ok
-end
-
 local function search(r, open)
 	if not (r and C_AuctionHouse.SendSearchQuery and C_AuctionHouse.GetItemKeyFromItem) then
 		return
@@ -250,7 +155,7 @@ local function search(r, open)
 	r.itemKey = key
 	-- Chosen on Sell: into Blizzard's Sell window too (the search below still reads the listings for
 	-- the panel); else its listings in Blizzard's Buy view.
-	if open and not sellItem(r.locations[1]) and browse(key) then
+	if open and not Blizzard.sellItem(r.locations[1]) and Blizzard.browse(key) then
 		return
 	end
 	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
@@ -398,7 +303,7 @@ local function post()
 	local duration = durationOf(r)
 	local loc = r.locations[1]
 	local q = quantity(r)
-	clearBlizzardSell()
+	Blizzard.clearSell()
 	-- The client says at once whether the post needs confirming (a price far from the going one); then
 	-- the next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
 	local needs
@@ -444,15 +349,6 @@ local function posted()
 end
 ns.on("AUCTION_HOUSE_AUCTION_CREATED", "auction panel", posted)
 -- The client warns before some commodity posts (far under the going price): the next press confirms.
--- Blizzard's own window shows its warning too, and its Accept finds no post of its own to confirm:
--- for a post of the panel's, that popup is closed (the next frame, after Blizzard's handler opened it).
-local function closeBlizzardWarning()
-	C_Timer.After(0, function()
-		if StaticPopup_Hide then
-			StaticPopup_Hide("AUCTION_HOUSE_POST_WARNING")
-		end
-	end)
-end
 ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 	-- The panel's: its post waiting for an answer, or one it was just warned about. Else it is a post
 	-- from Blizzard's own Sell window, and its popup is the player's to answer.
@@ -463,7 +359,7 @@ ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 	if ah.waits.post and lastArgs then
 		ah.confirm = { key = ah.waits.post.key, args = lastArgs }
 	end
-	closeBlizzardWarning()
+	Blizzard.closeWarning()
 	ah.waits.post = nil
 	if ah.panel and ah.panel.post.note then
 		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
@@ -738,7 +634,7 @@ local function searchEntry(e, open)
 	end
 	local key = C_AuctionHouse.MakeItemKey(e.itemId)
 	if open then
-		browse(key)
+		Blizzard.browse(key)
 	end
 	local sorts = { { sortOrder = Enum.AuctionHouseSortOrder and Enum.AuctionHouseSortOrder.Price or 0, reverseSort = false } }
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
@@ -1110,7 +1006,7 @@ local function buildCancel(page)
 	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut.", itemId = function(r) return r.itemID end,
 		-- A click shows the item's listings in Blizzard's window (manual test run 001).
 		onRowClick = function(r)
-			browse(r.itemKey)
+			Blizzard.browse(r.itemKey)
 		end })
 	tbl:SetPoint("TOPLEFT", 0, -40)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
@@ -2003,11 +1899,8 @@ local function build()
 		end
 		p.tab = key
 		bindSpace(p)
-		local b = not fromBlizzard and AuctionHouseFrame and AuctionHouseFrame[BLIZZARD_TAB[key] or ""]
-		if b and b.Click and b:IsShown() and tabForMode(blizzardMode()) ~= key then
-			following = true
-			ns.safely("auction tab", b.Click, b)
-			following = false
+		if not fromBlizzard then
+			Blizzard.showTab(key)
 		end
 		refresh()
 	end
@@ -2128,7 +2021,6 @@ local function reread()
 end
 
 local ticker
-local hooked = false
 -- Beside the auction house, its height.
 local function anchor()
 	if ah.panel and AuctionHouseFrame then
@@ -2157,15 +2049,11 @@ show = function(redrawn)
 		build()
 	end
 	-- Blizzard's tab chosen there switches the panel to its own.
-	if not hooked and AuctionHouseFrame.SetDisplayMode and hooksecurefunc then
-		hooked = true
-		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, mode)
-			local key = not following and tabForMode(mode)
-			if key and ah.panel and ah.panel:IsShown() and ah.panel.tab ~= key then
-				ns.safely("auction tab", ah.panel.select, key, true)
-			end
-		end)
-	end
+	Blizzard.followTabs(function(key)
+		if ah.panel and ah.panel:IsShown() and ah.panel.tab ~= key then
+			ns.safely("auction tab", ah.panel.select, key, true)
+		end
+	end)
 	anchor()
 	ah.panel:Show()
 	-- Again a frame later: built in the frame the auction house opens, some of its widgets were never
@@ -2176,7 +2064,7 @@ show = function(redrawn)
 	-- 2026-10-24); else on Blizzard's tab.
 	if redrawn ~= true then
 		local st = ns.scanState and ns.scanState()
-		local key = st and st.wait == 0 and st.phase == "idle" and "scan" or tabForMode(blizzardMode())
+		local key = st and st.wait == 0 and st.phase == "idle" and "scan" or Blizzard.tabForMode(Blizzard.mode())
 		if key and key ~= ah.panel.tab then
 			ah.panel.select(key, true)
 		end
