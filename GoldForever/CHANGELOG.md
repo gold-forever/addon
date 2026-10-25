@@ -1,5 +1,11 @@
 # Gold Forever
 
+## Unreleased
+
+- **Text takes the same room in every look.** Web and Arcane size their text so a line is as wide as in
+  Classic, measured in game against Friz Quadrata at login. The Scan tab's "Scan when I open the auction
+  house" no longer runs out of the panel in Web.
+
 ## 0.16.0 (2026-10-25)
 
 The auction house tools and a new window. Gold Forever gets a panel beside the auction house (scan, post,

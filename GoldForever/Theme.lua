@@ -237,6 +237,63 @@ Theme.accents = {
 	{ hex = "#a77bff", label = "Violet" },
 }
 
+-- Text takes the same room in every look as in Classic, so a layout tested in one look fits in all of them
+-- (the Windows test, 2026-10-25: the Scan tab's switch label ran out of the panel in Web). Each look's fonts
+-- are measured against Friz Quadrata on a sample line, in game, once Looks.lua allows it at login (an addon
+-- font measured earlier may not be loaded yet); each size is Classic's scaled by the narrower of the regular
+-- and medium ratios, rounded down so it is never wider. Without a measurement a look keeps its own sizes.
+local SAMPLE = "Scan when I open the auction house: 1,234 listings, 56g 78s"
+local PROBE_SIZE = 32
+Theme.canMeasure = false
+local probe
+local sameRoom = {}
+
+local function widthOf(file)
+	if not CreateFrame then
+		return nil
+	end
+	if not probe then
+		local frame = CreateFrame("Frame", nil, UIParent)
+		frame:Hide()
+		probe = frame:CreateFontString(nil, "OVERLAY")
+	end
+	if probe:SetFont(file, PROBE_SIZE, "") == false then
+		return nil
+	end
+	probe:SetText(SAMPLE)
+	local w = probe:GetStringWidth()
+	return w and w > 0 and w or nil
+end
+
+-- A look's text sizes taking Classic's room, or nil when its fonts cannot be measured.
+local function classicRoom(skin)
+	local classic = Theme.skins.classic
+	if skin == classic or not Theme.canMeasure then
+		return nil
+	end
+	if sameRoom[skin.name] == nil then
+		local ratio
+		for _, field in ipairs({ "font", "fontMedium" }) do
+			local ref, own = widthOf(classic[field]), widthOf(skin[field])
+			if not ref or not own then
+				ratio = nil
+				break
+			end
+			ratio = math.min(ratio or math.huge, ref / own)
+		end
+		local text = false
+		-- Outside half to double, a font fell back to another and the measurement means nothing.
+		if ratio and ratio >= 0.5 and ratio <= 2 then
+			text = {}
+			for k, v in pairs(classic.text) do
+				text[k] = math.max(1, math.floor(v * ratio))
+			end
+		end
+		sameRoom[skin.name] = text
+	end
+	return sameRoom[skin.name] or nil
+end
+
 -- Puts a look's tokens into Theme.color and Theme.text and makes it Theme.skin. Unknown names get the
 -- web look. An `accent` ("#rrggbb") goes over the look's own: lighter for its strong shade, mixed into
 -- the background for its soft one.
@@ -245,8 +302,9 @@ function Theme.apply(name, accent)
 	for k, v in pairs(BASE_COLOR) do
 		Theme.color[k] = skin.color[k] or v
 	end
+	local text = classicRoom(skin) or skin.text
 	for k, v in pairs(BASE_TEXT) do
-		Theme.text[k] = skin.text[k] or v
+		Theme.text[k] = text[k] or v
 	end
 	if accent and string.match(accent, "^#%x%x%x%x%x%x$") then
 		local own, ownStrong = Theme.color.accent, Theme.color.accentStrong
