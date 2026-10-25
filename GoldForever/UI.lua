@@ -36,6 +36,20 @@ function UI.layout.columnWidths(columns, total)
 	return widths
 end
 
+-- The column a saved order names: by its key, so a column moved keeps the order (review B-42); an
+-- order saved before by index alone, by that index. nil when the column is gone.
+function UI.layout.sortColumn(columns, saved)
+	if saved.key ~= nil then
+		for i, c in ipairs(columns) do
+			if c.key == saved.key then
+				return i
+			end
+		end
+		return nil
+	end
+	return columns[saved.column or 0] and saved.column or nil
+end
+
 -- Rows sorted by a column's `sort` value (or its key), descending when asked; ties keep their order.
 function UI.layout.sortRows(rows, column, descending)
 	local value = column.sort or function(row)
@@ -1239,8 +1253,9 @@ function UI.Table(parent, columns, opts)
 	-- (Remove, Edit lists, the Sell box, the craft queue's buttons) was now and then never placed and not
 	-- drawn until the panel was shown again (manual test run 001).
 	t:SetHeight(ROW + 2 + t.size * ROW + 24)
-	if opts.sort and columns[opts.sort.column] then
-		t.sortColumn, t.sortDescending = opts.sort.column, opts.sort.descending
+	local saved = opts.sort and UI.layout.sortColumn(columns, opts.sort)
+	if saved then
+		t.sortColumn, t.sortDescending = saved, opts.sort.descending
 	end
 	t.header = CreateFrame("Frame", nil, t)
 	t.header:SetPoint("TOPLEFT", 1, -1)
@@ -1269,7 +1284,7 @@ function UI.Table(parent, columns, opts)
 			t.sortDescending = t.sortColumn == i and not t.sortDescending or (t.sortColumn ~= i and c.align == "RIGHT")
 			t.sortColumn = i
 			if opts.sort then
-				opts.sort.column, opts.sort.descending = i, t.sortDescending
+				opts.sort.column, opts.sort.key, opts.sort.descending = i, c.key, t.sortDescending
 			end
 			t.page = 1
 			t:Refresh()
