@@ -194,24 +194,7 @@ local function price(r, s)
 		-- The rule: an override for the item, or its category, over the default.
 		local _, _, class = ns.price.itemInfo(r.id)
 		local postRule, from = Post.resolve(s.rule, s.overrides, r.id, class)
-		if market then
-			r.suggestion = Post.suggest(postRule, market, r.cheapest)
-			-- Held under the floor: what undercutting would ask anyway, for Post anyway (owner's answer,
-			-- 2026-10-24).
-			if r.suggestion.reason == "hold" and r.cheapest then
-				local loose = {}
-				for k, x in pairs(postRule) do
-					loose[k] = x
-				end
-				loose.floor = 1
-				r.anyway = Post.suggest(loose, market, r.cheapest).unit
-			end
-		elseif r.cheapest then
-			-- No market value: the cheapest other listing stands in for it.
-			r.suggestion = Post.suggest(postRule, r.cheapest, r.cheapest)
-		else
-			r.suggestion = nil
-		end
+		r.suggestion, r.anyway = Post.advise(postRule, market, r.cheapest)
 		if r.suggestion and from ~= "default" then
 			r.suggestion.label = (Post.REASONS[r.suggestion.reason] or "") .. (from == "item" and " (item rule)" or " (category rule)")
 		end
@@ -1278,18 +1261,10 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction cancel", searched)
 
 -- The owned auctions undercut past the tolerance, most undercut first.
 local function undercut()
-	local out = {}
 	for _, a in ipairs(owned) do
-		local other = cheapestFor(a)
-		a.cheapest, a.under = other, Post.undercutPct(a.unit, other)
-		if a.under > tolerance() then
-			out[#out + 1] = a
-		end
+		a.cheapest = cheapestFor(a)
 	end
-	table.sort(out, function(x, y)
-		return x.under > y.under
-	end)
-	return out
+	return Post.undercutList(owned, tolerance())
 end
 
 local function cancelNext()

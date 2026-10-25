@@ -71,6 +71,41 @@ function Post.suggest(rule, market, cheapest)
 	return { unit = nil, reason = "hold", floor = floor, normal = normal }
 end
 
+-- What Sell suggests from a rule, the market value and the cheapest other listing (nil: nobody): the
+-- suggestion, nil with neither price (with no market value the cheapest stands in for it); and for one
+-- held under the floor, what undercutting would ask anyway (Post anyway, owner's answer, 2026-10-24).
+function Post.advise(rule, market, cheapest)
+	if not market then
+		return cheapest and Post.suggest(rule, cheapest, cheapest) or nil, nil
+	end
+	local s = Post.suggest(rule, market, cheapest)
+	if s.reason ~= "hold" or not cheapest then
+		return s, nil
+	end
+	local loose = {}
+	for k, x in pairs(rule or Post.DEFAULT) do
+		loose[k] = x
+	end
+	loose.floor = 1
+	return s, Post.suggest(loose, market, cheapest).unit
+end
+
+-- Cancel undercut: the auctions { unit, cheapest } undercut by more than `tolerance` percent, most
+-- undercut first; each auction's `under` is set on the way.
+function Post.undercutList(auctions, tolerance)
+	local out = {}
+	for _, a in ipairs(auctions) do
+		a.under = Post.undercutPct(a.unit, a.cheapest)
+		if a.under > tolerance then
+			out[#out + 1] = a
+		end
+	end
+	table.sort(out, function(x, y)
+		return x.under > y.under
+	end)
+	return out
+end
+
 -- What a rule does, as four sentences for an item worth `market` (10g unless given): someone a little
 -- under the market, no one else, someone far under (past the floor), someone far over. money(copper)
 -- formats an amount.

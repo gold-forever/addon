@@ -64,6 +64,22 @@ eq(kept[1].unitPrice, 1000, "the sale plan's guard agrees")
 eq(P.honestCheapest({ lv(500, 1) }, 2000), nil, "a few units far under the market: none to react to")
 eq(P.honestCheapest({ lv(500, 1) }), 500, "no market: kept")
 
+-- What Sell suggests (Post.advise): the rule's suggestion; held under the floor, what undercutting would
+-- ask anyway; with no market value, the cheapest stands in for it; with neither, nothing.
+local sug, anyway = P.advise(rule, 10000, 9550)
+eq(sug.reason .. sug.unit .. ":" .. tostring(anyway), "undercut9400:nil", "undercut, nothing held")
+sug, anyway = P.advise(rule, 10000, 7000)
+eq(sug.reason .. ":" .. anyway, "hold:6900", "held under the floor, a silver under 70s anyway")
+sug, anyway = P.advise(rule, nil, 5000)
+eq(sug.reason .. sug.unit, "undercut4900", "no market value: the cheapest stands in")
+eq(P.advise(rule, nil, nil), nil, "neither: no suggestion")
+eq(P.advise(rule, 10000, nil).reason, "alone", "nobody else")
+
+-- Cancel undercut's list: past the tolerance, most undercut first.
+local list = P.undercutList({ { id = 1, unit = 2100, cheapest = 1900 }, { id = 2, unit = 1000, cheapest = 990 }, { id = 3, unit = 1000, cheapest = 800 }, { id = 4, unit = 500 } }, 5)
+eq(#list .. ":" .. list[1].id .. list[2].id, "2:31", "the 20% then the 9.5%; 1% and none left out")
+eq(list[1].under, 20, "its under set")
+
 -- Overrides: an item's over its category's over the default; only the fields an override holds change.
 local base = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" }
 local overrides = { items = { [2589] = { floor = 50 } }, classes = { [7] = { undercut = "5%", normal = 150 } } }
