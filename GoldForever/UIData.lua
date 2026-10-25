@@ -128,6 +128,28 @@ end
 
 -- Table ----------------------------------------------------------------------------------------------------
 
+-- What overflowTip gives, as tooltip lines: each column's title, its full text under it.
+local function addParts(parts)
+	for _, part in ipairs(parts or {}) do
+		GameTooltip:AddLine(part.title, Theme.rgb(Theme.color.textMuted))
+		for _, text in ipairs(part.lines) do
+			GameTooltip:AddLine(text, 1, 1, 1, true)
+		end
+	end
+end
+
+-- An item's own tooltip at the right of `owner`, with `parts` (overflowTip's) under it.
+function UI.itemTip(owner, id, parts)
+	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+	if GameTooltip.SetItemByID then
+		GameTooltip:SetItemByID(id)
+	else
+		GameTooltip:SetHyperlink("item:" .. id)
+	end
+	addParts(parts)
+	GameTooltip:Show()
+end
+
 -- Whether a cell's text is cut short: the client's own answer where it has one, else the text's
 -- full width against the cell's.
 local function clipped(cell)
@@ -252,31 +274,14 @@ function UI.Table(parent, columns, opts)
 			-- run 001: hovering an item should show it).
 			local id = opts.itemId and opts.itemId(self.row)
 			if id and GameTooltip then
-				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-				if GameTooltip.SetItemByID then
-					GameTooltip:SetItemByID(id)
-				else
-					GameTooltip:SetHyperlink("item:" .. id)
-				end
-				for _, part in ipairs(tip) do
-					GameTooltip:AddLine(part.title, Theme.rgb(Theme.color.textMuted))
-					for _, text in ipairs(part.lines) do
-						GameTooltip:AddLine(text, 1, 1, 1, true)
-					end
-				end
-				GameTooltip:Show()
+				UI.itemTip(self, id, tip)
 				return
 			end
 			if #tip == 0 or not GameTooltip then
 				return
 			end
 			GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-			for _, part in ipairs(tip) do
-				GameTooltip:AddLine(part.title, Theme.rgb(Theme.color.textMuted))
-				for _, text in ipairs(part.lines) do
-					GameTooltip:AddLine(text, 1, 1, 1, true)
-				end
-			end
+			addParts(tip)
 			GameTooltip:Show()
 		end)
 		l:SetScript("OnLeave", function()

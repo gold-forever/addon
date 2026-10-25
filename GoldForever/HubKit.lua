@@ -77,13 +77,7 @@ end
 function Kit.itemTooltip(frame)
 	frame:SetScript("OnEnter", function(self)
 		if self.itemId and GameTooltip then
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			if GameTooltip.SetItemByID then
-				GameTooltip:SetItemByID(self.itemId)
-			else
-				GameTooltip:SetHyperlink("item:" .. self.itemId)
-			end
-			GameTooltip:Show()
+			UI.itemTip(self, self.itemId)
 		end
 	end)
 	frame:SetScript("OnLeave", function()
