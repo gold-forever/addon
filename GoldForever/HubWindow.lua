@@ -33,7 +33,8 @@ local SIDE, HERO, FOOT, PAD = 236, 118, 56, 28
 -- with Reload UI and Close; the addon's memory and CPU at the sidebar's foot. Drag it by any bare part;
 -- Escape closes it. pages = { { key, label, icon, group, title, lede, build = function(content) } }: a
 -- page is built the first time it is shown. Its position, page and scale are kept in `store`.
--- opts: width, height, version, look (the look's label for the footer), onReload.
+-- opts: width, height, version, look (the look's label for the footer), onReload, and extra = { label,
+-- onClick, shown }: a footer button beside Reload UI while shown() is true.
 function UI.Window(name, title, pages, store, opts)
 	opts = opts or {}
 	local skin = Theme.skin
@@ -149,12 +150,14 @@ function UI.Window(name, title, pages, store, opts)
 			end)
 		end
 	end
+	local footer -- the footer's buttons and note, laid out below
 	-- Opened again: the page in view shows what changed while it was closed (manual test run 001).
 	-- w.opening: shown to open on another page, which its SelectPage refreshes; the page it showed
 	-- last is not refreshed first (review C-18).
 	w:SetScript("OnShow", function()
 		w:Raise()
 		started()
+		footer()
 		local page = not w.opening and w.pages and w.pages[store.page]
 		if page and page.Refresh then
 			ns.safely("ui " .. store.page, page.Refresh, page)
@@ -235,12 +238,26 @@ function UI.Window(name, title, pages, store, opts)
 		end
 	end, { width = 130, height = 30 })
 	reload:SetPoint("BOTTOMLEFT", SIDE + PAD, 13)
+	local extra = opts.extra and UI.Button(w, opts.extra.label, opts.extra.onClick, { width = 130, height = 30 })
+	if extra then
+		extra:SetPoint("LEFT", reload, "RIGHT", 8, 0)
+	end
 	local note = UI.Text(w, (opts.look and ("Look: " .. opts.look .. " · ") or "") .. "gold-forever.app", { size = "xs", tone = "faint", align = "CENTER" })
-	note:SetPoint("BOTTOM", SIDE / 2, 22)
 	local done = UI.Button(w, "Close", function()
 		w:Hide()
 	end, { kind = "primary", width = 130, height = 30 })
 	done:SetPoint("BOTTOMRIGHT", -PAD - inset, 13)
+	-- The extra button shows only while opts.extra.shown() says so; the note keeps to the space between.
+	footer = function()
+		local show = extra and opts.extra.shown()
+		if extra then
+			extra:SetShown(show and true or false)
+		end
+		note:ClearAllPoints()
+		note:SetPoint("LEFT", show and extra or reload, "RIGHT", 8, 0)
+		note:SetPoint("RIGHT", done, "LEFT", -8, 0)
+	end
+	footer()
 
 	-- The sidebar's rows: a heading per group, a row per page; the search hides and restacks them.
 	w.pages, w.items, w.heads = {}, {}, {}

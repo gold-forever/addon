@@ -36,7 +36,7 @@ local function copied()
 end
 
 local function build()
-	frame = UI.Dialog({ name = "GoldForeverExport", width = 560, height = 190, at = { "CENTER" }, strata = "DIALOG", movable = true,
+	frame = UI.Dialog({ name = "GoldForeverExport", width = 560, height = 206, at = { "CENTER" }, strata = "DIALOG", movable = true,
 		title = "Gold Forever export" })
 	-- Closed, copied or not: nothing more counts as sent, and the string and what it held are let go
 	-- (review B-26): a big save's export is megabytes of text, kept till the next export otherwise.
@@ -86,6 +86,11 @@ local function build()
 		frame:Hide()
 	end)
 	close:SetPoint("BOTTOMRIGHT", -16, 14)
+	local auto = UI.Text(frame, "The companion app does this for you: it uploads your save at every /reload and logout. gold-forever.app/companion",
+		{ size = "xs", tone = "faint", wrap = true })
+	auto:SetPoint("LEFT", frame, "LEFT", 16, 0)
+	auto:SetPoint("RIGHT", close, "LEFT", -12, 0)
+	auto:SetPoint("BOTTOM", close, "BOTTOM", 0, 0)
 end
 
 local function show(text, picked, now)
