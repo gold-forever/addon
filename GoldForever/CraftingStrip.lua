@@ -175,11 +175,14 @@ local function show()
 	strip:ClearAllPoints()
 	strip:SetPoint("TOPLEFT", host(), "TOPRIGHT", 6, 0)
 	strip:Show()
-	recipeID = recipeID or shownRecipe()
+	-- The recipe this window shows first: one kept from the last window would name another profession's
+	-- (review B-27).
+	recipeID = shownRecipe() or recipeID
 	refresh()
 end
 
 local function hide()
+	recipeID = nil
 	if strip then
 		strip:Hide()
 	end
@@ -201,11 +204,14 @@ if EventRegistry and EventRegistry.RegisterCallback then
 	end, ns)
 end
 
--- For the smoke test: choose a recipe as the profession window would.
+-- For the smoke test: choose a recipe as the profession window would, or open as with the window.
 ns.CraftingStrip = {
 	select = function(id)
 		recipeID = id
 		refresh()
+	end,
+	open = function()
+		show()
 	end,
 	shown = function()
 		return strip and strip:IsShown() and strip.title:GetText()

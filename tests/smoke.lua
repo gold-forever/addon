@@ -717,6 +717,13 @@ do
   assert(title and title:find("Bolt of Linen Cloth", 1, true), "the strip names the recipe's item: " .. tostring(title))
   fire("TRADE_SKILL_CLOSE")
   assert(not ns.CraftingStrip.shown(), "and closes with the window")
+  -- Another profession's window next, showing a recipe of its own: that one, not the last window's
+  -- (review B-27). Opened as TRADE_SKILL_SHOW opens it, without the recipe read the event also starts.
+  ProfessionsFrame = widget({ CraftingPage = { SchematicForm = { GetRecipeInfo = function() return { recipeID = 99999 } end } } })
+  ns.CraftingStrip.open()
+  title = ns.CraftingStrip.shown()
+  assert(title and not title:find("Bolt of Linen Cloth", 1, true), "the strip follows the window's own recipe: " .. tostring(title))
+  fireNow("TRADE_SKILL_CLOSE")
   ProfessionsFrame = nil
 end
 -- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
