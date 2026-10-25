@@ -24,7 +24,7 @@ local function buildRares(page)
 		{ key = "how", title = "How", width = 80, color = function() return Theme.color.textFaint end },
 		{ key = "value", title = "A loot", width = 90, align = "RIGHT", text = function(r) return r.value and UI.layout.amount(r.value) or "—" end,
 			sort = function(r) return r.value or -1 end },
-	}, { pageSize = 14, empty = "No rare seen yet: they are logged when a nameplate, the target or the minimap shows one.", sort = sortOf("rares", 3) })
+	}, { pageSize = 14, empty = "No rare seen yet: they are logged when a nameplate, the target or the minimap shows one.", sort = sortOf("rares", "last") })
 	tbl:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -10)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()

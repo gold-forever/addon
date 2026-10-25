@@ -15,12 +15,12 @@ function Kit.settings()
 	return ns.settings("window", {})
 end
 
--- A page's table order, saved with the window: the column and direction last picked, at first the given
--- column, highest first.
-function Kit.sortOf(page, column)
+-- A page's table order, saved with the window: the column and direction last picked, at first the column
+-- with the given key, highest first. By its key, so a column added or moved keeps it (review B-42).
+function Kit.sortOf(page, key)
 	local s = Kit.settings()
 	s.sort = s.sort or {}
-	s.sort[page] = s.sort[page] or { column = column, descending = true }
+	s.sort[page] = s.sort[page] or { key = key, descending = true }
 	return s.sort[page]
 end
 

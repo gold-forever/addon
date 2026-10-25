@@ -42,7 +42,7 @@ local function buildLedger(page)
 		{ key = "gained", title = "In", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.gained) end },
 		{ key = "spent", title = "Out", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.spent) end },
 		{ key = "net", title = "Net", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.net) end },
-	}, { pageSize = 8, empty = "No money has moved yet.", sort = sortOf("ledger", 5) })
+	}, { pageSize = 8, empty = "No money has moved yet.", sort = sortOf("ledger", "net") })
 	tbl:SetPoint("TOPLEFT", gained, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -90,7 +90,7 @@ local function buildCharacters(page)
 		{ key = "money", title = "Gold", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.money, "gold") end },
 		{ key = "seen", title = "Seen", width = 80, align = "RIGHT", text = function(r) return r.online and "now" or Views.ago(r.seen, ns.now()) end,
 			color = function() return Theme.color.textMuted end },
-	}, { pageSize = 10, empty = "No characters yet.", sort = sortOf("characters", 4) })
+	}, { pageSize = 10, empty = "No characters yet.", sort = sortOf("characters", "restedLevels") })
 	tbl:SetPoint("TOPLEFT", gold, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()

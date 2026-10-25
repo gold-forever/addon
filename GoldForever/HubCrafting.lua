@@ -51,7 +51,7 @@ local function buildCrafting(page)
 		pageSize = 8,
 		empty = "No priced recipe yet: open your professions once, and scan the auction house.",
 		itemId = function(r) return r.q and r.q.recipe and r.q.recipe.output end,
-		sort = sortOf("crafting", 4),
+		sort = sortOf("crafting", "profit"),
 		isSelected = function(r) return chosen and r.id == chosen end,
 		onRowClick = function(r)
 			chosen = r.id

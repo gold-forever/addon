@@ -137,7 +137,7 @@ local function buildLevelling(page)
 		{ key = "money", title = "Gold when reached", flex = 1, align = "RIGHT", text = function(r) return r.money and UI.layout.amount(r.money) or Theme.escape(Theme.color.textFaint) .. "—|r" end },
 		{ key = "reached", title = "Reached", flex = 1, align = "RIGHT", text = function(r) return r.reached and Views.ago(r.reached, ns.now()) or Theme.escape(Theme.color.textFaint) .. "—|r" end,
 			color = function() return Theme.color.textMuted end },
-	}, { pageSize = 6, empty = "No level-ups recorded yet.", sort = sortOf("levelling", 1) })
+	}, { pageSize = 6, empty = "No level-ups recorded yet.", sort = sortOf("levelling", "level") })
 	tbl:SetPoint("TOPLEFT", mix, "BOTTOMLEFT", 0, -16)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
@@ -192,7 +192,7 @@ local function buildMobs(page)
 		{ key = "loots", title = "Looted", width = 70, align = "RIGHT" },
 		{ key = "coin", title = "Coin a loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.coin) end, sort = function(r) return r.coin end },
 		{ key = "value", title = "A loot", width = 100, align = "RIGHT", text = function(r) return UI.layout.amount(r.value) end, sort = function(r) return r.value end },
-	}, { pageSize = 13, empty = "No loot recorded yet.", sort = sortOf("mobs", 4) })
+	}, { pageSize = 13, empty = "No loot recorded yet.", sort = sortOf("mobs", "value") })
 	tbl:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()

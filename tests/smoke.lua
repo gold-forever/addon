@@ -1906,6 +1906,11 @@ for _, look in ipairs({ "classic", "arcane", "web" }) do
     assert(settingsPage[tab].built, "Settings tab drawn: " .. tab)
   end
 end
+-- A table's first order is saved by its column's key, which a column added or moved keeps (review B-42).
+do
+  local sort = GoldForeverDB.settings.window.sort
+  assert(sort.mobs.key == "value" and sort.characters.key == "restedLevels" and sort.crafting.key == "profit", "the first orders are saved by key")
+end
 -- Settings shows each switch as it is now: the HUD switched by /gf hud, Settings opened again.
 do
   SlashCmdList.GOLDFOREVER("ui settings")
