@@ -3,7 +3,7 @@
 local _, ns = ...
 local Theme, UI = ns.Theme, ns.UI
 local settings = ns.auctionSettings
-local lists, stamp = ns.Lists.lists, ns.Lists.stamp
+local lists, stamp, choose = ns.Lists.lists, ns.Lists.stamp, ns.Lists.choose
 local money = ns.Money.auction
 
 -- Shopping lists, a page of the hub (owner's answers, 2026-10-24, manual test run 001: the Buy tab had
@@ -23,6 +23,10 @@ local function buildLists(page)
 	-- Left: the lists.
 	local head = UI.Text(page, "LISTS", { size = "xs", medium = true, tone = "faint" })
 	head:SetPoint("TOPLEFT")
+	local function chooseRow(r)
+		s.list, chosenItem = r.index, nil
+		page:Refresh()
+	end
 	local listTable = UI.Table(page, {
 		{ key = "name", title = "List", flex = 1, color = function(r) return r.generated and Theme.color.textMuted or Theme.color.text end },
 		{ key = "n", title = "Items", width = 44, align = "RIGHT" },
@@ -30,10 +34,7 @@ local function buildLists(page)
 		pageSize = 8,
 		rowHeight = 24,
 		isSelected = function(r) return r.index == s.list end,
-		onRowClick = function(r)
-			s.list, chosenItem = r.index, nil
-			page:Refresh()
-		end,
+		onRowClick = chooseRow,
 	})
 	listTable:SetPoint("TOPLEFT", 0, -18)
 	listTable:SetWidth(LEFT)
@@ -65,7 +66,8 @@ local function buildLists(page)
 	local newList = UI.Button(page, "New", function()
 		local mine = lists()
 		mine[#mine + 1] = stamp({ name = "List " .. (#mine + 1), entries = {} })
-		s.list, chosenItem = #mine, nil
+		choose(mine[#mine])
+		chosenItem = nil
 		page:Refresh()
 		name:SetFocus()
 		name:HighlightText()
@@ -89,7 +91,7 @@ local function buildLists(page)
 			s.removedShared[list.id] = ns.now()
 		end
 		table.remove(mine, i)
-		s.list, chosenItem = math.max(1, i - 1), nil
+		s.list, chosenItem = math.max(1, s.list - 1), nil
 		page.note:SetText("Deleted.")
 		page:Refresh()
 	end, { width = 70, height = 26 })
@@ -201,10 +203,16 @@ local function buildLists(page)
 			return
 		end
 		local mine = lists()
+		-- One character's list is imported for the character importing it (owner, 2026-10-25).
+		local me = UnitGUID and ns.readable(UnitGUID("player"))
 		for _, l in ipairs(got) do
+			if l.character then
+				l.character = me
+			end
 			mine[#mine + 1] = stamp(l)
 		end
-		s.list, chosenItem = #mine, nil
+		choose(mine[#mine])
+		chosenItem = nil
 		field:SetText("")
 		field:ClearFocus()
 		page.note:SetText(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"))
@@ -213,7 +221,7 @@ local function buildLists(page)
 	importButton:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -8)
 	exportButton = UI.Button(page, "Export", function()
 		local _, list = lists()
-		field:SetText(ns.Shopping.encode({ { name = list.name, entries = list.entries } }))
+		field:SetText(ns.Shopping.encode({ { name = list.name, character = list.character, entries = list.entries } }))
 		field:SetFocus()
 		field:HighlightText()
 		page.note:SetText("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.")
@@ -375,7 +383,7 @@ local function buildLists(page)
 		end
 	end
 	-- For the smoke test: its controls.
-	page.controls = { new = newList, delete = delete, name = name, import = importButton, export = exportButton, field = field,
+	page.controls = { lists = listTable, choose = function(i) chooseRow({ index = i }) end, new = newList, delete = delete, name = name, import = importButton, export = exportButton, field = field,
 		remove = removeItem, setPrice = function(kind, text) setPrice(kind, text) end, setMany = setMany, rename = renameTo }
 	ns.listsPage = page
 end

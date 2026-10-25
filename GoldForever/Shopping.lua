@@ -128,11 +128,14 @@ function Shopping.line(e)
 	return "item " .. e.itemId .. " " .. price .. (e.upTo and (" upto " .. e.upTo) or "")
 end
 
--- The lists as plain lines: "list <name>", then an entry's line each.
+-- The lists as plain lines: "list <name>", "for <GUID>" when it is one character's, then an entry's line each.
 function Shopping.text(lists)
 	local lines = {}
 	for _, l in ipairs(lists) do
 		lines[#lines + 1] = "list " .. l.name
+		if l.character then
+			lines[#lines + 1] = "for " .. l.character
+		end
 		for _, e in ipairs(l.entries) do
 			lines[#lines + 1] = Shopping.line(e)
 		end
@@ -145,6 +148,7 @@ function Shopping.encode(lists)
 end
 
 -- Reads a list string someone shared: untrusted, so bounded and stripped of the game's "|" escapes.
+-- A line it does not know is skipped (a later format may add some); a known line that is wrong refuses it.
 -- Returns lists, or nil and what is wrong.
 function Shopping.decode(input)
 	local s = string.match(input or "", "^%s*(.-)%s*$")
@@ -166,13 +170,21 @@ function Shopping.decode(input)
 			local function bad()
 				return nil, string.format("Line %d is not understood: \"%s\"", n, string.sub(line, 1, 60))
 			end
-			if string.sub(line, 1, 5) == "list " then
+			local word = string.match(line, "^(%S+)")
+			if word == "list" then
 				if #lists >= MAX_LISTS then
 					return nil, "More than " .. MAX_LISTS .. " lists"
 				end
 				local name = string.match(string.sub(string.gsub(string.sub(line, 6), "|", ""), 1, 40), "^%s*(.-)%s*$")
 				lists[#lists + 1] = { name = name ~= "" and name or "Unnamed", entries = {} }
-			else
+			elseif word == "for" then
+				-- One character's list, by its GUID as the game writes it: "Player-<server id>-<8 hex digits>".
+				local list, server, hex = lists[#lists], string.match(line, "^for Player%-(%d+)%-([0-9A-F]+)$")
+				if not list or list.character or not server or #server > 5 or #hex ~= 8 then
+					return bad()
+				end
+				list.character = string.sub(line, 5)
+			elseif word == "item" then
 				local id, rest = string.match(line, "^item (%d+) (.+)$")
 				local list = lists[#lists]
 				if not id or not list or #id > 8 then
@@ -221,9 +233,15 @@ function Shopping.decode(input)
 				end
 				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit, pct = pct, lowest = lowest, upTo = upTo }
 			end
+			-- Any other line is one a later format added: skipped, so it cannot break the lists around it.
 		end
 	end
 	return lists
+end
+
+-- Whether a list shows for the character with this GUID: one for every character (no `character`), or its own.
+function Shopping.forCharacter(list, guid)
+	return list.character == nil or (guid ~= nil and list.character == guid)
 end
 
 -- What the Shop's field holds: an item (a shift-clicked link, or an ID typed) and, after it, a price in

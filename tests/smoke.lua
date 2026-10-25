@@ -1405,6 +1405,55 @@ do
     assert(#mine == before, "the second deletes")
     SlashCmdList.GOLDFOREVER("ui")
   end
+  -- The logged-in character's lists (addon#14): every character's and its own, not another's; the craft
+  -- queue's always. Both the Buy tab and the Shopping lists page.
+  do
+    local auction = GoldForeverDB.settings.auction
+    local keep, keepList = auction.lists, auction.list
+    local me = UnitGUID("player")
+    auction.lists = { { id = "e1", name = "Everyone", entries = {} }, { id = "o1", name = "Alt's", character = "Player-4620-0FFFFFFF", entries = {} },
+      { id = "m1", name = "Mine", character = me, entries = {} } }
+    auction.list = 1
+    if not next(ns.queueNeeds()) then ns.queueAdd(2963, 3) end
+    local function names(shown)
+      local out = {}
+      for i, l in ipairs(shown) do out[i] = l.name end
+      return table.concat(out, "|")
+    end
+    local expected = "Everyone|Mine|Craft queue"
+    assert(names(select(3, ns.Lists.lists())) == expected, "this character's lists: " .. names(select(3, ns.Lists.lists())))
+    ns.AuctionPanel.tab("shop")
+    ns.auctionRefresh()
+    local pick, labels = ns.ah.panel.shop.listPick, {}
+    for i, row in ipairs(pick.menu.rows) do
+      if i <= 3 then labels[i] = row.text.text end
+    end
+    assert(table.concat(labels, "|") == expected and not (pick.menu.rows[4] and pick.menu.rows[4]:IsShown()), "the Buy tab: " .. table.concat(labels, "|"))
+    SlashCmdList.GOLDFOREVER("ui lists")
+    local rows = {}
+    for i, r in ipairs(ns.listsPage.controls.lists.all) do rows[i] = r.name end
+    assert(table.concat(rows, "|") == expected, "the Shopping lists page: " .. table.concat(rows, "|"))
+    -- Chosen on the page, Mine is the one in view; a new list is chosen once made, and for every character.
+    ns.listsPage.controls.choose(2)
+    assert(select(2, ns.Lists.lists()).name == "Mine", "the second row is Mine")
+    ns.listsPage.controls.new.scripts.OnClick(ns.listsPage.controls.new)
+    local made = select(2, ns.Lists.lists())
+    assert(made == auction.lists[4] and made.character == nil, "the new list is in view: " .. tostring(made.name))
+    -- The list in view stays in view through the site merge at login, another character's lists before it.
+    ns.listsPage.controls.choose(2)
+    ns.test.mergeShared()
+    assert(select(2, ns.Lists.lists()).name == "Mine", "Mine still in view after the merge: " .. select(2, ns.Lists.lists()).name)
+    -- Imported here, another character's list becomes this one's (owner, 2026-10-25); every character's stays so.
+    local c = ns.listsPage.controls
+    c.field:SetText(ns.Shopping.encode({ { name = "From an alt", character = "Player-4620-0FFFFFFF", entries = {} }, { name = "Shared", entries = {} } }))
+    c.import.scripts.OnClick(c.import)
+    local n = #auction.lists
+    assert(auction.lists[n - 1].name == "From an alt" and auction.lists[n - 1].character == me, "re-scoped to this character: " .. tostring(auction.lists[n - 1].character))
+    assert(auction.lists[n].name == "Shared" and auction.lists[n].character == nil, "every character's stays every character's")
+    assert(select(2, ns.Lists.lists()) == auction.lists[n], "the last imported in view")
+    SlashCmdList.GOLDFOREVER("ui")
+    auction.lists, auction.list = keep, keepList
+  end
   -- The widget report runs on what the client has.
   ns.AuctionPanel.tab("post")
   SlashCmdList.GOLDFOREVER("uidebug")
@@ -1540,6 +1589,12 @@ do
   local count = #auction.lists
   ns.test.mergeShared()
   assert(#auction.lists == count, "the same file is not merged twice")
+  -- A list for one character keeps its GUID in the save (settings.auction.lists[i].character).
+  GoldForever_Prices.shared = { at = 76, lists = { { id = "s2", edited = 100, string = ns.Shopping.encode({ { name = "Alt's", character = "Player-4620-0FFFFFFF", entries = {} } }) } }, profiles = {} }
+  ns.test.mergeShared()
+  local alt
+  for _, l in ipairs(auction.lists) do if l.id == "s2" then alt = l end end
+  assert(alt and alt.character == "Player-4620-0FFFFFFF", "the site's list for one character, in the save for it")
   -- A list deleted in the game stays deleted, and the site's copies are never taken (manual test run 001:
   -- deleted lists and "(older copy)" lists came back at every reload).
   for i, l in ipairs(auction.lists) do if l.id == "s1" then table.remove(auction.lists, i) end end

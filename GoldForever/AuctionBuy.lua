@@ -159,6 +159,7 @@ local function buildShop(page)
 		end)
 		listPick:SetPoint("TOPLEFT")
 		listPick:SetPoint("RIGHT", buy, "LEFT", -10, 0)
+		page.listPick = listPick
 	end
 	rebuildPick()
 	page.rebuildPick = rebuildPick

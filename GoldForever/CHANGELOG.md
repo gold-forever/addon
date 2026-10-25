@@ -1,5 +1,12 @@
 # Gold Forever
 
+## Unreleased
+
+- **Lists for one character.** A shopping list made for one character on the site shows on that
+  character only, on the Buy tab and the Shopping lists page; other lists, and the craft queue's, show
+  on every character. Importing another character's list makes it yours. A list string with a line Gold Forever does not know yet is still read, that line
+  skipped.
+
 ## 0.16.1 (2026-10-25)
 
 - **Text takes the same room in every look.** Web and Arcane size their text so a line is as wide as in

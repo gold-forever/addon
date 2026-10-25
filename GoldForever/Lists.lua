@@ -19,16 +19,29 @@ function Lists.stamp(item)
 	return item
 end
 
--- The player's lists (saved), and with them, while a sale profile with buy rules is active, the
--- profile's buy list after them (not saved: it is the profile's; "up to" counts what this character holds).
+-- The saved lists the logged-in character sees: those for every character and its own (addon#14).
+local function visible(s)
+	local guid = UnitGUID and ns.readable(UnitGUID("player"))
+	local out = {}
+	for _, l in ipairs(s.lists or {}) do
+		if ns.Shopping.forCharacter(l, guid) then
+			out[#out + 1] = l
+		end
+	end
+	return out
+end
+
+-- The player's lists (saved) this character sees, and with them, while a sale profile with buy rules is
+-- active, the profile's buy list after them (not saved: it is the profile's; "up to" counts what this
+-- character holds). The craft queue's is built here, so it is every character's. s.list is an index into
+-- what is shown.
 function Lists.lists()
 	local s = settings()
-	if not s.lists or #s.lists == 0 then
-		s.lists = { Lists.stamp({ name = "My list", entries = {} }) }
-	end
-	local shown = {}
-	for i, l in ipairs(s.lists) do
-		shown[i] = l
+	s.lists = s.lists or {}
+	local shown = visible(s)
+	if #shown == 0 then
+		shown[1] = Lists.stamp({ name = "My list", entries = {} })
+		s.lists[#s.lists + 1] = shown[1]
 	end
 	local p = s.profile and s.profiles and s.profiles[s.profile]
 	-- The craft queue's missing reagents, at under market value (Crafting page and strip).
@@ -62,6 +75,17 @@ function Lists.lists()
 	end
 	s.list = math.max(1, math.min(s.list or 1, #shown))
 	return s.lists, shown[s.list], shown
+end
+
+-- Puts a list in view, when this character sees it.
+function Lists.choose(list)
+	local _, _, shown = Lists.lists()
+	for i, l in ipairs(shown) do
+		if l == list then
+			settings().list = i
+			return
+		end
+	end
 end
 
 -- After a full scan, its prices in: one chat line naming the list items now listed at or under their price.
@@ -103,8 +127,8 @@ local function mergeShared()
 	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
 	local s = settings()
 	-- The list and profile in use are kept by index: found again once the drop and the merge are done.
-	local before = #(s.lists or {})
-	local listWas = s.list and (s.lists or {})[s.list]
+	local before = #visible(s)
+	local listWas = s.list and visible(s)[s.list]
 	local generated = s.list and s.list > before and s.list - before or nil
 	local profileWas = s.profile and (s.profiles or {})[s.profile]
 	local function restore()
@@ -112,9 +136,9 @@ local function mergeShared()
 			s.profile = ns.Shopping.refind(s.profiles, profileWas)
 		end
 		if listWas then
-			s.list = ns.Shopping.refind(s.lists, listWas) or 1
+			s.list = ns.Shopping.refind(visible(s), listWas) or 1
 		elseif generated then
-			s.list = #(s.lists or {}) + generated
+			s.list = #visible(s) + generated
 		end
 	end
 	-- The "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up),

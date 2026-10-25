@@ -101,6 +101,30 @@ _, err = S.decode(wrap(string.rep("list a\n", 51)))
 eq(err, "More than 50 lists", "a string cannot fill the save with lists")
 eq(S.decode(wrap("list |cffff0000Free|r\nitem 1 market"))[1].name, "cffff0000Freer", "the game's escapes stripped")
 
+-- A list for one character: "for <GUID>" after its list line (gold-forever/gold-forever#13); none, every character.
+local GUID = "Player-1234-0ABC1234"
+local scoped = S.decode(wrap("list Mine\nfor " .. GUID .. "\nitem 1 market\nlist Everyone\nitem 2 market"))
+eq(scoped[1].character, GUID, "the list is for that character")
+eq(scoped[1].entries[1].itemId, 1, "its items read as before")
+eq(scoped[2].character, nil, "a list without a for line: every character")
+eq(S.text({ { name = "Mine", character = GUID, entries = { { itemId = 1 } } } }), "list Mine\nfor " .. GUID .. "\nitem 1 market", "the for line straight after the list line")
+eq(S.decode(S.encode(scoped))[1].character, GUID, "the scope reads back")
+eq((S.decode(wrap("for " .. GUID .. "\nlist a"))), nil, "a for line before any list")
+eq((S.decode(wrap("list a\nfor " .. GUID .. "\nfor " .. GUID))), nil, "two for lines")
+eq((S.decode(wrap("list a\nfor Bob"))), nil, "not a character's GUID")
+eq((S.decode(wrap("list a\nfor Player-1234-0ABC123"))), nil, "seven hex digits")
+eq((S.decode(wrap("list a\nfor Player-123456-0ABC1234"))), nil, "a six-digit server id")
+-- A line it does not know is skipped, the rest read: a later format change cannot break a list again.
+local later = S.decode(wrap("list a\nnote raid on thursday\nitem 1 market\ncolour blue\nlist b\nitem 2 max 5"))
+eq(later and #later .. " " .. #later[1].entries .. " " .. later[2].entries[1].maxUnit, "2 1 5", "unknown lines skipped")
+eq(#S.decode(wrap("version 2\nlist a")), 1, "an unknown line before any list")
+
+-- Which lists show for the logged-in character: its own and every character's.
+eq(S.forCharacter({ name = "a" }, GUID), true, "no scope: every character")
+eq(S.forCharacter({ name = "a", character = GUID }, GUID), true, "this character's")
+eq(S.forCharacter({ name = "a", character = "Player-1234-0ABC9999" }, GUID), false, "another character's")
+eq(S.forCharacter({ name = "a", character = GUID }, nil), false, "no GUID known: only every character's")
+
 -- The Shop's field: a link or an ID, then a price in gold or none.
 local link = "|cffffffff|Hitem:2589::::::::30:::::|h[Linen Cloth]|h|r"
 local id, max = S.parseAdd(link .. " 1.5")
