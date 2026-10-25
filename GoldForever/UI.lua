@@ -1384,7 +1384,11 @@ function UI.Table(parent, columns, opts)
 
 	-- New rows from page 1, or with keepPage on the page shown (a refresh while reading, as a click on a
 	-- row or a ticker does; past the end it is the last page).
+	-- The rows in order, kept until the rows or the order change: a wheel tick or a resize only pages
+	-- (review C-11). New rows are sorted again, even in the same table.
+	local sorted = {}
 	function t:SetRows(rows, keepPage)
+		sorted.all = nil
 		self.all = rows or {}
 		if not keepPage then
 			self.page = 1
@@ -1399,7 +1403,14 @@ function UI.Table(parent, columns, opts)
 			cellPoints(h, i, widths)
 			h.text:SetTextColor(Theme.rgb(self.sortColumn == i and Theme.color.accent or Theme.color.textMuted))
 		end
-		local rows = self.sortColumn and UI.layout.sortRows(self.all, self.columns[self.sortColumn], self.sortDescending) or self.all
+		local rows = self.all
+		if self.sortColumn then
+			if sorted.all ~= self.all or sorted.column ~= self.sortColumn or sorted.descending ~= self.sortDescending then
+				sorted.rows = UI.layout.sortRows(self.all, self.columns[self.sortColumn], self.sortDescending)
+				sorted.all, sorted.column, sorted.descending = self.all, self.sortColumn, self.sortDescending
+			end
+			rows = sorted.rows
+		end
 		local shown = UI.layout.page(rows, self.page, self.size)
 		self.page = shown.page
 		for n = 1, math.max(#self.lines, #shown.rows) do
