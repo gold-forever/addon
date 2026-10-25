@@ -2,6 +2,7 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Shopping.lua"], "@Shopping.lua"))("GoldForever", ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P, E = ns.SalePlan, ns.Encode
 
@@ -44,6 +45,16 @@ s = P.sell(undercut, 260, {}, 2000)
 eq(s.action .. s.reason .. s.unitPrice, "postno-competition2000", "nobody else: market value")
 s = P.sell(undercut, 260, {}, nil)
 eq(s.action .. s.reason, "holdno-price", "no price at all")
+-- The floor is checked after rounding to the auction house's step (review B-14): floor 1650, a copper
+-- under 1661 is 1660, whole silver 1600, under the floor.
+local function silver(c) return math.max(100, math.floor(c / 100) * 100) end
+local tight = { itemID = 1, keep = 0, price = { kind = "undercut", by = 1 }, floorPct = 100 }
+s = P.sell(tight, 10, { lv(1661, 20) }, 1650)
+eq(s.action .. s.unitPrice, "post1660", "unrounded: over the floor")
+s = P.sell(tight, 10, { lv(1661, 20) }, 1650, nil, silver)
+eq(s.action .. s.reason, "holdunder-floor", "rounded to the silver: under the floor, held")
+s = P.sell(tight, 10, { lv(1801, 20) }, 1650, nil, silver)
+eq(s.action .. s.unitPrice, "post1800", "rounded and still over the floor: posted at the rounded price")
 local fixed = { itemID = 1, keep = 0, price = { kind = "fixed", unit = 2000, askIfMovedPct = 15 }, floorPct = 0 }
 s = P.sell(fixed, 20, { lv(1900, 20) }, 2000)
 eq(s.action .. s.reason .. s.unitPrice, "postfixed2000", "fixed while the market is near")

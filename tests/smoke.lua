@@ -829,6 +829,21 @@ do
     if not asked then AP.post() end -- a sanity check's second press first, if one was asked
     assert(asked and not confirmed, "posted, the client asked to confirm")
     assert(select(3, AP.state()) == nil, "nothing waited for when the client asks to confirm")
+    -- Blizzard's own warning popup is closed for the panel's post (its Accept would find no post of its
+    -- own) only just after it; later, the warning is for a post from Blizzard's window, and left open
+    -- (review B-6).
+    do
+      local hidden
+      local popupHide = StaticPopup_Hide
+      StaticPopup_Hide = function(which) hidden = which end
+      fire("AUCTION_HOUSE_POST_WARNING")
+      assert(hidden == "AUCTION_HOUSE_POST_WARNING", "just after the panel's post: closed")
+      hidden = nil
+      wait(5)
+      fire("AUCTION_HOUSE_POST_WARNING")
+      assert(hidden == nil, "a while later: Blizzard's own, left open")
+      StaticPopup_Hide = popupHide
+    end
     AP.post()
     assert(confirmed and confirmed.n == 4 and confirmed[3] >= 1 and confirmed[4] and confirmed[4] % 100 == 0, "confirmed with the post's four arguments")
     -- A refused post clears the wait at once (AUCTION_HOUSE_POST_ERROR), the item still chosen.
@@ -891,11 +906,29 @@ do
   fire("COMMODITY_PRICE_UPDATED", 4250, 85000)
   AP.shopBuy()
   assert(calls[#calls] == "confirm 2589 20", "the second press confirms the quote")
+  -- A post from Blizzard's own Sell window meanwhile is not the purchase's answer (review B-10).
+  do
+    local postNote = AP.panel().post.note:GetText()
+    fire("AUCTION_HOUSE_AUCTION_CREATED", 2)
+    assert(select(3, AP.state()) ~= nil, "the purchase still waits for its own answer")
+    assert(AP.panel().post.note:GetText() == postNote, "and Sell says no false Posted.: " .. tostring(AP.panel().post.note:GetText()))
+  end
   fire("COMMODITY_PURCHASE_SUCCEEDED")
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   AP.shopBuy()
   fire("COMMODITY_PRICE_UPDATED", 5000, 100000) -- 18% dearer than the deal
   assert(tostring(AP.shopNote()):find("price moved", 1, true), "a moved price is named before buying: " .. tostring(AP.shopNote()))
+  -- Pressed again, the purchase is sent; no answer comes, and a later purchase in Blizzard's own window
+  -- is not taken for it (review B-8).
+  do
+    local before = #(GoldForeverDB.settings.auction.bought or {})
+    AP.shopBuy()
+    assert(calls[#calls]:find("^confirm 2589") and select(3, AP.state()), "sent, waiting: " .. tostring(calls[#calls]))
+    wait(6)
+    assert(not select(3, AP.state()), "the wait timed out")
+    fire("AUCTION_HOUSE_PURCHASE_COMPLETED")
+    assert(#(GoldForeverDB.settings.auction.bought or {}) == before, "no phantom purchase recorded")
+  end
   -- A profile's buy rule (up to 12 Linen at 45s at most) is the Shop's last list: holding 7, Buy next
   -- asks for the 5 still needed, not every cheap unit.
   -- The 20 bought above count as held until the mailbox is read: they are in it now.
@@ -1003,6 +1036,45 @@ do
   assert(cancelled == 777, "Cancel next cancels it")
   fire("AUCTION_CANCELED", 777)
   assert(#(AP.owned()) == 0, "and it leaves the list")
+  -- The list of auctions never coming: the check ends after the wait; none up: the note says so (review B-9).
+  AP.cancelCheck()
+  wait(6)
+  assert(select(2, AP.owned()) == nil, "no answer: the check ends")
+  C_AuctionHouse.GetNumOwnedAuctions = function() return 0 end
+  AP.cancelCheck()
+  fire("OWNED_AUCTIONS_UPDATED")
+  assert(select(2, AP.owned()) == nil and AP.panel().cancel.note:GetText() == "You have no auctions up.", "none up: " .. tostring(AP.panel().cancel.note:GetText()))
+  -- Gear: two own auctions of one item at item levels 590 and 610, each judged against its own book
+  -- (review B-5, T-9). At 590 others ask 90g and up (10% under the 100g one); at 610, 210g and up (over
+  -- the 200g one).
+  do
+    local GLOVES = 4321
+    local mine = { { auctionID = 801, itemKey = { itemID = GLOVES, itemLevel = 590 }, status = 0, quantity = 1, buyoutAmount = 1000000 },
+      { auctionID = 802, itemKey = { itemID = GLOVES, itemLevel = 610 }, status = 0, quantity = 1, buyoutAmount = 2000000 } }
+    local books = { [590] = { 1000000, 900000, 910000, 920000 }, [610] = { 2000000, 2100000, 2150000, 2200000 } }
+    local keep = { C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo }
+    C_AuctionHouse.GetNumOwnedAuctions = function() return #mine end
+    C_AuctionHouse.GetOwnedAuctionInfo = function(i) return mine[i] end
+    C_AuctionHouse.GetItemKeyInfo = function() return { isCommodity = false, itemName = "Gloves" } end
+    C_AuctionHouse.GetNumItemSearchResults = function(key) return #books[key.itemLevel] end
+    C_AuctionHouse.GetItemSearchResultInfo = function(key, i)
+      return { auctionID = 900 + i, quantity = 1, buyoutAmount = books[key.itemLevel][i], containsOwnerItem = i == 1 }
+    end
+    AP.cancelCheck()
+    fire("OWNED_AUCTIONS_UPDATED")
+    fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = GLOVES, itemLevel = 590 })
+    fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = GLOVES, itemLevel = 610 })
+    wait(1)
+    local owned, checking = AP.owned()
+    assert(not checking and #owned == 2, "both checked")
+    assert(owned[1].cheapest == 900000 and owned[1].under == 10, "590 against its own book: " .. tostring(owned[1].cheapest) .. " " .. tostring(owned[1].under))
+    assert(owned[2].cheapest == 2100000 and owned[2].under == 0, "610 against its own: " .. tostring(owned[2].cheapest) .. " " .. tostring(owned[2].under))
+    cancelled = nil
+    AP.cancelNext()
+    assert(cancelled == 801, "Cancel next cancels the 590 one: " .. tostring(cancelled))
+    fire("AUCTION_CANCELED", 801)
+    C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo = keep[1], keep[2]
+  end
   for _, d in pairs(GoldForeverDB.events) do d.auctionEnd = nil end
   for k, f in pairs(saved) do C_AuctionHouse[k] = f end
   for _, k in ipairs({ "QueryOwnedAuctions", "GetNumOwnedAuctions", "GetOwnedAuctionInfo", "GetItemKeyInfo", "GetCancelCost" }) do if not saved[k] then C_AuctionHouse[k] = nil end end
@@ -1012,6 +1084,17 @@ do
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   for _, l in ipairs(GameTooltip.lines) do assert(not l:find("Post at", 1, true), "no Post line away from the auction house") end
+  -- /gf ah with the auction house closed shows no panel and sends no search (review B-7).
+  do
+    local searches = 0
+    local send = C_AuctionHouse.SendSearchQuery
+    C_AuctionHouse.SendSearchQuery = function() searches = searches + 1 end
+    AuctionHouseFrame.IsShown = function() return false end
+    SlashCmdList.GOLDFOREVER("ah")
+    assert(not AP.panel():IsShown() and searches == 0, "no panel and no search away from the auction house")
+    assert(GoldForeverDB.settings.auction.hidden == false, "and it opens there next time")
+    AuctionHouseFrame.IsShown, C_AuctionHouse.SendSearchQuery = nil, send
+  end
   AuctionHouseFrame = nil
 end
 -- Blizzard's tabs and the panel's in step (manual test run 001): it opens on Blizzard's tab, follows it,
@@ -1181,7 +1264,13 @@ function GetInboxHeaderInfo(i) return nil, nil, "SomeBuyer", "Auction expired", 
 function GetInboxItemLink(i, slot) return slot == 1 and "|Hitem:2592::::::::30|h[Wool Cloth]|h" or nil end
 function GetInboxItem(i, slot) return "Wool Cloth", 2592, 0, 20, 1, true end
 ATTACHMENTS_MAX_RECEIVE = 12
+-- A purchase counts as held until the mailbox is read after it: asking changes nothing in the save, and
+-- reading the mailbox drops what it holds by now (review C-13).
+GoldForeverDB.settings.auction.bought = { { id = 2592, n = 4, t = ns.me().mail.t - 1 }, { id = 2592, n = 6, t = now + 3600 } }
+assert(ns.boughtSince(2592) == 6 and #GoldForeverDB.settings.auction.bought == 2, "the one bought since counts; asking keeps the save as it is")
 fire("MAIL_INBOX_UPDATE") wait(3)
+assert(#GoldForeverDB.settings.auction.bought == 1 and GoldForeverDB.settings.auction.bought[1].n == 6, "the mailbox read: the one in it dropped")
+GoldForeverDB.settings.auction.bought = nil
 do
   local m = GoldForeverDB.characters["Player-4620-006C0FC1"].mail
   seen("MAIL ", m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil), "2 mails, 2592*40, 1925c, expires in 2635200 s, sender kept: false")
@@ -1215,6 +1304,19 @@ do
   for _, l in ipairs(auction.lists) do
     assert(l.id ~= "s1" and l.id ~= "c1", "neither the deleted list nor a site copy came back: " .. tostring(l.name))
   end
+  -- A list of the player's own named "(older copy)" is not taken for a copy and kept (review C-24).
+  table.insert(auction.lists, { id = "g1", edited = now, name = "Old stock (older copy)", entries = {} })
+  ns.mergeShared()
+  assert(auction.lists[#auction.lists].id == "g1", "the player's list kept")
+  table.remove(auction.lists)
+  -- The profile in use stays in use when an earlier merge's copy before it is dropped (review B-11).
+  local keepProfiles, keepProfile = auction.profiles, auction.profile
+  local B, C = { id = "pb", name = "B", author = "", sell = {}, buy = {} }, { id = "pc", name = "C", author = "", sell = {}, buy = {} }
+  auction.profiles = { { id = "pa", name = "A (older copy)", author = "", sell = {}, buy = {}, copyOf = "pz" }, B, C }
+  auction.profile = 2
+  ns.mergeShared()
+  assert(#auction.profiles == 2 and auction.profiles[auction.profile] == B, "B still in use, not C: " .. tostring(auction.profile and auction.profiles[auction.profile] and auction.profiles[auction.profile].name))
+  auction.profiles, auction.profile = keepProfiles, keepProfile
   GoldForever_Prices = prices
 end
 -- The mail helper: one press opens the auction mails in turn (a player's letter and a COD mail stay),

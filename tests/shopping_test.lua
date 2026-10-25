@@ -8,9 +8,18 @@ local S, E = ns.Shopping, ns.Encode
 local function lv(unitPrice, quantity, own) return { unitPrice = unitPrice, quantity = quantity, own = own or 0 } end
 
 -- Every function is there as soon as the file loads (one was once defined inside encode by mistake).
-for _, name in ipairs({ "limit", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge" }) do
+for _, name in ipairs({ "limit", "take", "deal", "moved", "text", "encode", "decode", "parseAdd", "underPrice", "merge", "refind" }) do
 	eq(type(S[name]), "function", "defined at load: " .. name)
 end
+
+-- take: other players' units from the book, cheapest first, under a cap and up to a need.
+local function took(...) return table.concat({ tostring((select(1, ...))), tostring((select(2, ...))), tostring((select(3, ...))) }, ":") end
+local book = { lv(300, 5), lv(100, 4, 1), lv(200, 10) }
+eq(took(S.take(book, nil, nil)), "18:" .. (300 + 2000 + 1500) .. ":300", "every other unit, cheapest first")
+eq(took(S.take(book, 200, nil)), "13:2300:200", "at or under the cap")
+eq(took(S.take(book, nil, 5)), "5:" .. (300 + 400) .. ":200", "up to the need")
+eq(took(S.take(book, 50, 5)), "0:0:nil", "nothing under the cap")
+eq(took(S.take(book, nil, 0)), "0:0:nil", "nothing needed")
 
 -- entryLimit
 eq(S.limit({ itemId = 1, maxUnit = 500 }, 900), 500, "its own price")
@@ -31,6 +40,11 @@ eq(S.decode(S.encode({ { name = "Raid", entries = { { itemId = 7, lowest = 120, 
 eq((S.decode("GFL1:" .. E.base64("list a\nitem 1 lowest 0"))), nil, "lowest 0")
 eq(S.parseGold("4.5"), 45000, "gold with a point")
 eq(S.parseGold("4,5"), 45000, "or a comma")
+eq(S.parseGold("4,50"), 45000, "a comma before two digits")
+-- A thousands separator is not a decimal point (review B-37).
+eq(S.parseGold("1,000"), 10000000, "a thousand gold")
+eq(S.parseGold("1,000,5"), 10005000, "thousands, then a decimal comma")
+eq(S.parseGold("1,000.5"), 10005000, "thousands, then a decimal point")
 eq(S.parseGold("4g 50s"), 45000, "gold and silver")
 eq(S.parseGold("45s"), 4500, "silver")
 eq(S.parseGold("1g2s3c"), 10203, "all three")
@@ -130,5 +144,20 @@ eq(#kept .. kept[1].name, "1Edited after", "deleted stays deleted; edited after 
 local withCopies = { { id = "a", name = "Mats" }, { id = "x", name = "Mats (older copy)", copyOf = "a" }, { id = "y", name = "Mine" } }
 eq(S.dropCopies(withCopies), 1, "one copy dropped")
 eq(#withCopies .. withCopies[2].name, "2Mine", "the player's own lists stay")
+
+-- The entry in use found again after copies are dropped (review B-11): profiles [A copy, B, C] with B in
+-- use (2); after the drop B is at 1, not C at 2.
+do
+	local A, B, C = { id = "a" }, { id = "b" }, { id = "c" }
+	local items = { { id = "x", copyOf = "a" }, B, C, A }
+	local was = items[2]
+	S.dropCopies(items)
+	eq(S.refind(items, was), 1, "the same profile, at its new place")
+	local newer = { id = "b", edited = 9 }
+	eq(S.refind({ A, newer, C }, B), 2, "replaced by a newer copy: found by its id")
+	eq(S.refind({ A, C }, { id = "y", copyOf = "c" }), 2, "a dropped copy: the one it was copied from")
+	eq(S.refind({ A, C }, B), nil, "gone")
+	eq(S.refind({ A }, nil), nil, "nothing in use")
+end
 
 return checks()

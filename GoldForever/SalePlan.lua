@@ -82,8 +82,10 @@ function SalePlan.percentile(levels, pct)
 end
 
 -- What one sell rule does now: { action = "post"|"ask"|"hold"|"skip", reason, quantity, unitPrice,
--- choices = { plan, undercut } for "ask", ignored (units left out as outliers), floor }.
-function SalePlan.sell(rule, held, levels, market, guard)
+-- choices = { plan, undercut } for "ask", ignored (units left out as outliers), floor }. `round` (the
+-- auction house's step, Post.silver in game) is applied before the floor is checked, so a price rounded
+-- down never posts under the floor.
+function SalePlan.sell(rule, held, levels, market, guard, round)
 	local quantity = math.max(0, held - rule.keep)
 	local kept, out = SalePlan.clean(levels, guard, market)
 	local ignored = 0
@@ -103,6 +105,7 @@ function SalePlan.sell(rule, held, levels, market, guard)
 	end
 	local cheapest = kept[1] and kept[1].unitPrice or nil
 	local function guarded(price, reason)
+		price = round and round(price) or price
 		if floor and price < floor then
 			return step("hold", "under-floor", nil)
 		end
@@ -132,27 +135,7 @@ end
 -- What one buy rule takes from the book: the cheapest other players' units at or under the cap, up to
 -- the target (outliers welcome). Returns { quantity, topUnit, total }.
 function SalePlan.buy(rule, held, levels)
-	local need = math.max(0, rule.upTo - held)
-	local quantity, total, top = 0, 0, nil
-	local sorted = {}
-	for i, l in ipairs(levels or {}) do
-		sorted[i] = l
-	end
-	table.sort(sorted, function(a, b)
-		return a.unitPrice < b.unitPrice
-	end)
-	for _, l in ipairs(sorted) do
-		if need == 0 or l.unitPrice > rule.maxUnit then
-			break
-		end
-		local n = math.min(need, (l.quantity or 0) - (l.own or 0))
-		if n > 0 then
-			quantity = quantity + n
-			total = total + n * l.unitPrice
-			top = l.unitPrice
-			need = need - n
-		end
-	end
+	local quantity, total, top = ns.Shopping.take(levels, rule.maxUnit, math.max(0, rule.upTo - held))
 	return { quantity = quantity, topUnit = top, total = total }
 end
 

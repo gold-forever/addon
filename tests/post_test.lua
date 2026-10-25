@@ -2,6 +2,7 @@
 
 local ns = {}
 assert(load(SOURCES["Post.lua"], "@Post.lua"))("GoldForever", ns)
+assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P = ns.Post
 
 local rule = P.DEFAULT
@@ -47,13 +48,37 @@ eq(P.undercutPct(2100, 1900), 9.5, "9.5% under")
 eq(P.undercutPct(2100, 2100), 0, "level")
 eq(P.undercutPct(2100, 2500), 0, "dearer")
 eq(P.undercutPct(2100, nil), 0, "nobody")
--- The sneaky-price guard: one unit far under the next is passed over; two units, or close, count.
+-- The sneaky-price guard, the sale plans' own (SalePlan.clean): up to two cheap units far under the next
+-- price are passed over; more, or close, count.
 local function lv(u, q, own) return { unitPrice = u, quantity = q, own = own or 0 } end
 eq(P.honestCheapest({ lv(1000, 1), lv(2000, 20) }), 2000, "a single cheap unit far under is a sneaky price")
-eq(P.honestCheapest({ lv(1000, 2), lv(2000, 20) }), 1000, "two units count")
+eq(P.honestCheapest({ lv(1000, 2), lv(2000, 20) }), 2000, "two units are too")
+eq(P.honestCheapest({ lv(1000, 3), lv(2000, 20) }), 1000, "three units count")
 eq(P.honestCheapest({ lv(1900, 1), lv(2000, 20) }), 1900, "one unit close to the next counts")
 eq(P.honestCheapest({ lv(1500, 5, 5), lv(2000, 20) }), 2000, "the player's own units are left out")
 eq(P.honestCheapest({}), nil, "an empty book")
+-- Two definitions once disagreed here (review B-12): 100 by one, 1000 by the other.
+eq(P.honestCheapest({ lv(100, 1), lv(110, 1), lv(1000, 50) }), 1000, "two cheap single units under a real price")
+local kept = ns.SalePlan.clean({ lv(100, 1), lv(110, 1), lv(1000, 50) })
+eq(kept[1].unitPrice, 1000, "the sale plan's guard agrees")
+eq(P.honestCheapest({ lv(500, 1) }, 2000), nil, "a few units far under the market: none to react to")
+eq(P.honestCheapest({ lv(500, 1) }), 500, "no market: kept")
+
+-- What Sell suggests (Post.advise): the rule's suggestion; held under the floor, what undercutting would
+-- ask anyway; with no market value, the cheapest stands in for it; with neither, nothing.
+local sug, anyway = P.advise(rule, 10000, 9550)
+eq(sug.reason .. sug.unit .. ":" .. tostring(anyway), "undercut9400:nil", "undercut, nothing held")
+sug, anyway = P.advise(rule, 10000, 7000)
+eq(sug.reason .. ":" .. anyway, "hold:6900", "held under the floor, a silver under 70s anyway")
+sug, anyway = P.advise(rule, nil, 5000)
+eq(sug.reason .. sug.unit, "undercut4900", "no market value: the cheapest stands in")
+eq(P.advise(rule, nil, nil), nil, "neither: no suggestion")
+eq(P.advise(rule, 10000, nil).reason, "alone", "nobody else")
+
+-- Cancel undercut's list: past the tolerance, most undercut first.
+local list = P.undercutList({ { id = 1, unit = 2100, cheapest = 1900 }, { id = 2, unit = 1000, cheapest = 990 }, { id = 3, unit = 1000, cheapest = 800 }, { id = 4, unit = 500 } }, 5)
+eq(#list .. ":" .. list[1].id .. list[2].id, "2:31", "the 20% then the 9.5%; 1% and none left out")
+eq(list[1].under, 20, "its under set")
 
 -- Overrides: an item's over its category's over the default; only the fields an override holds change.
 local base = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" }
@@ -71,7 +96,12 @@ eq(P.resolve(base, nil, 1, nil), base, "no overrides at all")
 P.copper = true
 eq(P.silver(9437), 9437, "copper kept")
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9549, "a copper under")
+-- Alone in copper mode: the normal price to the copper, not 50 copper over it (review B-13).
+s = P.suggest(rule, 10000, nil)
+eq(s.reason .. " " .. s.unit, "alone 12000", "copper mode, nobody else: 120% of the market exactly")
+eq(P.suggest(rule, 10041, nil).unit, 12049, "copper mode: down to the copper")
 P.copper = false
+eq(P.suggest(rule, 10041, nil).unit, 12000, "silver mode: to the nearest silver")
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9500, "whole silver otherwise")
 
 -- The trend's advice: rising at 10% over the 7-day average, falling at 10% under, else none.

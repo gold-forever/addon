@@ -16,7 +16,8 @@ local DURATIONS = { { value = 1, label = "12 hours" }, { value = 2, label = "24 
 local CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next press is taken
 
 local function settings()
-	local s = ns.settings("auction", { rule = {}, duration = 2 })
+	-- The saved table as it is, once there: no defaults made on every call (it is read per row).
+	local s = ns.db().settings.auction or ns.settings("auction", { rule = {}, duration = 2 })
 	s.durations = s.durations or {}
 	s.quantities = s.quantities or {}
 	for k, v in pairs(Post.DEFAULT) do
@@ -32,19 +33,32 @@ local built -- Theme.key it was drawn under
 local panels = {} -- Theme.key -> panel
 local rows, chosen = {}, nil -- the Post tab's rows and the chosen one
 local live = {} -- item key -> { cheapest, at }: the last live search's cheapest other listing
-local waiting -- a post sent, waiting for its answer: { key, at }
+
+-- An item's book in `live`: a commodity's by its id; other items' by id and item level, as one gear item
+-- at two item levels is two books with two prices.
+local function bookKey(itemID, commodity, itemLevel)
+	if commodity then
+		return tostring(itemID)
+	end
+	return "item:" .. itemID .. ":" .. (itemLevel or 0)
+end
+local waits = {} -- an action sent, by kind ("post", "shop", "cancel"), waiting for its answer: { key, at }
 local armed -- a post that needs a second press: the row's key
 local confirm -- the client warned about a commodity or item price: the next press confirms { key, args }
 
 -- An action sent (a post, a buy, a cancel): the panel waits for its answer before the next press, and
 -- never longer than CONFIRM_TIMEOUT, so a failure the client reports nowhere the panel hears cannot
--- leave Post, Shop and Cancel disabled. `note` is the tab's line for the timeout.
-local function await(key, note)
+-- leave Post, Shop and Cancel disabled. Each kind waits apart, so one kind's answer never ends
+-- another's wait. `note` is the tab's line for the timeout; `onTimeout` lets go of what the action held.
+local function await(kind, key, note, onTimeout)
 	local w = { key = key, at = GetTime() }
-	waiting = w
+	waits[kind] = w
 	C_Timer.After(CONFIRM_TIMEOUT, function()
-		if waiting == w then
-			waiting = nil
+		if waits[kind] == w then
+			waits[kind] = nil
+			if onTimeout then
+				onTimeout()
+			end
 			if note then
 				note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check it before trying again.|r")
 			end
@@ -53,6 +67,11 @@ local function await(key, note)
 			end
 		end
 	end)
+end
+
+-- Whether any action waits for its answer: a press of Post, Buy next or Cancel next waits for it.
+local function busy()
+	return waits.post or waits.shop or waits.cancel
 end
 
 -- Gold and silver: a price rounded to the gold read as wrong beside the auction house's own (8g for 8g 69s).
@@ -105,19 +124,28 @@ end
 
 -- A row priced: market value, the cheapest other listing (live or from the scan) and the suggestion.
 -- The active sale profile (Rule tab), or nil.
-local function activeProfile()
-	local s = settings()
+local function activeProfile(s)
+	s = s or settings()
 	return s.profile and s.profiles and s.profiles[s.profile] or nil
 end
 
+-- The bank's and mailbox's item strings, parsed once each time they change (not once per row).
+local bankParsed, mailParsed = {}, {}
+local function parsedOnce(cache, text)
+	if text ~= cache.text then
+		cache.text, cache.items = text, ns.Encode.parseItems(text)
+	end
+	return cache.items
+end
+
 -- What this character holds of an item, bags and bank (decision 12: keep counts per character).
-local function heldHere(id, bags)
+local function heldHere(id, inBags)
 	local me = ns.me()
-	local bank = me and me.bank and ns.Encode.parseItems(me.bank.items)[id] or 0
+	local bank = me and me.bank and parsedOnce(bankParsed, me.bank.items)[id] or 0
 	-- The mailbox as last read, and what was bought since (it goes to the mailbox on retail).
-	local mail = me and me.mail and ns.Encode.parseItems(me.mail.items)[id] or 0
+	local mail = me and me.mail and parsedOnce(mailParsed, me.mail.items)[id] or 0
 	local boughtSince = ns.boughtSince and ns.boughtSince(id) or 0
-	return (bags or 0) + bank + mail + boughtSince
+	return (inBags or 0) + bank + mail + boughtSince
 end
 
 -- A sale plan's step as the Post tab's suggestion: posts in whole silver; "ask" posts the plan's price
@@ -126,11 +154,11 @@ local PLAN_REASONS = {
 	undercut = "Undercut (plan)", fixed = "Fixed price (plan)", percentile = "Percentile (plan)", ["no-competition"] = "No one else (plan)",
 	["market-moved"] = "The market moved (plan)", ["under-floor"] = "Hold: under the plan's floor", keeping = "Keeping", ["no-price"] = "No price yet",
 }
-Post.REASONS.plan = "Plan"
 
 local function planned(r, rule, market)
-	local book = live[r.commodity and tostring(r.id) or ("item:" .. r.id)]
-	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market)
+	-- Gear's book is known once the row was searched, at its own item level.
+	local book = (r.commodity or r.itemKey) and live[bookKey(r.id, r.commodity, r.itemKey and r.itemKey.itemLevel)]
+	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market, nil, Post.silver)
 	local unit = step.unitPrice or (step.choices and step.choices.plan)
 	local label = PLAN_REASONS[step.reason] or step.reason
 	if step.reason == "keeping" then
@@ -145,7 +173,10 @@ local function planned(r, rule, market)
 	}
 end
 
-local function price(r)
+-- `s`: the settings, read once for every row of a refresh.
+local function price(r, s)
+	s = s or settings()
+	r.priced = true
 	local value, valueFrom, trend, week = ns.Prices.value(r.id)
 	local market, from = ns.Prices.sellBase(value, valueFrom, week)
 	r.market, r.marketFrom, r.trend, r.anyway = market, from, trend, nil
@@ -156,31 +187,14 @@ local function price(r)
 		r.cheapest, r.cheapestFrom = ns.price.cheapest(r.id), "scan"
 	end
 	r.vendor = ns.price.vendor(r.id)
-	local rule = ns.SalePlan.ruleFor(activeProfile(), r.id)
+	local rule = ns.SalePlan.ruleFor(activeProfile(s), r.id)
 	if rule then
 		r.suggestion = planned(r, rule, market)
 	else
 		-- The rule: an override for the item, or its category, over the default.
 		local _, _, class = ns.price.itemInfo(r.id)
-		local postRule, from = Post.resolve(settings().rule, settings().overrides, r.id, class)
-		if market then
-			r.suggestion = Post.suggest(postRule, market, r.cheapest)
-			-- Held under the floor: what undercutting would ask anyway, for Post anyway (owner's answer,
-			-- 2026-10-24).
-			if r.suggestion.reason == "hold" and r.cheapest then
-				local loose = {}
-				for k, x in pairs(postRule) do
-					loose[k] = x
-				end
-				loose.floor = 1
-				r.anyway = Post.suggest(loose, market, r.cheapest).unit
-			end
-		elseif r.cheapest then
-			-- No market value: the cheapest other listing stands in for it.
-			r.suggestion = Post.suggest(postRule, r.cheapest, r.cheapest)
-		else
-			r.suggestion = nil
-		end
+		local postRule, from = Post.resolve(s.rule, s.overrides, r.id, class)
+		r.suggestion, r.anyway = Post.advise(postRule, market, r.cheapest)
 		if r.suggestion and from ~= "default" then
 			r.suggestion.label = (Post.REASONS[r.suggestion.reason] or "") .. (from == "item" and " (item rule)" or " (category rule)")
 		end
@@ -319,24 +333,26 @@ ns.auctionRefresh = function()
 	end
 end
 
+-- The cheapest other listing in a book: one sneaky-price guard for Sell, Cancel and the sale plans.
+local function honest(levels, itemID)
+	return Post.honestCheapest(levels, ns.Prices and ns.Prices.value and (ns.Prices.value(itemID)) or nil)
+end
+
 -- Commodities: the cheapest unit left after the player's own.
 ns.on("COMMODITY_SEARCH_RESULTS_UPDATED", "auction panel", function(itemID)
 	local n = C_AuctionHouse.GetNumCommoditySearchResults(itemID) or 0
-	local cheapest, list, levels = nil, {}, {}
+	local list, levels = {}, {}
 	-- The book as the Shop reads it ({ unitPrice, quantity, own }), the cheapest LEVELS of it.
 	for i = 1, math.min(n, LEVELS) do
 		local res = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, i)
 		if res then
-			if not cheapest and (res.quantity or 0) - (res.numOwnerItems or 0) > 0 then
-				cheapest = res.unitPrice
-			end
 			if #list < LISTED then
 				list[#list + 1] = { unit = res.unitPrice, qty = res.quantity or 0, own = (res.numOwnerItems or 0) > 0 }
 			end
 			levels[#levels + 1] = { unitPrice = res.unitPrice, quantity = res.quantity or 0, own = res.numOwnerItems or 0 }
 		end
 	end
-	live[tostring(itemID)] = { cheapest = cheapest, list = list, total = n, levels = levels, commodity = true, at = GetTime() }
+	live[tostring(itemID)] = { cheapest = honest(levels, itemID), list = list, total = n, levels = levels, commodity = true, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -348,16 +364,14 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 		return
 	end
 	local n = C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
-	local cheapest, all = nil, {}
-	for i = 1, n do
+	local all = {}
+	-- The cheapest LEVELS (the search is sorted by price), as for commodities: a popular item lists hundreds.
+	for i = 1, math.min(n, LEVELS) do
 		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
 		if res and res.buyoutAmount and res.buyoutAmount > 0 then
 			local unit = math.floor(res.buyoutAmount / math.max(1, res.quantity or 1) + 0.5)
 			all[#all + 1] = { unit = unit, qty = res.quantity or 1, own = res.containsOwnerItem and true or false,
 				auctionID = res.auctionID, buyout = res.buyoutAmount }
-			if not res.containsOwnerItem then
-				cheapest = cheapest and math.min(cheapest, unit) or unit
-			end
 		end
 	end
 	table.sort(all, function(a, b)
@@ -367,17 +381,18 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 	for i = 1, math.min(LISTED, #all) do
 		list[i] = all[i]
 	end
-	for _, r in ipairs(rows) do
-		if r.itemKey and r.itemKey.itemID == itemKey.itemID and r.itemKey.itemLevel == itemKey.itemLevel then
-			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
-		end
-	end
 	-- For the Shop: every auction of the item, cheapest first, as levels and with what PlaceBid needs.
 	local levels = {}
 	for i, a in ipairs(all) do
 		levels[i] = { unitPrice = a.unit, quantity = a.qty, own = a.own and a.qty or 0, auctionID = a.auctionID, buyout = a.buyout }
 	end
-	live["item:" .. itemKey.itemID] = { cheapest = cheapest, levels = levels, commodity = false, at = GetTime() }
+	local cheapest = honest(levels, itemKey.itemID)
+	for _, r in ipairs(rows) do
+		if r.itemKey and r.itemKey.itemID == itemKey.itemID and r.itemKey.itemLevel == itemKey.itemLevel then
+			live[r.key] = { cheapest = cheapest, list = list, total = n, at = GetTime() }
+		end
+	end
+	live[bookKey(itemKey.itemID, false, itemKey.itemLevel)] = { cheapest = cheapest, levels = levels, commodity = false, at = GetTime() }
 	if refresh then
 		refresh()
 	end
@@ -386,6 +401,8 @@ end)
 -- Posting -----------------------------------------------------------------------------------------------------
 
 local lastArgs -- what the last post sent, for confirming it after the client's warning
+local postedAt -- when the panel last sent a post (GetTime)
+local WARNING_WINDOW = 2 -- seconds after the panel's own post in which the client's warning is for it
 
 -- The duration an item posts for: the one last chosen for it, else the default.
 local function durationOf(r)
@@ -408,7 +425,7 @@ end
 -- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
 local function post()
 	local r = chosen
-	if not r or waiting or not r.suggestion then
+	if not r or busy() or not r.suggestion then
 		return
 	end
 	local unit, forced = r.suggestion.unit, false
@@ -436,7 +453,7 @@ local function post()
 		elseif C_AuctionHouse.ConfirmPostItem then
 			C_AuctionHouse.ConfirmPostItem(unpack(args, 1, args.n))
 		end
-		await(r.key, panel.post.note)
+		await("post", r.key, panel.post.note)
 		panel.post.note:SetText("Posting…")
 		return
 	end
@@ -456,6 +473,7 @@ local function post()
 	-- The client says at once whether the post needs confirming (a price far from the going one); then
 	-- the next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
 	local needs
+	postedAt = GetTime()
 	if r.commodity then
 		lastArgs = { n = 4, loc, duration, q, unit }
 		needs = C_AuctionHouse.PostCommodity(loc, duration, q, unit)
@@ -468,16 +486,16 @@ local function post()
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
 		return
 	end
-	await(r.key, panel.post.note)
+	await("post", r.key, panel.post.note)
 	panel.post.note:SetText("Posting…")
 end
 
 local function posted()
-	if not waiting then
-		return
+	if not waits.post then
+		return -- not the panel's post (Blizzard's own Sell window)
 	end
-	local key = waiting.key
-	waiting = nil
+	local key = waits.post.key
+	waits.post = nil
 	live[key] = nil
 	-- The next row; the bags update a moment later and the list follows.
 	local next
@@ -507,21 +525,25 @@ local function closeBlizzardWarning()
 	end)
 end
 ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
-	if waiting and lastArgs then
-		confirm = { key = waiting.key, args = lastArgs }
-		closeBlizzardWarning()
-	elseif confirm then
-		closeBlizzardWarning()
+	-- The panel's: its post waiting for an answer, or one it was just warned about. Else it is a post
+	-- from Blizzard's own Sell window, and its popup is the player's to answer.
+	local fresh = confirm and postedAt and GetTime() - postedAt <= WARNING_WINDOW
+	if not (waits.post or fresh) then
+		return
 	end
-	waiting = nil
+	if waits.post and lastArgs then
+		confirm = { key = waits.post.key, args = lastArgs }
+	end
+	closeBlizzardWarning()
+	waits.post = nil
 	if panel and panel.post.note then
 		panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
 	end
 end)
 -- A post the server refused: say so at once rather than after the wait.
 ns.on("AUCTION_HOUSE_POST_ERROR", "auction panel", function()
-	if waiting and not string.find(waiting.key, "^shop:") and not string.find(waiting.key, "^cancel:") then
-		waiting = nil
+	if waits.post then
+		waits.post = nil
 		if panel and panel.post.note then
 			panel.post.note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused the post.|r")
 		end
@@ -616,7 +638,7 @@ local function buildPost(page)
 		itemId = function(r) return r.id end,
 		isSelected = function(r) return chosen and r.key == chosen.key end,
 		onRowClick = function(r)
-			chosen, armed = r, nil
+			chosen, armed, confirm = r, nil, nil
 			search(r, true)
 			refresh()
 		end,
@@ -739,7 +761,7 @@ local function buildPost(page)
 			line.qty:SetText(x and ("×" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
 		end
 		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
-		local can = sug and (sug.unit or r.anyway) and not waiting
+		local can = sug and (sug.unit or r.anyway) and not busy()
 		if can then
 			local label = sug.unit and ("Post " .. quantity(r) .. " × " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " × " .. money(r.anyway))
 			button.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
@@ -821,7 +843,8 @@ end
 
 -- The deal for an entry from its live book, or nil before a search came back.
 local function shopDeal(e)
-	local l = live[tostring(e.itemId)] or live["item:" .. e.itemId]
+	-- A list entry is an item id: searched with its plain item key (searchEntry), item level 0.
+	local l = live[tostring(e.itemId)] or live[bookKey(e.itemId, false, 0)]
 	if not l or not l.levels then
 		return nil, l
 	end
@@ -881,10 +904,15 @@ local function searchEntry(e, open)
 	C_AuctionHouse.SendSearchQuery(key, sorts, true)
 end
 
+-- A purchase with no answer is let go: a later purchase in Blizzard's own window is not recorded as it.
+local function letGo()
+	buying, purchase = nil, nil
+end
+
 -- One press of Buy next.
 local function buyNext()
 	local e = shopChosen
-	if not e or waiting then
+	if not e or busy() then
 		return
 	end
 	local deal, book = shopDeal(e)
@@ -895,7 +923,7 @@ local function buyNext()
 		purchase = nil
 		C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
 		buying = { id = p.itemId, n = p.quantity }
-		await("shop:" .. p.itemId, note)
+		await("shop", "shop:" .. p.itemId, note, letGo)
 		note:SetText("Buying…")
 		return
 	end
@@ -923,7 +951,7 @@ local function buyNext()
 			if a.own == 0 and a.unitPrice <= deal.limit and a.auctionID then
 				C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
 				buying = { id = e.itemId, n = a.quantity or 1 }
-				await("shop:" .. e.itemId, note)
+				await("shop", "shop:" .. e.itemId, note, letGo)
 				note:SetText("Buying one for " .. money(a.buyout) .. "…")
 				return
 			end
@@ -951,21 +979,34 @@ local function recordBought(b)
 	s.bought = s.bought or {}
 	s.bought[#s.bought + 1] = { id = b.id, n = b.n, t = ns.now() }
 end
--- Units of an item bought and not in the mailbox as read yet.
+-- Units of an item bought and not in the mailbox as read yet. A read: the save changes only when the
+-- mailbox is read (below).
 function ns.boughtSince(id)
 	local me = ns.me()
 	local mailAt = me and me.mail and me.mail.t or 0
-	local list, n = settings().bought or {}, 0
-	for i = #list, 1, -1 do
-		local b = list[i]
-		if b.t <= mailAt then
-			table.remove(list, i) -- in the mailbox (or the bags) by now
-		elseif b.id == id then
+	local n = 0
+	for _, b in ipairs(settings().bought or {}) do
+		if b.t > mailAt and b.id == id then
 			n = n + b.n
 		end
 	end
 	return n
 end
+-- Purchases from before the mailbox was last read are in it (or the bags) by now: dropped from the save,
+-- once the mailbox has been read (Inventory.lua reads it on the same event, at the same pace).
+ns.on("MAIL_INBOX_UPDATE", "bought", ns.throttle("bought", 2, function()
+	local me = ns.me()
+	local list = settings().bought
+	local mailAt = me and me.mail and me.mail.t
+	if not (list and mailAt) then
+		return
+	end
+	for i = #list, 1, -1 do
+		if list[i].t <= mailAt then
+			table.remove(list, i)
+		end
+	end
+end))
 
 local function bought(ok, why)
 	if not panel or not panel.shop.note then
@@ -975,10 +1016,10 @@ local function bought(ok, why)
 		recordBought(buying)
 	end
 	buying = nil
-	waiting, purchase = nil, nil
+	waits.shop, purchase = nil, nil
 	panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
 	if shopChosen then
-		live[tostring(shopChosen.itemId)], live["item:" .. shopChosen.itemId] = nil, nil
+		live[tostring(shopChosen.itemId)], live[bookKey(shopChosen.itemId, false, 0)] = nil, nil
 		searchEntry(shopChosen)
 	end
 	refresh()
@@ -1093,7 +1134,7 @@ local function buildShop(page)
 		local label = purchase and purchase.quoted and ("Confirm: " .. purchase.quantity .. " for " .. money(purchase.quoted))
 			or (deal and ("Buy " .. deal.quantity .. " for " .. money(deal.total))) or "Buy next"
 		buy.label:SetText(Theme.skin.titleCaps and string.upper(label) or label)
-		local can = shopChosen and not waiting
+		local can = shopChosen and not busy()
 		if can then
 			buy:Enable()
 			buy:SetAlpha(1)
@@ -1107,12 +1148,13 @@ end
 -- Cancel undercut ----------------------------------------------------------------------------------------------
 
 -- The player's own auctions (design 009, Cancel undercut; owner: build it now, 5% by default): each
--- searched in turn against other players' listings (a sneaky single cheap unit passed over); those
+-- searched in turn against other players' listings (a few sneaky cheap units passed over); those
 -- undercut by more than the tolerance are listed, and Cancel next cancels the most undercut one a press
 -- (CancelAuction is a hardware event, and costs the deposit). The items come back by mail.
 local TOLERANCES = { { value = 1, label = "1%" }, { value = 5, label = "5%" }, { value = 10, label = "10%" } }
 local owned = {} -- { auctionID, itemID, key, name, quality, quantity, unit, commodity, cheapest, under }
-local checking -- the index of the auction being searched, while a check runs
+local checking -- the index of the auction being searched, while a check runs (0: reading the auctions)
+local checkRun -- the check running, so a timer of an earlier one leaves it be
 
 local function tolerance()
 	return settings().tolerance or 5
@@ -1120,8 +1162,8 @@ end
 
 -- The cheapest other listing for an owned auction, from the last search of its item.
 local function cheapestFor(a)
-	local book = live[a.commodity and tostring(a.itemID) or ("item:" .. a.itemID)]
-	return book and book.levels and Post.honestCheapest(book.levels) or nil, book ~= nil
+	local book = live[bookKey(a.itemID, a.commodity, a.itemKey and a.itemKey.itemLevel)]
+	return book and book.cheapest or nil, book ~= nil
 end
 
 local function readOwned()
@@ -1171,6 +1213,18 @@ local function startCheck()
 	end
 	checking = 0
 	panel.cancel.note:SetText("Reading your auctions…")
+	-- The list never coming (throttled, the auction house closing) does not leave the check running.
+	local run = {}
+	checkRun = run
+	C_Timer.After(CONFIRM_TIMEOUT, function()
+		if checking == 0 and checkRun == run then
+			checking = nil
+			if panel and panel.cancel.note then
+				panel.cancel.note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check again in a moment.|r")
+			end
+			refresh()
+		end
+	end)
 end
 
 ns.on("OWNED_AUCTIONS_UPDATED", "auction cancel", function()
@@ -1193,6 +1247,10 @@ local function searched(what)
 	if id ~= a.itemID then
 		return
 	end
+	-- Gear: the answer for its own item level (two auctions of one item may be checked in turn).
+	if type(what) == "table" and what.itemLevel and a.itemKey and a.itemKey.itemLevel and what.itemLevel ~= a.itemKey.itemLevel then
+		return
+	end
 	a.answered = true
 	C_Timer.After(CHECK_GAP, function()
 		ns.safely("auction cancel", checkNext)
@@ -1203,22 +1261,14 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction cancel", searched)
 
 -- The owned auctions undercut past the tolerance, most undercut first.
 local function undercut()
-	local out = {}
 	for _, a in ipairs(owned) do
-		local other = cheapestFor(a)
-		a.cheapest, a.under = other, Post.undercutPct(a.unit, other)
-		if a.under > tolerance() then
-			out[#out + 1] = a
-		end
+		a.cheapest = cheapestFor(a)
 	end
-	table.sort(out, function(x, y)
-		return x.under > y.under
-	end)
-	return out
+	return Post.undercutList(owned, tolerance())
 end
 
 local function cancelNext()
-	if waiting then
+	if busy() then
 		return
 	end
 	local a = undercut()[1]
@@ -1227,13 +1277,13 @@ local function cancelNext()
 		return
 	end
 	C_AuctionHouse.CancelAuction(a.auctionID)
-	await("cancel:" .. a.auctionID, panel.cancel.note)
+	await("cancel", "cancel:" .. a.auctionID, panel.cancel.note)
 	panel.cancel.note:SetText("Cancelling " .. a.name .. "…")
 end
 
 ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
-	if waiting and waiting.key == "cancel:" .. tostring(auctionID) then
-		waiting = nil
+	if waits.cancel and waits.cancel.key == "cancel:" .. tostring(auctionID) then
+		waits.cancel = nil
 	end
 	for i, a in ipairs(owned) do
 		if a.auctionID == auctionID then
@@ -1291,15 +1341,17 @@ local function buildCancel(page)
 		end
 		tbl:SetRows(owned)
 		local first = list[1]
-		if checking then
-			go.label:SetText(string.format("Checking %d of %d…", math.max(1, checking), #owned))
+		if checking == 0 then
+			go.label:SetText("Reading…")
+		elseif checking then
+			go.label:SetText(string.format("Checking %d of %d…", checking, #owned))
 		elseif first then
 			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
 			go.label:SetText("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
 		else
 			go.label:SetText("Cancel next")
 		end
-		local can = first and not checking and not waiting
+		local can = first and not checking and not busy()
 		if can then
 			go:Enable()
 			go:SetAlpha(1)
@@ -1307,8 +1359,9 @@ local function buildCancel(page)
 			go:Disable()
 			go:SetAlpha(0.5)
 		end
-		if not checking and #owned > 0 and page.note:GetText() == "Reading your auctions…" then
-			page.note:SetText(string.format("%d of your %d auctions are undercut past %d%%.", #list, #owned, tolerance()))
+		if not checking and page.note:GetText() == "Reading your auctions…" then
+			page.note:SetText(#owned == 0 and "You have no auctions up."
+				or string.format("%d of your %d auctions are undercut past %d%%.", #list, #owned, tolerance()))
 		end
 	end
 end
@@ -2251,8 +2304,9 @@ refresh = function()
 	if panel.tab == "scan" then
 		panel.scan:Refresh()
 	elseif panel.tab == "post" then
+		local s = settings()
 		for _, r in ipairs(rows) do
-			price(r)
+			price(r, s)
 		end
 		if chosen then
 			for _, r in ipairs(rows) do
@@ -2356,9 +2410,13 @@ end
 -- the panel takes the next press. Other game errors (mana, cooldowns) are not the action's answer and
 -- leave the wait to its timeout.
 ns.on("AUCTION_HOUSE_SHOW_ERROR", "auction panel", function()
-	if waiting and panel then
-		local note = string.find(waiting.key, "^shop:") and panel.shop.note or string.find(waiting.key, "^cancel:") and panel.cancel.note or panel.post.note
-		waiting, purchase = nil, nil
+	local kind = waits.shop and "shop" or waits.cancel and "cancel" or waits.post and "post"
+	if kind and panel then
+		local note = panel[kind].note
+		waits[kind], purchase = nil, nil
+		if kind == "shop" then
+			buying = nil
+		end
 		if note then
 			note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused it.|r")
 		end
@@ -2376,8 +2434,9 @@ local function hide()
 		ticker:Cancel()
 	end
 	ticker = nil
-	-- Nothing in flight outlives the auction house: a warned post, a quoted purchase, a check.
-	live, waiting, armed, confirm, purchase, checking = {}, nil, nil, nil, nil, nil
+	-- Nothing in flight outlives the auction house: a warned post, a quoted or sent purchase, a check.
+	live, waits, armed, confirm, purchase, checking = {}, {}, nil, nil, nil, nil
+	buying, overArmed = nil, nil
 end
 
 -- A panel hidden in combat could not clear its binding then: set it right when the fight ends.
@@ -2455,7 +2514,7 @@ local function chooseFromBag(link, loc, itemID)
 		return
 	end
 	panel.select("post", true)
-	chosen, armed = found, nil
+	chosen, armed, confirm = found, nil, nil
 	search(found, true)
 	refresh()
 end
@@ -2500,7 +2559,10 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		end
 		for _, r in ipairs(rows) do
 			if r.id == data.id then
-				price(r)
+				-- As the Sell tab last priced it; priced here only if it never was.
+				if not r.priced then
+					price(r)
+				end
 				local sug = r.suggestion
 				if sug and sug.unit then
 					tooltip:AddLine(string.format("%sPost at %s · %s", ns.tipPrefix(tooltip), money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
@@ -2520,11 +2582,11 @@ end
 -- Remove, Sell's Rule › and quantity box, now and then right after opening), and every shown frame that
 -- overlaps one and is drawn over it, in a box to copy.
 local STRATA = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4, DIALOG = 5, FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8 }
-local function v(x)
+local function num(x)
 	return type(x) == "number" and string.format("%.1f", x) or tostring(x)
 end
 local function call(obj, method)
-	return obj and obj[method] and v(obj[method](obj)) or "-"
+	return obj and obj[method] and num(obj[method](obj)) or "-"
 end
 local function frameName(f)
 	return (f.GetDebugName and f:GetDebugName()) or (f.GetName and f:GetName()) or tostring(f)
@@ -2589,7 +2651,7 @@ local function describe(label, w, out)
 		.. " strata " .. call(w, "GetFrameStrata") .. " level " .. call(w, "GetFrameLevel")
 		.. " text [" .. call(w, "GetText") .. "] fs [" .. call(fs, "GetText") .. "] fs shown " .. call(fs, "IsShown") .. " fs alpha " .. call(fs, "GetAlpha")
 		.. " fs width " .. call(fs, "GetStringWidth") .. " fs at " .. call(fs, "GetLeft") .. "," .. call(fs, "GetBottom")
-		.. " font " .. tostring(font) .. " " .. v(size)
+		.. " font " .. tostring(font) .. " " .. num(size)
 	covering(w, out)
 end
 ns.commands.uidebug = function()
@@ -2623,7 +2685,12 @@ ns.commands.ah = function()
 		ns.say("the auction panel no longer opens at the auction house; /gf ah there brings it back.")
 	else
 		s.hidden = false
-		show()
+		-- Shown only at the auction house: away from it, it opens there next time.
+		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+			show()
+		else
+			ns.say("the auction panel opens at the auction house again.")
+		end
 	end
 end
 
@@ -2641,10 +2708,12 @@ ns.AuctionPanel = {
 		return panel and panel.spaceBound
 	end,
 	post = function()
-		post()
+		if panel then
+			post()
+		end
 	end,
 	state = function()
-		return rows, chosen, waiting
+		return rows, chosen, busy()
 	end,
 	duration = function(v)
 		if panel and panel.post.duration then
@@ -2693,22 +2762,39 @@ ns.AuctionPanel = {
 -- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
 -- by id, the newer edit wins and the other is dropped (Shopping.merge; no copies since 2026-10-24). A file
 -- already merged is not merged again.
--- A copy the site kept: marked so by the server, or named so by an earlier merge.
+-- A copy the site kept: marked so by the server, or named so by an earlier merge. In the save, only a list
+-- or profile with no id is taken for one by its name: one the player made (stamped with an id) keeps any
+-- name. What the site sends is judged by its name too (left out, never deleted).
 local function copyMark(x, name)
 	if type(x.copyOf) == "string" then
 		return x.copyOf
 	end
-	return type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
+	return not x.id and type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
 end
 
 local function mergeShared()
 	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
 	local s = settings()
+	-- The list and profile in use are kept by index: found again once the drop and the merge are done.
+	local before = #(s.lists or {})
+	local listWas = s.list and (s.lists or {})[s.list]
+	local generated = s.list and s.list > before and s.list - before or nil
+	local profileWas = s.profile and (s.profiles or {})[s.profile]
+	local function restore()
+		if profileWas then
+			s.profile = ns.Shopping.refind(s.profiles, profileWas)
+		end
+		if listWas then
+			s.list = ns.Shopping.refind(s.lists, listWas) or 1
+		elseif generated then
+			s.list = #(s.lists or {}) + generated
+		end
+	end
 	-- The "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up),
 	-- marked or only named so.
 	for _, items in ipairs({ s.lists or {}, s.profiles or {} }) do
 		for _, x in ipairs(items) do
-			x.copyOf = x.copyOf or copyMark({}, x.name)
+			x.copyOf = x.copyOf or copyMark({ id = x.id }, x.name)
 		end
 	end
 	local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
@@ -2716,6 +2802,7 @@ local function mergeShared()
 		ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
 	end
 	if not shared or shared.at == s.sharedAt then
+		restore()
 		return
 	end
 	local lists, profiles = {}, {}
@@ -2723,7 +2810,7 @@ local function mergeShared()
 		local got = type(x) == "table" and type(x.string) == "string" and ns.Shopping.decode(x.string)
 		if got and got[1] and type(x.id) == "string" then
 			got[1].id, got[1].edited = x.id, tonumber(x.edited) or 0
-			got[1].copyOf = copyMark(x, got[1].name)
+			got[1].copyOf = copyMark({ copyOf = x.copyOf }, got[1].name)
 			lists[#lists + 1] = got[1]
 		end
 	end
@@ -2731,7 +2818,7 @@ local function mergeShared()
 		local p = type(x) == "table" and type(x.string) == "string" and ns.SalePlan.decode(x.string)
 		if p and type(x.id) == "string" then
 			p.id, p.edited = x.id, tonumber(x.edited) or 0
-			p.copyOf = copyMark(x, p.name)
+			p.copyOf = copyMark({ copyOf = x.copyOf }, p.name)
 			profiles[#profiles + 1] = p
 		end
 	end
@@ -2740,6 +2827,7 @@ local function mergeShared()
 	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, s.removedShared)
 	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, s.removedShared)
 	s.sharedAt = shared.at
+	restore()
 	if a + b > 0 then
 		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))
 	end
