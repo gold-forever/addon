@@ -1,0 +1,55 @@
+name: Task
+description: A piece of work on the addon, described so anyone can pick it up.
+type: Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The addon is the in-game part of Gold Forever. Fill in what should change, in words a player can read.
+        A task is ready to pick up when **Outcome** and **Done when** are filled in and **Open questions** is empty or "None".
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What is different for the player when this is done.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The reason this is worth doing.
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: A checklist; each line something that can be run or seen.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: where-to-start
+    attributes:
+      label: Where to start
+      description: Files or places to look first. The addon's code is in GoldForever/ and its tests in tests/.
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this task does not change.
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: Anything still to decide before work starts. Leave empty or write "None" when there are none.
+  - type: textarea
+    id: depends-on
+    attributes:
+      label: Depends on
+      description: Issues that must be finished first, one per line, such as "#12" or "gold-forever/gold-forever#40".
+  - type: input
+    id: parent-issue
+    attributes:
+      label: Parent issue
+      description: Optional. The gold-forever issue this task is part of, such as "gold-forever/gold-forever#40".
