@@ -74,7 +74,7 @@ local Theme, UI = ns.Theme, ns.UI
 local patterns
 local panel, built
 local panels = {} -- Theme.key -> panel
-local run -- a batch in progress: { left, waiting }
+local run -- a batch in progress: { left, waiting, failed, next }
 
 local function settings()
 	return ns.settings("mail", { helper = true })
@@ -128,8 +128,22 @@ local function refresh()
 	end
 end
 
+-- The batch's next step after `seconds`. Each call replaces the one still waiting, so one take runs at a
+-- time: a take's own timeout cannot start a take beside the next (review B-3).
+local step
+local function later(seconds)
+	local mine, token = run, {}
+	run.next = token
+	C_Timer.After(seconds, function()
+		if run == mine and mine.next == token then
+			mine.next = nil
+			ns.safely("mail helper", step)
+		end
+	end)
+end
+
 -- One step of a batch: the next auction mail opened, then the next once the inbox has changed.
-local function step()
+function step()
 	if not run then
 		return
 	end
@@ -147,9 +161,7 @@ local function step()
 	end
 	-- One mail at a time, as Blizzard's Open All does: not while the server still works on the last.
 	if C_Mail and C_Mail.IsCommandPending and C_Mail.IsCommandPending() then
-		C_Timer.After(GAP, function()
-			ns.safely("mail helper", step)
-		end)
+		later(GAP)
 		return
 	end
 	run.left = run.left - 1
@@ -166,20 +178,17 @@ local function step()
 		end
 	end
 	-- Next when the take succeeds or the inbox changes, or after a moment if neither says.
-	local mine = run
-	C_Timer.After(WAIT, function()
-		if run == mine and mine.waiting then
-			mine.waiting = false
-			ns.safely("mail helper", step)
-		end
-	end)
+	if run and run.waiting then
+		later(WAIT)
+	end
 end
 
--- The server refused a take (a full bag, a busy inbox): the batch stops and says so.
+-- The server refused a take (a full bag, a busy inbox): tried again, then the batch stops and says so.
 ns.on("MAIL_FAILED", "mail helper", function()
-	if not run then
+	if not run or not run.waiting then
 		return
 	end
+	run.waiting = false
 	run.failed = (run.failed or 0) + 1
 	if run.failed > RETRIES then
 		run = nil
@@ -190,22 +199,14 @@ ns.on("MAIL_FAILED", "mail helper", function()
 		return
 	end
 	-- Busy: the same mail again after a second.
-	run.waiting = false
 	run.left = run.left + 1
-	local mine = run
-	C_Timer.After(1, function()
-		if run == mine then
-			ns.safely("mail helper", step)
-		end
-	end)
+	later(1)
 end)
 
 local function answered()
 	if run and run.waiting then
 		run.waiting, run.failed = false, 0
-		C_Timer.After(GAP, function()
-			ns.safely("mail helper", step)
-		end)
+		later(GAP)
 	end
 end
 ns.on("MAIL_INBOX_UPDATE", "mail helper", function()

@@ -1292,6 +1292,37 @@ do
   assert(#opened == before + 1, "taken once the server is free")
   fire("MAIL_FAILED")
   C_Mail.IsCommandPending = nil
+  -- A slow server (review T-8, B-3): the inbox drops a mail 0.2 s after its take, between the next step
+  -- (0.15 s after the answer) and the take's own 0.5 s timeout. One take at a time, each mail once.
+  local inFlight, most, takes = 0, 0, {}
+  function AutoLootMailItem(i)
+    local m = inbox[i]
+    takes[#takes + 1] = m[2]
+    inFlight = inFlight + 1
+    most = math.max(most, inFlight)
+    C_Timer.After(0.2, function()
+      inFlight = inFlight - 1
+      for k, x in ipairs(inbox) do if x == m then table.remove(inbox, k) end end
+      fireNow("MAIL_INBOX_UPDATE")
+    end)
+  end
+  for n = 1, 4 do table.insert(inbox, { "Alliance Auction House", "Auction successful: Cloth " .. n, 100, 0, 0 }) end
+  ns.Mail.press()
+  wait(10)
+  assert(most == 1, "one take at a time: " .. most .. " at once")
+  assert(table.concat(takes, ",") == "Auction successful: Cloth 1,Auction successful: Cloth 2,Auction successful: Cloth 3,Auction successful: Cloth 4", "each mail once, in order: " .. table.concat(takes, ","))
+  -- A mail the server refuses each time: tried again three times, a second apart, then the batch ends.
+  takes = {}
+  function AutoLootMailItem(i)
+    takes[#takes + 1] = inbox[i][2]
+    C_Timer.After(0.2, function() fireNow("MAIL_FAILED") end)
+  end
+  table.insert(inbox, { "Alliance Auction House", "Auction successful: Stuck", 100, 0, 0 })
+  ns.Mail.press()
+  wait(10)
+  assert(#takes == 4, "refused: the first take and three more: " .. #takes)
+  assert(ns.Mail.panel().note:GetText():find("refused", 1, true), "and the panel says so: " .. ns.Mail.panel().note:GetText())
+  table.remove(inbox)
   fire("MAIL_CLOSED")
   GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
   MailFrame = nil
