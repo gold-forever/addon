@@ -34,7 +34,28 @@ def coin_rgb(x, y):
         base = (176, 128, 34)  # the ring stamped in the face
     return tuple(max(0, min(255, round(c * light))) for c in base)
 
+# The arcane look's light: a soft round glow (inner light, a button's pulse), a rune point (a bright core
+# in a thin ring) and a spark (a soft horizontal streak: the light along the title rule, a bar's end).
+def glow(x, y):
+    d = math.hypot(x - S / 2, y - S / 2) / (S / 2)
+    return max(0.0, 1 - d) ** 2
+
+def rune(x, y):
+    d = math.hypot(x - S / 2, y - S / 2) / (S / 2)
+    core = max(0.0, 1 - d / 0.28) ** 1.5
+    ring = max(0.0, 1 - abs(d - 0.62) / 0.06) * 0.8
+    halo = max(0.0, 1 - d) ** 3 * 0.5
+    return min(1.0, core + ring + halo)
+
+def spark(x, y):
+    dx = abs(x - S / 2) / (S / 2)
+    dy = abs(y - S / 2) / (S / 2)
+    return max(0.0, 1 - dx) ** 1.6 * max(0.0, 1 - dy) ** 2
+
 out = sys.argv[1]
 tga(f'{out}/Round.tga', S, circle)
 tga(f'{out}/Shadow.tga', S, shadow)
 tga(f'{out}/Icon.tga', S, circle, coin_rgb)
+tga(f'{out}/Glow.tga', S, glow)
+tga(f'{out}/Rune.tga', S, rune)
+tga(f'{out}/Spark.tga', S, spark)

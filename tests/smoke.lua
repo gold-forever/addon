@@ -59,6 +59,7 @@ end
 function GetPhysicalScreenSize() return 2560, 1440 end
 UISpecialFrames = {}
 BackdropTemplateMixin = {}
+function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 function CreateFrame() local f = widget({ events = {}, shown = false })
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
   function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn end end
@@ -586,6 +587,10 @@ SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui inventory")
 SlashCmdList.GOLDFOREVER("look nonsense")
 assert(GoldForeverDB.settings.window.look == "classic", "an unknown look changes nothing")
+SlashCmdList.GOLDFOREVER("look arcane")
+assert(GoldForeverDB.settings.window.look == "arcane", "the arcane look is kept")
+SlashCmdList.GOLDFOREVER("ui design")
+SlashCmdList.GOLDFOREVER("ui levelling")
 SlashCmdList.GOLDFOREVER("look web")
 SlashCmdList.GOLDFOREVER("ui ledger")
 -- The ways in without a slash command: the compartment's click and the key bindings open and close
@@ -595,7 +600,9 @@ assert(BINDING_HEADER_GOLDFOREVER and BINDING_NAME_GOLDFOREVER_WINDOW and BINDIN
 GoldForever_SwitchLook()
 assert(GoldForeverDB.settings.window.look == "classic", "the look binding switches the look")
 GoldForever_OnAddonCompartmentClick("GoldForever", "RightButton")
-assert(GoldForeverDB.settings.window.look == "web", "a right-click in the compartment switches back")
+assert(GoldForeverDB.settings.window.look == "arcane", "a right-click in the compartment steps on to the next look")
+GoldForever_SwitchLook()
+assert(GoldForeverDB.settings.window.look == "web", "and round again to the first")
 GoldForever_ToggleWindow()
 GoldForever_OnAddonCompartmentClick("GoldForever", "LeftButton")
 GoldForever_OnAddonCompartmentEnter("GoldForever", UIParent)
