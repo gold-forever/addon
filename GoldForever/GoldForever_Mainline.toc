@@ -53,5 +53,13 @@ CraftingStrip.lua
 CraftQueue.lua
 FirstRun.lua
 MailHelper.lua
+HubHome.lua
+HubLedger.lua
+HubSession.lua
+HubCrafting.lua
+HubRares.lua
+HubCompanion.lua
+HubSettings.lua
+HubGuide.lua
 DesignSystem.lua
 Minimap.lua
