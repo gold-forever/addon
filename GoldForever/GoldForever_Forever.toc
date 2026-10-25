@@ -20,8 +20,12 @@ Core.lua
 Claim.lua
 Theme.lua
 Looks.lua
-UI.lua
+UILayout.lua
+UIDraw.lua
+UIControls.lua
+UIData.lua
 HubKit.lua
+HubWindow.lua
 ExportFrame.lua
 Views.lua
 Catalogue.lua

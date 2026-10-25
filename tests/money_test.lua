@@ -6,7 +6,7 @@ local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
-assert(load(SOURCES["UI.lua"], "@UI.lua"))("GoldForever", ns)
+assert(load(SOURCES["UILayout.lua"], "@UILayout.lua"))("GoldForever", ns)
 local E, L = ns.Encode, ns.UI.layout
 
 -- Plain: every unit from the largest there is, no grouping.

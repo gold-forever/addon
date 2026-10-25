@@ -80,7 +80,7 @@ Theme.text = { xs = 12, sm = 13, md = 14, lg = 16, xl = 20, xxl = 28 }
 
 -- Two looks, one setting (design 009; the web playground's Look switch is the reference). A look swaps
 -- the tokens above in place, so code that reads Theme.color and Theme.text needs no change, and tells
--- UI.lua how to draw: the web's rounded, shadowed cards in a bundled Roboto, or the client's own
+-- the UI kit how to draw: the web's rounded, shadowed cards in a bundled Roboto, or the client's own
 -- dialog boxes, red buttons and Friz Quadrata from files the game ships.
 
 local MEDIA = "Interface\\AddOns\\GoldForever\\Media\\"
