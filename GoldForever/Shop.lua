@@ -101,13 +101,13 @@ local function queue()
 	return s.queue
 end
 -- The auction panel's Buy tab shows the queue as a list: it follows every change (manual test run 001:
--- a cleared queue's list stayed).
-local function changed()
+-- a cleared queue's list stayed). `how` is "added", "crafted" or "cleared".
+local function changed(how)
 	if ns.auctionRefresh then
 		ns.auctionRefresh()
 	end
 	if ns.craftQueueChanged then
-		ns.craftQueueChanged()
+		ns.craftQueueChanged(how)
 	end
 end
 function ns.queueAdd(recipeId, n)
@@ -115,12 +115,12 @@ function ns.queueAdd(recipeId, n)
 	for _, x in ipairs(q) do
 		if x.recipe == recipeId then
 			x.count = x.count + n
-			changed()
+			changed("added")
 			return
 		end
 	end
 	q[#q + 1] = { recipe = recipeId, count = n }
-	changed()
+	changed("added")
 end
 -- A queued recipe crafted: one fewer in the queue, and gone at none (manual test run 001: the window
 -- stayed with everything in the bags). The cast's spell is the recipe's ID.
@@ -135,7 +135,7 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
 			if x.count <= 0 then
 				table.remove(q, i)
 			end
-			changed()
+			changed("crafted")
 			return
 		end
 	end
@@ -144,7 +144,7 @@ end)
 function ns.queueClear()
 	local s = ns.settings("crafting", { strip = true })
 	s.queue = {}
-	changed()
+	changed("cleared")
 end
 function ns.queueList()
 	return queue()

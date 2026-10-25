@@ -960,6 +960,24 @@ do
   -- Crafting a queued recipe counts it down.
   fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)
   assert(ns.queueList()[1].count == 2, "one Bolt of Linen crafted: two left in the queue")
+  -- Closed with its X, it stays closed while queued crafts are made (review B-25).
+  GoldForeverDB.settings.craftQueue.closed = true
+  cq:Hide()
+  fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-2", 2963)
+  assert(not cq:IsShown() and GoldForeverDB.settings.craftQueue.closed and ns.queueList()[1].count == 1, "a craft made does not open it again")
+  -- Everything in the bags: the window goes, and says "ready to craft" once for the queue.
+  do
+    local said, chat, held = 0, print, C_Item.GetItemCount
+    print = function(...) if table.concat({ ... }, " "):find("ready to craft", 1, true) then said = said + 1 end chat(...) end
+    C_Item.GetItemCount = function() return 100 end
+    ns.openCraftQueue()
+    assert(not cq:IsShown(), "all in the bags: the window goes")
+    ns.openCraftQueue()
+    print, C_Item.GetItemCount = chat, held
+    assert(said == 1, "ready to craft, said once: " .. said)
+  end
+  ns.queueAdd(2963, 1)
+  assert(cq:IsShown() and ns.queueList()[1].count == 2, "a craft queued opens it again")
   ns.queueAdd(2963, 1)
   C_Item.GetItemCount = function() return 0 end
   -- A market value above the listings (the queue's list buys under market).

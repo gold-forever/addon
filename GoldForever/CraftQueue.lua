@@ -12,6 +12,7 @@ ns.CraftQueue = CraftQueue
 
 local W = 600
 local frame, built
+local toldReady -- "ready to craft" said for this queue: once, until a craft is queued again
 local frames = {} -- Theme.key -> window (frames are never freed)
 
 local function settings()
@@ -197,7 +198,10 @@ function CraftQueue.refresh()
 	-- craft queued, or from its buttons).
 	if ready and #plan > 0 then
 		frame:Hide()
-		ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		if not toldReady then
+			toldReady = true
+			ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		end
 		return
 	end
 	frame.table:SetRows(rows, true)
@@ -247,19 +251,25 @@ function ns.openCraftQueue()
 	CraftQueue.show()
 end
 
--- The queue changed (Shop.lua): a craft added opens it (even after the X); an empty queue closes it.
-function ns.craftQueueChanged()
+-- The queue changed (Shop.lua): a craft added opens it (even after the X); a craft made only redraws it
+-- where it shows, so the X sticks (review B-25); an empty queue closes it.
+function ns.craftQueueChanged(how)
 	local queue = ns.queueList and ns.queueList() or {}
+	if how == "added" or #queue == 0 then
+		toldReady = nil
+	end
 	if #queue == 0 then
 		if frame then
 			frame:Hide()
 		end
 		return
 	end
-	settings().closed = false
+	if how == "added" then
+		settings().closed = false
+	end
 	if frame and frame:IsShown() then
 		CraftQueue.refresh()
-	else
+	elseif how == "added" then
 		CraftQueue.show()
 	end
 end
