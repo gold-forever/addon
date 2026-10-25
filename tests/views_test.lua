@@ -241,6 +241,25 @@ do
 	eq(some[1].bank, 3, "the bank gives what the bags and mail leave")
 end
 
+-- The loot advisor: each stack where it brings the most; a bound one is never posted, and disenchanting
+-- needs the skill.
+do
+	local price = {
+		vendor = function(id) return ({ [1] = 10, [2] = 5, [3] = 100 })[id] end,
+		market = function(id) return ({ [1] = 100, [2] = 1000 })[id] end,
+		disenchant = function(id) if id == 3 then return 500, 50 end end,
+		itemInfo = function(id) return nil, nil, nil, nil, id == 1 and "Linen" or nil end,
+		cut = 0.05,
+	}
+	local stacks = { { id = 1, count = 2 }, { id = 2, count = 1, bound = true }, { id = 3, count = 1 } }
+	local lists, totals = V.adviseStacks(stacks, price, 75)
+	eq(lists.post[1].name .. " " .. lists.post[1].value, "Linen 190", "posted, after the cut")
+	eq(lists.vendor[1].id .. " " .. totals.vendor, "2 5", "bound: vendored, though the market is higher")
+	eq(lists.disenchant[1].id .. " " .. totals.disenchant, "3 500", "disenchanted with the skill")
+	lists = V.adviseStacks(stacks, price, 10)
+	eq(#lists.disenchant .. " " .. lists.vendor[1].id, "0 3", "without it, vendored")
+end
+
 -- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.
 local g = V.goal(0, 6400000, { gold = 10000000, by = 10 * 86400 })
 eq(g.pct .. "/" .. g.left .. "/" .. g.daysLeft .. "/" .. g.perDay, "64/3600000/10/360000", "64%, 360g left, 36g a day")

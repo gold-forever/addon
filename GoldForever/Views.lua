@@ -619,6 +619,47 @@ function Views.queuePlan(needs, mine, guild, others)
 	return rows
 end
 
+-- The loot advisor's lists (Advisor.lua): each stack's best use, vendor, post or disenchant, whichever
+-- brings the most. stacks = { { id, count, bound } }; price = { vendor, market, disenchant, itemInfo, cut }
+-- as ns.price; skill is the character's enchanting. A bound stack is never posted; disenchanting needs the
+-- skill. Returns lists by use ({ id, name, count, value, market }, most first) and their totals.
+function Views.adviseStacks(stacks, price, skill)
+	local lists = { vendor = {}, post = {}, disenchant = {} }
+	local totals = { vendor = 0, post = 0, disenchant = 0 }
+	for _, s in pairs(stacks) do
+		local options = {}
+		local vendor = price.vendor(s.id)
+		if vendor then
+			options.vendor = vendor * s.count
+		end
+		local market = not s.bound and price.market(s.id)
+		if market then
+			options.post = math.floor(market * (1 - price.cut)) * s.count
+		end
+		local de, needs = price.disenchant(s.id)
+		if de and de > 0 and skill >= needs then
+			options.disenchant = de * s.count
+		end
+		local best, value
+		for use, v in pairs(options) do
+			if not value or v > value then
+				best, value = use, v
+			end
+		end
+		if best and value > 0 then
+			local _, _, _, _, name = price.itemInfo(s.id)
+			table.insert(lists[best], { id = s.id, name = name or ("item " .. s.id), count = s.count, value = value, market = market })
+			totals[best] = totals[best] + value
+		end
+	end
+	for _, list in pairs(lists) do
+		table.sort(list, function(a, b)
+			return a.value > b.value
+		end)
+	end
+	return lists, totals
+end
+
 -- A gold goal on Home: gold now (copper, all characters) against goal = { gold (copper), by (Unix time) }.
 -- Returns { pct (0–100), left (copper still to make), daysLeft, perDay (copper a day to make it, nil once
 -- reached or past), reached, late }.
