@@ -9,7 +9,7 @@ local addonName, ns = ...
 local Encode = ns.Encode
 
 local SCHEMA = 1
-local VERSION = "0.16.0"
+local VERSION = "0.16.1"
 ns.VERSION = VERSION
 
 -- A retail client keeps a lean save (owner's answer, 2026-10-24): the catalogue exists to keep

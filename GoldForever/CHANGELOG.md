@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.16.1 (2026-10-25)
 
 - **Text takes the same room in every look.** Web and Arcane size their text so a line is as wide as in
   Classic, measured in game against Friz Quadrata at login. The Scan tab's "Scan when I open the auction

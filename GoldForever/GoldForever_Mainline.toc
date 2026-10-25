@@ -4,7 +4,7 @@
 ## Interface: 120105, 120100, 120007, 120005, 120001, 120000
 ## Title: Gold Forever
 ## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.app.
-## Version: 0.16.0
+## Version: 0.16.1
 ## SavedVariables: GoldForeverDB
 ## IconTexture: Interface\AddOns\GoldForever\Media\Icon.tga
 ## AddonCompartmentFunc: GoldForever_OnAddonCompartmentClick
