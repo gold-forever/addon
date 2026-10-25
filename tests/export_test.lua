@@ -9,6 +9,19 @@ local X = ns.Export
 eq(X.serialize({ b = 2, a = "x\"y\n", [3] = true, [1] = 1.5 }), '{[1]=1.5,[3]=true,["a"]="x\\"y\\n",["b"]=2}', "a table, sorted keys")
 eq(X.serialize({ list = { "a", "b" } }), '{["list"]={[1]="a",[2]="b"}}', "nested arrays")
 eq(X.serialize({ n = -12 }), '{["n"]=-12}', "a negative integer")
+-- The client's string.format("%d") stops at 2^31 ("integer overflow attempting to store"); copper does not.
+do
+	local format = string.format
+	string.format = function(spec, value, ...)
+		if spec == "%d" and math.abs(value) >= 2 ^ 31 then
+			error("integer overflow attempting to store " .. tostring(value))
+		end
+		return format(spec, value, ...)
+	end
+	local ok, text = pcall(X.serialize, { money = 9132822274, debt = -9132822274 })
+	string.format = format
+	eq(text, '{["debt"]=-9132822274,["money"]=9132822274}', "copper past 2^31")
+end
 
 -- What goes in: every character, the event days from the last export's day on, and the scans
 -- newer than it. Older days and scans were in the last export.
