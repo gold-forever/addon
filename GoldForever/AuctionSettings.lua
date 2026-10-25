@@ -17,8 +17,14 @@ function ns.auctionSettings()
 	return s
 end
 
--- The active sale profile (the Selling rules page), or nil.
+-- Whether the logged-in character sees a sale profile: one for every character, or its own (addon#16).
+function ns.profileForMe(p)
+	return ns.Shopping.forCharacter(p, UnitGUID and ns.readable(UnitGUID("player")))
+end
+
+-- The active sale profile (the Selling rules page), or nil; another character's is not this one's.
 function ns.activeProfile(s)
 	s = s or ns.auctionSettings()
-	return s.profile and s.profiles and s.profiles[s.profile] or nil
+	local p = s.profile and s.profiles and s.profiles[s.profile]
+	return p and ns.profileForMe(p) and p or nil
 end

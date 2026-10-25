@@ -146,6 +146,9 @@ local MAX_STRING, MAX_RULES, MAX_COPPER, MAX_UNITS = 16384, 200, Encode.MAX_COPP
 
 function SalePlan.text(p)
 	local lines = { "name " .. p.name, "by " .. p.author }
+	if p.character then
+		lines[#lines + 1] = "for " .. p.character
+	end
 	for _, r in ipairs(p.sell) do
 		local price
 		if r.price.kind == "undercut" then
@@ -193,7 +196,7 @@ function SalePlan.decode(input)
 		return nil, "The string is damaged (copy it again, all of it)"
 	end
 	local profile = { name = "Unnamed", author = "", sell = {}, buy = {} }
-	local n = 0
+	local n, last = 0, nil
 	for raw in string.gmatch(text .. "\n", "([^\n]*)\n") do
 		n = n + 1
 		local line = string.match(raw, "^%s*(.-)%s*$")
@@ -205,8 +208,17 @@ function SalePlan.decode(input)
 			for w in string.gmatch(line, "%S+") do
 				words[#words + 1] = w
 			end
-			local word = words[1]
-			if word == "name" or word == "by" then
+			local word, previous = words[1], last
+			last = word
+			if word == "for" then
+				-- One character's profile, straight after its by line, by its GUID as the game writes it:
+				-- "Player-<server id>-<8 hex digits>" (the same rule as a list's, Shopping.decode).
+				local server, hex = string.match(line, "^for Player%-(%d+)%-([0-9A-F]+)$")
+				if previous ~= "by" or not server or #server > 5 or #hex ~= 8 then
+					return bad()
+				end
+				profile.character = string.sub(line, 5)
+			elseif word == "name" or word == "by" then
 				local v = cleanName(string.sub(line, #word + 1))
 				if word == "name" then
 					profile.name = v ~= "" and v or "Unnamed"

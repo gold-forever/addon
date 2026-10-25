@@ -181,7 +181,9 @@ local function buildRule(page)
 	local function options()
 		local out = { { value = 0, label = "None: the rules" } }
 		for i, p in ipairs(s.profiles) do
-			out[#out + 1] = { value = i, label = p.name }
+			if ns.profileForMe(p) then
+				out[#out + 1] = { value = i, label = p.name }
+			end
 		end
 		return out
 	end
@@ -193,14 +195,15 @@ local function buildRule(page)
 	local function rebuild()
 		if pick then
 			pick:SetOptions(options())
-			pick:Set(s.profile or 0)
+			pick:Set(activeProfile() and s.profile or 0)
 			describe()
 			return
 		end
-		pick = UI.Dropdown(page, options(), s.profile or 0, function(v)
+		pick = UI.Dropdown(page, options(), activeProfile() and s.profile or 0, function(v)
 			s.profile = v ~= 0 and v or nil
 			describe()
 		end)
+		page.profilePick = pick
 		pick:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -8)
 		pick:SetPoint("RIGHT", page, "RIGHT")
 		summary:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -8)
@@ -220,6 +223,10 @@ local function buildRule(page)
 		if not p then
 			message:SetText(Theme.escape(Theme.color.danger) .. err .. "|r")
 			return
+		end
+		-- One character's profile is imported for the character importing it (owner, 2026-10-26: as lists).
+		if p.character then
+			p.character = UnitGUID and ns.readable(UnitGUID("player"))
 		end
 		-- Decision 11: each profile has an id and an edited time, so a later sync keeps the newest.
 		stamp(p)

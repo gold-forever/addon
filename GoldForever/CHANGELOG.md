@@ -6,6 +6,9 @@
   character only, on the Buy tab and the Shopping lists page; other lists, and the craft queue's, show
   on every character. Importing another character's list makes it yours. A list string with a line Gold Forever does not know yet is still read, that line
   skipped.
+- **Sale profiles for one character.** A sale profile made for one character on the site is offered on
+  the Selling rules page, and prices the Sell tab, on that character only; other profiles work on every
+  character. Importing another character's profile makes it yours.
 
 ## 0.16.1 (2026-10-25)
 

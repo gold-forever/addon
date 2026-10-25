@@ -892,6 +892,36 @@ do
   local sug = AP.suggestion()
   assert(sug and sug.reason == "plan" and sug.quantity == 5, "the profile's plan prices Linen and keeps 2: " .. tostring(sug and sug.label) .. " " .. tostring(sug and sug.quantity))
   assert(sug.unit and sug.unit % 100 == 0, "in whole silver")
+  -- The logged-in character's profiles (addon#16): every character's and its own, not another's.
+  do
+    local auction = GoldForeverDB.settings.auction
+    local me, other = UnitGUID("player"), "Player-4620-0FFFFFFF"
+    local linen = { { itemID = 2589, keep = 2, price = { kind = "undercut", by = 1 }, floorPct = 50 } }
+    local n = #auction.profiles
+    auction.profiles[n + 1] = { id = "pa1", name = "Alt's", author = "Test", character = other, sell = linen, buy = { { itemID = 2589, upTo = 12, maxUnit = 4500 } } }
+    auction.profile = n + 1
+    AP.tab("post")
+    sug = AP.suggestion()
+    assert(sug and sug.reason ~= "plan", "another character's profile does not price the Sell tab: " .. tostring(sug and sug.reason))
+    for _, l in ipairs(select(3, ns.Lists.lists())) do
+      assert(not l.profile, "nor puts its buy list on the Buy tab: " .. l.name)
+    end
+    -- Imported here, another character's profile becomes this one's, in use, and prices the Sell tab.
+    AP.importProfile(ns.SalePlan.encode({ name = "From an alt", author = "Test", character = other, sell = linen, buy = {} }))
+    local got = auction.profiles[n + 2]
+    assert(got.character == me and auction.profile == n + 2, "re-scoped to this character: " .. tostring(got.character))
+    AP.tab("post")
+    sug = AP.suggestion()
+    assert(sug and sug.reason == "plan", "this character's profile prices the Sell tab: " .. tostring(sug and sug.reason))
+    -- The Selling rules page offers every character's (Cloth) and its own, not the alt's.
+    local labels = {}
+    for i, row in ipairs(ns.rulesPage.profilePick.menu.rows) do
+      if row:IsShown() then labels[#labels + 1] = row.text.text end
+    end
+    assert(table.concat(labels, "|") == "None: the rules|Cloth|From an alt", "the picker: " .. table.concat(labels, "|"))
+    table.remove(auction.profiles)
+    table.remove(auction.profiles)
+  end
   GoldForeverDB.settings.auction.profile = nil -- back to the rule for the rest of the run
   -- An override for the item chosen in Post (Rule → Rule for → + The item): Post names it.
   AP.ruleScope("add-item")
@@ -1595,6 +1625,12 @@ do
   local alt
   for _, l in ipairs(auction.lists) do if l.id == "s2" then alt = l end end
   assert(alt and alt.character == "Player-4620-0FFFFFFF", "the site's list for one character, in the save for it")
+  -- So does a profile (settings.auction.profiles[i].character, addon#16).
+  GoldForever_Prices.shared = { at = 75, lists = {}, profiles = { { id = "p2", edited = 100, string = ns.SalePlan.encode({ name = "Alt's", author = "Test", character = "Player-4620-0FFFFFFF", sell = {}, buy = {} }) } } }
+  ns.test.mergeShared()
+  alt = nil
+  for _, p in ipairs(auction.profiles) do if p.id == "p2" then alt = p end end
+  assert(alt and alt.character == "Player-4620-0FFFFFFF", "the site's profile for one character, in the save for it")
   -- A list deleted in the game stays deleted, and the site's copies are never taken (manual test run 001:
   -- deleted lists and "(older copy)" lists came back at every reload).
   for i, l in ipairs(auction.lists) do if l.id == "s1" then table.remove(auction.lists, i) end end

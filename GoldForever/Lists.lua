@@ -43,7 +43,7 @@ function Lists.lists()
 		shown[1] = Lists.stamp({ name = "My list", entries = {} })
 		s.lists[#s.lists + 1] = shown[1]
 	end
-	local p = s.profile and s.profiles and s.profiles[s.profile]
+	local p = ns.activeProfile(s)
 	-- The craft queue's missing reagents, at under market value (Crafting page and strip).
 	local needs = ns.queueNeeds()
 	if next(needs) then

@@ -101,4 +101,19 @@ eq((P.decode(wrap("rm 1 keep 5"))), nil, "an unknown rule")
 eq(P.decode(wrap("sell 1 keep 5 undercut 1")).sell[1].floorPct, 0, "no floor is none")
 eq(P.ruleFor(profile, 13444).keep, 5, "the rule for an item")
 
+-- A profile for one character: "for <GUID>" straight after its by line (gold-forever/gold-forever#19).
+local GUID = "Player-1234-0ABC1234"
+local mine = P.decode(wrap("name Mine\nby Zulkara\nfor " .. GUID .. "\nsell 1 keep 5 undercut 1"))
+eq(mine.character, GUID, "the profile is for that character")
+eq(#mine.sell, 1, "its rules read as before")
+eq(P.decode(str).character, nil, "a profile without a for line: every character")
+eq(P.text({ name = "Mine", author = "Zulkara", character = GUID, sell = {}, buy = {} }), "name Mine\nby Zulkara\nfor " .. GUID, "the for line straight after the by line")
+eq(P.decode(P.encode(mine)).character, GUID, "the scope reads back")
+eq((P.decode(wrap("name a\nfor " .. GUID .. "\nby x"))), nil, "a for line not after the by line")
+eq((P.decode(wrap("name a\nby x\nsell 1 keep 5 undercut 1\nfor " .. GUID))), nil, "a for line after the rules")
+eq((P.decode(wrap("name a\nby x\nfor " .. GUID .. "\nfor " .. GUID))), nil, "two for lines")
+eq((P.decode(wrap("name a\nby x\nfor Bob"))), nil, "not a character's GUID")
+eq((P.decode(wrap("name a\nby x\nfor Player-1234-0ABC123"))), nil, "seven hex digits")
+eq((P.decode(wrap("name a\nby x\nfor Player-123456-0ABC1234"))), nil, "a six-digit server id")
+
 return checks()
