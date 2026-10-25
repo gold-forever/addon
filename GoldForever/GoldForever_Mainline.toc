@@ -52,6 +52,11 @@ Lists.lua
 AuctionWaits.lua
 AuctionBlizzard.lua
 AuctionBooks.lua
+AuctionScanTab.lua
+AuctionSell.lua
+AuctionBuy.lua
+AuctionCancel.lua
+AuctionBank.lua
 SellingRulesPage.lua
 ShoppingListsPage.lua
 AuctionPanel.lua

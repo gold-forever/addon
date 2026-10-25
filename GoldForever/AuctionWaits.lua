@@ -23,6 +23,7 @@ function ah.money(c)
 	return UI.layout.money(c, "silver")
 end
 
+ah.WIDTH = 420 -- the panel's width
 ah.CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next press is taken
 
 -- For the waits below, and the files that refresh the panel.
