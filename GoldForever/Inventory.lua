@@ -26,8 +26,9 @@ end
 local BAGS = containers({ "^Backpack$", "^Bag_%d+$", "^ReagentBag$" }, { 0, 1, 2, 3, 4 })
 local BANK = containers({ "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$", "^Reagentbank$" }, { -1, 5, 6, 7, 8, 9, 10, 11 })
 
+-- `bound`: the units of each that are soulbound (not for the auction house), for Inventory's worth.
 local function read(ids)
-	local counts, used, total = {}, 0, 0
+	local counts, bound, used, total = {}, {}, 0, 0
 	for _, bag in ipairs(ids) do
 		local n = C_Container.GetContainerNumSlots(bag) or 0
 		total = total + n
@@ -38,12 +39,21 @@ local function read(ids)
 				local key = Encode.itemKey(info.hyperlink) or (info.itemID and tostring(info.itemID))
 				if key then
 					counts[key] = (counts[key] or 0) + (info.stackCount or 1)
+					if info.isBound then
+						bound[key] = (bound[key] or 0) + (info.stackCount or 1)
+					end
 					ns.catalogueItem(key)
 				end
 			end
 		end
 	end
-	return { used = used, total = total, items = Encode.items(counts), t = ns.now() }
+	return { used = used, total = total, items = Encode.items(counts), bound = next(bound) and Encode.items(bound) or nil, t = ns.now() }
+end
+
+-- Pages that show the bags (Home) and redraw when they are read.
+local bagsRead = {}
+function ns.onBagsRead(fn)
+	bagsRead[#bagsRead + 1] = fn
 end
 
 local function readBags()
@@ -52,6 +62,9 @@ local function readBags()
 		local bags = read(BAGS)
 		if bags.total > 0 then
 			me.bags = bags
+			for _, fn in ipairs(bagsRead) do
+				ns.safely("bags read", fn)
+			end
 		end
 	end
 end
@@ -115,9 +128,132 @@ end)
 ns.on("PLAYER_LEAVING_WORLD", "bags", readBags)
 ns.on("PLAYER_LOGOUT", "bags", readBags)
 
+-- Items to take from the bank for the auction house, chosen on the auction panel's Bank tab (owner,
+-- 2026-10-24: "chose items you want to pick from the bank, and they will be auto looted next time you
+-- are there"): settings("fetch")[guid] = { [itemId] = true }, for the character online.
+function ns.fetchList()
+	local guid = UnitGUID and ns.readable(UnitGUID("player"))
+	if not guid then
+		return nil
+	end
+	local s = ns.settings("fetch")
+	s[guid] = s[guid] or {}
+	return s[guid]
+end
+
+local function freeBagSlots()
+	local free = 0
+	for _, bag in ipairs(BAGS) do
+		local n, kind = C_Container.GetContainerNumFreeSlots(bag)
+		if (kind or 0) == 0 then
+			free = free + (n or 0)
+		end
+	end
+	return free
+end
+
+-- The first empty slot in the bags (a general bag, for a split stack).
+local function emptyBagSlot()
+	for _, bag in ipairs(BAGS) do
+		local _, kind = C_Container.GetContainerNumFreeSlots(bag)
+		if (kind or 0) == 0 then
+			for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+				if not C_Container.GetContainerItemInfo(bag, slot) then
+					return bag, slot
+				end
+			end
+		end
+	end
+end
+
+-- When the bank opens: each chosen item into the bags, a move every 0.15 s (the server takes one at a
+-- time), while the bags have room and the bank stays open; never in combat. want[id] is true (all of it)
+-- or a number of units: whole stacks move as they are, and the last part is split off into an empty bag
+-- slot (owner, 2026-10-25: "take all, or take qty"). What is taken comes off the list.
+local FETCH_GAP = 0.15
+local function fetchFromBank()
+	local want = ns.fetchList()
+	if not want or not next(want) or (InCombatLockdown and InCombatLockdown()) then
+		return
+	end
+	local moves, left = {}, {}
+	for _, bag in ipairs(BANK) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and info.itemID and want[info.itemID] then
+				moves[#moves + 1] = { bag = bag, slot = slot, id = info.itemID, n = info.stackCount or 1 }
+			end
+		end
+	end
+	for id, w in pairs(want) do
+		left[id] = w == true and math.huge or tonumber(w) or 0
+	end
+	local i, taken, full = 0, 0, false
+	local function done()
+		for id, n in pairs(left) do
+			-- Stacks of it still in the bank, not reached (bags full, bank closed)?
+			local more = false
+			for k = i + 1, #moves do
+				if moves[k].id == id then
+					more = true
+				end
+			end
+			if n <= 0 or not more then
+				want[id] = nil -- all taken, or none left in the bank
+			else
+				want[id] = n == math.huge or n -- still to take: all of it, or how many
+			end
+		end
+		if taken > 0 or full then
+			ns.say(string.format("took %d %s from the bank to sell%s.", taken, taken == 1 and "stack" or "stacks",
+				full and "; your bags are full, the rest stays chosen" or ""))
+		end
+	end
+	local function step()
+		i = i + 1
+		local m = moves[i]
+		-- The bank closed, or a fight began, mid-fetch: this stack was not taken, so it stays to look for.
+		if not m or not bankOpen or (InCombatLockdown and InCombatLockdown()) then
+			i = i - 1
+			done()
+			return
+		end
+		local need = left[m.id] or 0
+		if need <= 0 then
+			return step()
+		end
+		if freeBagSlots() == 0 then
+			full, i = true, i - 1
+			done()
+			return
+		end
+		if need >= m.n then
+			C_Container.UseContainerItem(m.bag, m.slot)
+			left[m.id] = need - m.n
+		else
+			-- Part of a stack: split it onto the cursor and put it in an empty bag slot.
+			local bag, slot = emptyBagSlot()
+			if not bag then
+				full, i = true, i - 1
+				done()
+				return
+			end
+			C_Container.SplitContainerItem(m.bag, m.slot, need)
+			C_Container.PickupContainerItem(bag, slot)
+			left[m.id] = 0
+		end
+		taken = taken + 1
+		C_Timer.After(FETCH_GAP, function()
+			ns.safely("bank fetch", step)
+		end)
+	end
+	step()
+end
+
 local function bankOpened()
 	bankOpen = true
 	ns.after(0.5, "bank", readBank)
+	ns.after(0.6, "bank fetch", fetchFromBank)
 end
 local function bankClosed()
 	readBank()
@@ -196,3 +332,40 @@ ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "bank", function(kind)
 		bankClosed()
 	end
 end)
+
+-- "Held" in item tooltips (owner's answer, 2026-10-24): how many every character holds, from what the
+-- save has of their bags, bank and mail. The index is built again only when one of those changed.
+local held, heldStamp
+local function stamp()
+	local sum, n = 0, 0
+	for _, c in pairs(ns.db().characters or {}) do
+		n = n + 1
+		for _, place in ipairs(ns.Views.PLACES) do
+			sum = sum + (c[place] and c[place].t or 0)
+		end
+	end
+	return sum * 1000 + n
+end
+
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function heldTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
+			return
+		end
+		if ns.settings("prices").held == false then
+			return
+		end
+		local now = stamp()
+		if not held or heldStamp ~= now then
+			held, heldStamp = ns.Views.holdings(ns.db().characters, Encode.parseItems), now
+		end
+		local line = ns.Views.heldText(held[data.id])
+		if line then
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("held tooltip", heldTooltip, tooltip, data)
+	end)
+end

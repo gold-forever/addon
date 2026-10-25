@@ -2,15 +2,8 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 local E = ns.Encode
-
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 
 -- Rows keep every declared column, empty included, so they match their declaration.
 eq(E.row(1792407600, 1, 1452, 612, 384, "n7440", true, 2400, "14047*2"), "1792407600,1,1452,612,384,n7440,1,2400,14047*2", "full loot row")
@@ -30,6 +23,20 @@ local single = {}
 E.append(single, "a")
 E.append(single, "b")
 eq(single[1], "a;b", "rows join with ;")
+-- A stream's last chunk changed outside append (a test, an older save) is counted again, not trusted.
+single[1] = "x"
+E.append(single, "y")
+eq(single[1], "x;y", "a chunk replaced from outside is appended to")
+local full = {}
+E.append(full, "first")
+full[1] = string.rep("r;", E.ROWS_PER_CHUNK - 1) .. "r"
+E.append(full, "next")
+eq(#full, 2, "a chunk filled from outside is counted full")
+
+-- Free text for a catalogue row: commas become the look-alike, semicolons full stops, line breaks a space.
+eq(E.text("Gold, more; less\r\nmore"), "Gold\226\128\154 more. less more", "free text in a row")
+eq(E.text(""), nil, "no text")
+eq(E.text(nil), nil, "nil text")
 
 -- Item lists: stable order, suffix keys kept as given.
 eq(E.items({ [14047] = 2, ["10221:612"] = 1, [2589] = 20 }), "10221:612*1+14047*2+2589*20", "items sorted as text")
@@ -134,4 +141,38 @@ eq(E.duration(80 * 60), "1h 20m", "hours")
 eq(E.day(1792368000), "2026-10-19", "start of a UTC day")
 eq(E.day(1792454399), "2026-10-19", "end of the same UTC day")
 
-return checks
+-- The flat market value agrees with the listing one, on many random scans.
+math.randomseed(7)
+for trial = 1, 200 do
+	local list, flat = {}, {}
+	for k = 1, math.random(1, 30) do
+		local unit, qty = math.random(1, 50000), math.random(0, 200)
+		list[k] = { unit = unit, qty = qty }
+		flat[#flat + 1] = unit
+		flat[#flat + 1] = qty
+	end
+	eq(E.marketValueFlat(flat), E.marketValue(list), "flat and listing market values agree, trial " .. trial)
+	local low
+	for _, l in ipairs(list) do low = (not low or l.unit < low) and l.unit or low end
+	eq(E.cheapestFlat(flat), low, "the cheapest unit, trial " .. trial)
+end
+eq(E.marketValueFlat({}), nil, "no listings")
+
+-- Base64, as the site's btoa: RFC 4648's vectors, round trips, and refusals.
+for _, v in ipairs({ { "", "" }, { "f", "Zg==" }, { "fo", "Zm8=" }, { "foo", "Zm9v" }, { "foob", "Zm9vYg==" }, { "fooba", "Zm9vYmE=" }, { "foobar", "Zm9vYmFy" } }) do
+	eq(E.base64(v[1]), v[2], "base64 of " .. v[1])
+	eq(E.unbase64(v[2]), v[1], "back from " .. v[2])
+end
+eq(E.unbase64("Zm9v YmFy\n"), "foobar", "white space ignored")
+eq(E.unbase64("Zm9"), nil, "a bad length")
+eq(E.unbase64("Zm9!"), nil, "a character outside the alphabet")
+eq(E.unbase64("Zg==Zg=="), nil, "padding only at the end")
+local utf = "Guldsm\195\184r \226\128\153 \208\147"
+eq(E.unbase64(E.base64(utf)), utf, "UTF-8 bytes round trip")
+
+-- Party chat lines: plain, one line, at most 255 characters.
+eq(E.chatLine("Rare: |cffff0000Bad|r (30) near 52.3, 34.1"), "[Gold Forever] Rare: cffff0000Badr (30) near 52.3, 34.1", "escapes out")
+eq(E.chatLine("a\nb"), "[Gold Forever] a b", "one line")
+eq(#E.chatLine(string.rep("x", 400)), 255, "within chat's limit")
+
+return checks()

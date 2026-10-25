@@ -7,6 +7,9 @@
 local _, ns = ...
 local Encode = ns.Encode
 
+local Catalogue = {}
+ns.Catalogue = Catalogue
+
 -- minLevel and equipLoc are appended to design 002's columns.
 ns.FIELDS.item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc"
 
@@ -33,6 +36,9 @@ local function tooltip(id)
 	return table.concat(lines, "\n")
 end
 
+-- For a lean (retail) save, which keeps none: an item's tooltip text read when asked.
+ns.itemTooltipText = tooltip
+
 local function write(id)
 	local name, _, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind = GetItemInfo(id)
 	if not name then
@@ -41,7 +47,9 @@ local function write(id)
 	local catalogue = ns.db().catalogue
 	catalogue.items[id] = Encode.row(Encode.name(name), quality, ilvl, class, subclass, stack, sell, bind, icon,
 		minLevel, equipLoc ~= "" and equipLoc or nil)
-	catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
+	if not ns.lean then
+		catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
+	end
 	return true
 end
 
@@ -94,7 +102,7 @@ end
 function ns.catalogueItem(key)
 	local id = Encode.itemId(key)
 	local catalogue = ns.db().catalogue
-	if not id or (catalogue.items[id] and catalogue.tooltips[id]) or pending[id] or queued[id] or tried[id] then
+	if not id or (catalogue.items[id] and (ns.lean or catalogue.tooltips[id])) or pending[id] or queued[id] or tried[id] then
 		return
 	end
 	queued[id] = true
@@ -110,7 +118,7 @@ end
 -- once a session.
 local backfilled = false
 ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
-	if backfilled then
+	if backfilled or ns.lean then
 		return
 	end
 	backfilled = true
@@ -123,3 +131,53 @@ ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
 		end
 	end)
 end)
+
+-- One column of an entry's row, by its name in ns.FIELDS (kind "item" reads catalogue.items, "npc"
+-- catalogue.npcs); nil when there is no row or the column is empty.
+local patterns = {} -- "kind column" -> a pattern capturing that column
+local function column(kind, id, name)
+	local section = ns.db().catalogue[kind .. "s"]
+	local row = section and section[id]
+	if not row then
+		return nil
+	end
+	local key = kind .. " " .. name
+	local pattern = patterns[key]
+	if pattern == nil then
+		local i = Encode.columns(ns.FIELDS[kind])[name]
+		pattern = i and ("^" .. string.rep("[^,]*,", i - 1) .. "([^,]*)") or false
+		patterns[key] = pattern
+	end
+	local value = pattern and string.match(row, pattern)
+	return value ~= "" and value or nil
+end
+
+-- An entry's name as the catalogue has it ("item", "npc", "object", …).
+function Catalogue.name(kind, id)
+	return column(kind, id, "name")
+end
+
+-- An item's quality (0 poor … 4 epic) as the catalogue has it.
+function Catalogue.quality(id)
+	return tonumber(column("item", id, "quality"))
+end
+
+-- The quest an item starts: its ID when a loot window said so, true when only its tooltip does.
+function Catalogue.startsQuest(id)
+	local catalogue = ns.db().catalogue
+	local quest = catalogue.questStarters and catalogue.questStarters[id]
+	if quest then
+		return quest
+	end
+	local tooltip = catalogue.tooltips[id] or (ns.lean and ns.itemTooltipText(id))
+	return tooltip and (string.find(tooltip, ITEM_STARTS_QUEST or "This Item Begins a Quest", 1, true) and true) or nil
+end
+
+-- Whether this character finished the quest; unknown (nil) without a quest ID.
+function Catalogue.questDone(quest)
+	if type(quest) ~= "number" then
+		return nil
+	end
+	local completed = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted or IsQuestFlaggedCompleted
+	return completed and completed(quest) or false
+end

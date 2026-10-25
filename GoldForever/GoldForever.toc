@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Gold Forever
 ## Notes: Records your characters for the Gold Forever web app. Type /gf export and paste it at gold-forever.app.
-## Version: 0.14.1
+## Version: 0.16.0
 ## SavedVariables: GoldForeverDB
 ## IconTexture: Interface\AddOns\GoldForever\Media\Icon.tga
 ## AddonCompartmentFunc: GoldForever_OnAddonCompartmentClick
@@ -12,15 +12,25 @@
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
 Encode.lua
+Money.lua
+Scans.lua
 Export.lua
 Realms.lua
 Core.lua
 Claim.lua
 Theme.lua
-UI.lua
+Looks.lua
+UILayout.lua
+UIDraw.lua
+UIControls.lua
+UIData.lua
+UIWindows.lua
+HubKit.lua
+HubWindow.lua
 ExportFrame.lua
 Views.lua
 Catalogue.lua
+Pricing.lua
 Loot.lua
 Inventory.lua
 Professions.lua
@@ -32,12 +42,47 @@ Legacy.lua
 Achievements.lua
 Disenchant.lua
 Crafting.lua
-Appraiser.lua
+Session.lua
+Hud.lua
+MobStats.lua
+Tooltips.lua
 Prices.lua
 Advisor.lua
 Rares.lua
-Shop.lua
+CraftPlanner.lua
 Auctions.lua
 Levelling.lua
+Dings.lua
+Post.lua
+Shopping.lua
+SalePlan.lua
+AuctionSettings.lua
+Holdings.lua
+Lists.lua
+AuctionWaits.lua
+AuctionBlizzard.lua
+AuctionBooks.lua
+AuctionScanTab.lua
+AuctionSell.lua
+AuctionBuy.lua
+AuctionCancel.lua
+AuctionBank.lua
+SellingRulesPage.lua
+ShoppingListsPage.lua
+AuctionPanel.lua
+UiDebug.lua
+CraftingStrip.lua
+CraftQueue.lua
+FirstRun.lua
+MailHelper.lua
+HubHome.lua
+HubLedger.lua
+HubSession.lua
+HubCrafting.lua
+HubRares.lua
+HubCompanion.lua
+HubSettings.lua
+HubGuide.lua
 DesignSystem.lua
 Minimap.lua
+Hub.lua

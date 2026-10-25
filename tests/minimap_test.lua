@@ -1,17 +1,15 @@
--- Minimap.lua's arithmetic: where the button sits for an angle, and the angle a drag leaves it at.
+-- Minimap.lua's arithmetic: where the button sits for an angle, and the angle a drag leaves it at; and
+-- Theme.lua's class colours, which it loads.
 
 local ns = { on = function() end, commands = {}, settings = function(_, d) return d end }
+-- The game's class colours fill in the classes past the nine; the nine keep their own.
+RAID_CLASS_COLORS = { MONK = { r = 0, g = 1, b = 0.596 }, MAGE = { r = 0, g = 0, b = 0 } }
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
+RAID_CLASS_COLORS = nil
+eq(ns.Theme.class.MONK, "#00ff98", "a monk in the game's colour")
+eq(ns.Theme.class.MAGE, "#3fc7eb", "a mage in its own")
 assert(load(SOURCES["Minimap.lua"], "@Minimap.lua"))("GoldForever", ns)
 local M = ns.Minimap
-
-local checks = 0
-local function near(actual, expected, what)
-	checks = checks + 1
-	if math.abs(actual - expected) > 1e-9 then
-		error(string.format("%s: expected %s, got %s", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 
 local x, y = M.offset(0, 80)
 near(x, 80, "east is right")
@@ -34,4 +32,17 @@ for _, a in ipairs({ 0, 33, 135, 225, 300 }) do
 	near(M.angle(10 + dx, 10 + dy, 10, 10), a, "an angle survives a round trip: " .. a)
 end
 
-return checks
+-- A right-click steps on from the saved look, whichever look was drawn last.
+do
+	local asked
+	ns.commands.look = function(name) asked = name end
+	ns.currentLook = function() return "arcane" end
+	ns.Theme.apply("web")
+	M.switchLook()
+	eq(asked, "web", "saved Arcane, drawn Web: on to Web, round the list")
+	ns.currentLook = function() return "web" end
+	M.switchLook()
+	eq(asked, "classic", "saved Web: on to Classic")
+end
+
+return checks()

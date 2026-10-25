@@ -1,6 +1,6 @@
 -- Gold Forever: the loot advisor. What to do with what is in the bags: sell it to a vendor, post it
 -- on the auction house, or disenchant it, whichever brings the most, with the totals. Shown at a
--- vendor and with /gf bags. Prices and valuation are the appraiser's (ns.price).
+-- vendor and with /gf bags. Prices and valuation are Pricing.lua's (ns.price).
 
 local _, ns = ...
 
@@ -9,7 +9,7 @@ local LIST_LENGTH = 8 -- items shown per list; the rest are summed in one line
 local frame, body
 
 local function settings()
-	return ns.settings("advisor", { shown = true })
+	return ns.settings("advisor")
 end
 
 -- Bag contents by item and whether it is bound (bound items cannot go to the auction house).
@@ -29,43 +29,9 @@ local function contents()
 	return stacks
 end
 
--- Each stack's best use: { use = "vendor" | "post" | "disenchant", value, unit, … }.
+-- Each stack's best use, by list (Views.adviseStacks).
 local function advise()
-	local p = ns.price
-	local lists = { vendor = {}, post = {}, disenchant = {} }
-	local totals = { vendor = 0, post = 0, disenchant = 0 }
-	for _, s in pairs(contents()) do
-		local options = {}
-		local vendor = p.vendor(s.id)
-		if vendor then
-			options.vendor = vendor * s.count
-		end
-		local market = not s.bound and p.market(s.id)
-		if market then
-			options.post = math.floor(market * (1 - p.cut)) * s.count
-		end
-		local de, skill = p.disenchant(s.id)
-		if de and de > 0 and p.enchanting() >= skill then
-			options.disenchant = de * s.count
-		end
-		local best, value
-		for use, v in pairs(options) do
-			if not value or v > value then
-				best, value = use, v
-			end
-		end
-		if best and value > 0 then
-			local _, _, _, _, name = p.itemInfo(s.id)
-			table.insert(lists[best], { id = s.id, name = name or ("item " .. s.id), count = s.count, value = value, market = market })
-			totals[best] = totals[best] + value
-		end
-	end
-	for _, list in pairs(lists) do
-		table.sort(list, function(a, b)
-			return a.value > b.value
-		end)
-	end
-	return lists, totals
+	return ns.Views.adviseStacks(contents(), ns.price, ns.price.enchanting())
 end
 
 local HEADINGS = {
@@ -112,10 +78,52 @@ local function text()
 	return table.concat(lines, "\n")
 end
 
+-- Selling junk where the merchant window has no button of its own (Blizzard's retail one has; WoW:
+-- Forever's client has the call, C_MerchantFrame.SellAllJunkItems, and no button): what Blizzard counts
+-- as junk, sold by its own call, so it stays in the buyback tab. Returns how many and what they fetch.
+local function junkSale()
+	local api = C_MerchantFrame
+	if not (api and api.SellAllJunkItems and api.GetNumJunkItems) or MerchantSellAllJunkButton then
+		return nil
+	end
+	if api.IsSellAllJunkEnabled and not api.IsSellAllJunkEnabled() then
+		return nil
+	end
+	local n = api.GetNumJunkItems() or 0
+	if n == 0 then
+		return nil
+	end
+	local value = 0
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and info.itemID and info.quality == 0 and not info.hasNoValue then
+				value = value + (ns.price.vendor(info.itemID) or 0) * (info.stackCount or 1)
+			end
+		end
+	end
+	return n, value
+end
+
+local SELL_ARMED = 5 -- seconds the first press of Sell junk waits for the second
+local sell, armedAt
+
 local function refresh()
 	if frame and frame:IsShown() then
 		body:SetText(text())
-		frame:SetHeight(body:GetStringHeight() + 40)
+		local n, value = nil, nil
+		if MerchantFrame and MerchantFrame:IsShown() then
+			n, value = junkSale()
+		end
+		if n and sell then
+			local armed = armedAt and GetTime() - armedAt < SELL_ARMED
+			sell:SetLabel(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
+				or string.format("Sell junk: %d %s · %s", n, n == 1 and "item" or "items", ns.price.coins(value)))
+			sell:Show()
+		elseif sell then
+			sell:Hide()
+		end
+		frame:SetHeight(body:GetStringHeight() + 40 + (n and 34 or 0))
 	end
 end
 
@@ -126,6 +134,27 @@ local function show()
 		end)
 		frame:SetWidth(330)
 		body:SetWidth(310)
+		ns.applyLook()
+		-- Two presses: the first says what it will sell, the second sells.
+		sell = ns.UI.Button(frame, "Sell junk", function()
+			ns.safely("sell junk", function()
+				local n, value = junkSale()
+				if not n then
+					return
+				end
+				if armedAt and GetTime() - armedAt < SELL_ARMED then
+					armedAt = nil
+					C_MerchantFrame.SellAllJunkItems()
+					ns.say(string.format("sold %d junk %s for %s; the buyback tab has them for now.", n, n == 1 and "item" or "items", ns.price.coins(value)))
+				else
+					armedAt = GetTime()
+					C_Timer.After(SELL_ARMED, refresh)
+				end
+				refresh()
+			end)
+		end, { width = 310, height = 26 })
+		sell:SetPoint("BOTTOM", 0, 10)
+		sell:Hide()
 	end
 	frame:Show()
 	refresh()
@@ -158,3 +187,10 @@ ns.commands.bags = function()
 		show()
 	end
 end
+
+-- For the smoke test.
+ns.Advisor = {
+	sellButton = function()
+		return sell
+	end,
+}

@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["Disenchant.lua"], "@Disenchant.lua"))("GoldForever", ns)
 local D = ns.Disenchant
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- Violet Sash: uncommon armor, item level 36; the beta's disenchant gave 2 Vision Dust.
 local sash = D.of(2, 36, 4)
 eq(sash.skill, 100, "Enchanting 100")
@@ -45,4 +37,4 @@ eq(D.value({ { id = 9, chance = 1, min = 1, max = 1 } }, function()
 	return nil
 end), 0, "unpriced counts as nothing")
 
-return checks
+return checks()

@@ -25,8 +25,9 @@ local function literal(value)
 	if kind == "string" then
 		return (string.format("%q", value):gsub("\\\n", "\\n"))
 	elseif kind == "number" then
+		-- %.0f, not %d: the client's %d stops at 2^31, under one character's 913k gold in copper.
 		if value == math.floor(value) and math.abs(value) < 2 ^ 53 then
-			return string.format("%d", value)
+			return string.format("%.0f", value)
 		end
 		return string.format("%.17g", value)
 	elseif kind == "boolean" then
@@ -35,21 +36,33 @@ local function literal(value)
 	return "nil"
 end
 
--- A value as a Lua literal. Tables in the save hold strings, numbers, booleans and tables only.
-function Export.serialize(value)
+-- A value as Lua literal text, handed to emit(piece) a piece at a time. Tables in the save hold strings,
+-- numbers, booleans and tables only.
+local function write(value, emit)
 	if type(value) ~= "table" then
-		return literal(value)
+		emit(literal(value))
+		return
 	end
 	local keys = {}
 	for k in pairs(value) do
 		keys[#keys + 1] = k
 	end
 	table.sort(keys, keyOrder)
-	local out = {}
+	emit("{")
 	for i, k in ipairs(keys) do
-		out[i] = "[" .. literal(k) .. "]=" .. Export.serialize(value[k])
+		emit((i > 1 and ",[" or "[") .. literal(k) .. "]=")
+		write(value[k], emit)
 	end
-	return "{" .. table.concat(out, ",") .. "}"
+	emit("}")
+end
+
+-- A value as a Lua literal.
+function Export.serialize(value)
+	local out = {}
+	write(value, function(piece)
+		out[#out + 1] = piece
+	end)
+	return table.concat(out)
 end
 
 -- The catalogue entries this player has not exported yet, section by section. The catalogue is the
@@ -136,29 +149,102 @@ function Export.markSent(db, picked)
 	end
 end
 
-local ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+-- Standard base64 with padding, which the site decodes with the JDK.
+Export.base64 = ns.Encode.base64
 
--- Standard base64 with padding. Built with arithmetic only: Lua 5.1 has no bit operators.
-function Export.base64(bytes)
-	local out = {}
-	for i = 1, #bytes, 3 do
-		local a, b, c = string.byte(bytes, i, i + 2)
-		local n = a * 65536 + (b or 0) * 256 + (c or 0)
-		local c1 = math.floor(n / 262144) % 64
-		local c2 = math.floor(n / 4096) % 64
-		local c3 = math.floor(n / 64) % 64
-		local c4 = n % 64
-		out[#out + 1] = ALPHABET:sub(c1 + 1, c1 + 1) .. ALPHABET:sub(c2 + 1, c2 + 1)
-			.. (b and ALPHABET:sub(c3 + 1, c3 + 1) or "=") .. (c and ALPHABET:sub(c4 + 1, c4 + 1) or "=")
-	end
-	return table.concat(out)
+-- The text is deflated in parts of PART bytes, each alone, as LibDeflate cannot stop and go on: one
+-- part fits in a frame where the whole of a heavy save took 19 s (review B-1). The parts are joined
+-- into the one raw DEFLATE stream the site inflates, so the string is the same format.
+Export.PART = 16384
+-- At level 3 a heavy save's parts deflate in about 2.6 s in all, 3.8 ms each (LuaJIT, interpreted),
+-- to 32% of the text; level 9 gave 30% in three times as long.
+Export.LEVEL = 3
+
+-- A part's DEFLATE bytes made to go on into the next part. LibDeflate deflates a part under 64 KB as one
+-- block, whose first bit says it is the last: cleared. LibDeflate pads the last byte with 1-bits: made 0,
+-- and an empty stored block (zlib's sync flush) brings the stream to a byte boundary, where the next
+-- part's own blocks begin. The stored block's three header bits fit in the padding when it has room,
+-- else in one byte more. `padding` is the number of padding bits in the last byte.
+function Export.joinable(bytes, padding)
+	local first = string.byte(bytes, 1)
+	bytes = string.char(first - first % 2) .. string.sub(bytes, 2)
+	local last = string.byte(bytes, #bytes)
+	bytes = string.sub(bytes, 1, #bytes - 1) .. string.char(last % 2 ^ (8 - padding))
+	return bytes .. (padding < 3 and "\0" or "") .. "\0\0\255\255"
 end
 
--- The whole string, and what it holds: [deflate] is LibDeflate's CompressDeflate, passed in so this
--- file stays pure.
-function Export.build(db, since, now, deflate)
+-- The export built a little at a time, within what the client lets a script run. The returned
+-- step(spent) does one frame's share: spent(work) says, as frameSpent does, whether the frame's share is
+-- used. Once it is all done, step returns the string and what it holds. deflate(part) is LibDeflate's
+-- CompressDeflate (the bytes and the padding bits of the last byte), passed in so this file stays pure.
+function Export.builder(db, since, now, deflate)
 	local picked = Export.select(db, since, now)
-	return Export.PREFIX .. Export.base64(deflate(Export.serialize(picked))), picked
+	local spent, work = nil, 0
+	-- A part deflated is a frame's worth on its own: spent is asked right after it.
+	local function pause(heavy)
+		work = heavy and (work - work % 25 + 25) or (work + 1)
+		if spent(work) then
+			work = 0
+			spent = coroutine.yield()
+		end
+	end
+	local out = { Export.PREFIX }
+	local packed = "" -- deflated bytes not yet in base64, fewer than three
+	local function pack(part, final)
+		local bytes, padding = deflate(part)
+		if not final then
+			bytes = Export.joinable(bytes, padding)
+		end
+		pause(true)
+		packed = packed .. bytes
+		local whole = final and #packed or (#packed - #packed % 3)
+		out[#out + 1] = Export.base64(string.sub(packed, 1, whole))
+		packed = string.sub(packed, whole + 1)
+		pause(true)
+	end
+	-- Text waiting to be deflated: always some of it is left for the last part.
+	local text, size = {}, 0
+	local function emit(piece)
+		text[#text + 1] = piece
+		size = size + #piece
+		if size > Export.PART then
+			local all, at = table.concat(text), 1
+			while #all - at + 1 > Export.PART do
+				pack(string.sub(all, at, at + Export.PART - 1))
+				at = at + Export.PART
+			end
+			local rest = string.sub(all, at)
+			text, size = { rest }, #rest
+		end
+		pause(false)
+	end
+	local job = coroutine.create(function(first)
+		spent = first
+		write(picked, emit)
+		pack(table.concat(text), true)
+	end)
+	local result
+	return function(frameSpent)
+		if not result then
+			local ok, err = coroutine.resume(job, frameSpent)
+			if not ok then
+				error(err, 0)
+			end
+			if coroutine.status(job) ~= "dead" then
+				return nil
+			end
+			result = table.concat(out)
+		end
+		return result, picked
+	end
+end
+
+-- The whole string at once, and what it holds.
+function Export.build(db, since, now, deflate)
+	local step = Export.builder(db, since, now, deflate)
+	return step(function()
+		return false
+	end)
 end
 
 return Export

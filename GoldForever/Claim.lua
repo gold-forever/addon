@@ -41,13 +41,11 @@ function Claim.record(character, text, now)
 	return code
 end
 
-if ns.commands then
-	ns.commands.claim = function(arg)
-		local code = Claim.record(ns.me(), arg, ns.now())
-		if code then
-			ns.say("claim code " .. string.sub(code, 1, 4) .. "-" .. string.sub(code, 5) .. " saved on this character. /reload or log out, then upload as usual.")
-		else
-			ns.say("type the code the site gave you: /gf claim ABCD-EFGH")
-		end
+ns.commands.claim = function(arg)
+	local code = Claim.record(ns.me(), arg, ns.now())
+	if code then
+		ns.say("claim code " .. string.sub(code, 1, 4) .. "-" .. string.sub(code, 5) .. " saved on this character. /reload or log out, then upload as usual.")
+	else
+		ns.say("type the code the site gave you: /gf claim ABCD-EFGH")
 	end
 end

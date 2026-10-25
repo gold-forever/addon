@@ -36,14 +36,15 @@ end
 
 -- The settings: the angle on the rim and whether the player hid the button.
 local function settings()
-	return ns.settings("minimap", { angle = 225, hidden = false })
+	return ns.settings("minimap")
 end
 
 -- What a click does, shared by the button, the compartment and the bindings ---------------------------------
 
--- The next look round the list (Theme.order): what a right-click or the binding switches to.
+-- The next look round the list (Theme.order) from the saved one, not the one drawn last: what a
+-- right-click or the binding switches to.
 local function otherLook()
-	return Theme.nextLook(Theme.skin.name)
+	return Theme.nextLook(ns.currentLook())
 end
 
 function Minimap_.toggleWindow()
@@ -146,6 +147,8 @@ local function refresh()
 end
 
 ns.on("PLAYER_LOGIN", "minimap", refresh)
+-- The Settings page's switch shows or hides the button at once.
+ns.refreshMinimap = refresh
 
 -- "/gf minimap": hide the button or bring it back.
 ns.commands.minimap = function()
@@ -183,6 +186,14 @@ function GoldForever_SwitchLook()
 	ns.safely("binding", Minimap_.switchLook)
 end
 
+function GoldForever_ToggleHud()
+	ns.safely("binding", function()
+		ns.commands.hud()
+	end)
+end
+
+-- Retail's AddOns list may show no header and cuts a name past about 24 letters: each name says whose it is.
 BINDING_HEADER_GOLDFOREVER = "Gold Forever"
-BINDING_NAME_GOLDFOREVER_WINDOW = "Open or close the window"
-BINDING_NAME_GOLDFOREVER_LOOK = "Switch the window's look"
+BINDING_NAME_GOLDFOREVER_WINDOW = "Gold Forever window"
+BINDING_NAME_GOLDFOREVER_LOOK = "Gold Forever next look"
+BINDING_NAME_GOLDFOREVER_HUD = "Gold Forever HUD"
