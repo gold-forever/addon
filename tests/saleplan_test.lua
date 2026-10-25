@@ -2,16 +2,10 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Shopping.lua"], "@Shopping.lua"))("GoldForever", ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P, E = ns.SalePlan, ns.Encode
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 local function lv(u, q, own) return { unitPrice = u, quantity = q, own = own or 0 } end
 local function prices(levels) local out = {} for i, l in ipairs(levels) do out[i] = l.unitPrice end return table.concat(out, ",") end
 
@@ -37,6 +31,7 @@ local book = { lv(100, 10), lv(200, 10), lv(300, 80) }
 eq(P.percentile(book, 10), 100, "10%")
 eq(P.percentile(book, 15), 200, "15%")
 eq(P.percentile(book, 90), 300, "90%")
+eq(P.percentile(book, 100), 300, "100%: the dearest level")
 eq(P.percentile({}, 50), nil, "empty")
 
 -- planSell
@@ -51,6 +46,16 @@ s = P.sell(undercut, 260, {}, 2000)
 eq(s.action .. s.reason .. s.unitPrice, "postno-competition2000", "nobody else: market value")
 s = P.sell(undercut, 260, {}, nil)
 eq(s.action .. s.reason, "holdno-price", "no price at all")
+-- The floor is checked after rounding to the auction house's step (review B-14): floor 1650, a copper
+-- under 1661 is 1660, whole silver 1600, under the floor.
+local function silver(c) return math.max(100, math.floor(c / 100) * 100) end
+local tight = { itemID = 1, keep = 0, price = { kind = "undercut", by = 1 }, floorPct = 100 }
+s = P.sell(tight, 10, { lv(1661, 20) }, 1650)
+eq(s.action .. s.unitPrice, "post1660", "unrounded: over the floor")
+s = P.sell(tight, 10, { lv(1661, 20) }, 1650, nil, silver)
+eq(s.action .. s.reason, "holdunder-floor", "rounded to the silver: under the floor, held")
+s = P.sell(tight, 10, { lv(1801, 20) }, 1650, nil, silver)
+eq(s.action .. s.unitPrice, "post1800", "rounded and still over the floor: posted at the rounded price")
 local fixed = { itemID = 1, keep = 0, price = { kind = "fixed", unit = 2000, askIfMovedPct = 15 }, floorPct = 0 }
 s = P.sell(fixed, 20, { lv(1900, 20) }, 2000)
 eq(s.action .. s.reason .. s.unitPrice, "postfixed2000", "fixed while the market is near")
@@ -96,4 +101,4 @@ eq((P.decode(wrap("rm 1 keep 5"))), nil, "an unknown rule")
 eq(P.decode(wrap("sell 1 keep 5 undercut 1")).sell[1].floorPct, 0, "no floor is none")
 eq(P.ruleFor(profile, 13444).keep, 5, "the rule for an item")
 
-return checks
+return checks()

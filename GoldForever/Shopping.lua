@@ -11,7 +11,7 @@ ns.Shopping = Shopping
 
 Shopping.PREFIX = "GFL1:"
 -- MAX_LISTS is the site's too (MAX_SHARED_ITEMS): a pasted string cannot fill the save with lists.
-local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, 10000000000, 50
+local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, Encode.MAX_COPPER, 50
 -- A share of the market value (owner's answer, 2026-10-24: "% of market"), and how many to hold.
 local MAX_PCT, MAX_UPTO = 1000, 1000000
 
@@ -31,13 +31,10 @@ function Shopping.limit(entry, market)
 	return market and math.max(1, market - 1) or nil
 end
 
--- What an entry can buy from a book of levels { unitPrice, quantity, own }: every unit by other players
--- at or under its limit, cheapest first. Returns { itemId, quantity, total, topUnit, limit } or nil.
-function Shopping.deal(entry, levels, market)
-	local limit = Shopping.limit(entry, market)
-	if not limit then
-		return nil
-	end
+-- Takes other players' units from a book of levels { unitPrice, quantity, own }, cheapest first: those
+-- at or under `cap` (nil: any price), up to `need` units (nil: every one). Returns quantity, total, top
+-- (the dearest unit price taken, nil when none).
+function Shopping.take(levels, cap, need)
 	local sorted = {}
 	for i, l in ipairs(levels or {}) do
 		sorted[i] = l
@@ -47,16 +44,31 @@ function Shopping.deal(entry, levels, market)
 	end)
 	local quantity, total, top = 0, 0, nil
 	for _, l in ipairs(sorted) do
-		if l.unitPrice > limit then
+		if need == 0 or (cap and l.unitPrice > cap) then
 			break
 		end
 		local n = (l.quantity or 0) - (l.own or 0)
+		if need then
+			n = math.min(need, n)
+		end
 		if n > 0 then
-			quantity = quantity + n
-			total = total + n * l.unitPrice
-			top = l.unitPrice
+			quantity, total, top = quantity + n, total + n * l.unitPrice, l.unitPrice
+			if need then
+				need = need - n
+			end
 		end
 	end
+	return quantity, total, top
+end
+
+-- What an entry can buy from a book of levels { unitPrice, quantity, own }: every unit by other players
+-- at or under its limit, cheapest first. Returns { itemId, quantity, total, topUnit, limit } or nil.
+function Shopping.deal(entry, levels, market)
+	local limit = Shopping.limit(entry, market)
+	if not limit then
+		return nil
+	end
+	local quantity, total, top = Shopping.take(levels, limit, nil)
 	if quantity == 0 or not top then
 		return nil
 	end
@@ -72,35 +84,36 @@ function Shopping.lowestDeal(entry, held, levels, market)
 	if need == 0 or not limit then
 		return nil
 	end
-	local sorted = {}
-	for i, l in ipairs(levels or {}) do
-		sorted[i] = l
-	end
-	table.sort(sorted, function(a, b)
-		return a.unitPrice < b.unitPrice
-	end)
-	local function take(cap)
-		local left, quantity, total, top = need, 0, 0, nil
-		for _, l in ipairs(sorted) do
-			if left == 0 or (cap and l.unitPrice > cap) then
-				break
-			end
-			local n = math.min(left, (l.quantity or 0) - (l.own or 0))
-			if n > 0 then
-				quantity, total, top, left = quantity + n, total + n * l.unitPrice, l.unitPrice, left - n
-			end
-		end
-		return quantity, total, top
-	end
-	local quantity, total, top = take(limit)
+	local quantity, total, top = Shopping.take(levels, limit, need)
 	if quantity > 0 then
 		return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
 	end
-	quantity, total, top = take(nil)
+	quantity, total, top = Shopping.take(levels, nil, need)
 	if quantity == 0 then
 		return nil
 	end
 	return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = top, over = true, share = entry.lowest }
+end
+
+-- The deal for a list entry from its item's book: a `lowest` entry's as Shopping.lowestDeal; an entry
+-- with How many (a profile's buy rule) up to it, counting `held` (decision 12); else Shopping.deal. `held`
+-- is what this character holds, read only for an entry with How many.
+function Shopping.entryDeal(entry, levels, held, market)
+	if entry.lowest and entry.upTo then
+		return Shopping.lowestDeal(entry, held, levels, market)
+	end
+	if entry.upTo then
+		local limit = Shopping.limit(entry, market)
+		if not limit then
+			return nil
+		end
+		local quantity, total, top = Shopping.take(levels, limit, math.max(0, entry.upTo - held))
+		if quantity == 0 then
+			return nil
+		end
+		return { itemId = entry.itemId, quantity = quantity, total = total, topUnit = top, limit = limit }
+	end
+	return Shopping.deal(entry, levels, market)
 end
 
 -- A quote dearer than the deal by more than `pct` percent (10 by default): Buy next asks again.
@@ -229,7 +242,9 @@ function Shopping.parseAdd(text)
 	return tonumber(id), (copper and copper > 0) and copper or nil
 end
 
--- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c"; copper, or nil when it is none.
+-- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c"; copper, or nil when it is none. A
+-- comma is a decimal point only before one or two digits at the end ("4,5", "4,50"); else it separates
+-- thousands ("1,000" is a thousand gold, not one).
 function Shopping.parseGold(text)
 	text = string.lower(string.match(text or "", "^%s*(.-)%s*$"))
 	if text == "" then
@@ -237,7 +252,11 @@ function Shopping.parseGold(text)
 	end
 	local copper
 	if string.find(text, "^[%d%.,]+$") then
-		local gold = tonumber((string.gsub(text, ",", ".")))
+		local whole, cents = string.match(text, "^(.-),(%d%d?)$")
+		if whole then
+			text = whole .. "." .. cents
+		end
+		local gold = tonumber((string.gsub(text, ",", "")))
 		copper = gold and math.floor(gold * 10000 + 0.5)
 	else
 		local g, s, c, rest = 0, 0, 0, text
@@ -317,6 +336,22 @@ function Shopping.dropCopies(items)
 		end
 	end
 	return n
+end
+
+-- Where an item is now after a merge or a drop moved things: the same table, else the one with its id,
+-- else, for a copy, the one it was copied from. Returns the index, or nil when it is gone.
+function Shopping.refind(items, was)
+	if not was then
+		return nil
+	end
+	for _, id in ipairs({ false, was.id or false, type(was.copyOf) == "string" and was.copyOf or false }) do
+		for i, x in ipairs(items or {}) do
+			if (id == false and x == was) or (id and x.id == id) then
+				return i
+			end
+		end
+	end
+	return nil
 end
 
 return Shopping

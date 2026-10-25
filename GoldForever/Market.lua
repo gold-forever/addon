@@ -81,7 +81,7 @@ local function prune()
 	local retail = ns.Realms.isRetail(ns.db().client and ns.db().client.interface)
 	local keepRecent, keepMax = retail and 1 or KEEP_RECENT, retail and 1 or KEEP_MAX
 	local function group(market)
-		return retail and (string.match(market or "", "^(.*)%-[^-]+$") or market) or market
+		return retail and ns.Scans.marketGroup(market) or market
 	end
 	local scans = {}
 	for i, s in ipairs(ns.db().scans) do
@@ -173,16 +173,13 @@ local function finish(s, buckets, n)
 		local scans = ns.db().scans
 		scans[#scans + 1] = record
 		prune()
-		-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
+		-- Prices built from the scans (Pricing.lua) are stale now; the count of scans may not change.
 		ns.scanVersion = (ns.scanVersion or 0) + 1
 		ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
 		-- The new prices are read (over frames for a big scan); the deals line follows when they are in. A
 		-- partial scan gives no prices and no deals line.
 		if n > 0 and not partial then
-			ns.dealsPending = true
-			if ns.price then
-				ns.price.own(0) -- builds the own scan's prices
-			end
+			ns.price.afterScan()
 		end
 		if partial then
 			ns.say(string.format("scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends.", s.read or 0, n))
@@ -237,22 +234,25 @@ local function read()
 		for index = i, n - 1 do
 			local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID =
 				C_AuctionHouse.GetReplicateItemInfo(index)
-			-- Read: a listing with its price and count. Once the auction house is closed the client still
-			-- gives the item but not those (manual test run 001: "322407 of 322407 read" on a cut scan).
-			if itemID and buyout and buyout > 0 and count and count > 0 then
+			-- Read: a listing with its count. Once the auction house is closed the client still gives the item
+			-- but not that (manual test run 001: "322407 of 322407 read" on a cut scan). A bid-only listing is
+			-- read too, though it has no buyout to price.
+			if itemID and count and count > 0 then
 				s.read = (s.read or 0) + 1
-				local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
-				local unit = math.floor(buyout / count + 0.5)
-				local left = timeLeft and Encode.band(timeLeft(index))
-				local bucket = key .. "|" .. unit .. "|" .. tostring(left)
-				local b = buckets[bucket]
-				if not b then
-					b = { item = key, unit = unit, qty = 0, auctions = 0, left = left }
-					buckets[bucket] = b
-					ns.catalogueItem(key)
+				if buyout and buyout > 0 then
+					local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
+					local unit = math.floor(buyout / count + 0.5)
+					local left = timeLeft and Encode.band(timeLeft(index))
+					local bucket = key .. "|" .. unit .. "|" .. tostring(left)
+					local b = buckets[bucket]
+					if not b then
+						b = { item = key, unit = unit, qty = 0, auctions = 0, left = left }
+						buckets[bucket] = b
+						ns.catalogueItem(key)
+					end
+					b.qty = b.qty + count
+					b.auctions = b.auctions + 1
 				end
-				b.qty = b.qty + count
-				b.auctions = b.auctions + 1
 				if s.items and not s.items[itemID] then
 					s.items[itemID] = ns.Realms.itemRow(itemID, instant, stack)
 				end
@@ -323,7 +323,7 @@ local function auctionOpened()
 		return
 	end
 	auctionOpen = true
-	if not ns.settings("scan", { auto = false }).auto then
+	if not ns.settings("scan").auto then
 		return
 	end
 	ns.after(1, "scan", function()

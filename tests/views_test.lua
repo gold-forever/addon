@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
 local V = ns.Views
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- Rows: each saved day's chunks, by the declared columns, empty ones nil, in time order.
 local db = {
 	fields = { money = "t,char,delta,ctx", flight = "t,char,from,to,cost,map" },
@@ -149,15 +141,6 @@ local placed = V.worthList({ [1] = 1, [2] = 1 }, function(id) return 100, id == 
 eq(placed[1].where .. " " .. placed[2].where, "auction vendor", "where each sells best")
 eq(V.dayStart(86400 * 3 + 5000), 86400 * 3, "the UTC day's start")
 
--- Kills in a fight, as the playground's killsInFight: the larger of kill XP and fresh creature corpses.
-eq(V.killsInFight(2, { "Creature-0-1-a", "Creature-0-1-b" }, {}), 2, "two kills, two corpses")
-eq(V.killsInFight(1, {}, {}), 1, "killed, not looted")
-eq(V.killsInFight(0, { "Creature-0-1-rat" }, {}), 1, "a grey mob: no XP, a corpse")
-local seenCorpses = {}
-eq(V.killsInFight(1, { "Creature-0-1-a" }, seenCorpses), 1, "the first loot")
-eq(V.killsInFight(0, { "Creature-0-1-a" }, seenCorpses), 0, "a corpse looted again is no new kill")
-eq(V.killsInFight(0, { "GameObject-0-1-chest" }, {}), 0, "a chest is no kill")
-
 -- Across fights: a corpse looted after its fight closed is the kill its XP already counted.
 do
   local pending, seen = {}, {}
@@ -172,6 +155,8 @@ do
   -- A kill never looted is let go after MATCH_SECONDS: a later grey mob still counts.
   eq(V.creditKills(pending, 1, {}, seen, 400), 1, "killed, never looted")
   eq(V.creditKills(pending, 0, { "Creature-0-1-rat2" }, seen, 400 + V.MATCH_SECONDS + 1), 1, "a grey mob long after")
+  eq(V.creditKills(pending, 0, { "Creature-0-1-rat2" }, seen, 900), 0, "a corpse looted again is no new kill")
+  eq(V.creditKills(pending, 0, { "GameObject-0-1-chest" }, seen, 900), 0, "a chest is no kill")
 end
 eq(V.sessionRates({ coin = 0, xp = 900, killXp = 900, kills = 5, xpKills = 3 }, 30, 0, 9000).killsToLevel, 30, "XP a kill from the kills that gave XP")
 
@@ -250,6 +235,29 @@ do
 	eq(l.bags .. "/" .. l.bank .. "/" .. l.guild .. "/" .. l.others[1].name .. " " .. l.others[1].n .. "/" .. l.buy, "5/8/3/Alt 4/0", "bags, bank, guild, Alt, nothing to buy")
 	local enough = V.queuePlan({ [2589] = 4 }, { bags = { [2589] = 1 }, bank = { [2589] = 8 }, mail = {} }, {}, {})
 	eq(enough[1].bank .. "/" .. enough[1].buy, "3/0", "only what is needed from the bank")
+	local mailed = V.queuePlan({ [2589] = 10 }, { bags = {}, bank = { [2589] = 10 }, mail = { [2589] = 10 } }, {}, {})
+	eq(mailed[1].bank .. "/" .. mailed[1].buy, "0/0", "the mail covers it: nothing from the bank")
+	local some = V.queuePlan({ [2589] = 10 }, { bags = { [2589] = 2 }, bank = { [2589] = 10 }, mail = { [2589] = 5 } }, {}, {})
+	eq(some[1].bank, 3, "the bank gives what the bags and mail leave")
+end
+
+-- The loot advisor: each stack where it brings the most; a bound one is never posted, and disenchanting
+-- needs the skill.
+do
+	local price = {
+		vendor = function(id) return ({ [1] = 10, [2] = 5, [3] = 100 })[id] end,
+		market = function(id) return ({ [1] = 100, [2] = 1000 })[id] end,
+		disenchant = function(id) if id == 3 then return 500, 50 end end,
+		itemInfo = function(id) return nil, nil, nil, nil, id == 1 and "Linen" or nil end,
+		cut = 0.05,
+	}
+	local stacks = { { id = 1, count = 2 }, { id = 2, count = 1, bound = true }, { id = 3, count = 1 } }
+	local lists, totals = V.adviseStacks(stacks, price, 75)
+	eq(lists.post[1].name .. " " .. lists.post[1].value, "Linen 190", "posted, after the cut")
+	eq(lists.vendor[1].id .. " " .. totals.vendor, "2 5", "bound: vendored, though the market is higher")
+	eq(lists.disenchant[1].id .. " " .. totals.disenchant, "3 500", "disenchanted with the skill")
+	lists = V.adviseStacks(stacks, price, 10)
+	eq(#lists.disenchant .. " " .. lists.vendor[1].id, "0 3", "without it, vendored")
 end
 
 -- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.
@@ -301,4 +309,30 @@ do
 	eq(e.count .. "/" .. e.total, "1/100", "soulbound bank items are not for the auction house")
 end
 
-return checks
+-- Home's bag worth: soulbound units are not for sale, a bound stack drops out, a part-bound one counts the rest.
+do
+	local list, total = V.bagWorth({ items = "14047*3+2589*4", bound = "14047*3+2589*1" }, parse, function() return 100 end)
+	eq(#list .. " " .. list[1].id .. "*" .. list[1].count .. " " .. total, "1 2589*3 300", "only the unbound units are worth selling")
+	eq(#V.bagWorth(nil, parse, function() return 100 end), 0, "no bags, nothing")
+end
+
+-- The Crafting detail's reagent lines: all that fit, else one row kept for "+N more".
+eq(table.concat({ V.fit(3, 4) }, " "), "3 0", "three reagents in four lines: all")
+eq(table.concat({ V.fit(4, 4) }, " "), "4 0", "four in four: all")
+eq(table.concat({ V.fit(6, 4) }, " "), "3 3", "six in four: three and +3 more")
+
+-- At the level cap by level: a character with no XP saved below it is not counted.
+eq(V.capped({ { level = 60 }, { level = 12 }, { level = 0 }, {} }, 60), 1, "one at the cap")
+
+-- A mob's loot: coin and units at their worth, a loot's share.
+local priced = { [2589] = 30, [2592] = 120 }
+local function worthOf(id)
+	return priced[id]
+end
+local mob = { loots = 4, coin = 200, items = { [2589] = { dropped = 3, units = 6 }, [2592] = { dropped = 1, units = 1 }, [9999] = { dropped = 2, units = 2 } } }
+eq(V.mobValue(mob, worthOf), (200 + 6 * 30 + 120) / 4, "coin and units, an item without a price as nothing")
+eq(V.mobValue({ loots = 3, coin = 10, items = {} }, worthOf), 10 / 3, "coin alone")
+eq(V.mobValue({ loots = 0, coin = 0, items = {} }, worthOf), nil, "never looted")
+eq(V.mobValue(nil, worthOf), nil, "no counts")
+
+return checks()

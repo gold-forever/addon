@@ -1,7 +1,8 @@
--- Gold Forever: the recipes the character knows, quoted at the latest prices (the same rules as the
--- web app's Crafting view, "use what I have": Crafting.lua), and the craft queue, for the hub's Home and
--- Crafting pages, the crafting strip and the Buy tab's "Craft queue" list. The floating "crafts to make"
--- window at the auction house is gone (manual test run 001): the Crafting page shows the same, and more.
+-- Gold Forever: the craft planner (ns.CraftPlanner). The recipes the character knows, quoted at the
+-- latest prices (the same rules as the web app's Crafting view, "use what I have": Crafting.lua), and the
+-- craft queue, for the hub's Home and Crafting pages, the crafting strip and the Buy tab's "Craft queue"
+-- list. The floating "crafts to make" window at the auction house is gone (manual test run 001): the
+-- Crafting page shows the same, and more. Not the shopping lists, which are Shopping.lua's.
 
 local _, ns = ...
 
@@ -96,36 +97,32 @@ end
 -- The craft queue (owner's answer, 2026-10-24): recipes and how many of each, kept in the settings;
 -- the Shop lists the reagents still missing for all of it.
 local function queue()
-	local s = ns.settings("crafting", { strip = true })
+	local s = ns.settings("crafting")
 	s.queue = s.queue or {}
 	return s.queue
 end
--- The auction panel's Buy tab shows the queue as a list: it follows every change (manual test run 001:
--- a cleared queue's list stayed).
-local function changed()
-	if ns.auctionRefresh then
-		ns.auctionRefresh()
-	end
-	if ns.craftQueueChanged then
-		ns.craftQueueChanged()
-	end
+-- The auction panel's Buy tab, which shows the queue as a list, and the craft queue follow every change
+-- (manual test run 001: a cleared queue's list stayed). `how` is "added", "crafted" or "cleared".
+local function changed(how)
+	ns.emit("queueChanged", how)
 end
 function ns.queueAdd(recipeId, n)
 	local q = queue()
 	for _, x in ipairs(q) do
 		if x.recipe == recipeId then
 			x.count = x.count + n
-			changed()
+			changed("added")
 			return
 		end
 	end
 	q[#q + 1] = { recipe = recipeId, count = n }
-	changed()
+	changed("added")
 end
 -- A queued recipe crafted: one fewer in the queue, and gone at none (manual test run 001: the window
--- stayed with everything in the bags). The cast's spell is the recipe's ID.
-ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
-	if unit ~= "player" or not spell then
+-- stayed with everything in the bags). The cast's spell is the recipe's ID. The player's casts only, so
+-- the client does not call it for every cast in a group.
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(_, _, spell)
+	if not spell then
 		return
 	end
 	local q = queue()
@@ -135,16 +132,16 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
 			if x.count <= 0 then
 				table.remove(q, i)
 			end
-			changed()
+			changed("crafted")
 			return
 		end
 	end
-end)
+end, "player")
 
 function ns.queueClear()
-	local s = ns.settings("crafting", { strip = true })
+	local s = ns.settings("crafting")
 	s.queue = {}
-	changed()
+	changed("cleared")
 end
 function ns.queueList()
 	return queue()
@@ -165,7 +162,7 @@ ns.profitableCrafts = profitable
 -- For the hub's Crafting page: every known recipe that makes an item, each with its quote and name.
 function ns.allCraftQuotes()
 	local me = ns.me()
-	if not me or not ns.price then
+	if not me then
 		return {}
 	end
 	local cols, held = columns("recipe"), stock()
@@ -193,7 +190,7 @@ end
 -- For the crafting strip: one recipe's quote from the catalogue, with what this character holds; nil
 -- for a recipe the catalogue lacks or one that makes no item (an enchant).
 function ns.quoteRecipe(id)
-	if not ns.me() or not ns.price then
+	if not ns.me() then
 		return nil
 	end
 	local r = recipe(id, columns("recipe"))
@@ -207,6 +204,12 @@ function ns.quoteRecipe(id)
 	q.recipe = r
 	return q
 end
+
+-- The planner as one module; the names above stay, for the files that use them.
+ns.CraftPlanner = {
+	quoteRecipe = ns.quoteRecipe, allCraftQuotes = ns.allCraftQuotes, profitableCrafts = profitable, isGear = isGear, recipeOf = ns.recipeOf,
+	queueAdd = ns.queueAdd, queueClear = ns.queueClear, queueList = ns.queueList, queueNeeds = ns.queueNeeds,
+}
 
 -- /gf shop: the Crafting page, recipes by profit.
 ns.commands.shop = function()

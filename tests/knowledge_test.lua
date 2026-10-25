@@ -3,15 +3,32 @@
 -- name is never written and never errors, and a later readable name fills the row. WoW: Forever reads
 -- every name and keeps recording as it did.
 
+-- Anything but type() and issecretvalue() on a secret fails, as in game: reading it as text, comparing it,
+-- indexing it, counting it, doing sums with it.
+local function refuse()
+	error("attempt to use a secret value", 2)
+end
 local SECRET = setmetatable({}, {
-	-- Any string use of a secret fails, as the game's "string conversion on a secret" does.
-	__tostring = function()
-		error("attempt to perform string conversion on a secret string value")
-	end,
-	__concat = function()
-		error("attempt to perform string conversion on a secret string value")
-	end,
+	__tostring = refuse,
+	__concat = refuse,
+	__eq = refuse,
+	__lt = refuse,
+	__le = refuse,
+	__index = refuse,
+	__newindex = refuse,
+	__len = refuse,
+	__call = refuse,
+	__unm = refuse,
+	__add = refuse,
+	__sub = refuse,
+	__mul = refuse,
+	__div = refuse,
+	__mod = refuse,
+	__pow = refuse,
 })
+-- The stand-in refuses as the game does (an __eq between two tables only: Lua 5.1 asks no other).
+assert(not pcall(function() return SECRET.find end) and not pcall(function() return SECRET < 1 end)
+	and not pcall(function() return SECRET == setmetatable({}, getmetatable(SECRET)) end), "a secret refuses use")
 
 local handlers, tooltipHooks = {}, {}
 local catalogue = { npcs = {}, objects = {}, maps = {}, trainers = {} }
@@ -85,13 +102,6 @@ end
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 local function target(t)
 	unit = t
 	fire("PLAYER_TARGET_CHANGED")
@@ -128,7 +138,7 @@ eq(catalogue.npcs[237400], "Bramblehide,80,83,normal,Beast", "a saved \"Unknown\
 
 -- Retail: the client keeps a restricted unit's identity secret.
 function issecretvalue(v)
-	return v == SECRET
+	return rawequal(v, SECRET)
 end
 -- A secret name on a readable GUID: the row is written without a name, and no error.
 target({ guid = "Creature-0-4620-0-12-5000-000A", name = SECRET, level = 70, kind = SECRET, classification = SECRET })
@@ -174,4 +184,4 @@ fire("LOOT_READY")
 eq(catalogue.objects[2000], "Argentleaf", "a readable cast names it as before")
 issecretvalue = nil
 
-return checks
+return checks()

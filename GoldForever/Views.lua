@@ -379,15 +379,18 @@ function Views.creditKills(pending, xpKills, corpses, seen, now)
 	return math.max(xpKills or 0, fresh)
 end
 
-function Views.killsInFight(xpKills, corpses, seen)
-	local fresh = 0
-	for _, guid in ipairs(corpses or {}) do
-		if string.find(guid, "^Creature%-") and not seen[guid] then
-			seen[guid] = true
-			fresh = fresh + 1
-		end
+-- What one loot of an NPC is worth, from its counts ({ loots, coin, items = { [id] = { dropped, units } } },
+-- ns.mobStats): its coin and every unit at `worth(id)`, an item without a price as nothing; nil for an
+-- NPC never looted.
+function Views.mobValue(m, worth)
+	if not m or m.loots <= 0 then
+		return nil
 	end
-	return math.max(xpKills or 0, fresh)
+	local value = m.coin
+	for id, d in pairs(m.items) do
+		value = value + (worth(id) or 0) * d.units
+	end
+	return value / m.loots
 end
 
 -- The rares seen, one row each from the rare stream's rows ({ t, npc, map, x, y, how }): how often, the
@@ -539,6 +542,44 @@ function Views.holdings(characters, parse)
 	return index
 end
 
+-- Views.holdings for only the items in `ids` (a set of item IDs), so the craft queue's few reagents do
+-- not build every item of every character; `skip`, a character left out (the one playing). The same
+-- entries as Views.holdings, for those items.
+function Views.holdingsOf(characters, parse, ids, skip)
+	local index = {}
+	for _, c in pairs(characters or {}) do
+		if c ~= skip then
+			local mine = {}
+			for _, place in ipairs(Views.PLACES) do
+				for id, n in pairs(parse(c[place] and c[place].items)) do
+					if ids[id] then
+						local h = mine[id]
+						if not h then
+							h = { name = c.name or "?", bags = 0, bank = 0, mail = 0, total = 0 }
+							mine[id] = h
+							local e = index[id] or { total = 0, by = {} }
+							index[id] = e
+							e.by[#e.by + 1] = h
+						end
+						h[place] = h[place] + n
+						h.total = h.total + n
+						index[id].total = index[id].total + n
+					end
+				end
+			end
+		end
+	end
+	for _, e in pairs(index) do
+		table.sort(e.by, function(a, b)
+			if a.total ~= b.total then
+				return a.total > b.total
+			end
+			return a.name < b.name
+		end)
+	end
+	return index
+end
+
 -- The "Held" line for one item's holdings: "Held 12: Zerie 10 (bags 8, bank 2), Zeripala 2 (mail)",
 -- at most `most` characters (3) and "+N more"; nil when nobody holds any.
 function Views.heldText(entry, most)
@@ -617,7 +658,7 @@ function Views.queuePlan(needs, mine, guild, others)
 		end
 		rows[#rows + 1] = {
 			id = id, need = need, bags = bags,
-			bank = math.min(bank, math.max(0, need - bags)), -- to pick up from the bank
+			bank = math.min(bank, math.max(0, need - bags - mail)), -- to pick up from the bank: what the bags and mail leave
 			mail = mail, guild = g, others = from, buy = left,
 		}
 	end
@@ -628,6 +669,47 @@ function Views.queuePlan(needs, mine, guild, others)
 		return a.id < b.id
 	end)
 	return rows
+end
+
+-- The loot advisor's lists (Advisor.lua): each stack's best use, vendor, post or disenchant, whichever
+-- brings the most. stacks = { { id, count, bound } }; price = { vendor, market, disenchant, itemInfo, cut }
+-- as ns.price; skill is the character's enchanting. A bound stack is never posted; disenchanting needs the
+-- skill. Returns lists by use ({ id, name, count, value, market }, most first) and their totals.
+function Views.adviseStacks(stacks, price, skill)
+	local lists = { vendor = {}, post = {}, disenchant = {} }
+	local totals = { vendor = 0, post = 0, disenchant = 0 }
+	for _, s in pairs(stacks) do
+		local options = {}
+		local vendor = price.vendor(s.id)
+		if vendor then
+			options.vendor = vendor * s.count
+		end
+		local market = not s.bound and price.market(s.id)
+		if market then
+			options.post = math.floor(market * (1 - price.cut)) * s.count
+		end
+		local de, needs = price.disenchant(s.id)
+		if de and de > 0 and skill >= needs then
+			options.disenchant = de * s.count
+		end
+		local best, value
+		for use, v in pairs(options) do
+			if not value or v > value then
+				best, value = use, v
+			end
+		end
+		if best and value > 0 then
+			local _, _, _, _, name = price.itemInfo(s.id)
+			table.insert(lists[best], { id = s.id, name = name or ("item " .. s.id), count = s.count, value = value, market = market })
+			totals[best] = totals[best] + value
+		end
+	end
+	for _, list in pairs(lists) do
+		table.sort(list, function(a, b)
+			return a.value > b.value
+		end)
+	end
+	return lists, totals
 end
 
 -- A gold goal on Home: gold now (copper, all characters) against goal = { gold (copper), by (Unix time) }.
@@ -641,4 +723,38 @@ function Views.goal(now, total, goal)
 	local late = not reached and now >= goal.by
 	return { pct = pct, left = left, daysLeft = daysLeft, reached = reached, late = late,
 		perDay = (not reached and not late) and math.ceil(left / math.max(1, daysLeft)) or nil }
+end
+
+-- What the bags would sell for (Home's "Sell your bags"): Views.worthList over bags = { items, bound },
+-- the soulbound units left out, as Views.inventory leaves them out of what sells.
+function Views.bagWorth(bags, parse, worth)
+	local items, bound, sellable = parse(bags and bags.items), parse(bags and bags.bound), {}
+	for id, n in pairs(items) do
+		local left = n - math.min(n, bound[id] or 0)
+		if left > 0 then
+			sellable[id] = left
+		end
+	end
+	return Views.worthList(sellable, worth)
+end
+
+-- n lines in room rows: all of them when they fit, else room - 1 and a last row for the rest. Returns how
+-- many show and how many are left for "+N more".
+function Views.fit(n, room)
+	if n <= room then
+		return n, 0
+	end
+	return room - 1, n - room + 1
+end
+
+-- How many character rows (Views.characters) are at the level cap: by level, not by the XP missing, which
+-- a character not yet read has missing too.
+function Views.capped(rows, maxLevel)
+	local n = 0
+	for _, r in ipairs(rows) do
+		if (r.level or 0) >= maxLevel then
+			n = n + 1
+		end
+	end
+	return n
 end

@@ -6,14 +6,6 @@ assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 local R = ns.Realms
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 -- Retail is interface 110000 and up; WoW: Forever (16xxx) keeps its realm names.
 eq(R.isRetail(120105), true, "retail 12.1.5")
 eq(R.isRetail(110000), true, "retail's first 11.0 build")
@@ -55,4 +47,4 @@ eq(R.itemRow(2589, instant, function()
 	error("not loaded")
 end), "2589,7,5,", "a stack call that fails is not fatal")
 
-return checks
+return checks()

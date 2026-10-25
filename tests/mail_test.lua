@@ -4,14 +4,6 @@ local ns = {}
 assert(load(SOURCES["MailHelper.lua"], "@MailHelper.lua"))("GoldForever", ns)
 local M = ns.Mail
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local P = M.patterns()
 eq(M.isAuction("Auction successful: Wool Cloth", P), true, "sold")
 eq(M.isAuction("Auction expired: Linen Cloth (20)", P), true, "expired, with a stack in brackets")
@@ -41,4 +33,4 @@ eq(why, "none", "cash on delivery is never opened")
 _, why = M.next({ { subject = "Auction successful: Gold", money = 100000, items = 0, canReply = true } }, 5, P)
 eq(why, "none", "a player's letter with an auction subject is not auction mail")
 
-return checks
+return checks()

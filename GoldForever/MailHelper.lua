@@ -72,12 +72,11 @@ end
 
 local Theme, UI = ns.Theme, ns.UI
 local patterns
-local panel, built
-local panels = {} -- Theme.key -> panel
-local run -- a batch in progress: { left, waiting }
+local panels -- one panel per look and accent (UI.perLook)
+local run -- a batch in progress: { left, waiting, failed, next }
 
 local function settings()
-	return ns.settings("mail", { helper = true })
+	return ns.settings("mail")
 end
 
 local function headers()
@@ -112,6 +111,7 @@ local function waiting()
 end
 
 local function refresh()
+	local panel = panels.frame
 	if not panel or not panel:IsShown() then
 		return
 	end
@@ -119,17 +119,25 @@ local function refresh()
 	panel.count:SetText(n > 0 and string.format("%d auction %s: %s, %d %s", n, n == 1 and "mail" or "mails", UI.layout.money(gold, "gold"), items, items == 1 and "item" or "items")
 		or "No auction mail.")
 	local can = n > 0 and not run
-	if can then
-		panel.open:Enable()
-		panel.open:SetAlpha(1)
-	else
-		panel.open:Disable()
-		panel.open:SetAlpha(0.5)
-	end
+	panel.open:SetEnabled(can)
+end
+
+-- The batch's next step after `seconds`. Each call replaces the one still waiting, so one take runs at a
+-- time: a take's own timeout cannot start a take beside the next (review B-3).
+local step
+local function later(seconds)
+	local mine, token = run, {}
+	run.next = token
+	C_Timer.After(seconds, function()
+		if run == mine and mine.next == token then
+			mine.next = nil
+			ns.safely("mail helper", step)
+		end
+	end)
 end
 
 -- One step of a batch: the next auction mail opened, then the next once the inbox has changed.
-local function step()
+function step()
 	if not run then
 		return
 	end
@@ -138,7 +146,7 @@ local function step()
 		-- The client shows 50 mails at a time; the rest arrive when the mailbox refreshes.
 		local shown, total = GetInboxNumItems()
 		local more = total and shown and total > shown and (total - shown) or 0
-		panel.note:SetText(why == "bags" and "Your bags are full: make room and press again."
+		panels.frame.note:SetText(why == "bags" and "Your bags are full: make room and press again."
 			or more > 0 and string.format("All shown auction mail opened. %d more %s arrive when the mailbox refreshes (within a minute): press again then.", more, more == 1 and "mail" or "mails")
 			or "All auction mail opened.")
 		run = nil
@@ -147,9 +155,7 @@ local function step()
 	end
 	-- One mail at a time, as Blizzard's Open All does: not while the server still works on the last.
 	if C_Mail and C_Mail.IsCommandPending and C_Mail.IsCommandPending() then
-		C_Timer.After(GAP, function()
-			ns.safely("mail helper", step)
-		end)
+		later(GAP)
 		return
 	end
 	run.left = run.left - 1
@@ -166,46 +172,35 @@ local function step()
 		end
 	end
 	-- Next when the take succeeds or the inbox changes, or after a moment if neither says.
-	local mine = run
-	C_Timer.After(WAIT, function()
-		if run == mine and mine.waiting then
-			mine.waiting = false
-			ns.safely("mail helper", step)
-		end
-	end)
+	if run and run.waiting then
+		later(WAIT)
+	end
 end
 
--- The server refused a take (a full bag, a busy inbox): the batch stops and says so.
+-- The server refused a take (a full bag, a busy inbox): tried again, then the batch stops and says so.
 ns.on("MAIL_FAILED", "mail helper", function()
-	if not run then
+	if not run or not run.waiting then
 		return
 	end
+	run.waiting = false
 	run.failed = (run.failed or 0) + 1
 	if run.failed > RETRIES then
 		run = nil
-		if panel then
-			panel.note:SetText("The mailbox refused it again; press again in a moment.")
+		if panels.frame then
+			panels.frame.note:SetText("The mailbox refused it again; press again in a moment.")
 		end
 		refresh()
 		return
 	end
 	-- Busy: the same mail again after a second.
-	run.waiting = false
 	run.left = run.left + 1
-	local mine = run
-	C_Timer.After(1, function()
-		if run == mine then
-			ns.safely("mail helper", step)
-		end
-	end)
+	later(1)
 end)
 
 local function answered()
 	if run and run.waiting then
 		run.waiting, run.failed = false, 0
-		C_Timer.After(GAP, function()
-			ns.safely("mail helper", step)
-		end)
+		later(GAP)
 	end
 end
 ns.on("MAIL_INBOX_UPDATE", "mail helper", function()
@@ -218,32 +213,15 @@ local function press()
 		return
 	end
 	run = { left = Mail.BATCH }
-	panel.note:SetText("Opening…")
+	panels.frame.note:SetText("Opening…")
 	step()
 	refresh()
 end
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
 	patterns = patterns or Mail.patterns()
-	-- One panel per look and accent, reused when the look comes back (frames are never freed).
-	if panels[ns.Theme.key] then
-		if panel and panel ~= panels[ns.Theme.key] then
-			panel:Hide()
-		end
-		panel, built = panels[ns.Theme.key], ns.Theme.key
-		return
-	end
-	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
-	p:SetSize(260, 150)
-	p:SetFrameStrata("HIGH")
+	local p = UI.Dialog({ window = true, width = 260, height = 150, strata = "HIGH", icon = "coins", title = "Gold Forever", titleTone = "muted" })
 	p:Hide()
-	local mark = UI.Icon(p, "coins", 16, "accent")
-	mark:SetPoint("TOPLEFT", 14, -14)
-	local title = UI.Text(p, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "sm", medium = true, tone = "muted" })
-	title:SetPoint("LEFT", mark, "RIGHT", 6, 0)
 	p.count = UI.Text(p, "", { size = "sm", wrap = true })
 	p.count:SetPoint("TOPLEFT", 14, -40)
 	p.count:SetWidth(232)
@@ -254,15 +232,20 @@ local function build()
 	p.note = UI.Text(p, "Gold and items from sold, bought, expired and cancelled auctions; never a player's letter.", { size = "xs", tone = "faint", wrap = true })
 	p.note:SetPoint("TOPLEFT", p.open, "BOTTOMLEFT", 0, -8)
 	p.note:SetWidth(232)
-	panel = p
-	built = ns.Theme.key
-	panels[built] = p
+	return p
 end
+
+-- Beside the mailbox.
+local function dock(p)
+	p:ClearAllPoints()
+	p:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
+end
+panels = UI.perLook(build, dock)
 
 local function close()
 	run = nil
-	if panel then
-		panel:Hide()
+	if panels.frame then
+		panels.frame:Hide()
 	end
 end
 
@@ -279,23 +262,18 @@ ns.on("MAIL_SHOW", "mail helper", function()
 			ns.safely("mail helper", close)
 		end)
 	end
-	if not panel or built ~= ns.Theme.key then
-		build()
+	local panel = panels.frame
+	if not panel or panels.key ~= ns.Theme.key then
+		panel = panels:get()
 	end
-	panel:ClearAllPoints()
-	panel:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
+	dock(panel)
 	panel:Show()
 	refresh()
 end)
 ns.on("MAIL_CLOSED", "mail helper", close)
 -- A panel that shows is drawn again in the look now set.
-ns.onLook("mail helper", function()
-	if panel and panel:IsShown() and built ~= ns.Theme.key then
-		panel:Hide()
-		build()
-		panel:ClearAllPoints()
-		panel:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
-		panel:Show()
+panels:onLook("mail helper", function(redrawn)
+	if redrawn then
 		refresh()
 	end
 end)
@@ -305,5 +283,5 @@ Mail.press = function()
 	press()
 end
 Mail.panel = function()
-	return panel
+	return panels.frame
 end

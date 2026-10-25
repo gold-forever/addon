@@ -26,6 +26,9 @@ local db -- GoldForeverDB, once loaded
 local me -- this character's entry in db.characters
 local reloading = false -- set by the ReloadUI hook just before the UI unloads
 
+-- What the tests reach in a file and the addon itself does not use: kept apart from the names the files share.
+ns.test = {}
+
 function ns.db()
 	return db
 end
@@ -53,14 +56,17 @@ ns.now = GetServerTime
 
 -- Errors ------------------------------------------------------------------------------------------
 
-local errors = {} -- collector -> { n, msg, t }; becomes db.errors once the file is loaded
+local errors = {} -- collector -> { n, msg, t, stack }; becomes db.errors once the file is loaded
 local told = {} -- collectors already reported in chat this session
 
-function ns.fail(name, err)
+-- `stack`, where known, is where the error came from, trimmed so the file stays small.
+local STACK_CHARS = 800
+function ns.fail(name, err, stack)
 	local e = errors[name] or { n = 0 }
 	errors[name] = e
 	e.n = e.n + 1
 	e.msg = tostring(err)
+	e.stack = type(stack) == "string" and string.sub(stack, 1, STACK_CHARS) or nil
 	e.t = GetServerTime()
 	if not told[name] then
 		told[name] = true
@@ -68,7 +74,6 @@ function ns.fail(name, err)
 	end
 end
 
--- Runs fn(...) and records an error instead of raising it.
 -- The outermost call in flight and the frame it began in. The client stops a script that runs too long
 -- without an error the addon can catch ("has exceeded its execution time limit", no stack): that call
 -- never returns, so the next one, in a later frame, finds it still marked and records it under
@@ -76,7 +81,7 @@ end
 local running, runningAt, depth = nil, nil, 0
 local function stoppedBefore(now)
 	if depth > 0 and runningAt ~= now then
-		local db = ns.db and ns.db()
+		local db = ns.db()
 		if db then
 			db.stopped = db.stopped or {}
 			local e = db.stopped[running] or { n = 0 }
@@ -87,6 +92,24 @@ local function stoppedBefore(now)
 	end
 end
 
+-- The stack of the last error, read in the error handler while it still exists. The client's debugstack
+-- leaves out the handler itself; debug.traceback elsewhere.
+local lastStack
+local function withStack(err)
+	if debugstack then
+		lastStack = debugstack(2, 12, 0)
+	elseif debug and debug.traceback then
+		lastStack = debug.traceback("", 2)
+	end
+	return err
+end
+-- The client's xpcall passes arguments on to the call; a plain Lua 5.1's does not, and a call with
+-- some goes through a closure there.
+local passesArgs = select(2, xpcall(function(a)
+	return a
+end, withStack, true)) == true
+
+-- Runs fn(...) and records an error, with its stack, instead of raising it.
 function ns.safely(name, fn, ...)
 	local now = GetTime and GetTime() or 0
 	stoppedBefore(now)
@@ -94,10 +117,20 @@ function ns.safely(name, fn, ...)
 		running, runningAt = name, now
 	end
 	depth = depth + 1
-	local ok, err = pcall(fn, ...)
+	local ok, err
+	if passesArgs or select("#", ...) == 0 then
+		ok, err = xpcall(fn, withStack, ...)
+	else
+		local args, n = { ... }, select("#", ...)
+		ok, err = xpcall(function()
+			return fn(unpack(args, 1, n))
+		end, withStack)
+	end
 	depth = depth - 1
 	if not ok then
-		ns.fail(name, err)
+		local stack = lastStack
+		lastStack = nil
+		ns.fail(name, err, stack)
 	end
 	return ok
 end
@@ -135,19 +168,6 @@ function ns.tipPrefix(tooltip)
 	return ns.PREFIX .. " "
 end
 
--- Panels outside the hub (the auction panel, the crafting strip, the mail helper, the HUD) redraw in a
--- new look while they show (manual test run 001: the crafting strip stayed arcane after a switch to
--- classic). ns.onLook(fn) adds one; ns.lookChanged() calls them.
-local lookListeners = {}
-function ns.onLook(name, fn)
-	lookListeners[#lookListeners + 1] = { name = name, fn = fn }
-end
-function ns.lookChanged()
-	for _, l in ipairs(lookListeners) do
-		ns.safely(l.name, l.fn)
-	end
-end
-
 function ns.after(seconds, name, fn)
 	C_Timer.After(seconds, function()
 		ns.safely(name, fn)
@@ -182,7 +202,66 @@ local frame = CreateFrame("Frame")
 local listeners = {} -- event -> { { name, fn } }
 local missing = {} -- events this client does not know, for the diagnostics
 
-function ns.on(event, name, fn)
+local function dispatch(list, ...)
+	for _, l in ipairs(list) do
+		ns.safely(l.name, l.fn, ...)
+	end
+end
+
+frame:SetScript("OnEvent", function(_, event, ...)
+	dispatch(listeners[event], ...)
+end)
+
+-- The addon's own events: a file says what happened with ns.emit(name, ...), and the files above it that
+-- care hear it with ns.listen(name, label, fn), so a lower file never calls up into a higher one.
+--   "ready"        the saved table is loaded and upgraded, before PLAYER_LOGIN: what needs only the save
+--                  starts here, not on ADDON_LOADED, so it never runs before the table exists;
+--   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (CraftPlanner.lua);
+--   "pricesReady"  a new full scan's prices are in (Pricing.lua);
+--   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
+--                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).
+-- Each listener runs on its own, in the order they listened, so one that fails leaves the rest running.
+local heard = {} -- name -> { { name, fn } }
+function ns.listen(event, name, fn)
+	heard[event] = heard[event] or {}
+	table.insert(heard[event], { name = name, fn = fn })
+end
+function ns.emit(event, ...)
+	if heard[event] then
+		dispatch(heard[event], ...)
+	end
+end
+
+-- A unit event for one unit only ("player") has a frame of its own, so the client does not call the addon
+-- for every unit in a group: RegisterUnitEvent is per frame. Without it, every unit's.
+local unitListeners = {} -- "event unit" -> { { name, fn } }
+local function onUnit(event, unit, name, fn)
+	local key = event .. " " .. unit
+	if not unitListeners[key] then
+		local list = {}
+		unitListeners[key] = list
+		local f = CreateFrame("Frame")
+		local ok
+		if f.RegisterUnitEvent then
+			ok = pcall(f.RegisterUnitEvent, f, event, unit)
+		else
+			ok = pcall(f.RegisterEvent, f, event)
+		end
+		if not ok then
+			missing[#missing + 1] = event
+		end
+		f:SetScript("OnEvent", function(_, _, ...)
+			dispatch(list, ...)
+		end)
+	end
+	table.insert(unitListeners[key], { name = name, fn = fn })
+end
+
+-- fn(...) on every `event`; with `unit`, only on that unit's.
+function ns.on(event, name, fn, unit)
+	if unit then
+		return onUnit(event, unit, name, fn)
+	end
 	if not listeners[event] then
 		listeners[event] = {}
 		if not pcall(frame.RegisterEvent, frame, event) then
@@ -191,12 +270,6 @@ function ns.on(event, name, fn)
 	end
 	table.insert(listeners[event], { name = name, fn = fn })
 end
-
-frame:SetScript("OnEvent", function(_, event, ...)
-	for _, l in ipairs(listeners[event]) do
-		ns.safely(l.name, l.fn, ...)
-	end
-end)
 
 -- Chat ------------------------------------------------------------------------------------------
 
@@ -218,15 +291,56 @@ function ns.alert(text)
 	print(ns.PREFIX .. " " .. text)
 end
 
--- A feature's settings table in the saved file, made with its defaults the first time.
+-- Each feature's settings section and its defaults, in one place (db.settings[section]).
+ns.DEFAULTS = {
+	window = {}, -- the look, the accent, the hub's place and its pages' choices
+	appraiser = { shown = true }, -- the session HUD
+	advisor = { shown = true },
+	rares = { announce = true, mark = true },
+	crafting = { strip = true }, -- the crafting strip, and the craft queue's recipes
+	craftQueue = { closed = false },
+	scan = { auto = false },
+	prices = { tooltip = true },
+	auction = { rule = {}, duration = 2 },
+	mail = { helper = true },
+	minimap = { angle = 225, hidden = false },
+	firstRun = {},
+	fetch = {},
+}
+
+-- A copy, so the saved file never holds the defaults' own tables.
+local function fresh(value)
+	if type(value) ~= "table" then
+		return value
+	end
+	local out = {}
+	for k, v in pairs(value) do
+		out[k] = fresh(v)
+	end
+	return out
+end
+
+-- A feature's settings table in the saved file, made with its defaults the first time (ns.DEFAULTS
+-- unless others are given). A default added in a later version reaches a table saved before it; what the
+-- player set stays.
 function ns.settings(name, defaults)
+	defaults = defaults or ns.DEFAULTS[name]
 	local s = ns.db().settings
-	s[name] = s[name] or defaults
+	if not s[name] then
+		s[name] = fresh(defaults)
+	elseif defaults then
+		local saved = s[name]
+		for key, value in pairs(defaults) do
+			if saved[key] == nil then
+				saved[key] = fresh(value)
+			end
+		end
+	end
 	return s[name]
 end
 
 -- Called with (gained, kind) for every XP gain once Levelling.lua knows what earned it (`quest`,
--- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the appraiser listens.
+-- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the session listens (Session.lua).
 ns.xpListeners = {}
 
 -- Appends a row to today's bucket of a stream.
@@ -256,10 +370,12 @@ end
 local function init()
 	GoldForeverDB = GoldForeverDB or {}
 	db = GoldForeverDB
+	-- A newer version's file keeps its schema, so its data is never labelled as the older one's.
 	if db.schema and db.schema > SCHEMA then
 		ns.say("this file was written by a newer version. Update the addon.")
+	else
+		db.schema = SCHEMA
 	end
-	db.schema = SCHEMA
 	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
 	-- none, so what the player and the site see is only from the build running.
 	if db.addon ~= VERSION then
@@ -316,10 +432,21 @@ local function init()
 	}
 end
 
--- Drops event days older than the retention window (design 002, Retention).
+-- Drops event days older than the retention window (design 002, Retention). A player who exports keeps
+-- the days not yet exported too (an export holds the last one's day on), up to KEEP_MOST days so the file
+-- stays under what the site takes. The companion app uploads the whole file and leaves no mark, so
+-- without an export the window alone decides.
+local KEEP_MOST = 30
 local function prune()
+	local now = GetServerTime()
 	local keep = (db.settings.retentionDays or 14) * 86400
-	local cutoff = Encode.day(GetServerTime() - keep)
+	local cutoff = Encode.day(now - keep)
+	if db.exportedAt then
+		local exported = Encode.day(math.max(db.exportedAt, now - KEEP_MOST * 86400))
+		if exported < cutoff then
+			cutoff = exported
+		end
+	end
 	for day in pairs(db.events) do
 		if day < cutoff then
 			db.events[day] = nil
@@ -507,7 +634,7 @@ local function printStatus()
 	print(string.format("  today %d crafts, %d skill-ups, %d quests, %d money changes, %d flights",
 		count(today.craft), count(today.skill), count(today.quest), count(today.money), count(today.flight)))
 	if me and me.flights then
-		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, GetCoinTextureString and GetCoinTextureString(me.flights.cost) or me.flights.cost .. "c"))
+		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
 	end
 	for name, e in pairs(db.errors) do
 		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
@@ -526,6 +653,7 @@ ns.on("ADDON_LOADED", "core", function(name)
 	end
 	init()
 	prune()
+	ns.emit("ready")
 end)
 
 ns.on("PLAYER_LOGIN", "core", function()

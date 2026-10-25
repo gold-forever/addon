@@ -3,20 +3,15 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
 ns.commands = {}
+ns.on = function() end
+-- The real money formatter (ns.price.coins): without the client's coin icons, plain text.
+assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", ns)
 assert(load(SOURCES["Prices.lua"], "@Prices.lua"))("GoldForever", ns)
-ns.price = { coins = ns.Encode.money }
 local P = ns.Prices
-
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 
 local MARKET = "EU-Classic Beta PvE 2-alliance"
 local NOW = 1761148800
@@ -67,6 +62,9 @@ eq(P.line(data({ 1234, 1100, true, NOW }), { MARKET }, 2589, NOW), nil, "players
 eq(P.line(data({ 1234, 1100, 3, {} }), { MARKET }, 2589, NOW), nil, "scan time not a number")
 eq(P.line(data({ 0 / 0, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value NaN")
 eq(P.line(data({ math.huge, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value infinite")
+eq(P.line(data({ 1e15, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "a value above a million gold")
+eq(P.line(data({ 1234, 1e11, 3, NOW }), { MARKET }, 2589, NOW), nil, "a min above a million gold")
+eq(P.line(data({ ns.Encode.MAX_COPPER, 1100, 3, NOW }), { MARKET }, 2589, NOW) ~= nil, true, "a million gold itself is a price")
 eq(P.line(data({ -5, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "a negative value")
 
 -- The server's market key (backend Markets.kt key() for Forever) from the addon's own market string.
@@ -274,4 +272,4 @@ eq(P.staleWarning({ at = NOW - 2 * DAY - 5 }, NOW, nil), "everyone's prices are 
 eq(P.staleWarning({ at = NOW - DAY - 5 }, NOW, nil):find("1 day old", 1, true) ~= nil, true, "one day")
 eq(P.staleWarning({ at = NOW - 2 * DAY }, NOW, NOW - 3600), nil, "warned an hour ago")
 
-return checks
+return checks()

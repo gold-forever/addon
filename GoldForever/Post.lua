@@ -49,7 +49,8 @@ end
 function Post.suggest(rule, market, cheapest)
 	rule = rule or Post.DEFAULT
 	local floor = Post.silver(math.ceil(market * (rule.floor or 80) / 100))
-	local normal = math.max(floor, Post.silver(market * (rule.normal or 120) / 100 + 50))
+	-- To the nearest silver where the auction house takes silver; where it takes copper, to the copper.
+	local normal = math.max(floor, Post.silver(market * (rule.normal or 120) / 100 + (Post.copper and 0 or 50)))
 	if not cheapest then
 		return { unit = normal, reason = "alone", floor = floor, normal = normal }
 	end
@@ -68,6 +69,63 @@ function Post.suggest(rule, market, cheapest)
 		return { unit = floor, reason = "floor", floor = floor, normal = normal }
 	end
 	return { unit = nil, reason = "hold", floor = floor, normal = normal }
+end
+
+-- What Sell suggests from a rule, the market value and the cheapest other listing (nil: nobody): the
+-- suggestion, nil with neither price (with no market value the cheapest stands in for it); and for one
+-- held under the floor, what undercutting would ask anyway (Post anyway, owner's answer, 2026-10-24).
+function Post.advise(rule, market, cheapest)
+	if not market then
+		return cheapest and Post.suggest(rule, cheapest, cheapest) or nil, nil
+	end
+	local s = Post.suggest(rule, market, cheapest)
+	if s.reason ~= "hold" or not cheapest then
+		return s, nil
+	end
+	local loose = {}
+	for k, x in pairs(rule or Post.DEFAULT) do
+		loose[k] = x
+	end
+	loose.floor = 1
+	return s, Post.suggest(loose, market, cheapest).unit
+end
+
+-- Cancel undercut: the auctions { unit, cheapest } undercut by more than `tolerance` percent, most
+-- undercut first; each auction's `under` is set on the way.
+function Post.undercutList(auctions, tolerance)
+	local out = {}
+	for _, a in ipairs(auctions) do
+		a.under = Post.undercutPct(a.unit, a.cheapest)
+		if a.under > tolerance then
+			out[#out + 1] = a
+		end
+	end
+	table.sort(out, function(x, y)
+		return x.under > y.under
+	end)
+	return out
+end
+
+-- The player's own auctions, from the client's list of them: `info(i)` for i up to `n` (as
+-- C_AuctionHouse.GetOwnedAuctionInfo), `keyInfo(itemKey)` (GetItemKeyInfo, may be nil) and `itemInfo(id)`
+-- (quality, _, _, _, name). Active ones with a buyout only (status 0); sold ones wait in the list for their
+-- mail. Returns { auctionID, itemID, itemKey, quantity, unit, commodity, name, quality }.
+function Post.readOwned(n, info, keyInfo, itemInfo)
+	local owned = {}
+	for i = 1, n do
+		local a = info(i)
+		if a and a.itemKey and (a.status or 0) == 0 and a.buyoutAmount and a.buyoutAmount > 0 then
+			local key = keyInfo and keyInfo(a.itemKey)
+			local commodity = key and key.isCommodity or false
+			local qty = a.quantity or 1
+			-- ASSUMED: a commodity's buyoutAmount is its unit price, an item's the whole auction's.
+			local unit = commodity and a.buyoutAmount or math.floor(a.buyoutAmount / math.max(1, qty) + 0.5)
+			local quality, _, _, _, name = itemInfo(a.itemKey.itemID)
+			owned[#owned + 1] = { auctionID = a.auctionID, itemID = a.itemKey.itemID, itemKey = a.itemKey, quantity = qty,
+				unit = unit, commodity = commodity, name = (key and key.itemName) or name or ("item " .. a.itemKey.itemID), quality = quality or 1 }
+		end
+	end
+	return owned
 end
 
 -- What a rule does, as four sentences for an item worth `market` (10g unless given): someone a little
@@ -111,6 +169,7 @@ Post.REASONS = {
 	normal = "Normal price",
 	floor = "At floor",
 	hold = "Under your floor", -- not "Hold", read as "keep this many" (manual test run 001)
+	plan = "Plan", -- a sale plan's step; the panel shows the step's own label
 }
 
 -- A second press is asked for when a post looks like a mistake: under what a vendor pays after the
@@ -133,28 +192,12 @@ function Post.undercutPct(mine, other)
 	return math.floor((mine - other) / mine * 1000 + 0.5) / 10
 end
 
--- The cheapest other listing worth reacting to, from levels { unitPrice, quantity, own }: a level of
--- fewer than `units` (2) other units more than `pct` (30%) under the next level is a "sneaky price"
--- and is passed over (design 009 decision 13's defaults). Returns the unit price, or nil.
-function Post.honestCheapest(levels, units, pct)
-	units, pct = units or 2, pct or 30
-	local others = {}
-	for _, l in ipairs(levels or {}) do
-		local n = (l.quantity or 0) - (l.own or 0)
-		if n > 0 then
-			others[#others + 1] = { unit = l.unitPrice, n = n }
-		end
-	end
-	table.sort(others, function(a, b)
-		return a.unit < b.unit
-	end)
-	for i, o in ipairs(others) do
-		local nextUnit = others[i + 1] and others[i + 1].unit
-		if not (o.n < units and nextUnit and o.unit < nextUnit * (1 - pct / 100)) then
-			return o.unit
-		end
-	end
-	return nil
+-- The cheapest other listing worth reacting to, from levels { unitPrice, quantity, own }: the sale
+-- plans' sneaky-price guard (SalePlan.clean, design 009 decision 13), so Sell, Cancel and a sale plan
+-- undercut the same price. `market` judges a book of a few units only. Returns the unit price, or nil.
+function Post.honestCheapest(levels, market)
+	local kept = ns.SalePlan.clean(levels, nil, market)
+	return kept[1] and kept[1].unitPrice or nil
 end
 
 -- The rule an item posts by (design 009: one default, overridable per item category and per item): the

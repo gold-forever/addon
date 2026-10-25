@@ -11,16 +11,10 @@ local CraftQueue = {}
 ns.CraftQueue = CraftQueue
 
 local W = 600
-local frame, built
-local frames = {} -- Theme.key -> window (frames are never freed)
+local toldReady -- "ready to craft" said for this queue: once, until a craft is queued again
 
 local function settings()
-	return ns.settings("craftQueue", { closed = false })
-end
-
-local function itemName(id)
-	local _, _, _, _, name = ns.price.itemInfo(id)
-	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
+	return ns.settings("craftQueue")
 end
 
 -- The guild bank of the character's guild, as last read: counts by item.
@@ -42,7 +36,7 @@ end
 
 -- Every row of the plan for the queue now (Views.queuePlan).
 function CraftQueue.plan()
-	local needs = ns.queueNeeds and ns.queueNeeds() or {}
+	local needs = ns.queueNeeds()
 	local me = ns.me()
 	local mine = { bags = {}, bank = {}, mail = {} }
 	local bank = me and me.bank and Encode.parseItems(me.bank.items) or {}
@@ -50,21 +44,17 @@ function CraftQueue.plan()
 	for id in pairs(needs) do
 		mine.bags[id] = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id)) or 0
 		mine.bank[id] = bank[id]
-		mine.mail[id] = (mail[id] or 0) + (ns.boughtSince and ns.boughtSince(id) or 0)
+		mine.mail[id] = (mail[id] or 0) + ns.boughtSince(id)
 	end
-	-- Other characters: what each holds of the reagents, from the save.
+	-- Other characters: what each holds of the reagents, from the save. This one is left out itself, not
+	-- by name: an alt of the same name on another realm is another character.
 	local others = {}
-	local myName = me and me.name
-	for id, e in pairs(Views.holdings(ns.db().characters, Encode.parseItems)) do
-		if needs[id] then
-			local list = {}
-			for _, h in ipairs(e.by) do
-				if h.name ~= myName then
-					list[#list + 1] = { name = h.name, total = h.total }
-				end
-			end
-			others[id] = list
+	for id, e in pairs(Views.holdingsOf(ns.db().characters, Encode.parseItems, needs, me)) do
+		local list = {}
+		for _, h in ipairs(e.by) do
+			list[#list + 1] = { name = h.name, total = h.total }
 		end
+		others[id] = list
 	end
 	local plan = Views.queuePlan(needs, mine, guildCounts(), others)
 	-- A reagent a vendor sells without limit (seen at a merchant) is bought there, not at the auction house.
@@ -75,36 +65,11 @@ function CraftQueue.plan()
 end
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
-	local cached = frames[Theme.key]
-	if cached then
-		frame, built = cached, Theme.key
-		return
-	end
-	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
-	f:SetSize(W, 340)
-	f:SetFrameStrata("MEDIUM")
-	f:SetMovable(true)
-	f:EnableMouse(true)
-	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		local p, _, rel, x, y = self:GetPoint()
-		settings().point = { p, rel, x, y }
-	end)
-	local mark = UI.Icon(f, "flask-conical", 16, "accent")
-	mark:SetPoint("TOPLEFT", 14, -14)
-	local title = UI.Text(f, Theme.skin.titleCaps and "CRAFT QUEUE" or "Craft queue", { size = "md", medium = true })
-	title:SetPoint("LEFT", mark, "RIGHT", 6, 0)
-	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-	close:SetPoint("TOPRIGHT", -4, -4)
-	close:SetScript("OnClick", function()
-		settings().closed = true
-		f:Hide()
-	end)
+	-- Closed with its X, it stays closed until a craft is queued again.
+	local f = UI.Dialog({ window = true, width = W, height = 340, strata = "MEDIUM", movable = true, store = settings, at = { "LEFT", 40, 60 },
+		icon = "flask-conical", title = "Craft queue", titleSize = "md", close = function()
+			settings().closed = true
+		end })
 	f.crafts = UI.Text(f, "", { size = "xs", tone = "muted", wrap = true })
 	f.crafts:SetPoint("TOPLEFT", 14, -38)
 	f.crafts:SetPoint("RIGHT", f, "RIGHT", -14, 0)
@@ -121,7 +86,7 @@ local function build()
 	f.table:SetPoint("TOPLEFT", 14, -64)
 	f.table:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 	f.take = UI.Button(f, "Take from bank", function()
-		local want = ns.fetchList and ns.fetchList()
+		local want = ns.fetchList()
 		if not want then
 			return
 		end
@@ -137,34 +102,35 @@ local function build()
 	end, { width = 130, height = 26 })
 	f.take:SetPoint("TOPLEFT", f.table, "BOTTOMLEFT", 0, -10)
 	f.clear = UI.Button(f, "Clear queue", function()
-		if ns.queueClear then
-			ns.queueClear()
-		end
+		ns.queueClear()
 	end, { width = 110, height = 26 })
 	f.clear:SetPoint("LEFT", f.take, "RIGHT", 6, 0)
 	f.note = UI.Text(f, "", { size = "xs", tone = "faint", wrap = true })
 	f.note:SetPoint("TOPLEFT", f.take, "BOTTOMLEFT", 0, -8)
 	f.note:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 	f:Hide()
-	frame, built = f, Theme.key
-	frames[built] = f
+	return f
 end
 
+-- Where the player left it, else at the left of the screen.
+local function dock(f)
+	f:Restore()
+end
+
+-- One window per look and accent.
+local frames = UI.perLook(build, dock)
+
 function CraftQueue.refresh()
-	if not frame or not frame:IsShown() then
+	if not frames.frame or not frames.frame:IsShown() then
 		return
 	end
-	if built ~= Theme.key then
-		frame:Hide()
-		build()
-		CraftQueue.show()
-		return
-	end
-	local queue = ns.queueList and ns.queueList() or {}
+	frames:redraw()
+	local frame = frames.frame
+	local queue = ns.queueList()
 	local crafts = {}
 	for _, q in ipairs(queue) do
-		local r = ns.recipeOf and ns.recipeOf(q.recipe)
-		crafts[#crafts + 1] = q.count .. "× " .. (r and itemName(r.output) or ("recipe " .. q.recipe))
+		local r = ns.recipeOf(q.recipe)
+		crafts[#crafts + 1] = q.count .. "× " .. (r and ns.itemName(r.output) or ("recipe " .. q.recipe))
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
 	local rows, buy, vendors, ready = {}, 0, 0, true
@@ -182,7 +148,7 @@ function CraftQueue.refresh()
 		end
 		-- A reagent all in the bags is done: not listed (owner, 2026-10-25).
 		if r.bags < r.need then
-			rows[#rows + 1] = { id = r.id, name = itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
+			rows[#rows + 1] = { id = r.id, name = ns.itemName(r.id), need = r.need, bags = r.bags, bank = r.bank, where = table.concat(where, ", "), buy = r.buy, vendor = r.vendor }
 		end
 		if r.buy > 0 and not r.vendor then
 			buy = buy + 1
@@ -197,7 +163,10 @@ function CraftQueue.refresh()
 	-- craft queued, or from its buttons).
 	if ready and #plan > 0 then
 		frame:Hide()
-		ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		if not toldReady then
+			toldReady = true
+			ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		end
 		return
 	end
 	frame.table:SetRows(rows, true)
@@ -212,33 +181,18 @@ function CraftQueue.refresh()
 end
 
 function CraftQueue.show()
-	if not frame or built ~= Theme.key then
-		if frame then
-			frame:Hide()
-		end
-		build()
+	local frame = frames.frame
+	if not frame or frames.key ~= Theme.key then
+		frame = frames:get()
 	end
-	local p = settings().point
-	frame:ClearAllPoints()
-	if p then
-		frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-	else
-		frame:SetPoint("LEFT", UIParent, "LEFT", 40, 60)
-	end
+	dock(frame)
 	frame:Show()
 	CraftQueue.refresh()
-	-- Hidden and shown a frame later, as the auction panel is: what was not yet placed is placed then.
-	C_Timer.After(0, function()
-		if frame and frame:IsShown() then
-			frame:Hide()
-			frame:Show()
-		end
-	end)
 end
 
 -- For the smoke test.
 function CraftQueue.window()
-	return frame
+	return frames.frame
 end
 
 -- From the Crafting page and the Craft queue list: open it again.
@@ -247,22 +201,30 @@ function ns.openCraftQueue()
 	CraftQueue.show()
 end
 
--- The queue changed (Shop.lua): a craft added opens it (even after the X); an empty queue closes it.
-function ns.craftQueueChanged()
-	local queue = ns.queueList and ns.queueList() or {}
+-- The queue changed (CraftPlanner.lua): a craft added opens it (even after the X); a craft made only redraws it
+-- where it shows, so the X sticks (review B-25); an empty queue closes it.
+local function queueChanged(how)
+	local queue = ns.queueList()
+	if how == "added" or #queue == 0 then
+		toldReady = nil
+	end
+	local frame = frames.frame
 	if #queue == 0 then
 		if frame then
 			frame:Hide()
 		end
 		return
 	end
-	settings().closed = false
+	if how == "added" then
+		settings().closed = false
+	end
 	if frame and frame:IsShown() then
 		CraftQueue.refresh()
-	else
+	elseif how == "added" then
 		CraftQueue.show()
 	end
 end
+ns.listen("queueChanged", "craft queue", queueChanged)
 
 -- At a merchant: the queue's vendor reagents it sells, bought (owner, 2026-10-25: "be bought when talking
 -- to a vendor that has the item"), as many as are still to buy and the money allows, in stacks the
@@ -308,7 +270,7 @@ local function buyFromMerchant()
 					left = left - take
 				end
 				if n > 0 then
-					bought[#bought + 1] = n .. "× " .. itemName(id)
+					bought[#bought + 1] = n .. "× " .. ns.itemName(id)
 					spent, money = spent + n * unit, money - n * unit
 				end
 			end
@@ -326,7 +288,7 @@ end)
 ns.on("PLAYER_ENTERING_WORLD", "craft queue", function(isInitialLogin, isReloadingUi)
 	if isInitialLogin or isReloadingUi then
 		ns.after(3, "craft queue", function()
-			local queue = ns.queueList and ns.queueList() or {}
+			local queue = ns.queueList()
 			if #queue > 0 and not settings().closed then
 				CraftQueue.show()
 			end
@@ -338,16 +300,14 @@ end)
 local soon = ns.throttle("craft queue", 1, CraftQueue.refresh)
 for _, event in ipairs({ "BAG_UPDATE_DELAYED", "MAIL_INBOX_UPDATE", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "GUILDBANKBAGSLOTS_CHANGED" }) do
 	ns.on(event, "craft queue", function()
-		if frame and frame:IsShown() then
+		if frames.frame and frames.frame:IsShown() then
 			soon()
 		end
 	end)
 end
-if ns.onBagsRead then
-	ns.onBagsRead(function()
-		if frame and frame:IsShown() then
-			soon()
-		end
-	end)
-end
-ns.onLook("craft queue", CraftQueue.refresh)
+ns.onBagsRead(function()
+	if frames.frame and frames.frame:IsShown() then
+		soon()
+	end
+end)
+frames:onLook("craft queue", CraftQueue.refresh)

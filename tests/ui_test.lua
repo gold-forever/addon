@@ -1,17 +1,10 @@
--- UI.lua's layout: column widths, sorting, pages and money, which the in-game tables stand on.
+-- UILayout.lua: column widths, sorting, pages and money, which the in-game tables stand on.
 
 local ns = {}
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
-assert(load(SOURCES["UI.lua"], "@UI.lua"))("GoldForever", ns)
+assert(load(SOURCES["UILayout.lua"], "@UILayout.lua"))("GoldForever", ns)
 local L, T = ns.UI.layout, ns.Theme
-
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 
 -- Theme: colours as floats and as text escapes.
 local r, g, b = T.rgb("#e0ac45")
@@ -55,6 +48,12 @@ local function names(list)
 	return table.concat(out)
 end
 eq(names(L.sortRows(rows, { key = "v" }, false)), "bdac", "ascending, ties kept, unknown last")
+-- A saved order names its column by key: a column moved keeps it; an older save's index still reads.
+local cols = { { key = "name" }, { key = "price" }, { key = "qty" } }
+eq(L.sortColumn(cols, { column = 1, key = "qty" }), 3, "by key, wherever the column is now")
+eq(L.sortColumn(cols, { column = 2 }), 2, "an older save: by its index")
+eq(L.sortColumn(cols, { column = 2, key = "gone" }), nil, "a column no longer there")
+eq(L.sortColumn(cols, { column = 9 }), nil, "an index past the columns")
 eq(names(L.sortRows(rows, { key = "v" }, true)), "abdc", "descending, unknown still last")
 eq(names(L.sortRows(rows, { key = "x", sort = function(row) return row.n end }, true)), "dcba", "by a sort function")
 eq(names(rows), "bacd", "the rows given are not reordered")
@@ -197,4 +196,4 @@ eq(arcane.decor.rule[1], "#6ee7ff", "the look's own table untouched")
 eq(T.apply("arcane"), arcane, "no accent: the look itself")
 T.apply("web")
 
-return checks
+return checks()

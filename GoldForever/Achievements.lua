@@ -7,13 +7,7 @@ local Encode = ns.Encode
 ns.FIELDS.achievement = "name,points,category,icon,description,reward"
 ns.FIELDS.statistic = "name,category"
 
--- Free text in a catalogue row: no commas (columns), semicolons or line breaks.
-local function text(s)
-	if not s or s == "" then
-		return nil
-	end
-	return (Encode.name(s):gsub(";", "."):gsub("[\r\n]+", " "))
-end
+local text = Encode.text
 
 local function categoryName(category)
 	local name = GetCategoryInfo and GetCategoryInfo(category)

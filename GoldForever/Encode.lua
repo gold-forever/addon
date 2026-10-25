@@ -11,6 +11,9 @@ ns.Encode = Encode
 -- into chunks keeps that overhead per chunk instead of per row.
 Encode.ROWS_PER_CHUNK = 500
 
+-- The most copper any price the addon takes from outside may be (a million gold).
+Encode.MAX_COPPER = 10000000000
+
 -- One row from values in declared column order. nil and false become empty, true becomes "1".
 -- Trailing empty columns are kept so the row always matches its declaration.
 function Encode.row(...)
@@ -29,14 +32,27 @@ function Encode.row(...)
 	return table.concat(out, ",")
 end
 
+-- Rows in each stream's last chunk, kept in memory so an append does not count them again: stream ->
+-- { chunk, n }, trusted only while that chunk is still the stream's last.
+local lastRows = setmetatable({}, { __mode = "k" })
+
 -- Appends a row to a stream: an array of chunk strings, the last one filled first.
 function Encode.append(stream, row)
 	local last = #stream
 	local chunk = stream[last]
-	if chunk and Encode.count(chunk) < Encode.ROWS_PER_CHUNK then
-		stream[last] = chunk .. ";" .. row
+	local known = lastRows[stream]
+	local n = chunk and (known and known.chunk == chunk and known.n or Encode.count(chunk)) or 0
+	if chunk and n < Encode.ROWS_PER_CHUNK then
+		chunk, n = chunk .. ";" .. row, n + 1
+		stream[last] = chunk
 	else
-		stream[last + 1] = row
+		chunk, n = row, 1
+		stream[last + 1] = chunk
+	end
+	if known then
+		known.chunk, known.n = chunk, n
+	else
+		lastRows[stream] = { chunk = chunk, n = n }
 	end
 end
 
@@ -83,6 +99,14 @@ end
 -- Item names go in the catalogue as one column; commas become U+201A (design 002).
 function Encode.name(text)
 	return (string.gsub(text, ",", "\226\128\154"))
+end
+
+-- Free text in a catalogue row: no commas (columns), semicolons (rows) or line breaks; nil for none.
+function Encode.text(s)
+	if not s or s == "" then
+		return nil
+	end
+	return (Encode.name(s):gsub(";", "."):gsub("[\r\n]+", " "))
 end
 
 -- Item key of an item link or item string: "itemId", or "itemId:suffixId" for random-suffix
@@ -292,14 +316,7 @@ end
 
 -- "1g 23s 4c", "23s 4c", "4c": copper as text, for where coin icons cannot go.
 function Encode.money(copper)
-	copper = math.floor(copper + 0.5)
-	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
-	if g > 0 then
-		return string.format("%dg %ds %dc", g, s, c)
-	elseif s > 0 then
-		return string.format("%ds %dc", s, c)
-	end
-	return string.format("%dc", c)
+	return ns.Money.format(copper, "plain")
 end
 
 -- XP gained between two readings: within a level, the difference; across a level-up, the rest of

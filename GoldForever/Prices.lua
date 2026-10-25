@@ -19,8 +19,11 @@ local REGION_IDS = { ["1"] = "NA", ["2"] = "KR", ["3"] = "EU", ["4"] = "TW", ["5
 local BETA_REGION, BETA_PORTAL = "110", "test"
 local MAX_REGION_CODE, MAX_RULESET = 8, 32
 
+-- A number the file may carry: a price, a count or a time, none of them above a million gold's copper
+-- (a time stays under it until the year 2286), so an absurd price never reaches a post.
+local MAX = ns.Encode.MAX_COPPER
 local function amount(x)
-	return type(x) == "number" and x >= 0 and x < math.huge
+	return type(x) == "number" and x >= 0 and x <= MAX
 end
 
 local function field(t, key)
@@ -333,11 +336,7 @@ function Prices.value(id)
 	if markets and Prices.loaded(GoldForever_Prices) then
 		local value, _, _, scannedAt, week = entry(GoldForever_Prices, markets, id)
 		if value then
-			local own, ownAt
-			if ns.ownPrice then
-				local o, _, at = ns.ownPrice(id)
-				own, ownAt = o, at
-			end
+			local own, _, ownAt = ns.ownPrice(id)
 			local picked, from = Prices.pick(value, scannedAt, own, ownAt)
 			if from == "scan" then
 				return picked, "scan"
@@ -345,10 +344,25 @@ function Prices.value(id)
 			return value, "pool", Prices.trend(value, week), week
 		end
 	end
-	local own = ns.ownPrice and ns.ownPrice(id)
+	local own = ns.ownPrice(id)
 	if own then
 		return own, "scan"
 	end
+end
+
+-- What buying one costs at the auction house: the pool's minimum buyout, picked against the own scan's
+-- cheapest unit as the value is (Prices.pick), else the own scan's. A craft's reagents are priced so, the
+-- same source as its output's value, so a player with the prices file and no scan of their own sees profits.
+function Prices.cheapest(id)
+	local _, own, ownAt = ns.ownPrice(id)
+	local markets = mine()
+	if markets and Prices.loaded(GoldForever_Prices) then
+		local _, low, _, scannedAt = entry(GoldForever_Prices, markets, id)
+		if low and low > 0 then
+			return (Prices.pick(low, scannedAt, own, ownAt))
+		end
+	end
+	return own
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
@@ -358,7 +372,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			return
 		end
 		-- Settings → Modules can switch the line off.
-		if ns.settings("prices", { tooltip = true }).tooltip == false then
+		if ns.settings("prices").tooltip == false then
 			return
 		end
 		local now = GetServerTime()
@@ -371,7 +385,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				tooltip:AddLine(ns.tipPrefix(tooltip) .. nline, shade, shade, shade)
 			end
 		end
-		-- The own scan has its own line (Appraiser.lua): only the pool's here.
+		-- The own scan has its own line (Tooltips.lua): only the pool's here.
 		local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
 		if line then
 			local shade = stale and STALE_SHADE or 1
@@ -421,7 +435,7 @@ end
 -- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
 local neutralMarkets, neutralFor -- the neutral auction house's markets, and the region they are for
 function Prices.neutralMarkets()
-	if not (ns.atNeutralZone and ns.atNeutralZone()) then
+	if not ns.atNeutralZone() then
 		return nil
 	end
 	local client = ns.db().client
@@ -455,19 +469,17 @@ Prices.mine = function()
 	return mine()
 end
 
-if ns.on then
-	ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
-		if not isInitialLogin then
-			return
-		end
-		local s = ns.settings("prices", { tooltip = true })
-		local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
-		if text then
-			s.staleWarned = GetServerTime()
-			ns.say(text)
-		end
-	end)
-end
+ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
+	if not isInitialLogin then
+		return
+	end
+	local s = ns.settings("prices")
+	local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
+	if text then
+		s.staleWarned = GetServerTime()
+		ns.say(text)
+	end
+end)
 
 ns.commands.prices = function()
 	local lines = Prices.summary(GoldForever_Prices, mine(), GetServerTime())

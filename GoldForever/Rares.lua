@@ -16,7 +16,7 @@ local vignettes = {} -- minimap marker GUID -> true
 local marked = {} -- spawn GUID -> true once given the skull, this session
 
 local function settings()
-	return ns.settings("rares", { announce = true, mark = true })
+	return ns.settings("rares")
 end
 
 -- Marks may be set solo, or in a group as its leader or an assistant.

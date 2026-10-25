@@ -63,6 +63,12 @@ Theme.class = {
 	WARRIOR = "#c69b6d", PALADIN = "#f48cba", HUNTER = "#aad372", ROGUE = "#fff468", PRIEST = "#ffffff",
 	SHAMAN = "#0070dd", MAGE = "#3fc7eb", WARLOCK = "#8788ee", DRUID = "#ff7c0a",
 }
+-- The classes past the nine (death knights, monks and the rest on retail) in the game's own colours.
+for class, c in pairs(RAID_CLASS_COLORS or {}) do
+	if not Theme.class[class] and type(c) == "table" and c.r and c.g and c.b then
+		Theme.class[class] = string.format("#%02x%02x%02x", math.floor(c.r * 255 + 0.5), math.floor(c.g * 255 + 0.5), math.floor(c.b * 255 + 0.5))
+	end
+end
 
 -- The 4-pixel grid.
 Theme.space = { [1] = 4, [2] = 8, [3] = 12, [4] = 16, [5] = 20, [6] = 24, [8] = 32, [10] = 40 }
@@ -74,7 +80,7 @@ Theme.text = { xs = 12, sm = 13, md = 14, lg = 16, xl = 20, xxl = 28 }
 
 -- Two looks, one setting (design 009; the web playground's Look switch is the reference). A look swaps
 -- the tokens above in place, so code that reads Theme.color and Theme.text needs no change, and tells
--- UI.lua how to draw: the web's rounded, shadowed cards in a bundled Roboto, or the client's own
+-- the UI kit how to draw: the web's rounded, shadowed cards in a bundled Roboto, or the client's own
 -- dialog boxes, red buttons and Friz Quadrata from files the game ships.
 
 local MEDIA = "Interface\\AddOns\\GoldForever\\Media\\"

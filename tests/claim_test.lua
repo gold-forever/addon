@@ -1,17 +1,9 @@
 -- Claim.lua: /gf claim <code>, the proof in game that a character another account holds is yours
 -- (security review finding 4). The site hands out codes of eight letters and digits, shown ABCD-EFGH.
 
-local ns = {}
+local ns = { commands = {} }
 assert(load(SOURCES["Claim.lua"], "@Claim.lua"))("GoldForever", ns)
 local C = ns.Claim
-
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
 
 -- Typed as the site shows it, or any way a player might copy it.
 eq(C.normalize("BCDF-2345"), "BCDF2345", "as shown")
@@ -38,4 +30,4 @@ eq(C.record(character, "nonsense", 3000), nil, "a bad code is refused")
 eq(character.claim.code, "GHJK6789", "and leaves the last good one")
 eq(C.record(nil, "BCDF-2345", 4000), nil, "no character yet")
 
-return checks
+return checks()

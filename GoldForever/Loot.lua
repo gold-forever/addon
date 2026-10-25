@@ -16,7 +16,7 @@ local ITEM_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Item or 1
 local MONEY_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Money or 2
 
 -- Called with (coin, { [itemKey] = count }, rows) after every loot window, rows one per source:
--- { src, coin, items = { [itemKey] = count } }; see Appraiser.lua.
+-- { src, coin, items = { [itemKey] = count } }; see Session.lua.
 ns.lootListeners = {}
 
 local window -- the open loot window

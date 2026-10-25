@@ -4,20 +4,12 @@ local ns = {}
 assert(load(SOURCES["Crafting.lua"], "@Crafting.lua"))("GoldForever", ns)
 local C = ns.Crafting
 
-local checks = 0
-local function eq(actual, expected, what)
-	checks = checks + 1
-	if actual ~= expected then
-		error(string.format("%s: expected [%s], got [%s]", what, tostring(expected), tostring(actual)), 2)
-	end
-end
-
 local market = { [2589] = 40, [2996] = 120, [2320] = 12 }
 local cheapest = { [2589] = 37, [2996] = 110 }
 local vendor = { [2320] = 9 }
 local price = {
 	market = function(id) return market[id] end,
-	cheapest = function(id) return cheapest[id] end,
+	buy = function(id) return cheapest[id] end,
 	vendorBuy = function(id) return vendor[id] end,
 }
 local bolt = { output = 2996, yield = 1, reagents = { { id = 2589, count = 2 } } }
@@ -72,4 +64,4 @@ eq(need[2589], 12, "5 × 2 + 2 × 1 Linen")
 eq(need[2320], 6, "2 × 3 thread")
 eq(next(C.queueReagents({}, function() end)), nil, "an empty queue needs nothing")
 
-return checks
+return checks()

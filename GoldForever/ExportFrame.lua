@@ -5,8 +5,12 @@ local _, ns = ...
 local UI, Export, Theme = ns.UI, ns.Export, ns.Theme
 
 local SITE = "gold-forever.app/me/upload"
--- The highest level: a first export is a third smaller than at the default, for half a second more.
-local DEFLATE = { level = 9 }
+local DEFLATE = { level = Export.LEVEL }
+-- The player waits on an export: a larger share of each frame than background work, still far under
+-- what the client lets a script run.
+local EXPORT_MS = 20
+
+local building -- when the export being built began; one the client stopped is let go after a minute
 
 local frame
 
@@ -18,22 +22,32 @@ local function count(t)
 	return n
 end
 
-local function build()
-	frame = UI.Panel(UIParent, { name = "GoldForeverExport" })
-	frame:SetSize(560, 190)
-	frame:SetPoint("CENTER")
-	frame:SetFrameStrata("DIALOG")
-	frame:SetMovable(true)
-	frame:EnableMouse(true)
-	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-	table.insert(UISpecialFrames, "GoldForeverExport") -- Escape closes it
+-- What the string holds counts as sent once the player copies it (review B-26): closed without copying,
+-- the next export holds it again.
+local function copied()
+	local pending = frame.pending
+	if pending then
+		frame.pending = nil
+		local db = ns.db()
+		db.exportedAt = pending.now
+		Export.markSent(db, pending.picked)
+	end
+	frame.summary:SetText("Copied. Paste it at " .. SITE)
+end
 
-	local title = UI.Text(frame, "Gold Forever export", { size = "lg" })
-	title:SetPoint("TOPLEFT", 16, -14)
+local function build()
+	frame = UI.Dialog({ name = "GoldForeverExport", width = 560, height = 190, at = { "CENTER" }, strata = "DIALOG", movable = true,
+		title = "Gold Forever export" })
+	-- Closed, copied or not: nothing more counts as sent, and the string and what it held are let go
+	-- (review B-26): a big save's export is megabytes of text, kept till the next export otherwise.
+	frame:SetScript("OnHide", function()
+		frame.pending = nil
+		frame.text = nil
+		frame.box:SetText("")
+	end)
+
 	frame.summary = UI.Text(frame, "", { tone = "muted" })
-	frame.summary:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+	frame.summary:SetPoint("TOPLEFT", frame.heading, "BOTTOMLEFT", 0, -6)
 	local how = UI.Text(frame, "Press Ctrl+C to copy, then paste it at " .. SITE, { tone = "faint" })
 	how:SetPoint("TOPLEFT", frame.summary, "BOTTOMLEFT", 0, -6)
 
@@ -63,7 +77,7 @@ local function build()
 	end)
 	box:SetScript("OnKeyUp", function(_, key)
 		if key == "C" and IsControlKeyDown() then
-			frame.summary:SetText("Copied. Paste it at " .. SITE)
+			ns.safely("export", copied)
 		end
 	end)
 	frame.box = box
@@ -74,12 +88,13 @@ local function build()
 	close:SetPoint("BOTTOMRIGHT", -16, 14)
 end
 
-local function show(text, picked)
+local function show(text, picked, now)
 	if not frame then
 		build()
 	end
 	local scans, days = #picked.scans, count(picked.events)
 	frame.text = text
+	frame.pending = { picked = picked, now = now }
 	frame.summary:SetText(string.format("%d characters, %d %s of play, %d auction %s · %d characters of text",
 		count(picked.characters), days, days == 1 and "day" or "days", scans, scans == 1 and "scan" or "scans", #text))
 	frame.box:SetText(text)
@@ -88,18 +103,43 @@ local function show(text, picked)
 	frame.box:HighlightText()
 end
 
--- `/gf export`, or `/gf export all` for everything again.
+-- `/gf export`, or `/gf export all` for everything again. Built over frames: a heavy save is several
+-- seconds of work.
 ns.commands.export = function(arg)
+	if building and GetTime() - building < 60 then
+		ns.say("the export is still being built.")
+		return
+	end
 	local db = ns.db()
 	local LibDeflate = LibStub("LibDeflate")
 	local now = ns.now()
 	local since = string.lower(arg or "") ~= "all" and db.exportedAt or nil
-	local text, picked = Export.build(db, since, now, function(raw)
-		return LibDeflate:CompressDeflate(raw, DEFLATE)
+	local step = Export.builder(db, since, now, function(part)
+		return LibDeflate:CompressDeflate(part, DEFLATE)
 	end)
-	db.exportedAt = now
-	Export.markSent(db, picked)
-	show(text, picked)
+	building = GetTime()
+	local told = false
+	local function more()
+		local started = ns.frameStart()
+		local ok, text, picked = pcall(step, function(done)
+			return ns.frameSpent(started, done, 100, EXPORT_MS)
+		end)
+		if not ok then
+			building = nil
+			error(text, 0)
+		end
+		if not text then
+			if not told then
+				told = true
+				ns.say("building the export: a few seconds for a big save.")
+			end
+			ns.after(0, "export", more)
+			return
+		end
+		building = nil
+		show(text, picked, now)
+	end
+	more()
 end
 
 -- A box of text to copy: a report the player pastes into a bug report (/gf uidebug). Many lines,
@@ -107,20 +147,9 @@ end
 local copy
 function ns.showCopy(title, text)
 	if not copy then
-		copy = UI.Panel(UIParent, { name = "GoldForeverCopy" })
-		copy:SetSize(640, 420)
-		copy:SetPoint("CENTER")
-		copy:SetFrameStrata("DIALOG")
-		copy:SetMovable(true)
-		copy:EnableMouse(true)
-		copy:RegisterForDrag("LeftButton")
-		copy:SetScript("OnDragStart", copy.StartMoving)
-		copy:SetScript("OnDragStop", copy.StopMovingOrSizing)
-		table.insert(UISpecialFrames, "GoldForeverCopy") -- Escape closes it
-		copy.title = UI.Text(copy, "", { size = "lg" })
-		copy.title:SetPoint("TOPLEFT", 16, -14)
+		copy = UI.Dialog({ name = "GoldForeverCopy", width = 640, height = 420, at = { "CENTER" }, strata = "DIALOG", movable = true, title = "" })
 		local how = UI.Text(copy, "Ctrl+A, then Ctrl+C to copy it all.", { tone = "faint" })
-		how:SetPoint("TOPLEFT", copy.title, "BOTTOMLEFT", 0, -6)
+		how:SetPoint("TOPLEFT", copy.heading, "BOTTOMLEFT", 0, -6)
 		local scroll = CreateFrame("ScrollFrame", nil, copy, "UIPanelScrollFrameTemplate")
 		scroll:SetPoint("TOPLEFT", how, "BOTTOMLEFT", 0, -10)
 		scroll:SetPoint("BOTTOMRIGHT", -36, 52)
@@ -147,11 +176,16 @@ function ns.showCopy(title, text)
 		end)
 		close:SetPoint("BOTTOMRIGHT", -16, 14)
 	end
-	copy.title:SetText(title)
+	copy.heading:SetText(title)
 	copy.text = text
 	copy.box:SetText(text)
 	copy:Show()
 	copy:Raise()
 	copy.box:SetFocus()
 	copy.box:HighlightText()
+end
+
+-- For the smoke test.
+function ns.exportFrame()
+	return frame
 end

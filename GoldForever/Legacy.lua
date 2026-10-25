@@ -25,13 +25,7 @@ local function perkText(definition)
 	return name, spell, description
 end
 
--- Free text in a catalogue row: no commas (columns), semicolons or line breaks.
-local function text(s)
-	if not s or s == "" then
-		return nil
-	end
-	return (Encode.name(s):gsub(";", ".") :gsub("[\r\n]+", " "))
-end
+local text = Encode.text
 
 -- Legacy has a perk tree per tab. 1187 (professions) came from the trace; the others are found by
 -- asking the configuration for its trees and, failing that, by searching tree IDs for ones paid
@@ -132,8 +126,14 @@ local function readRenown(legacy)
 	end
 end
 
+-- Legacy is WoW: Forever's: on retail the reads find nothing of it (faction 2802 may be something else).
+local function forever()
+	local client = ns.db().client
+	return not ns.Realms.isRetail(client and client.interface)
+end
+
 local function readLegacy()
-	if not (C_Traits and C_MajorFactions) then
+	if not (C_Traits and C_MajorFactions) or not forever() then
 		return
 	end
 	local db = ns.db()
@@ -153,7 +153,7 @@ end
 -- when done. Once per session.
 local searched = false
 local function findTrees()
-	if searched or not C_Traits.GetConfigIDByTreeID then
+	if searched or not C_Traits.GetConfigIDByTreeID or not forever() then
 		return
 	end
 	searched = true

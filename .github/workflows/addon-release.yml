@@ -17,28 +17,9 @@ permissions:
   contents: read
 
 jobs:
+  # The same gate as every push (ci.yml).
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Unit tests (fengari)
-        working-directory: tests
-        run: npm ci && npm test
-      - name: The whole addon loads on a stand-in game API
-        run: |
-          sudo apt-get install -y -qq luajit >/dev/null
-          # WoW: Forever, then the same session on a retail client; each as an Alliance and a Horde character.
-          for faction in Alliance Horde; do
-            for interface in 16001 120105; do
-              out=$(GF_SMOKE_FACTION=$faction GF_SMOKE_INTERFACE=$interface luajit tests/smoke.lua GoldForever)
-              echo "$out" | tail -20
-              # The smoke run prints its errors table; it must be empty.
-              if echo "$out" | grep -A2 '\["errors"\] = {' | tail -n +2 | grep -q '\["'; then
-                echo "::error::the smoke run recorded errors (interface $interface, $faction)"
-                exit 1
-              fi
-            done
-          done
+    uses: ./.github/workflows/ci.yml
 
   release:
     needs: test
@@ -58,9 +39,17 @@ jobs:
           HAS_WAGO_TOKEN: ${{ secrets.WAGO_API_TOKEN != '' }}
         run: |
           version="${GITHUB_REF_NAME#addon-v}"
-          toc_version=$(sed -n 's/^## Version: *//p' GoldForever/GoldForever.toc | tr -d '\r')
-          if [[ "$version" != "$toc_version" ]]; then
-            echo "::error::the tag says $version but GoldForever.toc says $toc_version"
+          # The version is in the three TOCs and in Core.lua: each must say the tag's.
+          for toc in GoldForever/GoldForever.toc GoldForever/GoldForever_Mainline.toc GoldForever/GoldForever_Forever.toc; do
+            toc_version=$(sed -n 's/^## Version: *//p' "$toc" | tr -d '\r')
+            if [[ "$version" != "$toc_version" ]]; then
+              echo "::error::the tag says $version but $toc says $toc_version"
+              exit 1
+            fi
+          done
+          core_version=$(sed -n 's/^local VERSION = "\(.*\)"/\1/p' GoldForever/Core.lua | tr -d '\r')
+          if [[ "$version" != "$core_version" ]]; then
+            echo "::error::the tag says $version but Core.lua says $core_version"
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"

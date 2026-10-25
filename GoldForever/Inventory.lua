@@ -136,7 +136,7 @@ function ns.fetchList()
 	if not guid then
 		return nil
 	end
-	local s = ns.settings("fetch", {})
+	local s = ns.settings("fetch")
 	s[guid] = s[guid] or {}
 	return s[guid]
 end
@@ -212,7 +212,9 @@ local function fetchFromBank()
 	local function step()
 		i = i + 1
 		local m = moves[i]
-		if not m or not bankOpen then
+		-- The bank closed, or a fight began, mid-fetch: this stack was not taken, so it stays to look for.
+		if not m or not bankOpen or (InCombatLockdown and InCombatLockdown()) then
+			i = i - 1
 			done()
 			return
 		end
@@ -247,7 +249,6 @@ local function fetchFromBank()
 	end
 	step()
 end
-ns.fetchFromBank = fetchFromBank
 
 local function bankOpened()
 	bankOpen = true
@@ -352,7 +353,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
 			return
 		end
-		if ns.settings("prices", { tooltip = true }).held == false then
+		if ns.settings("prices").held == false then
 			return
 		end
 		local now = stamp()

@@ -53,11 +53,11 @@ local Theme, UI = ns.Theme, ns.UI
 
 local function settingsTables()
 	return {
-		prices = ns.settings("prices", { tooltip = true }),
-		auction = ns.settings("auction", { rule = {}, duration = 2 }),
-		crafting = ns.settings("crafting", { strip = true }),
-		appraiser = ns.settings("appraiser", { shown = true }),
-		advisor = ns.settings("advisor", { shown = true }),
+		prices = ns.settings("prices"),
+		auction = ns.settings("auction"),
+		crafting = ns.settings("crafting"),
+		appraiser = ns.settings("appraiser"),
+		advisor = ns.settings("advisor"),
 	}
 end
 
@@ -67,9 +67,7 @@ local STEPS = { "What it records", "Where to start", "Look and colour", "The com
 local chosen = "trader"
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
+	ns.applyLook()
 	local W, H = 560, 360
 	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	f:SetSize(W, H)
@@ -162,7 +160,7 @@ local function build()
 	end
 	local accentLabel = UI.Text(p3, "Accent colour", { size = "xs", medium = true, tone = "faint" })
 	accentLabel:SetPoint("TOPLEFT", 0, -68)
-	local current = ns.settings("window", {}).accent
+	local current = ns.settings("window").accent
 	local own = UI.Button(p3, "The look's own", function()
 		if current then
 			redraw(function()
@@ -220,13 +218,16 @@ local function build()
 		end
 		steps:SetText(table.concat(parts, "  ·  "))
 		back:SetShown(n > 1)
-		nextButton.label:SetText(n == #STEPS and "Done" or "Next")
+		nextButton:SetLabel(n == #STEPS and "Done" or "Next")
 	end
 	local function finish(skipped)
-		local s = ns.settings("firstRun", {})
+		local s = ns.settings("firstRun")
 		s.done = true
 		if not skipped then
-			FirstRun.apply(chosen, settingsTables())
+			local tables = settingsTables()
+			FirstRun.apply(chosen, tables)
+			-- The HUD on screen goes with its switch, as Settings → Modules does it.
+			ns.setHud(tables.appraiser.shown)
 		end
 		f:Hide()
 		ns.say(skipped and "first-run card skipped; everything stays as it was. /gf welcome shows it again."
@@ -264,12 +265,10 @@ local cards = {}
 -- `step`: the step to show (a new look reopens it on that step), else the first.
 function open(step)
 	if InCombatLockdown and InCombatLockdown() then
-		ns.settings("firstRun", {}).waiting = true
+		ns.settings("firstRun").waiting = true
 		return
 	end
-	if ns.applyLook then
-		ns.applyLook()
-	end
+	ns.applyLook()
 	local key = ns.Theme.key
 	if card and card ~= cards[key] then
 		card:Hide()
@@ -284,17 +283,14 @@ function open(step)
 end
 
 -- At load: a save with no characters yet is a new install, and is due the card.
-ns.on("ADDON_LOADED", "first run", function(name)
-	if name ~= "GoldForever" then
-		return
-	end
-	local s = ns.settings("firstRun", {})
+ns.listen("ready", "first run", function()
+	local s = ns.settings("firstRun")
 	if s.due == nil then
 		s.due = FirstRun.isNew(ns.db())
 	end
 end)
 ns.on("PLAYER_ENTERING_WORLD", "first run", function()
-	local s = ns.settings("firstRun", {})
+	local s = ns.settings("firstRun")
 	if s.due and not s.done then
 		C_Timer.After(2, function()
 			ns.safely("first run", open)
@@ -302,7 +298,7 @@ ns.on("PLAYER_ENTERING_WORLD", "first run", function()
 	end
 end)
 ns.on("PLAYER_REGEN_ENABLED", "first run", function()
-	local s = ns.settings("firstRun", {})
+	local s = ns.settings("firstRun")
 	if s.waiting and not s.done then
 		s.waiting = nil
 		open()
@@ -311,7 +307,7 @@ end)
 
 -- "/gf welcome": the card again.
 ns.commands.welcome = function()
-	ns.settings("firstRun", {}).done = nil
+	ns.settings("firstRun").done = nil
 	open()
 end
 

@@ -1,6 +1,6 @@
 -- Gold Forever: the loot advisor. What to do with what is in the bags: sell it to a vendor, post it
 -- on the auction house, or disenchant it, whichever brings the most, with the totals. Shown at a
--- vendor and with /gf bags. Prices and valuation are the appraiser's (ns.price).
+-- vendor and with /gf bags. Prices and valuation are Pricing.lua's (ns.price).
 
 local _, ns = ...
 
@@ -9,7 +9,7 @@ local LIST_LENGTH = 8 -- items shown per list; the rest are summed in one line
 local frame, body
 
 local function settings()
-	return ns.settings("advisor", { shown = true })
+	return ns.settings("advisor")
 end
 
 -- Bag contents by item and whether it is bound (bound items cannot go to the auction house).
@@ -29,43 +29,9 @@ local function contents()
 	return stacks
 end
 
--- Each stack's best use: { use = "vendor" | "post" | "disenchant", value, unit, … }.
+-- Each stack's best use, by list (Views.adviseStacks).
 local function advise()
-	local p = ns.price
-	local lists = { vendor = {}, post = {}, disenchant = {} }
-	local totals = { vendor = 0, post = 0, disenchant = 0 }
-	for _, s in pairs(contents()) do
-		local options = {}
-		local vendor = p.vendor(s.id)
-		if vendor then
-			options.vendor = vendor * s.count
-		end
-		local market = not s.bound and p.market(s.id)
-		if market then
-			options.post = math.floor(market * (1 - p.cut)) * s.count
-		end
-		local de, skill = p.disenchant(s.id)
-		if de and de > 0 and p.enchanting() >= skill then
-			options.disenchant = de * s.count
-		end
-		local best, value
-		for use, v in pairs(options) do
-			if not value or v > value then
-				best, value = use, v
-			end
-		end
-		if best and value > 0 then
-			local _, _, _, _, name = p.itemInfo(s.id)
-			table.insert(lists[best], { id = s.id, name = name or ("item " .. s.id), count = s.count, value = value, market = market })
-			totals[best] = totals[best] + value
-		end
-	end
-	for _, list in pairs(lists) do
-		table.sort(list, function(a, b)
-			return a.value > b.value
-		end)
-	end
-	return lists, totals
+	return ns.Views.adviseStacks(contents(), ns.price, ns.price.enchanting())
 end
 
 local HEADINGS = {
@@ -151,7 +117,7 @@ local function refresh()
 		end
 		if n and sell then
 			local armed = armedAt and GetTime() - armedAt < SELL_ARMED
-			sell.label:SetText(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
+			sell:SetLabel(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
 				or string.format("Sell junk: %d %s · %s", n, n == 1 and "item" or "items", ns.price.coins(value)))
 			sell:Show()
 		elseif sell then
@@ -168,9 +134,7 @@ local function show()
 		end)
 		frame:SetWidth(330)
 		body:SetWidth(310)
-		if ns.applyLook then
-			ns.applyLook()
-		end
+		ns.applyLook()
 		-- Two presses: the first says what it will sell, the second sells.
 		sell = ns.UI.Button(frame, "Sell junk", function()
 			ns.safely("sell junk", function()
