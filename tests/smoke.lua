@@ -1116,6 +1116,9 @@ do
   -- Crafting a queued recipe counts it down.
   fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)
   assert(ns.queueList()[1].count == 2, "one Bolt of Linen crafted: two left in the queue")
+  -- A party member's cast of the same recipe is theirs, and never reaches the queue.
+  fire("UNIT_SPELLCAST_SUCCEEDED", "party1", "Cast-9", 2963)
+  assert(ns.queueList()[1].count == 2, "a party member's craft counts nothing")
   -- Closed with its X, it stays closed while queued crafts are made (review B-25).
   GoldForeverDB.settings.craftQueue.closed = true
   cq:Hide()

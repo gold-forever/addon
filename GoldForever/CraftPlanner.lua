@@ -119,9 +119,10 @@ function ns.queueAdd(recipeId, n)
 	changed("added")
 end
 -- A queued recipe crafted: one fewer in the queue, and gone at none (manual test run 001: the window
--- stayed with everything in the bags). The cast's spell is the recipe's ID.
-ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
-	if unit ~= "player" or not spell then
+-- stayed with everything in the bags). The cast's spell is the recipe's ID. The player's casts only, so
+-- the client does not call it for every cast in a group.
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(_, _, spell)
+	if not spell then
 		return
 	end
 	local q = queue()
@@ -135,7 +136,7 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
 			return
 		end
 	end
-end)
+end, "player")
 
 function ns.queueClear()
 	local s = ns.settings("crafting")
