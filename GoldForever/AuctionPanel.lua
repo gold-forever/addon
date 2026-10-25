@@ -982,21 +982,34 @@ local function recordBought(b)
 	s.bought = s.bought or {}
 	s.bought[#s.bought + 1] = { id = b.id, n = b.n, t = ns.now() }
 end
--- Units of an item bought and not in the mailbox as read yet.
+-- Units of an item bought and not in the mailbox as read yet. A read: the save changes only when the
+-- mailbox is read (below).
 function ns.boughtSince(id)
 	local me = ns.me()
 	local mailAt = me and me.mail and me.mail.t or 0
-	local list, n = settings().bought or {}, 0
-	for i = #list, 1, -1 do
-		local b = list[i]
-		if b.t <= mailAt then
-			table.remove(list, i) -- in the mailbox (or the bags) by now
-		elseif b.id == id then
+	local n = 0
+	for _, b in ipairs(settings().bought or {}) do
+		if b.t > mailAt and b.id == id then
 			n = n + b.n
 		end
 	end
 	return n
 end
+-- Purchases from before the mailbox was last read are in it (or the bags) by now: dropped from the save,
+-- once the mailbox has been read (Inventory.lua reads it on the same event, at the same pace).
+ns.on("MAIL_INBOX_UPDATE", "bought", ns.throttle("bought", 2, function()
+	local me = ns.me()
+	local list = settings().bought
+	local mailAt = me and me.mail and me.mail.t
+	if not (list and mailAt) then
+		return
+	end
+	for i = #list, 1, -1 do
+		if list[i].t <= mailAt then
+			table.remove(list, i)
+		end
+	end
+end))
 
 local function bought(ok, why)
 	if not panel or not panel.shop.note then

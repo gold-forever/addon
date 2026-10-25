@@ -1264,7 +1264,13 @@ function GetInboxHeaderInfo(i) return nil, nil, "SomeBuyer", "Auction expired", 
 function GetInboxItemLink(i, slot) return slot == 1 and "|Hitem:2592::::::::30|h[Wool Cloth]|h" or nil end
 function GetInboxItem(i, slot) return "Wool Cloth", 2592, 0, 20, 1, true end
 ATTACHMENTS_MAX_RECEIVE = 12
+-- A purchase counts as held until the mailbox is read after it: asking changes nothing in the save, and
+-- reading the mailbox drops what it holds by now (review C-13).
+GoldForeverDB.settings.auction.bought = { { id = 2592, n = 4, t = ns.me().mail.t - 1 }, { id = 2592, n = 6, t = now + 3600 } }
+assert(ns.boughtSince(2592) == 6 and #GoldForeverDB.settings.auction.bought == 2, "the one bought since counts; asking keeps the save as it is")
 fire("MAIL_INBOX_UPDATE") wait(3)
+assert(#GoldForeverDB.settings.auction.bought == 1 and GoldForeverDB.settings.auction.bought[1].n == 6, "the mailbox read: the one in it dropped")
+GoldForeverDB.settings.auction.bought = nil
 do
   local m = GoldForeverDB.characters["Player-4620-006C0FC1"].mail
   seen("MAIL ", m.used .. " mails, " .. m.items .. ", " .. m.money .. "c, expires in " .. (m.expires - now) .. " s, sender kept: " .. tostring(m.sender ~= nil), "2 mails, 2592*40, 1925c, expires in 2635200 s, sender kept: false")
