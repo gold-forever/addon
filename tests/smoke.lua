@@ -1377,6 +1377,13 @@ local pool = poolLine(2589)
 seen("POOL ", tostring(pool), "Market 12s 34c · min 11s 0c", "nil")
 if INTERFACE < 110000 then
   assert(pool and pool:find("Market 12s 34c · min 11s 0c", 1, true), "the pool line")
+  -- A reagent with no own listing costs the pool's minimum, so a craft from it shows its profit.
+  assert(ns.price.cheapest(2590) == nil and ns.price.buy(2590) == nil, "no price of 2590 anywhere")
+  GoldForever_Prices.markets[POOL_MINE][2590] = { 1500, 1400, 2, now }
+  assert(ns.price.buy(2590) == 1400 and ns.price.cheapest(2590) == nil, "bought at the pool's minimum: " .. tostring(ns.price.buy(2590)))
+  local q = ns.Crafting.quote({ output = 2589, yield = 1, reagents = { { id = 2590, count = 1 } } }, ns.price, function() return 0 end, ns.price.cut)
+  assert(q.cost == 1400, "the craft's cost from the pool: " .. tostring(q.cost))
+  GoldForever_Prices.markets[POOL_MINE][2590] = nil
 else
   assert(pool == nil, "no Forever market on retail")
   -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.

@@ -167,6 +167,15 @@ local function cheapest(id)
 	return cheapestPrices[id]
 end
 
+-- What buying one costs at the auction house: the pool's minimum when the prices file has it, picked as
+-- the market value is, else the own scan's cheapest (Prices.lua).
+local function buy(id)
+	if ns.Prices and ns.Prices.cheapest then
+		return ns.Prices.cheapest(id)
+	end
+	return cheapest(id)
+end
+
 -- The own scan's market value, cheapest unit and time, for the pool's fallback (Prices.lua).
 function ns.ownPrice(id)
 	local value = ownMarket(id)
@@ -301,7 +310,7 @@ end
 
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.
 ns.price = {
-	market = market, own = ownMarket, cheapest = cheapest, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
+	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
 }
 

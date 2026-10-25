@@ -354,6 +354,25 @@ function Prices.value(id)
 	end
 end
 
+-- What buying one costs at the auction house: the pool's minimum buyout, picked against the own scan's
+-- cheapest unit as the value is (Prices.pick), else the own scan's. A craft's reagents are priced so, the
+-- same source as its output's value, so a player with the prices file and no scan of their own sees profits.
+function Prices.cheapest(id)
+	local own, ownAt
+	if ns.ownPrice then
+		local _, low, at = ns.ownPrice(id)
+		own, ownAt = low, at
+	end
+	local markets = mine()
+	if markets and Prices.loaded(GoldForever_Prices) then
+		local _, low, _, scannedAt = entry(GoldForever_Prices, markets, id)
+		if low and low > 0 then
+			return (Prices.pick(low, scannedAt, own, ownAt))
+		end
+	end
+	return own
+end
+
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
 	local function poolTooltip(tooltip, data)
