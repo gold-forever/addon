@@ -75,7 +75,7 @@ local function prune()
 	local retail = ns.Realms.isRetail(ns.db().client and ns.db().client.interface)
 	local keepRecent, keepMax = retail and 1 or KEEP_RECENT, retail and 1 or KEEP_MAX
 	local function group(market)
-		return retail and (string.match(market or "", "^(.*)%-[^-]+$") or market) or market
+		return retail and ns.Scans.marketGroup(market) or market
 	end
 	local scans = {}
 	for i, s in ipairs(ns.db().scans) do

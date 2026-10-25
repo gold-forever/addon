@@ -16,6 +16,7 @@ Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
 Encode.lua
 Money.lua
+Scans.lua
 Export.lua
 Realms.lua
 Core.lua

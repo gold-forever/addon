@@ -22,29 +22,14 @@ local CHUNKS_PER_FRAME = 2
 local ITEMS_PER_FRAME = 500
 local building -- the scan version a build in progress is for
 
--- A market without its side ("EU-Aszune-neutral" → "EU-Aszune"): on retail one auction house serves a
--- connected realm group, whichever side's auctioneer opened it (Market.lua keeps scans the same way).
-local function group(market)
-	return string.match(market or "", "^(.*)%-[^-]+$") or market
-end
-
--- The newest full scan of the character's market, or nil: on retail any side's scan of the realm group
--- (a Horde character scanning at the Bazaar's neutral auctioneer read no prices of its own before).
+-- The newest full scan of the character's market, or nil (Scans.latestFull).
 local function latestScan()
 	local db, me = ns.db(), ns.me()
 	if not me then
 		return nil
 	end
 	local market = ns.market(string.lower(me.faction or "?"))
-	local retail = ns.Realms.isRetail(db.client and db.client.interface)
-	local mine = retail and group(market)
-	local latest
-	for _, scan in ipairs(db.scans) do
-		if scan.kind == "full" and (scan.market == market or (mine and group(scan.market) == mine)) and (not latest or scan.t > latest.t) then
-			latest = scan
-		end
-	end
-	return latest
+	return ns.Scans.latestFull(db.scans, market, ns.Realms.isRetail(db.client and db.client.interface))
 end
 
 -- Reads one chunk of rows into listings: item ID -> { unit1, qty1, unit2, qty2, … }, a flat list an item
