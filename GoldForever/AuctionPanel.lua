@@ -16,7 +16,8 @@ local DURATIONS = { { value = 1, label = "12 hours" }, { value = 2, label = "24 
 local CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next press is taken
 
 local function settings()
-	local s = ns.settings("auction", { rule = {}, duration = 2 })
+	-- The saved table as it is, once there: no defaults made on every call (it is read per row).
+	local s = ns.db().settings.auction or ns.settings("auction", { rule = {}, duration = 2 })
 	s.durations = s.durations or {}
 	s.quantities = s.quantities or {}
 	for k, v in pairs(Post.DEFAULT) do
@@ -123,19 +124,28 @@ end
 
 -- A row priced: market value, the cheapest other listing (live or from the scan) and the suggestion.
 -- The active sale profile (Rule tab), or nil.
-local function activeProfile()
-	local s = settings()
+local function activeProfile(s)
+	s = s or settings()
 	return s.profile and s.profiles and s.profiles[s.profile] or nil
 end
 
+-- The bank's and mailbox's item strings, parsed once each time they change (not once per row).
+local bankParsed, mailParsed = {}, {}
+local function parsedOnce(cache, text)
+	if text ~= cache.text then
+		cache.text, cache.items = text, ns.Encode.parseItems(text)
+	end
+	return cache.items
+end
+
 -- What this character holds of an item, bags and bank (decision 12: keep counts per character).
-local function heldHere(id, bags)
+local function heldHere(id, inBags)
 	local me = ns.me()
-	local bank = me and me.bank and ns.Encode.parseItems(me.bank.items)[id] or 0
+	local bank = me and me.bank and parsedOnce(bankParsed, me.bank.items)[id] or 0
 	-- The mailbox as last read, and what was bought since (it goes to the mailbox on retail).
-	local mail = me and me.mail and ns.Encode.parseItems(me.mail.items)[id] or 0
+	local mail = me and me.mail and parsedOnce(mailParsed, me.mail.items)[id] or 0
 	local boughtSince = ns.boughtSince and ns.boughtSince(id) or 0
-	return (bags or 0) + bank + mail + boughtSince
+	return (inBags or 0) + bank + mail + boughtSince
 end
 
 -- A sale plan's step as the Post tab's suggestion: posts in whole silver; "ask" posts the plan's price
@@ -163,7 +173,10 @@ local function planned(r, rule, market)
 	}
 end
 
-local function price(r)
+-- `s`: the settings, read once for every row of a refresh.
+local function price(r, s)
+	s = s or settings()
+	r.priced = true
 	local value, valueFrom, trend, week = ns.Prices.value(r.id)
 	local market, from = ns.Prices.sellBase(value, valueFrom, week)
 	r.market, r.marketFrom, r.trend, r.anyway = market, from, trend, nil
@@ -174,13 +187,13 @@ local function price(r)
 		r.cheapest, r.cheapestFrom = ns.price.cheapest(r.id), "scan"
 	end
 	r.vendor = ns.price.vendor(r.id)
-	local rule = ns.SalePlan.ruleFor(activeProfile(), r.id)
+	local rule = ns.SalePlan.ruleFor(activeProfile(s), r.id)
 	if rule then
 		r.suggestion = planned(r, rule, market)
 	else
 		-- The rule: an override for the item, or its category, over the default.
 		local _, _, class = ns.price.itemInfo(r.id)
-		local postRule, from = Post.resolve(settings().rule, settings().overrides, r.id, class)
+		local postRule, from = Post.resolve(s.rule, s.overrides, r.id, class)
 		if market then
 			r.suggestion = Post.suggest(postRule, market, r.cheapest)
 			-- Held under the floor: what undercutting would ask anyway, for Post anyway (owner's answer,
@@ -369,7 +382,8 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 	end
 	local n = C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
 	local all = {}
-	for i = 1, n do
+	-- The cheapest LEVELS (the search is sorted by price), as for commodities: a popular item lists hundreds.
+	for i = 1, math.min(n, LEVELS) do
 		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
 		if res and res.buyoutAmount and res.buyoutAmount > 0 then
 			local unit = math.floor(res.buyoutAmount / math.max(1, res.quantity or 1) + 0.5)
@@ -2315,8 +2329,9 @@ refresh = function()
 	if panel.tab == "scan" then
 		panel.scan:Refresh()
 	elseif panel.tab == "post" then
+		local s = settings()
 		for _, r in ipairs(rows) do
-			price(r)
+			price(r, s)
 		end
 		if chosen then
 			for _, r in ipairs(rows) do
@@ -2569,7 +2584,10 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		end
 		for _, r in ipairs(rows) do
 			if r.id == data.id then
-				price(r)
+				-- As the Sell tab last priced it; priced here only if it never was.
+				if not r.priced then
+					price(r)
+				end
 				local sug = r.suggestion
 				if sug and sug.unit then
 					tooltip:AddLine(string.format("%sPost at %s · %s", ns.tipPrefix(tooltip), money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
