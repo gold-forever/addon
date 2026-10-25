@@ -21,10 +21,9 @@ local function mobLines(npc)
 	if not m then
 		return nil
 	end
-	local value = m.coin
+	local value = ns.Views.mobValue(m, worth)
 	local drops = {}
 	for id, d in pairs(m.items) do
-		value = value + (worth(id) or 0) * d.units
 		drops[#drops + 1] = { id = id, chance = d.dropped / m.loots }
 	end
 	table.sort(drops, function(a, b)
@@ -44,7 +43,7 @@ local function mobLines(npc)
 				done == false and " · not done" or done and " · done" or "")
 		end
 	end
-	return string.format("looted %d× · ~%s a loot", m.loots, coins(value / m.loots)), #top > 0 and table.concat(top, " · ") or nil,
+	return string.format("looted %d× · ~%s a loot", m.loots, coins(value)), #top > 0 and table.concat(top, " · ") or nil,
 		#starters > 0 and ("Drops a quest starter: " .. table.concat(starters, ", ")) or nil
 end
 

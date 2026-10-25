@@ -324,4 +324,15 @@ eq(table.concat({ V.fit(6, 4) }, " "), "3 3", "six in four: three and +3 more")
 -- At the level cap by level: a character with no XP saved below it is not counted.
 eq(V.capped({ { level = 60 }, { level = 12 }, { level = 0 }, {} }, 60), 1, "one at the cap")
 
+-- A mob's loot: coin and units at their worth, a loot's share.
+local priced = { [2589] = 30, [2592] = 120 }
+local function worthOf(id)
+	return priced[id]
+end
+local mob = { loots = 4, coin = 200, items = { [2589] = { dropped = 3, units = 6 }, [2592] = { dropped = 1, units = 1 }, [9999] = { dropped = 2, units = 2 } } }
+eq(V.mobValue(mob, worthOf), (200 + 6 * 30 + 120) / 4, "coin and units, an item without a price as nothing")
+eq(V.mobValue({ loots = 3, coin = 10, items = {} }, worthOf), 10 / 3, "coin alone")
+eq(V.mobValue({ loots = 0, coin = 0, items = {} }, worthOf), nil, "never looted")
+eq(V.mobValue(nil, worthOf), nil, "no counts")
+
 return checks()

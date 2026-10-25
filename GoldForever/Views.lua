@@ -379,6 +379,20 @@ function Views.creditKills(pending, xpKills, corpses, seen, now)
 	return math.max(xpKills or 0, fresh)
 end
 
+-- What one loot of an NPC is worth, from its counts ({ loots, coin, items = { [id] = { dropped, units } } },
+-- ns.mobStats): its coin and every unit at `worth(id)`, an item without a price as nothing; nil for an
+-- NPC never looted.
+function Views.mobValue(m, worth)
+	if not m or m.loots <= 0 then
+		return nil
+	end
+	local value = m.coin
+	for id, d in pairs(m.items) do
+		value = value + (worth(id) or 0) * d.units
+	end
+	return value / m.loots
+end
+
 -- The rares seen, one row each from the rare stream's rows ({ t, npc, map, x, y, how }): how often, the
 -- last sighting's time, place and how it was seen; the latest first.
 function Views.rares(rows)
