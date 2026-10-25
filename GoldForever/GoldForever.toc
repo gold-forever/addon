@@ -49,6 +49,8 @@ Lists.lua
 AuctionWaits.lua
 AuctionBlizzard.lua
 AuctionBooks.lua
+SellingRulesPage.lua
+ShoppingListsPage.lua
 AuctionPanel.lua
 CraftingStrip.lua
 CraftQueue.lua
