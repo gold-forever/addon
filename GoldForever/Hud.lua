@@ -5,9 +5,8 @@ local _, ns = ...
 local Session = ns.Session
 local itemInfo = ns.price.itemInfo
 
-local hud -- the one-line HUD; hud.details is the session panel under it
-local huds = {} -- Theme.key -> HUD
-local hudThemeKey -- the Theme.key the HUD was drawn under
+-- The one-line HUD, one per look and accent (UI.perLook); hud.details is the session panel under it.
+local huds
 
 local function settings()
 	return ns.settings("appraiser", { shown = true })
@@ -17,17 +16,12 @@ local build
 local startTicker -- set below; the HUD's OnShow starts it
 
 local function refresh()
-	if not hud or not hud:IsShown() then
+	if not huds.frame or not huds.frame:IsShown() then
 		return
 	end
 	local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
-	if hudThemeKey ~= Theme.key then
-		local open = hud.details:IsShown()
-		hud:Hide()
-		build()
-		hud:Show()
-		hud.details:SetShown(open)
-	end
+	huds:redraw()
+	local hud = huds.frame
 	local faint = Theme.escape(Theme.color.textFaint)
 	local session = Session.get()
 	if not session then
@@ -133,45 +127,29 @@ local W, H = 540, 34
 local ROWS = { "Coin", "Loot, at what it sells for", "Total", "XP", "Kills", "Bags" }
 local TOP_LOOT = 5
 
--- Draws the HUD in the look and accent the player set: a line of rates to drag anywhere; a click opens
--- the session under it. Drawn again when the look changes (refresh notices).
-build = function()
-	local Theme, UI = ns.Theme, ns.UI
-	if ns.applyLook then
-		ns.applyLook()
-	end
+-- Where the player last left the HUD, in whichever look.
+local function place(hud)
 	local s = settings()
-	local old = hud
-	-- One HUD per look and accent, reused when the look comes back (frames are never freed), placed
-	-- where the player last left either.
-	local cached = huds[Theme.key]
-	if cached then
-		if old and old ~= cached then
-			old:Hide()
-		end
-		hud, hudThemeKey = cached, Theme.key
-		hud:ClearAllPoints()
-		if s.point then
-			hud:SetPoint(s.point[1], UIParent, s.point[2], s.point[3], s.point[4])
-		else
-			hud:SetPoint("TOP", UIParent, "TOP", 0, -110)
-		end
-		return
-	end
-	hud = UI.Panel(UIParent, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
-	hud:SetSize(W, H)
-	hud:SetFrameStrata("MEDIUM")
-	hud:SetClampedToScreen(true)
-	hud:SetMovable(true)
+	hud:ClearAllPoints()
 	if s.point then
 		hud:SetPoint(s.point[1], UIParent, s.point[2], s.point[3], s.point[4])
 	else
 		hud:SetPoint("TOP", UIParent, "TOP", 0, -110)
 	end
+end
+
+-- Draws the HUD in the look and accent the player set: a line of rates to drag anywhere; a click opens
+-- the session under it. Drawn again when the look changes (refresh notices).
+build = function()
+	local Theme, UI = ns.Theme, ns.UI
+	local s = settings()
+	local hud = UI.Panel(UIParent, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
+	hud:SetSize(W, H)
+	hud:SetFrameStrata("MEDIUM")
+	hud:SetClampedToScreen(true)
+	hud:SetMovable(true)
+	place(hud)
 	hud:Hide()
-	if old then
-		old:Hide()
-	end
 	local web = Theme.skin.radius ~= nil
 	-- The whole line is one button: click for the session, drag to move.
 	local hit = CreateFrame("Button", nil, hud)
@@ -269,7 +247,6 @@ build = function()
 	end, { width = 130, height = 26 })
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
 	hud.details = d
-	hudThemeKey = Theme.key
 	-- The clock runs whenever the HUD shows, however it came back (after combat, a loading screen, a new
 	-- look): manual test run 001, the HUD stood still at "1m · warming up…" in a delve until a /reload.
 	hud:HookScript("OnShow", function()
@@ -277,8 +254,14 @@ build = function()
 			startTicker()
 		end
 	end)
-	huds[hudThemeKey] = hud
+	return hud
 end
+
+-- Drawn again in a new look: where the player left it, the session open if it was.
+huds = ns.UI.perLook(build, function(hud, old)
+	place(hud)
+	hud.details:SetShown(old.details:IsShown())
+end)
 
 -- Whether the HUD stays out of the way now: in combat, when the player asked for that.
 local function tucked()
@@ -286,9 +269,7 @@ local function tucked()
 end
 
 local function show()
-	if not hud then
-		build()
-	end
+	local hud = huds.frame or huds:get()
 	if tucked() then
 		return
 	end
@@ -298,27 +279,27 @@ local function show()
 end
 
 ns.on("PLAYER_REGEN_DISABLED", "appraiser", function()
-	if hud and settings().hideInCombat then
-		hud:Hide()
+	if huds.frame and settings().hideInCombat then
+		huds.frame:Hide()
 	end
 end)
 ns.on("PLAYER_REGEN_ENABLED", "appraiser", function()
-	if hud and settings().shown and settings().hideInCombat and Session.get() then
-		hud:Show()
+	if huds.frame and settings().shown and settings().hideInCombat and Session.get() then
+		huds.frame:Show()
 		refresh()
 		startTicker()
 	end
 end)
 
-ns.onLook("appraiser", function()
-	refresh() -- a HUD that shows is drawn again in the look now set
+huds:onLook("appraiser", function()
+	refresh()
 end)
 
 -- The clock and the item names (they load a moment after the loot) keep the text current: once a second
 -- while the HUD shows, and no ticker at all while it is hidden (design 009, Performance budget).
 local ticker
 local function tick()
-	if not hud or not hud:IsShown() then
+	if not huds.frame or not huds.frame:IsShown() then
 		if ticker and ticker.Cancel then
 			ticker:Cancel()
 		end
@@ -339,13 +320,14 @@ function ns.setHud(on)
 	settings().shown = on
 	if on then
 		show()
-	elseif hud then
-		hud:Hide()
+	elseif huds.frame then
+		huds.frame:Hide()
 	end
 end
 
 ns.commands.appraise = function()
 	-- Shown, or on but tucked away in combat: off. Hidden, or not built before the first loot: on.
+	local hud = huds.frame
 	if hud and (hud:IsShown() or (settings().shown and tucked())) then
 		ns.setHud(false)
 		ns.say("session HUD hidden; /gf hud shows it again.")

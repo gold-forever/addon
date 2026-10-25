@@ -38,25 +38,10 @@ local function bindSpace(p)
 end
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
-	local old = ah.panel
-	-- One panel per look and accent, reused when the look comes back (frames are never freed).
-	if ah.panels[Theme.key] then
-		if old and old ~= ah.panels[Theme.key] then
-			old:Hide()
-		end
-		ah.panel, ah.built = ah.panels[Theme.key], Theme.key
-		return
-	end
 	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	p:SetWidth(ah.WIDTH)
 	p:SetFrameStrata("HIGH")
 	p:Hide()
-	if old then
-		old:Hide()
-	end
 	local mark = UI.Icon(p, "coins", 18, "accent")
 	mark:SetPoint("TOPLEFT", 16, -16)
 	local title = UI.Text(p, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "lg", medium = true })
@@ -140,11 +125,28 @@ local function build()
 	p:SetScript("OnHide", bindSpace)
 	ah.panel = p
 	ah.built = Theme.key
-	ah.panels[ah.built] = p
 	tabs:Select("scan")
 	pages.scan:Show()
 	p.tab = "scan"
+	return p
 end
+
+-- Drawn again in a new look: the same visit, on the tab it had.
+local function dock(p, old)
+	ah.panel, ah.built = p, Theme.key
+	local tab = old.tab
+	p.ensure(tab)
+	p.tabs:Select(tab)
+	for k, f in pairs(p.pages) do
+		f:SetShown(k == tab)
+	end
+	p.tab = tab
+	show(true)
+end
+
+-- One panel per look and accent; ah.panels holds them.
+local panels = UI.perLook(build, dock)
+panels.frames = ah.panels
 
 -- The title row's bank-and-mail line, worked out again only when the bank, the mail or the prices change.
 local awayStamp = {}
@@ -175,17 +177,7 @@ refresh = function()
 		return
 	end
 	ns.safely("auction panel away", drawAway)
-	if ah.built ~= Theme.key then
-		local tab = ah.panel.tab
-		ah.panel:Hide()
-		build()
-		ah.panel.ensure(tab)
-		ah.panel.tabs:Select(tab)
-		for k, f in pairs(ah.panel.pages) do
-			f:SetShown(k == tab)
-		end
-		ah.panel.tab = tab
-		show(true)
+	if panels:redraw() then
 		return
 	end
 	local tab = TAB[ah.panel.tab]
@@ -223,7 +215,7 @@ show = function(redrawn)
 		return
 	end
 	if not ah.panel then
-		build()
+		ah.panel, ah.built = panels:get(), Theme.key
 	end
 	-- Blizzard's tab chosen there switches the panel to its own.
 	Blizzard.followTabs(function(key)
@@ -320,9 +312,10 @@ ns.on("AUCTION_HOUSE_SHOW", "auction panel", function()
 	show()
 end)
 ns.on("AUCTION_HOUSE_CLOSED", "auction panel", hide)
-ns.onLook("auction panel", function()
-	if refresh then
-		refresh() -- a panel that shows is drawn again in the look now set
+-- A panel that shows is drawn again in the look now set.
+panels:onLook("auction panel", function(redrawn)
+	if not redrawn then
+		refresh()
 	end
 end)
 ns.on("BAG_UPDATE_DELAYED", "auction panel", function()

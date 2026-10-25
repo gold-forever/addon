@@ -11,9 +11,7 @@ local CraftQueue = {}
 ns.CraftQueue = CraftQueue
 
 local W = 600
-local frame, built
 local toldReady -- "ready to craft" said for this queue: once, until a craft is queued again
-local frames = {} -- Theme.key -> window (frames are never freed)
 
 local function settings()
 	return ns.settings("craftQueue", { closed = false })
@@ -67,14 +65,6 @@ function CraftQueue.plan()
 end
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
-	local cached = frames[Theme.key]
-	if cached then
-		frame, built = cached, Theme.key
-		return
-	end
 	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	f:SetSize(W, 340)
 	f:SetFrameStrata("MEDIUM")
@@ -138,20 +128,29 @@ local function build()
 	f.note:SetPoint("TOPLEFT", f.take, "BOTTOMLEFT", 0, -8)
 	f.note:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 	f:Hide()
-	frame, built = f, Theme.key
-	frames[built] = f
+	return f
 end
 
+-- Where the player left it, else at the left of the screen.
+local function dock(f)
+	local p = settings().point
+	f:ClearAllPoints()
+	if p then
+		f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+	else
+		f:SetPoint("LEFT", UIParent, "LEFT", 40, 60)
+	end
+end
+
+-- One window per look and accent.
+local frames = UI.perLook(build, dock)
+
 function CraftQueue.refresh()
-	if not frame or not frame:IsShown() then
+	if not frames.frame or not frames.frame:IsShown() then
 		return
 	end
-	if built ~= Theme.key then
-		frame:Hide()
-		build()
-		CraftQueue.show()
-		return
-	end
+	frames:redraw()
+	local frame = frames.frame
 	local queue = ns.queueList and ns.queueList() or {}
 	local crafts = {}
 	for _, q in ipairs(queue) do
@@ -207,26 +206,18 @@ function CraftQueue.refresh()
 end
 
 function CraftQueue.show()
-	if not frame or built ~= Theme.key then
-		if frame then
-			frame:Hide()
-		end
-		build()
+	local frame = frames.frame
+	if not frame or frames.key ~= Theme.key then
+		frame = frames:get()
 	end
-	local p = settings().point
-	frame:ClearAllPoints()
-	if p then
-		frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-	else
-		frame:SetPoint("LEFT", UIParent, "LEFT", 40, 60)
-	end
+	dock(frame)
 	frame:Show()
 	CraftQueue.refresh()
 end
 
 -- For the smoke test.
 function CraftQueue.window()
-	return frame
+	return frames.frame
 end
 
 -- From the Crafting page and the Craft queue list: open it again.
@@ -242,6 +233,7 @@ function ns.craftQueueChanged(how)
 	if how == "added" or #queue == 0 then
 		toldReady = nil
 	end
+	local frame = frames.frame
 	if #queue == 0 then
 		if frame then
 			frame:Hide()
@@ -332,16 +324,16 @@ end)
 local soon = ns.throttle("craft queue", 1, CraftQueue.refresh)
 for _, event in ipairs({ "BAG_UPDATE_DELAYED", "MAIL_INBOX_UPDATE", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "GUILDBANKBAGSLOTS_CHANGED" }) do
 	ns.on(event, "craft queue", function()
-		if frame and frame:IsShown() then
+		if frames.frame and frames.frame:IsShown() then
 			soon()
 		end
 	end)
 end
 if ns.onBagsRead then
 	ns.onBagsRead(function()
-		if frame and frame:IsShown() then
+		if frames.frame and frames.frame:IsShown() then
 			soon()
 		end
 	end)
 end
-ns.onLook("craft queue", CraftQueue.refresh)
+frames:onLook("craft queue", CraftQueue.refresh)

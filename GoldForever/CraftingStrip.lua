@@ -17,8 +17,6 @@ local function settings()
 	return ns.settings("crafting", { strip = true })
 end
 
-local strip, built
-local strips = {} -- Theme.key -> strip
 local recipeID
 
 local function host()
@@ -26,27 +24,11 @@ local function host()
 end
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
-	local old = strip
-	-- One strip per look and accent, reused (frames are never freed).
-	local cached = strips[Theme.key]
-	if cached then
-		if old and old ~= cached then
-			old:Hide()
-		end
-		strip, built = cached, Theme.key
-		return
-	end
 	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	f:SetWidth(W)
 	f:SetHeight(120 + 4 * 20 + LINES * 18 + 30)
 	f:SetFrameStrata("HIGH")
 	f:Hide()
-	if old then
-		old:Hide()
-	end
 	local mark = UI.Icon(f, "flask-conical", 16, "accent")
 	mark:SetPoint("TOPLEFT", 14, -14)
 	local head = UI.Text(f, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "sm", medium = true, tone = "muted" })
@@ -86,21 +68,24 @@ local function build()
 	f.note = UI.Text(f, "", { size = "xs", tone = "faint", wrap = true })
 	f.note:SetPoint("BOTTOMLEFT", 14, 12)
 	f.note:SetWidth(W - 28)
-	strip = f
-	built = Theme.key
-	strips[built] = f
+	return f
 end
 
+-- Beside the profession window.
+local function dock(f)
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", host(), "TOPRIGHT", 6, 0)
+end
+
+-- One strip per look and accent.
+local strips = UI.perLook(build, dock)
+
 local function refresh()
-	if not strip or not strip:IsShown() then
+	if not strips.frame or not strips.frame:IsShown() then
 		return
 	end
-	if built ~= Theme.key then
-		strip:Hide()
-		build()
-		strip:SetPoint("TOPLEFT", host(), "TOPRIGHT", 6, 0)
-		strip:Show()
-	end
+	strips:redraw()
+	local strip = strips.frame
 	local money = function(c)
 		return UI.layout.money(c, "gold")
 	end
@@ -173,11 +158,8 @@ local function show()
 	if settings().strip == false or not host() then
 		return
 	end
-	if not strip then
-		build()
-	end
-	strip:ClearAllPoints()
-	strip:SetPoint("TOPLEFT", host(), "TOPRIGHT", 6, 0)
+	local strip = strips.frame or strips:get()
+	dock(strip)
 	strip:Show()
 	-- The recipe this window shows first: one kept from the last window would name another profession's
 	-- (review B-27).
@@ -187,8 +169,8 @@ end
 
 local function hide()
 	recipeID = nil
-	if strip then
-		strip:Hide()
+	if strips.frame then
+		strips.frame:Hide()
 	end
 end
 
@@ -198,7 +180,7 @@ ns.on("TRADE_SKILL_SHOW", "crafting strip", function()
 	end)
 end)
 ns.on("TRADE_SKILL_CLOSE", "crafting strip", hide)
-ns.onLook("crafting strip", refresh) -- refresh draws a strip that shows in the look now set
+strips:onLook("crafting strip", refresh)
 ns.on("BAG_UPDATE_DELAYED", "crafting strip", refresh)
 
 if EventRegistry and EventRegistry.RegisterCallback then
@@ -218,9 +200,10 @@ ns.CraftingStrip = {
 		show()
 	end,
 	shown = function()
+		local strip = strips.frame
 		return strip and strip:IsShown() and strip.title:GetText()
 	end,
 	line = function(i)
-		return strip.lines[i].name:GetText()
+		return strips.frame.lines[i].name:GetText()
 	end,
 }

@@ -72,8 +72,7 @@ end
 
 local Theme, UI = ns.Theme, ns.UI
 local patterns
-local panel, built
-local panels = {} -- Theme.key -> panel
+local panels -- one panel per look and accent (UI.perLook)
 local run -- a batch in progress: { left, waiting, failed, next }
 
 local function settings()
@@ -112,6 +111,7 @@ local function waiting()
 end
 
 local function refresh()
+	local panel = panels.frame
 	if not panel or not panel:IsShown() then
 		return
 	end
@@ -146,7 +146,7 @@ function step()
 		-- The client shows 50 mails at a time; the rest arrive when the mailbox refreshes.
 		local shown, total = GetInboxNumItems()
 		local more = total and shown and total > shown and (total - shown) or 0
-		panel.note:SetText(why == "bags" and "Your bags are full: make room and press again."
+		panels.frame.note:SetText(why == "bags" and "Your bags are full: make room and press again."
 			or more > 0 and string.format("All shown auction mail opened. %d more %s arrive when the mailbox refreshes (within a minute): press again then.", more, more == 1 and "mail" or "mails")
 			or "All auction mail opened.")
 		run = nil
@@ -186,8 +186,8 @@ ns.on("MAIL_FAILED", "mail helper", function()
 	run.failed = (run.failed or 0) + 1
 	if run.failed > RETRIES then
 		run = nil
-		if panel then
-			panel.note:SetText("The mailbox refused it again; press again in a moment.")
+		if panels.frame then
+			panels.frame.note:SetText("The mailbox refused it again; press again in a moment.")
 		end
 		refresh()
 		return
@@ -213,24 +213,13 @@ local function press()
 		return
 	end
 	run = { left = Mail.BATCH }
-	panel.note:SetText("Opening…")
+	panels.frame.note:SetText("Opening…")
 	step()
 	refresh()
 end
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
 	patterns = patterns or Mail.patterns()
-	-- One panel per look and accent, reused when the look comes back (frames are never freed).
-	if panels[ns.Theme.key] then
-		if panel and panel ~= panels[ns.Theme.key] then
-			panel:Hide()
-		end
-		panel, built = panels[ns.Theme.key], ns.Theme.key
-		return
-	end
 	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	p:SetSize(260, 150)
 	p:SetFrameStrata("HIGH")
@@ -249,15 +238,20 @@ local function build()
 	p.note = UI.Text(p, "Gold and items from sold, bought, expired and cancelled auctions; never a player's letter.", { size = "xs", tone = "faint", wrap = true })
 	p.note:SetPoint("TOPLEFT", p.open, "BOTTOMLEFT", 0, -8)
 	p.note:SetWidth(232)
-	panel = p
-	built = ns.Theme.key
-	panels[built] = p
+	return p
 end
+
+-- Beside the mailbox.
+local function dock(p)
+	p:ClearAllPoints()
+	p:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
+end
+panels = UI.perLook(build, dock)
 
 local function close()
 	run = nil
-	if panel then
-		panel:Hide()
+	if panels.frame then
+		panels.frame:Hide()
 	end
 end
 
@@ -274,23 +268,18 @@ ns.on("MAIL_SHOW", "mail helper", function()
 			ns.safely("mail helper", close)
 		end)
 	end
-	if not panel or built ~= ns.Theme.key then
-		build()
+	local panel = panels.frame
+	if not panel or panels.key ~= ns.Theme.key then
+		panel = panels:get()
 	end
-	panel:ClearAllPoints()
-	panel:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
+	dock(panel)
 	panel:Show()
 	refresh()
 end)
 ns.on("MAIL_CLOSED", "mail helper", close)
 -- A panel that shows is drawn again in the look now set.
-ns.onLook("mail helper", function()
-	if panel and panel:IsShown() and built ~= ns.Theme.key then
-		panel:Hide()
-		build()
-		panel:ClearAllPoints()
-		panel:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
-		panel:Show()
+panels:onLook("mail helper", function(redrawn)
+	if redrawn then
 		refresh()
 	end
 end)
@@ -300,5 +289,5 @@ Mail.press = function()
 	press()
 end
 Mail.panel = function()
-	return panel
+	return panels.frame
 end

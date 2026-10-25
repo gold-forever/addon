@@ -27,6 +27,7 @@ UILayout.lua
 UIDraw.lua
 UIControls.lua
 UIData.lua
+UIWindows.lua
 HubKit.lua
 HubWindow.lua
 ExportFrame.lua
