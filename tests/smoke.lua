@@ -723,6 +723,18 @@ do
   ns.CraftingStrip.open()
   title = ns.CraftingStrip.shown()
   assert(title and not title:find("Bolt of Linen Cloth", 1, true), "the strip follows the window's own recipe: " .. tostring(title))
+  -- Eight reagents to buy and six lines: five, then how many more (review C-28).
+  do
+    local values = { strsplit(",", GoldForeverDB.catalogue.recipes[2963]) }
+    local many = {}
+    for i = 1, 8 do many[i] = (40000 + i) .. "*1" end
+    values[ns.Encode.columns(GoldForeverDB.fields.recipe).reagents] = table.concat(many, "+")
+    GoldForeverDB.catalogue.recipes[99997] = table.concat(values, ",")
+    ns.CraftingStrip.select(99997)
+    local last = ns.CraftingStrip.line(6)
+    assert(ns.CraftingStrip.line(5):find("1× ", 1, true) and last and last:find("+3 more", 1, true), "the last line says how many more: " .. tostring(last))
+    GoldForeverDB.catalogue.recipes[99997] = nil
+  end
   fireNow("TRADE_SKILL_CLOSE")
   ProfessionsFrame = nil
 end
@@ -969,6 +981,17 @@ do
     end
     for id in pairs(some) do assert(needs[id], "only the reagents: " .. id) end
     assert(next(some) ~= nil, "someone holds a reagent")
+  end
+  -- An alt of the same name on another realm is another character: listed as one who holds the Linen;
+  -- this character never is (review C-28).
+  do
+    GoldForeverDB.characters["Player-9999-00000001"] = { name = ns.me().name, realm = "Elsewhere", bags = { items = "2589*4", t = now } }
+    local others
+    for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then others = r.others end end
+    GoldForeverDB.characters["Player-9999-00000001"] = nil
+    local names = {}
+    for _, o in ipairs(others or {}) do names[#names + 1] = o.name .. " " .. o.n end
+    assert(#names == 1 and names[1] == ns.me().name .. " 4", "the alt's Linen, not this character's own: " .. table.concat(names, ", "))
   end
   GoldForeverDB.settings.craftQueue.closed = true
   cq:Hide()

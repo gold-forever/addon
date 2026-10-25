@@ -53,15 +53,13 @@ function CraftQueue.plan()
 		mine.bank[id] = bank[id]
 		mine.mail[id] = (mail[id] or 0) + (ns.boughtSince and ns.boughtSince(id) or 0)
 	end
-	-- Other characters: what each holds of the reagents, from the save.
+	-- Other characters: what each holds of the reagents, from the save. This one is left out itself, not
+	-- by name: an alt of the same name on another realm is another character.
 	local others = {}
-	local myName = me and me.name
-	for id, e in pairs(Views.holdingsOf(ns.db().characters, Encode.parseItems, needs)) do
+	for id, e in pairs(Views.holdingsOf(ns.db().characters, Encode.parseItems, needs, me)) do
 		local list = {}
 		for _, h in ipairs(e.by) do
-			if h.name ~= myName then
-				list[#list + 1] = { name = h.name, total = h.total }
-			end
+			list[#list + 1] = { name = h.name, total = h.total }
 		end
 		others[id] = list
 	end
@@ -229,13 +227,6 @@ function CraftQueue.show()
 	end
 	frame:Show()
 	CraftQueue.refresh()
-	-- Hidden and shown a frame later, as the auction panel is: what was not yet placed is placed then.
-	C_Timer.After(0, function()
-		if frame and frame:IsShown() then
-			frame:Hide()
-			frame:Show()
-		end
-	end)
 end
 
 -- For the smoke test.
