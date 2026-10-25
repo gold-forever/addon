@@ -65,6 +65,14 @@ local CHILDREN = { CraftingPage = true, SchematicForm = true }
 -- What a widget was given by SetText and SetHeight (or SetSize), kept beside it: the addon keeps child
 -- frames under keys such as `text` itself.
 local texts, heights = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+-- Every font string made, to find a line by its text.
+fontStrings = setmetatable({}, { __mode = "k" })
+-- The text of a font string that begins with `start`, or nil.
+function shown(start)
+  for fs in pairs(fontStrings) do
+    if type(fs.text) == "string" and fs.text:sub(1, #start) == start then return fs.text end
+  end
+end
 local function widget(t)
   return setmetatable(t or {}, { __index = function(_, k)
     if NUMBERS[k] then return function() return NUMBERS[k] end end
@@ -122,7 +130,7 @@ function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true,
   function f:SetShown(on) if on then self:Show() else self:Hide() end end
   function f:IsShown() return self.shown end
   function f:IsVisible() return visible(self) end
-  function f:CreateFontString() local fs = widget({}); function fs:SetText(t) self.text = t; texts[self] = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
+  function f:CreateFontString() local fs = widget({}); fontStrings[fs] = true; function fs:SetText(t) self.text = t; texts[self] = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
 UIParent = widget()
 Minimap = widget()
@@ -1935,6 +1943,26 @@ do
   ns.setHud(true)
   SlashCmdList.GOLDFOREVER("ui settings")
   assert(p.modules.rows[1].switch.on == true, "and back")
+end
+-- A Horde character on a realm whose only full scan is an Alliance alt's (review C-2): Home and the Scan
+-- tab speak of the character's own market's scans. On Forever each side's auction house is its own, so
+-- there is none; on retail one auction house serves both sides, so the alt's scan is the market's.
+do
+  local me = ns.me()
+  local scans, lastScan, faction, replicated = GoldForeverDB.scans, ns.lastScan, me.faction, GoldForeverDB.lastReplicate
+  me.faction, GoldForeverDB.lastReplicate = "Horde", nil
+  GoldForeverDB.scans = { { kind = "full", t = now - 7200, market = ns.market("alliance"), auctions = 7, rows = {} } }
+  ns.lastScan = nil
+  for fs in pairs(fontStrings) do
+    if type(fs.text) == "string" and (fs.text:find("^No scan yet") or fs.text:find("^Last scan") or fs.text == "never" or fs.text:find(" ago$")) then fs.text = nil end
+  end
+  SlashCmdList.GOLDFOREVER("ui home")
+  seen("HOME SCAN, ALLIANCE SCAN ONLY ", shown("No scan yet") or shown("Last scan"), "No scan yet: open the auction house", "Last scan 2h ago: scan again")
+  -- The Scan tab drawn as after a /reload, with no scan this session (opening the auction house would
+  -- start one, as the session set it to).
+  ns.AuctionPanel.panel().scan:Refresh()
+  seen("SCAN TAB, ALLIANCE SCAN ONLY ", shown("never") and "never" or "a scan", "never", "a scan")
+  GoldForeverDB.scans, ns.lastScan, me.faction, GoldForeverDB.lastReplicate = scans, lastScan, faction, replicated
 end
 -- Opening the window onto the page it shows refreshes that page once, not once as it shows and again
 -- as the page is chosen.

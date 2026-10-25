@@ -300,4 +300,5 @@ end
 ns.price = {
 	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT, afterScan = afterScan,
+	latestScan = latestScan,
 }

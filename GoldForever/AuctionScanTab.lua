@@ -57,12 +57,9 @@ local function buildScan(page)
 		button:SetEnabled(st.wait <= 0 and st.phase == "idle")
 		local last = st.last
 		if not last then
-			-- After a /reload: the newest scan in the save.
-			for _, s in ipairs(ns.db().scans or {}) do
-				if s.kind == "full" and (not last or s.t > last.t) then
-					last = { t = s.t, auctions = s.auctions, prices = nil }
-				end
-			end
+			-- After a /reload: the newest full scan of the character's market in the save.
+			local s = ns.price.latestScan()
+			last = s and { t = s.t, auctions = s.auctions, prices = nil }
 		end
 		cards[1]:Set(last and tostring(last.auctions or 0) or "—", "auctions read")
 		cards[2]:Set(last and last.prices and tostring(last.prices) or "—", "item and price pairs")

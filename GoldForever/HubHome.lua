@@ -165,14 +165,11 @@ local function buildHome(page)
 	function page:Refresh()
 		local db, me, now = ns.db(), ns.me(), ns.now()
 		local faint = Theme.escape(Theme.color.textFaint)
-		-- Scan: the cooldown, or how long ago the last one was.
+		-- Scan: the cooldown, or how long ago the last one of the character's market was (an alt's on the
+		-- other side is not this one's).
 		local st = ns.scanState()
-		local last
-		for _, s in ipairs(db.scans or {}) do
-			if s.kind == "full" and (not last or s.t > last) then
-				last = s.t
-			end
-		end
+		local latest = ns.price.latestScan()
+		local last = latest and latest.t
 		actions[1].title:SetText("Scan the auction house")
 		actions[1].line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60)
 			or (last and ("Last scan " .. Views.ago(last, now) .. ": scan again") or "No scan yet: open the auction house"))
