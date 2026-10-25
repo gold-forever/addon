@@ -1,6 +1,7 @@
 -- UI.lua's layout: column widths, sorting, pages and money, which the in-game tables stand on.
 
 local ns = {}
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
 assert(load(SOURCES["UI.lua"], "@UI.lua"))("GoldForever", ns)
 local L, T = ns.UI.layout, ns.Theme

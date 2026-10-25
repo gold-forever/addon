@@ -15,6 +15,8 @@
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
 Encode.lua
+Money.lua
+Scans.lua
 Export.lua
 Realms.lua
 Core.lua
@@ -26,6 +28,7 @@ HubKit.lua
 ExportFrame.lua
 Views.lua
 Catalogue.lua
+Pricing.lua
 Loot.lua
 Inventory.lua
 Professions.lua
@@ -37,7 +40,10 @@ Legacy.lua
 Achievements.lua
 Disenchant.lua
 Crafting.lua
-Appraiser.lua
+Session.lua
+Hud.lua
+MobStats.lua
+Tooltips.lua
 Prices.lua
 Advisor.lua
 Rares.lua

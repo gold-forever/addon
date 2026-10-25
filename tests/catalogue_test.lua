@@ -115,4 +115,18 @@ while tick() do
 end
 eq(asked[200001], 1, "lean, next session: a row without a tooltip is not asked for")
 
+-- Columns read by name (ns.FIELDS), not by place.
+local rowsDb = { catalogue = { items = { [7] = "Linen Cloth,1,5,7,5,20,13", [8] = ",3,5", [9] = "Odd" }, npcs = { [42] = "Hogger,9,11,elite" }, tooltips = {} } }
+ns = session(rowsDb, true)
+ns.FIELDS.npc = "name,minLevel,maxLevel,classification,type"
+local C = ns.Catalogue
+eq(C.name("item", 7), "Linen Cloth", "an item's name")
+eq(C.quality(7), 1, "an item's quality, a number")
+eq(C.name("npc", 42), "Hogger", "an NPC's name")
+eq(C.name("item", 8), nil, "an empty name is none")
+eq(C.quality(8), 3, "the quality of a row without a name")
+eq(C.quality(9), nil, "a row too short for the column")
+eq(C.name("item", 10), nil, "an item not catalogued")
+eq(C.name("object", 1), nil, "a kind the save has no section for")
+
 return checks()

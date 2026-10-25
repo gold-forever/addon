@@ -3,11 +3,13 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
 ns.commands = {}
+-- The real money formatter (ns.price.coins): without the client's coin icons, plain text.
+assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", ns)
 assert(load(SOURCES["Prices.lua"], "@Prices.lua"))("GoldForever", ns)
-ns.price = { coins = ns.Encode.money }
 local P = ns.Prices
 
 local MARKET = "EU-Classic Beta PvE 2-alliance"

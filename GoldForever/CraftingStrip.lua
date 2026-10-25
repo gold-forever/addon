@@ -25,11 +25,6 @@ local function host()
 	return ProfessionsFrame or TradeSkillFrame
 end
 
-local function name(id)
-	local _, _, _, _, n = ns.price.itemInfo(id)
-	return n or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
-end
-
 local function build()
 	if ns.applyLook then
 		ns.applyLook()
@@ -126,7 +121,7 @@ local function refresh()
 	end
 	local r = q.recipe
 	local quality = ns.price.itemInfo(r.output) or 1
-	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "× ") or "") .. name(r.output) .. "|r")
+	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "× ") or "") .. ns.itemName(r.output) .. "|r")
 	strip.rows[1]:SetText(q.spend and money(q.spend) or dash)
 	local gear = ns.isGear and ns.isGear(r.output)
 	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and " any quality|r" or " after the cut|r")) or dash)
@@ -150,7 +145,7 @@ local function refresh()
 	local shown = #toBuy > LINES and LINES - 1 or #toBuy
 	for i = 1, shown do
 		local line, l = toBuy[i], strip.lines[i]
-		l.name:SetText(line.toBuy .. "× " .. name(line.id))
+		l.name:SetText(line.toBuy .. "× " .. ns.itemName(line.id))
 		l.value:SetText(line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
 	end
 	if shown < #toBuy then

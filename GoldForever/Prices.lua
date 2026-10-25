@@ -393,7 +393,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				tooltip:AddLine(ns.tipPrefix(tooltip) .. nline, shade, shade, shade)
 			end
 		end
-		-- The own scan has its own line (Appraiser.lua): only the pool's here.
+		-- The own scan has its own line (Tooltips.lua): only the pool's here.
 		local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
 		if line then
 			local shade = stale and STALE_SHADE or 1

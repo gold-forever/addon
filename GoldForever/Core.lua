@@ -299,7 +299,7 @@ function ns.settings(name, defaults)
 end
 
 -- Called with (gained, kind) for every XP gain once Levelling.lua knows what earned it (`quest`,
--- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the appraiser listens.
+-- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the session listens (Session.lua).
 ns.xpListeners = {}
 
 -- Appends a row to today's bucket of a stream.

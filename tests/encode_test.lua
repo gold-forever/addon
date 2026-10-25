@@ -2,6 +2,7 @@
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 local E = ns.Encode
 
 -- Rows keep every declared column, empty included, so they match their declaration.
