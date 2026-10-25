@@ -26,6 +26,7 @@ local pricedAt -- when that scan was taken
 -- before it staying in use until it is done (design 009, Performance budget: a retail scan's ~110,000
 -- rows took ~100 ms to read in one go, a hitch at the first tooltip after a scan or a login).
 local SYNC_CHUNKS = 10 -- of Encode.ROWS_PER_CHUNK (500) rows: 5,000 rows
+-- Without a profiling timer, this much a frame; with one, the frame budget (ns.frameSpent).
 local CHUNKS_PER_FRAME = 2
 local ITEMS_PER_FRAME = 500
 local building -- the scan version a build in progress is for
@@ -111,34 +112,58 @@ local function buildPrices()
 	prices, cheapestPrices = prices or {}, cheapestPrices or {}
 	local listings, newPrices, newLow, i = {}, {}, {}, 0
 	local ids, j
+	local rows = Encode.ROWS_PER_CHUNK
+	-- One frame's share; true when the build is done.
+	local function share()
+		local started, done = ns.frameStart(), 0
+		if i < #chunks then
+			-- Counted in rows, so the budget is looked at after every chunk.
+			while i < #chunks do
+				i = i + 1
+				readChunk(chunks[i], listings)
+				done = done + rows
+				if ns.frameSpent(started, done, CHUNKS_PER_FRAME * rows) then
+					break
+				end
+			end
+			return false
+		end
+		if not ids then
+			ids, j = {}, 0
+			for id in pairs(listings) do
+				ids[#ids + 1] = id
+			end
+		end
+		while j < #ids do
+			j = j + 1
+			priceItem(ids[j], listings[ids[j]], newPrices, newLow)
+			done = done + 1
+			if ns.frameSpent(started, done, ITEMS_PER_FRAME) then
+				break
+			end
+		end
+		if j < #ids then
+			return false
+		end
+		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
+		building = nil
+		pricesReady()
+		return true
+	end
 	local function step()
 		if building ~= version then
 			return -- a newer scan started its own build
 		end
-		if i < #chunks then
-			for k = i + 1, math.min(i + CHUNKS_PER_FRAME, #chunks) do
-				readChunk(chunks[k], listings)
-			end
-			i = math.min(i + CHUNKS_PER_FRAME, #chunks)
-		else
-			if not ids then
-				ids, j = {}, 0
-				for id in pairs(listings) do
-					ids[#ids + 1] = id
-				end
-			end
-			for k = j + 1, math.min(j + ITEMS_PER_FRAME, #ids) do
-				priceItem(ids[k], listings[ids[k]], newPrices, newLow)
-			end
-			j = math.min(j + ITEMS_PER_FRAME, #ids)
-			if j >= #ids then
-				prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
-				building = nil
-				pricesReady()
-				return
-			end
+		-- A share that fails ends this build, so the next price asked starts a new one: left marked as
+		-- building, the prices would stay those of the scan before for the rest of the session.
+		local ok, finished = pcall(share)
+		if not ok then
+			building = nil
+			error(finished, 0)
 		end
-		ns.after(0, "prices", step)
+		if not finished then
+			ns.after(0, "prices", step)
+		end
 	end
 	step()
 end

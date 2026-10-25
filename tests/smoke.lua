@@ -2029,6 +2029,19 @@ do
     clock = clock + 0.001
   end
   print(string.format("PRICE REBUILD after a %d-auction scan: %d frames, worst %.2f ms", N, rframes, rworst))
+  -- A rebuild that fails part-way leaves no build marked as running: the next price asked starts again.
+  do
+    local itemId = ns2.Encode.itemId
+    ns2.Encode.itemId = function() error("a bad row") end
+    ns2.scanVersion = ns2.scanVersion + 1
+    assert(not pcall(ns2.price.market, 2001), "the rebuild failed")
+    ns2.Encode.itemId = itemId
+    local waiting = #timers
+    ns2.price.market(2001)
+    assert(#timers > waiting, "a new rebuild started after the failed one")
+    local n = 0
+    while #timers > 0 and n < 400 do step() n = n + 1 clock = clock + 0.001 end
+  end
   -- The deals line once the prices were in: the list's Linen (up to 45s) is listed cheaper in this scan.
   assert(dealsLine, "the deals line after the scan")
   seen("DEALS ", dealsLine, "|cffe0ac45Gold Forever|r: 1 item on your lists is at or under your price: Linen Cloth. Open the Buy tab.")
