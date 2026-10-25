@@ -36,6 +36,20 @@ function UI.layout.columnWidths(columns, total)
 	return widths
 end
 
+-- The column a saved order names: by its key, so a column moved keeps the order (review B-42); an
+-- order saved before by index alone, by that index. nil when the column is gone.
+function UI.layout.sortColumn(columns, saved)
+	if saved.key ~= nil then
+		for i, c in ipairs(columns) do
+			if c.key == saved.key then
+				return i
+			end
+		end
+		return nil
+	end
+	return columns[saved.column or 0] and saved.column or nil
+end
+
 -- Rows sorted by a column's `sort` value (or its key), descending when asked; ties keep their order.
 function UI.layout.sortRows(rows, column, descending)
 	local value = column.sort or function(row)
@@ -510,10 +524,13 @@ end
 
 -- A button: `primary`, `ghost` or the default. On the web: the site's rounded buttons (gold, bordered
 -- raised, or bare), lifting on hover. Classic: the client's red panel button, and a framed one for ghost.
+-- b:SetLabel(text) changes its text in the look's case; a button turned off is faded in every look. A
+-- click that fails is recorded, as every handler's is.
 function UI.Button(parent, label, onClick, opts)
 	opts = opts or {}
 	local skin = Theme.skin
 	local kind = opts.kind or "default"
+	local caps = skin.titleCaps
 	local b
 	-- In the classic look every button is the game's own, a ghost one too (manual test run 001: Stop and
 	-- New session, Clear queue, Rule › stood out as not classic).
@@ -554,19 +571,20 @@ function UI.Button(parent, label, onClick, opts)
 				b.pulse = UI.pulse(b, Theme.color.accentStrong)
 			end
 		end
-		b.label = UI.Text(b, skin.titleCaps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
+		b.label = UI.Text(b, caps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
 		b.label:SetPoint("CENTER")
 		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
 		-- A gradient lifts towards white: fading it showed the rounded slices' seams (manual test run 001).
 		local lifted = gradient and { Theme.mix(gradient[1], "#ffffff", 0.18), gradient[2], Theme.mix(gradient[3], "#ffffff", 0.18), gradient[4] }
-		b:SetScript("OnEnter", function(self)
+		-- Hooked, so a caller's own OnEnter (a tooltip) keeps the lift.
+		b:HookScript("OnEnter", function(self)
 			if gradient then
 				self.bg:SetGradient("HORIZONTAL", lifted)
 			else
 				self.bg:SetColor(lift, kind == "ghost" and (web and 1 or 0.6) or 1)
 			end
 		end)
-		b:SetScript("OnLeave", function(self)
+		b:HookScript("OnLeave", function(self)
 			if gradient then
 				self.bg:SetGradient("HORIZONTAL", gradient)
 			else
@@ -574,8 +592,20 @@ function UI.Button(parent, label, onClick, opts)
 			end
 		end)
 	end
+	function b:SetLabel(text)
+		self.label:SetText(caps and string.upper(text) or text)
+	end
+	-- Off: faded, in the classic look as well as its grey label.
+	b:HookScript("OnDisable", function(self)
+		self:SetAlpha(0.5)
+	end)
+	b:HookScript("OnEnable", function(self)
+		self:SetAlpha(1)
+	end)
 	if onClick then
-		b:SetScript("OnClick", onClick)
+		b:SetScript("OnClick", function(...)
+			ns.safely("button " .. label, onClick, ...)
+		end)
 	end
 	return b
 end
@@ -930,7 +960,10 @@ function UI.Slider(parent, min, max, step, value, onChange, format, opts)
 end
 
 -- A dropdown: a button with the chosen option's label and a chevron; a click opens a menu of the options
--- under it, over everything. options = { { value, label } }; onChange(value) when one is picked.
+-- under it, over everything. options = { { value, label } }; onChange(value) when one is picked. The menu
+-- closes on a pick, a click anywhere else or Escape; past MENU_ROWS options it scrolls with the wheel.
+local MENU_ROWS = 12
+local dropdowns = 0
 function UI.Dropdown(parent, options, value, onChange)
 	local d = CreateFrame("Button", nil, parent)
 	d:SetHeight(28)
@@ -940,24 +973,52 @@ function UI.Dropdown(parent, options, value, onChange)
 	d.text:SetPoint("RIGHT", -28, 0)
 	d.chevron = UI.Icon(d, "chevron-down", 14, "muted")
 	d.chevron:SetPoint("RIGHT", -10, 0)
-	local menu = UI.Panel(d, { color = Theme.color.surfaceRaised, borderColor = Theme.color.borderStrong, radius = radius("control") })
+	-- Named, so Escape closes it as it closes the game's own menus.
+	dropdowns = dropdowns + 1
+	local name = "GoldForeverDropdownMenu" .. dropdowns
+	local menu = UI.Panel(d, { name = name, color = Theme.color.surfaceRaised, borderColor = Theme.color.borderStrong, radius = radius("control") })
+	if UISpecialFrames then
+		table.insert(UISpecialFrames, name)
+	end
 	menu:SetFrameStrata("FULLSCREEN_DIALOG")
 	menu:SetPoint("TOPLEFT", d, "BOTTOMLEFT", 0, -2)
 	menu:SetPoint("TOPRIGHT", d, "BOTTOMRIGHT", 0, -2)
 	menu:EnableMouse(true)
 	menu:Hide()
-	menu.rows = {}
+	menu.rows, menu.offset = {}, 0
+	-- The rows from the scroll offset on, MENU_ROWS at most.
+	local function place()
+		menu.offset = math.max(0, math.min(menu.offset, #options - MENU_ROWS))
+		for i = 1, #options do
+			local row, at = menu.rows[i], i - menu.offset
+			row:ClearAllPoints()
+			row:SetPoint("TOPLEFT", 4, -4 - (at - 1) * 24)
+			row:SetPoint("TOPRIGHT", -4, -4 - (at - 1) * 24)
+			row:SetShown(at >= 1 and at <= MENU_ROWS)
+		end
+	end
+	menu:EnableMouseWheel(true)
+	menu:SetScript("OnMouseWheel", function(_, delta)
+		menu.offset = menu.offset - delta
+		place()
+	end)
+	-- A click outside the menu and its button closes it.
+	menu:SetScript("OnUpdate", function(self)
+		if IsMouseButtonDown and (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))
+			and not self:IsMouseOver() and not d:IsMouseOver() then
+			self:Hide()
+		end
+	end)
 	-- The choices, again when they change (a list added, an override removed): the rows are reused, as
-	-- frames are never freed.
-	function d:SetOptions(list)
+	-- frames are never freed. The value shown is set again, `v` or the one chosen before, as its label
+	-- may have changed.
+	function d:SetOptions(list, v)
 		options = list
-		menu:SetHeight(#options * 24 + 8)
+		menu:SetHeight(math.min(#options, MENU_ROWS) * 24 + 8)
 		for i, o in ipairs(options) do
 			local row = menu.rows[i]
 			if not row then
 				row = CreateFrame("Button", nil, menu)
-				row:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 24)
-				row:SetPoint("TOPRIGHT", -4, -4 - (i - 1) * 24)
 				row:SetHeight(24)
 				row.hover = surface(row, Theme.color.surfaceHover, 1, nil, radius("item"))
 				row.hover:SetShown(false)
@@ -980,10 +1041,13 @@ function UI.Dropdown(parent, options, value, onChange)
 			end
 			row.text:SetText(o.label)
 			row.value = o.value
-			row:Show()
 		end
 		for i = #options + 1, #menu.rows do
 			menu.rows[i]:Hide()
+		end
+		place()
+		if self.Set then
+			self:Set(v == nil and self.value or v)
 		end
 	end
 	d:SetOptions(options)
@@ -1223,8 +1287,9 @@ function UI.Table(parent, columns, opts)
 	-- (Remove, Edit lists, the Sell box, the craft queue's buttons) was now and then never placed and not
 	-- drawn until the panel was shown again (manual test run 001).
 	t:SetHeight(ROW + 2 + t.size * ROW + 24)
-	if opts.sort and columns[opts.sort.column] then
-		t.sortColumn, t.sortDescending = opts.sort.column, opts.sort.descending
+	local saved = opts.sort and UI.layout.sortColumn(columns, opts.sort)
+	if saved then
+		t.sortColumn, t.sortDescending = saved, opts.sort.descending
 	end
 	t.header = CreateFrame("Frame", nil, t)
 	t.header:SetPoint("TOPLEFT", 1, -1)
@@ -1253,7 +1318,7 @@ function UI.Table(parent, columns, opts)
 			t.sortDescending = t.sortColumn == i and not t.sortDescending or (t.sortColumn ~= i and c.align == "RIGHT")
 			t.sortColumn = i
 			if opts.sort then
-				opts.sort.column, opts.sort.descending = i, t.sortDescending
+				opts.sort.column, opts.sort.key, opts.sort.descending = i, c.key, t.sortDescending
 			end
 			t.page = 1
 			t:Refresh()
@@ -1353,7 +1418,11 @@ function UI.Table(parent, columns, opts)
 
 	-- New rows from page 1, or with keepPage on the page shown (a refresh while reading, as a click on a
 	-- row or a ticker does; past the end it is the last page).
+	-- The rows in order, kept until the rows or the order change: a wheel tick or a resize only pages
+	-- (review C-11). New rows are sorted again, even in the same table.
+	local sorted = {}
 	function t:SetRows(rows, keepPage)
+		sorted.all = nil
 		self.all = rows or {}
 		if not keepPage then
 			self.page = 1
@@ -1368,7 +1437,14 @@ function UI.Table(parent, columns, opts)
 			cellPoints(h, i, widths)
 			h.text:SetTextColor(Theme.rgb(self.sortColumn == i and Theme.color.accent or Theme.color.textMuted))
 		end
-		local rows = self.sortColumn and UI.layout.sortRows(self.all, self.columns[self.sortColumn], self.sortDescending) or self.all
+		local rows = self.all
+		if self.sortColumn then
+			if sorted.all ~= self.all or sorted.column ~= self.sortColumn or sorted.descending ~= self.sortDescending then
+				sorted.rows = UI.layout.sortRows(self.all, self.columns[self.sortColumn], self.sortDescending)
+				sorted.all, sorted.column, sorted.descending = self.all, self.sortColumn, self.sortDescending
+			end
+			rows = sorted.rows
+		end
 		local shown = UI.layout.page(rows, self.page, self.size)
 		self.page = shown.page
 		for n = 1, math.max(#self.lines, #shown.rows) do

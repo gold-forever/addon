@@ -51,5 +51,43 @@ eq(X.base64("f"), "Zg==", "one byte")
 eq(X.base64("fo"), "Zm8=", "two bytes")
 eq(X.base64("foo"), "Zm9v", "three bytes")
 eq(X.base64("\0\255\128"), "AP+A", "binary")
+eq(X.base64, ns.Encode.base64, "the one base64, Encode's")
+
+-- A part's DEFLATE made to go on: its last-block bit and LibDeflate's 1-bit padding cleared, then an empty
+-- stored block (in the padding when three bits fit, else one byte more) to the next byte boundary.
+eq(X.joinable("\203\229", 3), "\202\5\0\0\255\255", "three bits of padding hold the stored block's header")
+eq(X.joinable("\203\255", 1), "\202\127\0\0\0\255\255", "one bit does not: a byte more")
+eq(X.joinable("\203\7", 0), "\202\7\0\0\0\255\255", "no padding")
+eq(X.joinable("\255", 2), "\62\0\0\0\255\255", "one byte, first and last")
+
+-- Built a little at a time (review B-1): with a frame's share used at every check it takes many steps,
+-- the text cut into parts of PART bytes, each deflated alone, the last as the last; the same string
+-- as built at once.
+local part = X.PART
+X.PART = 64
+local function deflate(text)
+	return "<" .. text .. ">", 0
+end
+local step, steps = X.builder(db, nil, 50, deflate), 0
+local text, held
+repeat
+	steps = steps + 1
+	text, held = step(function()
+		return true
+	end)
+until text or steps > 10000
+eq(steps > 10, true, "many steps")
+eq(held.export.t, 50, "and what it holds")
+eq(text, (X.build(db, nil, 50, deflate)), "the same string as built at once")
+local joined = ns.Encode.unbase64(string.sub(text, #X.PREFIX + 1))
+local parts, whole = {}, {}
+for piece in string.gmatch(joined .. "\0\0\0\255\255", "(.-)%z%z%z\255\255") do
+	parts[#parts + 1] = piece
+	whole[#whole + 1] = string.sub(piece, 2, -2)
+end
+eq(table.concat(whole), X.serialize(held), "the parts hold the text in order")
+eq(#parts[1], 64 + 2, "a part is PART bytes")
+eq(#parts[#parts] <= 64 + 2 and #parts[#parts] > 2, true, "the last holds what is left, never nothing")
+X.PART = part
 
 return checks()

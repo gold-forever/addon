@@ -528,6 +528,44 @@ function Views.holdings(characters, parse)
 	return index
 end
 
+-- Views.holdings for only the items in `ids` (a set of item IDs), so the craft queue's few reagents do
+-- not build every item of every character; `skip`, a character left out (the one playing). The same
+-- entries as Views.holdings, for those items.
+function Views.holdingsOf(characters, parse, ids, skip)
+	local index = {}
+	for _, c in pairs(characters or {}) do
+		if c ~= skip then
+			local mine = {}
+			for _, place in ipairs(Views.PLACES) do
+				for id, n in pairs(parse(c[place] and c[place].items)) do
+					if ids[id] then
+						local h = mine[id]
+						if not h then
+							h = { name = c.name or "?", bags = 0, bank = 0, mail = 0, total = 0 }
+							mine[id] = h
+							local e = index[id] or { total = 0, by = {} }
+							index[id] = e
+							e.by[#e.by + 1] = h
+						end
+						h[place] = h[place] + n
+						h.total = h.total + n
+						index[id].total = index[id].total + n
+					end
+				end
+			end
+		end
+	end
+	for _, e in pairs(index) do
+		table.sort(e.by, function(a, b)
+			if a.total ~= b.total then
+				return a.total > b.total
+			end
+			return a.name < b.name
+		end)
+	end
+	return index
+end
+
 -- The "Held" line for one item's holdings: "Held 12: Zerie 10 (bags 8, bank 2), Zeripala 2 (mail)",
 -- at most `most` characters (3) and "+N more"; nil when nobody holds any.
 function Views.heldText(entry, most)

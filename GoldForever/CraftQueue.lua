@@ -12,6 +12,7 @@ ns.CraftQueue = CraftQueue
 
 local W = 600
 local frame, built
+local toldReady -- "ready to craft" said for this queue: once, until a craft is queued again
 local frames = {} -- Theme.key -> window (frames are never freed)
 
 local function settings()
@@ -52,19 +53,15 @@ function CraftQueue.plan()
 		mine.bank[id] = bank[id]
 		mine.mail[id] = (mail[id] or 0) + (ns.boughtSince and ns.boughtSince(id) or 0)
 	end
-	-- Other characters: what each holds of the reagents, from the save.
+	-- Other characters: what each holds of the reagents, from the save. This one is left out itself, not
+	-- by name: an alt of the same name on another realm is another character.
 	local others = {}
-	local myName = me and me.name
-	for id, e in pairs(Views.holdings(ns.db().characters, Encode.parseItems)) do
-		if needs[id] then
-			local list = {}
-			for _, h in ipairs(e.by) do
-				if h.name ~= myName then
-					list[#list + 1] = { name = h.name, total = h.total }
-				end
-			end
-			others[id] = list
+	for id, e in pairs(Views.holdingsOf(ns.db().characters, Encode.parseItems, needs, me)) do
+		local list = {}
+		for _, h in ipairs(e.by) do
+			list[#list + 1] = { name = h.name, total = h.total }
 		end
+		others[id] = list
 	end
 	local plan = Views.queuePlan(needs, mine, guildCounts(), others)
 	-- A reagent a vendor sells without limit (seen at a merchant) is bought there, not at the auction house.
@@ -197,7 +194,10 @@ function CraftQueue.refresh()
 	-- craft queued, or from its buttons).
 	if ready and #plan > 0 then
 		frame:Hide()
-		ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		if not toldReady then
+			toldReady = true
+			ns.say("everything the craft queue needs is in your bags: ready to craft.")
+		end
 		return
 	end
 	frame.table:SetRows(rows, true)
@@ -227,13 +227,6 @@ function CraftQueue.show()
 	end
 	frame:Show()
 	CraftQueue.refresh()
-	-- Hidden and shown a frame later, as the auction panel is: what was not yet placed is placed then.
-	C_Timer.After(0, function()
-		if frame and frame:IsShown() then
-			frame:Hide()
-			frame:Show()
-		end
-	end)
 end
 
 -- For the smoke test.
@@ -247,19 +240,25 @@ function ns.openCraftQueue()
 	CraftQueue.show()
 end
 
--- The queue changed (Shop.lua): a craft added opens it (even after the X); an empty queue closes it.
-function ns.craftQueueChanged()
+-- The queue changed (Shop.lua): a craft added opens it (even after the X); a craft made only redraws it
+-- where it shows, so the X sticks (review B-25); an empty queue closes it.
+function ns.craftQueueChanged(how)
 	local queue = ns.queueList and ns.queueList() or {}
+	if how == "added" or #queue == 0 then
+		toldReady = nil
+	end
 	if #queue == 0 then
 		if frame then
 			frame:Hide()
 		end
 		return
 	end
-	settings().closed = false
+	if how == "added" then
+		settings().closed = false
+	end
 	if frame and frame:IsShown() then
 		CraftQueue.refresh()
-	else
+	elseif how == "added" then
 		CraftQueue.show()
 	end
 end

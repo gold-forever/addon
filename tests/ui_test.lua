@@ -47,6 +47,12 @@ local function names(list)
 	return table.concat(out)
 end
 eq(names(L.sortRows(rows, { key = "v" }, false)), "bdac", "ascending, ties kept, unknown last")
+-- A saved order names its column by key: a column moved keeps it; an older save's index still reads.
+local cols = { { key = "name" }, { key = "price" }, { key = "qty" } }
+eq(L.sortColumn(cols, { column = 1, key = "qty" }), 3, "by key, wherever the column is now")
+eq(L.sortColumn(cols, { column = 2 }), 2, "an older save: by its index")
+eq(L.sortColumn(cols, { column = 2, key = "gone" }), nil, "a column no longer there")
+eq(L.sortColumn(cols, { column = 9 }), nil, "an index past the columns")
 eq(names(L.sortRows(rows, { key = "v" }, true)), "abdc", "descending, unknown still last")
 eq(names(L.sortRows(rows, { key = "x", sort = function(row) return row.n end }, true)), "dcba", "by a sort function")
 eq(names(rows), "bacd", "the rows given are not reordered")

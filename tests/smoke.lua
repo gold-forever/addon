@@ -395,6 +395,35 @@ if SAVE then
   SlashCmdList.GOLDFOREVER("ui")
   timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
   timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
+  -- /gf export, the whole save (review B-1: 19 s in one call at level 9): built over frames, no frame's
+  -- share over GF_SMOKE_FRAME_MS (100 by default, as the client stops a script far later), into one
+  -- stream that inflates to the text of what it holds.
+  do
+    local steps, worst, total = 0, 0, 0
+    local function measured(fn)
+      local t = os.clock()
+      fn()
+      local ms = (os.clock() - t) * 1000
+      steps, worst, total = steps + 1, math.max(worst, ms), total + ms
+    end
+    local after = C_Timer.After
+    C_Timer.After = function(sec, fn) after(sec, function() measured(fn) end) end
+    collectgarbage("collect")
+    measured(function() SlashCmdList.GOLDFOREVER("export all") end)
+    wait(1)
+    C_Timer.After = after
+    local f = ns.exportFrame()
+    local ok = f and f:IsShown() and f.pending and true or false
+    if ok then
+      local packed = ns.Encode.unbase64(f.text:sub(#ns.Export.PREFIX + 1))
+      ok = LibStub("LibDeflate"):DecompressDeflate(packed) == ns.Export.serialize(f.pending.picked)
+    end
+    local budget = tonumber(os.getenv("GF_SMOKE_FRAME_MS")) or 100
+    if not ok or worst > budget then failedSteps = (failedSteps or 0) + 1 end
+    rows[#rows + 1] = string.format("%-34s %8.1f ms  %d frames, the longest %.1f ms, %d characters%s", "export: the whole save", total, steps, worst,
+      f and f.text and #f.text or 0, ok and (worst > budget and "  FAILED: a frame over the budget" or "") or "  FAILED: no export, or it does not inflate to what it holds")
+    if f then f:Hide() end
+  end
   -- Each item tooltip hook on its own, over every catalogued item, so its share shows.
   -- Twice: a first look at every item, then a working set shown again and again, as play does.
   for pass = 1, 2 do
@@ -753,6 +782,25 @@ do
   assert(title and title:find("Bolt of Linen Cloth", 1, true), "the strip names the recipe's item: " .. tostring(title))
   fire("TRADE_SKILL_CLOSE")
   assert(not ns.CraftingStrip.shown(), "and closes with the window")
+  -- Another profession's window next, showing a recipe of its own: that one, not the last window's
+  -- (review B-27). Opened as TRADE_SKILL_SHOW opens it, without the recipe read the event also starts.
+  ProfessionsFrame = widget({ CraftingPage = { SchematicForm = { GetRecipeInfo = function() return { recipeID = 99999 } end } } })
+  ns.CraftingStrip.open()
+  title = ns.CraftingStrip.shown()
+  assert(title and not title:find("Bolt of Linen Cloth", 1, true), "the strip follows the window's own recipe: " .. tostring(title))
+  -- Eight reagents to buy and six lines: five, then how many more (review C-28).
+  do
+    local values = { strsplit(",", GoldForeverDB.catalogue.recipes[2963]) }
+    local many = {}
+    for i = 1, 8 do many[i] = (40000 + i) .. "*1" end
+    values[ns.Encode.columns(GoldForeverDB.fields.recipe).reagents] = table.concat(many, "+")
+    GoldForeverDB.catalogue.recipes[99997] = table.concat(values, ",")
+    ns.CraftingStrip.select(99997)
+    local last = ns.CraftingStrip.line(6)
+    assert(ns.CraftingStrip.line(5):find("1× ", 1, true) and last and last:find("+3 more", 1, true), "the last line says how many more: " .. tostring(last))
+    GoldForeverDB.catalogue.recipes[99997] = nil
+  end
+  fireNow("TRADE_SKILL_CLOSE")
   ProfessionsFrame = nil
 end
 -- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
@@ -1030,6 +1078,27 @@ do
   local planned
   for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then planned = r end end
   assert(planned and planned.need == 6, "it plans the Linen")
+  -- The holdings of the queue's reagents alone: as every item's holdings, for those items.
+  do
+    local needs, all = ns.queueNeeds(), ns.Views.holdings(GoldForeverDB.characters, ns.Encode.parseItems)
+    local some = ns.Views.holdingsOf(GoldForeverDB.characters, ns.Encode.parseItems, needs)
+    for id in pairs(needs) do
+      assert((all[id] and all[id].total) == (some[id] and some[id].total) and #(all[id] and all[id].by or {}) == #(some[id] and some[id].by or {}), "the same holdings of " .. id)
+    end
+    for id in pairs(some) do assert(needs[id], "only the reagents: " .. id) end
+    assert(next(some) ~= nil, "someone holds a reagent")
+  end
+  -- An alt of the same name on another realm is another character: listed as one who holds the Linen;
+  -- this character never is (review C-28).
+  do
+    GoldForeverDB.characters["Player-9999-00000001"] = { name = ns.me().name, realm = "Elsewhere", bags = { items = "2589*4", t = now } }
+    local others
+    for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then others = r.others end end
+    GoldForeverDB.characters["Player-9999-00000001"] = nil
+    local names = {}
+    for _, o in ipairs(others or {}) do names[#names + 1] = o.name .. " " .. o.n end
+    assert(#names == 1 and names[1] == ns.me().name .. " 4", "the alt's Linen, not this character's own: " .. table.concat(names, ", "))
+  end
   GoldForeverDB.settings.craftQueue.closed = true
   cq:Hide()
   ns.queueAdd(2963, 0)
@@ -1037,6 +1106,24 @@ do
   -- Crafting a queued recipe counts it down.
   fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)
   assert(ns.queueList()[1].count == 2, "one Bolt of Linen crafted: two left in the queue")
+  -- Closed with its X, it stays closed while queued crafts are made (review B-25).
+  GoldForeverDB.settings.craftQueue.closed = true
+  cq:Hide()
+  fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-2", 2963)
+  assert(not cq:IsShown() and GoldForeverDB.settings.craftQueue.closed and ns.queueList()[1].count == 1, "a craft made does not open it again")
+  -- Everything in the bags: the window goes, and says "ready to craft" once for the queue.
+  do
+    local said, chat, held = 0, print, C_Item.GetItemCount
+    print = function(...) if table.concat({ ... }, " "):find("ready to craft", 1, true) then said = said + 1 end chat(...) end
+    C_Item.GetItemCount = function() return 100 end
+    ns.openCraftQueue()
+    assert(not cq:IsShown(), "all in the bags: the window goes")
+    ns.openCraftQueue()
+    print, C_Item.GetItemCount = chat, held
+    assert(said == 1, "ready to craft, said once: " .. said)
+  end
+  ns.queueAdd(2963, 1)
+  assert(cq:IsShown() and ns.queueList()[1].count == 2, "a craft queued opens it again")
   ns.queueAdd(2963, 1)
   C_Item.GetItemCount = function() return 0 end
   -- A market value above the listings (the queue's list buys under market).
@@ -1438,6 +1525,37 @@ do
   assert(#opened == before + 1, "taken once the server is free")
   fire("MAIL_FAILED")
   C_Mail.IsCommandPending = nil
+  -- A slow server (review T-8, B-3): the inbox drops a mail 0.2 s after its take, between the next step
+  -- (0.15 s after the answer) and the take's own 0.5 s timeout. One take at a time, each mail once.
+  local inFlight, most, takes = 0, 0, {}
+  function AutoLootMailItem(i)
+    local m = inbox[i]
+    takes[#takes + 1] = m[2]
+    inFlight = inFlight + 1
+    most = math.max(most, inFlight)
+    C_Timer.After(0.2, function()
+      inFlight = inFlight - 1
+      for k, x in ipairs(inbox) do if x == m then table.remove(inbox, k) end end
+      fireNow("MAIL_INBOX_UPDATE")
+    end)
+  end
+  for n = 1, 4 do table.insert(inbox, { "Alliance Auction House", "Auction successful: Cloth " .. n, 100, 0, 0 }) end
+  ns.Mail.press()
+  wait(10)
+  assert(most == 1, "one take at a time: " .. most .. " at once")
+  assert(table.concat(takes, ",") == "Auction successful: Cloth 1,Auction successful: Cloth 2,Auction successful: Cloth 3,Auction successful: Cloth 4", "each mail once, in order: " .. table.concat(takes, ","))
+  -- A mail the server refuses each time: tried again three times, a second apart, then the batch ends.
+  takes = {}
+  function AutoLootMailItem(i)
+    takes[#takes + 1] = inbox[i][2]
+    C_Timer.After(0.2, function() fireNow("MAIL_FAILED") end)
+  end
+  table.insert(inbox, { "Alliance Auction House", "Auction successful: Stuck", 100, 0, 0 })
+  ns.Mail.press()
+  wait(10)
+  assert(#takes == 4, "refused: the first take and three more: " .. #takes)
+  assert(ns.Mail.panel().note:GetText():find("refused", 1, true), "and the panel says so: " .. ns.Mail.panel().note:GetText())
+  table.remove(inbox)
   fire("MAIL_CLOSED")
   GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
   MailFrame = nil
@@ -2080,12 +2198,53 @@ do
   assert(warned == 1, "one warning for an old file: " .. warned)
   GoldForever_Prices = prices
 end
--- /gf export: the first holds everything, the next only what is new; both build without error.
-SlashCmdList.GOLDFOREVER("export")
+-- /gf export: the first holds everything, the next only what is new; both build without error, over
+-- frames, into one raw DEFLATE stream that inflates to the text of what it holds.
+local function exported(arg)
+  SlashCmdList.GOLDFOREVER(arg and ("export " .. arg) or "export")
+  wait(1)
+  local f = ns2.exportFrame()
+  assert(f and f:IsShown() and f.pending, "the export shows")
+  local packed = ns2.Encode.unbase64(f.text:sub(#ns2.Export.PREFIX + 1))
+  assert(LibStub("LibDeflate"):DecompressDeflate(packed) == ns2.Export.serialize(f.pending.picked), "the export inflates to the text of what it holds")
+  return f
+end
+-- What it holds counts as sent only once copied (review B-26): closed with Escape, the next holds it all again.
+local function copy(f)
+  local ctrl = IsControlKeyDown
+  IsControlKeyDown = function() return true end
+  f.box.scripts.OnKeyUp(f.box, "C")
+  IsControlKeyDown = ctrl
+end
+do
+  local f = exported()
+  assert(GoldForeverDB.exportedAt == nil and GoldForeverDB.exportSent == nil, "nothing counts as sent before the copy")
+  f:Hide()
+  f = exported()
+  assert(f.pending.picked.export.since == nil, "closed without copying: the next export holds everything again")
+  copy(f)
+  assert(f.pending == nil, "copied: sent")
+end
+-- A dropdown's options changed: the value shown again, in its new label (review C-27); past twelve
+-- options the menu scrolls with the wheel.
+do
+  local d = ns2.UI.Dropdown(UIParent, { { value = 1, label = "One" } }, 1)
+  d:SetOptions({ { value = 1, label = "Uno" } })
+  assert(d.text:GetText() == "Uno", "the new label of the value chosen: " .. tostring(d.text:GetText()))
+  local many = {}
+  for i = 1, 20 do many[i] = { value = i, label = "Item " .. i } end
+  d:SetOptions(many, 20)
+  assert(d.value == 20 and d.text:GetText() == "Item 20", "or the value given")
+  assert(d.menu.rows[12].shown and not d.menu.rows[13].shown, "twelve rows at a time")
+  d.menu.scripts.OnMouseWheel(d.menu, -3)
+  assert(not d.menu.rows[3].shown and d.menu.rows[4].shown and d.menu.rows[15].shown and not d.menu.rows[16].shown, "the wheel scrolls")
+  d.menu.scripts.OnMouseWheel(d.menu, -30)
+  assert(d.menu.rows[20].shown and d.menu.rows[9].shown, "to the last row, no further")
+end
 local firstAt = GoldForeverDB.exportedAt
 seen("EXPORT AT ", tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil), "1792517540 sent items true")
 now = now + 60
-SlashCmdList.GOLDFOREVER("export")
+copy(exported())
 seen("EXPORT AGAIN after ", tostring(GoldForeverDB.exportedAt and firstAt and GoldForeverDB.exportedAt - firstAt) .. " s", "60 s")
 SlashCmdList.GOLDFOREVER("")
 money = 0; xpmax = 0; C_Container.GetContainerNumSlots = function() return 0 end

@@ -140,14 +140,23 @@ local function refresh()
 	end
 	local margin = ns.Crafting.margin(q)
 	strip.rows[4]:SetText(margin and ((gear and faint or "") .. margin .. "%" .. (gear and "|r" or "")) or dash)
-	local shown = 0
+	local toBuy = {}
 	for _, line in ipairs(q.lines) do
-		if line.toBuy > 0 and shown < LINES then
-			shown = shown + 1
-			local l = strip.lines[shown]
-			l.name:SetText(line.toBuy .. "× " .. name(line.id))
-			l.value:SetText(line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
+		if line.toBuy > 0 then
+			toBuy[#toBuy + 1] = line
 		end
+	end
+	-- More than the lines hold: the last says how many more, not cut off silently.
+	local shown = #toBuy > LINES and LINES - 1 or #toBuy
+	for i = 1, shown do
+		local line, l = toBuy[i], strip.lines[i]
+		l.name:SetText(line.toBuy .. "× " .. name(line.id))
+		l.value:SetText(line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
+	end
+	if shown < #toBuy then
+		shown = shown + 1
+		strip.lines[shown].name:SetText(faint .. string.format("+%d more", #toBuy - shown + 1) .. "|r")
+		strip.lines[shown].value:SetText("")
 	end
 	for i = shown + 1, LINES do
 		strip.lines[i].name:SetText(i == 1 and (faint .. "Nothing: your bags and bank hold it all.|r") or "")
@@ -175,11 +184,14 @@ local function show()
 	strip:ClearAllPoints()
 	strip:SetPoint("TOPLEFT", host(), "TOPRIGHT", 6, 0)
 	strip:Show()
-	recipeID = recipeID or shownRecipe()
+	-- The recipe this window shows first: one kept from the last window would name another profession's
+	-- (review B-27).
+	recipeID = shownRecipe() or recipeID
 	refresh()
 end
 
 local function hide()
+	recipeID = nil
 	if strip then
 		strip:Hide()
 	end
@@ -201,13 +213,19 @@ if EventRegistry and EventRegistry.RegisterCallback then
 	end, ns)
 end
 
--- For the smoke test: choose a recipe as the profession window would.
+-- For the smoke test: choose a recipe as the profession window would, or open as with the window.
 ns.CraftingStrip = {
 	select = function(id)
 		recipeID = id
 		refresh()
 	end,
+	open = function()
+		show()
+	end,
 	shown = function()
 		return strip and strip:IsShown() and strip.title:GetText()
+	end,
+	line = function(i)
+		return strip.lines[i].name:GetText()
 	end,
 }
