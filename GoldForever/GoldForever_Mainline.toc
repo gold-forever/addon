@@ -22,6 +22,7 @@ Claim.lua
 Theme.lua
 Looks.lua
 UI.lua
+HubKit.lua
 ExportFrame.lua
 Views.lua
 Catalogue.lua

@@ -6,56 +6,14 @@
 local _, ns = ...
 local Theme, UI, Encode, Views = ns.Theme, ns.UI, ns.Encode, ns.Views
 
-local function settings()
-	return ns.settings("window", {})
-end
-
--- A page's table order, saved with the window: the column and direction last picked, at first the given
--- column, highest first.
-local function sortOf(page, column)
-	local s = settings()
-	s.sort = s.sort or {}
-	s.sort[page] = s.sort[page] or { column = column, descending = true }
-	return s.sort[page]
-end
-
--- A section heading with a line under it; returns where the next thing goes.
-local function heading(page, text, y)
-	local h = UI.Text(page, text, { size = "lg" })
-	h:SetPoint("TOPLEFT", 0, y)
-	local rule = UI.solid(page, "BORDER", Theme.color.border)
-	rule:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -4)
-	rule:SetPoint("RIGHT", page, "RIGHT")
-	rule:SetHeight(UI.pixel())
-	return y - 30
-end
-
-local function itemName(id)
-	local row = ns.db().catalogue.items[id]
-	return (row and string.match(row, "^([^,]+)")) or ("Item " .. id)
-end
-
-local function itemQuality(id)
-	local row = ns.db().catalogue.items[id]
-	return tonumber(row and select(2, strsplit(",", row))) or 1
-end
+local Kit = ns.HubKit
+local settings, sortOf, heading, header, classColor = Kit.settings, Kit.sortOf, Kit.heading, Kit.header, Kit.classColor
+local itemName, itemQuality = Kit.itemName, Kit.itemQuality
 
 -- Design system ----------------------------------------------------------------------------------------
 
 local function buildDesign(page)
-	local scroll = CreateFrame("ScrollFrame", nil, page)
-	scroll:SetAllPoints()
-	local body = CreateFrame("Frame", nil, scroll)
-	body:SetSize(640, 1240)
-	scroll:SetScrollChild(body)
-	scroll:EnableMouseWheel(true)
-	scroll:SetScript("OnMouseWheel", function(self, delta)
-		local max = math.max(0, body:GetHeight() - self:GetHeight())
-		self:SetVerticalScroll(math.min(max, math.max(0, self:GetVerticalScroll() - delta * 48)))
-	end)
-	page:SetScript("OnSizeChanged", function(_, w)
-		body:SetWidth(w)
-	end)
+	local body = Kit.scrollBody(page, 640, 1240)
 	local y = 0
 
 	y = heading(body, "Colours", y)
@@ -178,21 +136,7 @@ local function count(n)
 	return UI.layout.group(math.floor((n or 0) + 0.5))
 end
 
-local isRetail = ns.Realms and ns.Realms.isRetail and ns.Realms.isRetail(select(4, GetBuildInfo()))
-
-local function classColor(class)
-	return Theme.class[class or ""] or Theme.color.text
-end
-
--- Where a page's own content starts: the window's header shows its title and the line under it
--- (PAGES), so this is an empty strip along the page's top edge to place what follows.
-local function header(page)
-	local top = CreateFrame("Frame", nil, page)
-	top:SetPoint("TOPLEFT")
-	top:SetPoint("TOPRIGHT")
-	top:SetHeight(1)
-	return top
-end
+local isRetail = Kit.isRetail
 
 -- Home ------------------------------------------------------------------------------------------------------
 
@@ -213,7 +157,7 @@ ns.onBagsRead(homeSoon)
 -- The next moves, from the save and the prices: scan, sell what the bags hold, the best craft; today's
 -- money by where it came from; and the bag items worth most.
 local function buildHome(page)
-	local W = (page:GetWidth() and page:GetWidth() > 0) and page:GetWidth() or 708
+	local W = Kit.pageWidth(page)
 	local GAP = 16
 	local cardW = math.floor((W - GAP * 2) / 3)
 	local actions = {}
@@ -347,22 +291,7 @@ local function buildHome(page)
 		r.value:SetWidth(120)
 		-- The item's own tooltip on hover.
 		r:EnableMouse(true)
-		r:SetScript("OnEnter", function(self)
-			if self.itemId and GameTooltip then
-				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-				if GameTooltip.SetItemByID then
-					GameTooltip:SetItemByID(self.itemId)
-				else
-					GameTooltip:SetHyperlink("item:" .. self.itemId)
-				end
-				GameTooltip:Show()
-			end
-		end)
-		r:SetScript("OnLeave", function()
-			if GameTooltip then
-				GameTooltip:Hide()
-			end
-		end)
+		Kit.itemTooltip(r)
 	end
 
 	homes[#homes + 1] = page
@@ -470,7 +399,7 @@ local function buildCompanion(page)
 	local cards = {}
 	for i, label in ipairs({ "Prices written", "Markets", "This character's market", "Discord dings" }) do
 		local c = UI.StatCard(page, label, "", "")
-		c:SetWidth(math.floor(((page:GetWidth() and page:GetWidth() > 0 and page:GetWidth() or 708) - 36) / 4))
+		c:SetWidth(math.floor((Kit.pageWidth(page) - 36) / 4))
 		if i == 1 then
 			c:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -12)
 		else
@@ -560,7 +489,6 @@ local function buildRares(page)
 			tbl:SetRows({})
 			return -- no rare listed, so no mob's loot to count
 		end
-		local names = ns.db().catalogue.npcs
 		local mobs, worth = ns.mobStats(function()
 			if page:IsShown() then
 				page:Refresh()
@@ -578,7 +506,7 @@ local function buildRares(page)
 				value = value / m.loots
 			end
 			rows[#rows + 1] = {
-				name = (names[r.npc] and string.match(names[r.npc], "^([^,]+)")) or ("NPC " .. r.npc),
+				name = Kit.npcName(r.npc),
 				seen = r.seen,
 				last = r.last,
 				where = mapName(r.map) .. ((r.x and r.y) and string.format("  %.1f, %.1f", r.x / 10, r.y / 10) or ""),
@@ -741,22 +669,7 @@ local function buildCrafting(page)
 		local hover = CreateFrame("Button", nil, detail)
 		hover:SetPoint("TOPLEFT", l, "TOPLEFT")
 		hover:SetPoint("BOTTOMRIGHT", v, "BOTTOMRIGHT")
-		hover:SetScript("OnEnter", function(self)
-			if self.itemId and GameTooltip then
-				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-				if GameTooltip.SetItemByID then
-					GameTooltip:SetItemByID(self.itemId)
-				else
-					GameTooltip:SetHyperlink("item:" .. self.itemId)
-				end
-				GameTooltip:Show()
-			end
-		end)
-		hover:SetScript("OnLeave", function()
-			if GameTooltip then
-				GameTooltip:Hide()
-			end
-		end)
+		Kit.itemTooltip(hover)
 		lines[i] = { name = l, value = v, hover = hover }
 	end
 	function page:Refresh()
@@ -944,19 +857,7 @@ local GUIDE_COMMANDS = {
 ns.GUIDE_COMMANDS = GUIDE_COMMANDS
 
 local function buildGuide(page)
-	local scroll = CreateFrame("ScrollFrame", nil, page)
-	scroll:SetAllPoints()
-	local body = CreateFrame("Frame", nil, scroll)
-	body:SetSize(680, 900)
-	scroll:SetScrollChild(body)
-	scroll:EnableMouseWheel(true)
-	scroll:SetScript("OnMouseWheel", function(self, delta)
-		local max = math.max(0, body:GetHeight() - self:GetHeight())
-		self:SetVerticalScroll(math.min(max, math.max(0, self:GetVerticalScroll() - delta * 48)))
-	end)
-	page:SetScript("OnSizeChanged", function(_, w)
-		body:SetWidth(w)
-	end)
+	local body = Kit.scrollBody(page, 680, 900)
 	local y = 0
 	for _, section in ipairs(GUIDE) do
 		local h = UI.Text(body, Theme.skin.titleCaps and string.upper(section[1]) or section[1], { size = "md", medium = true, tone = "accent" })
@@ -1187,7 +1088,6 @@ local function buildMobs(page)
 			tbl.footer:SetText("Counting the loot…")
 			return
 		end
-		local names = ns.db().catalogue.npcs
 		local rows = {}
 		for id, m in pairs(mobs or {}) do
 			local value = m.coin
@@ -1195,7 +1095,7 @@ local function buildMobs(page)
 				value = value + (worth(item) or 0) * d.units
 			end
 			rows[#rows + 1] = {
-				name = (names[id] and string.match(names[id], "^([^,]+)")) or ("NPC " .. id),
+				name = Kit.npcName(id),
 				loots = m.loots,
 				coin = m.coin / m.loots,
 				value = value / m.loots,
@@ -1253,7 +1153,7 @@ local function buildInventory(page)
 	search:SetPoint("LEFT", quality, "RIGHT", 8, 0)
 	-- Four cards across the page; the fourth holds the soulbound switch (manual test run 001: the switch
 	-- beside the cards looked out of place).
-	local W = (page:GetWidth() and page:GetWidth() > 0) and page:GetWidth() or 708
+	local W = Kit.pageWidth(page)
 	local cardW = math.floor((W - 36) / 4)
 	local cards = {}
 	for i, label in ipairs({ "Worth", "Items", "Units", "Soulbound" }) do
