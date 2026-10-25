@@ -481,25 +481,75 @@ end
 
 -- The window ----------------------------------------------------------------------------------------------
 
-local window
+-- One window per look, built the first time that look opens: frames cannot be restyled in place,
+-- and switching should not need a /reload. Both share the saved position, page and sorts.
+local windows = {}
+
+local PAGES = {
+	{ key = "characters", label = "Characters", build = buildCharacters },
+	{ key = "levelling", label = "Levelling", build = buildLevelling },
+	{ key = "ledger", label = "Ledger", build = buildLedger },
+	{ key = "mobs", label = "Mobs", build = buildMobs },
+	{ key = "inventory", label = "Inventory", build = buildInventory },
+	{ key = "design", label = "Design system", build = buildDesign },
+}
+
+local function look()
+	local name = settings().look
+	return Theme.skins[name] and name or "web"
+end
+
+local function windowFor(name)
+	Theme.apply(name)
+	if not windows[name] then
+		windows[name] = UI.Window(name == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. name, "Gold Forever", PAGES, settings(), {
+			onLook = function(other)
+				ns.commands.look(other)
+			end,
+		})
+	end
+	return windows[name]
+end
+
+local function shown()
+	for _, w in pairs(windows) do
+		if w:IsShown() then
+			return w
+		end
+	end
+end
 
 ns.commands.ui = function(page)
-	if window and window:IsShown() and (page == nil or page == "") then
-		window:Hide()
+	local open = shown()
+	if open and (page == nil or page == "") then
+		open:Hide()
 		return
 	end
-	if not window then
-		window = UI.Window("GoldForeverWindow", "Gold Forever", {
-			{ key = "characters", label = "Characters", build = buildCharacters },
-			{ key = "levelling", label = "Levelling", build = buildLevelling },
-			{ key = "ledger", label = "Ledger", build = buildLedger },
-			{ key = "mobs", label = "Mobs", build = buildMobs },
-			{ key = "inventory", label = "Inventory", build = buildInventory },
-			{ key = "design", label = "Design system", build = buildDesign },
-		}, settings())
-	end
+	local window = windowFor(look())
+	window:Restore()
 	window:Show()
 	if page and page ~= "" then
 		window:SelectPage(page)
+	end
+end
+
+-- "/gf look web" or "/gf look classic": the window's look, kept in the settings. An open window
+-- switches in place, on the same page.
+ns.commands.look = function(name)
+	name = string.lower(name or "")
+	if not Theme.skins[name] then
+		print(string.format("Gold Forever: the look is %s. /gf look web · /gf look classic", Theme.skins[look()].label))
+		return
+	end
+	settings().look = name
+	local open = shown()
+	if open then
+		open:Hide()
+		local window = windowFor(name)
+		window:Restore()
+		window:Show()
+		window:SelectPage(settings().page or PAGES[1].key)
+	else
+		Theme.apply(name)
 	end
 end

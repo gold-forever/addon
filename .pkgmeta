@@ -15,5 +15,6 @@ move-folders:
 
 ignore:
   - tests
+  - tools
   - README.md
   - .github
