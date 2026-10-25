@@ -242,6 +242,10 @@ do
 	eq(l.bags .. "/" .. l.bank .. "/" .. l.guild .. "/" .. l.others[1].name .. " " .. l.others[1].n .. "/" .. l.buy, "5/8/3/Alt 4/0", "bags, bank, guild, Alt, nothing to buy")
 	local enough = V.queuePlan({ [2589] = 4 }, { bags = { [2589] = 1 }, bank = { [2589] = 8 }, mail = {} }, {}, {})
 	eq(enough[1].bank .. "/" .. enough[1].buy, "3/0", "only what is needed from the bank")
+	local mailed = V.queuePlan({ [2589] = 10 }, { bags = {}, bank = { [2589] = 10 }, mail = { [2589] = 10 } }, {}, {})
+	eq(mailed[1].bank .. "/" .. mailed[1].buy, "0/0", "the mail covers it: nothing from the bank")
+	local some = V.queuePlan({ [2589] = 10 }, { bags = { [2589] = 2 }, bank = { [2589] = 10 }, mail = { [2589] = 5 } }, {}, {})
+	eq(some[1].bank, 3, "the bank gives what the bags and mail leave")
 end
 
 -- A gold goal: 1,000g in 10 days with 640g now needs 36g a day.

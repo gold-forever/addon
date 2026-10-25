@@ -617,7 +617,7 @@ function Views.queuePlan(needs, mine, guild, others)
 		end
 		rows[#rows + 1] = {
 			id = id, need = need, bags = bags,
-			bank = math.min(bank, math.max(0, need - bags)), -- to pick up from the bank
+			bank = math.min(bank, math.max(0, need - bags - mail)), -- to pick up from the bank: what the bags and mail leave
 			mail = mail, guild = g, others = from, buy = left,
 		}
 	end
