@@ -1304,6 +1304,11 @@ do
   for _, l in ipairs(auction.lists) do
     assert(l.id ~= "s1" and l.id ~= "c1", "neither the deleted list nor a site copy came back: " .. tostring(l.name))
   end
+  -- A list of the player's own named "(older copy)" is not taken for a copy and kept (review C-24).
+  table.insert(auction.lists, { id = "g1", edited = now, name = "Old stock (older copy)", entries = {} })
+  ns.mergeShared()
+  assert(auction.lists[#auction.lists].id == "g1", "the player's list kept")
+  table.remove(auction.lists)
   -- The profile in use stays in use when an earlier merge's copy before it is dropped (review B-11).
   local keepProfiles, keepProfile = auction.profiles, auction.profile
   local B, C = { id = "pb", name = "B", author = "", sell = {}, buy = {} }, { id = "pc", name = "C", author = "", sell = {}, buy = {} }

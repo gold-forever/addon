@@ -2607,11 +2607,11 @@ end
 -- Remove, Sell's Rule › and quantity box, now and then right after opening), and every shown frame that
 -- overlaps one and is drawn over it, in a box to copy.
 local STRATA = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4, DIALOG = 5, FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8 }
-local function v(x)
+local function num(x)
 	return type(x) == "number" and string.format("%.1f", x) or tostring(x)
 end
 local function call(obj, method)
-	return obj and obj[method] and v(obj[method](obj)) or "-"
+	return obj and obj[method] and num(obj[method](obj)) or "-"
 end
 local function frameName(f)
 	return (f.GetDebugName and f:GetDebugName()) or (f.GetName and f:GetName()) or tostring(f)
@@ -2676,7 +2676,7 @@ local function describe(label, w, out)
 		.. " strata " .. call(w, "GetFrameStrata") .. " level " .. call(w, "GetFrameLevel")
 		.. " text [" .. call(w, "GetText") .. "] fs [" .. call(fs, "GetText") .. "] fs shown " .. call(fs, "IsShown") .. " fs alpha " .. call(fs, "GetAlpha")
 		.. " fs width " .. call(fs, "GetStringWidth") .. " fs at " .. call(fs, "GetLeft") .. "," .. call(fs, "GetBottom")
-		.. " font " .. tostring(font) .. " " .. v(size)
+		.. " font " .. tostring(font) .. " " .. num(size)
 	covering(w, out)
 end
 ns.commands.uidebug = function()
@@ -2733,7 +2733,9 @@ ns.AuctionPanel = {
 		return panel and panel.spaceBound
 	end,
 	post = function()
-		post()
+		if panel then
+			post()
+		end
 	end,
 	state = function()
 		return rows, chosen, busy()
@@ -2785,12 +2787,14 @@ ns.AuctionPanel = {
 -- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
 -- by id, the newer edit wins and the other is dropped (Shopping.merge; no copies since 2026-10-24). A file
 -- already merged is not merged again.
--- A copy the site kept: marked so by the server, or named so by an earlier merge.
+-- A copy the site kept: marked so by the server, or named so by an earlier merge. In the save, only a list
+-- or profile with no id is taken for one by its name: one the player made (stamped with an id) keeps any
+-- name. What the site sends is judged by its name too (left out, never deleted).
 local function copyMark(x, name)
 	if type(x.copyOf) == "string" then
 		return x.copyOf
 	end
-	return type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
+	return not x.id and type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
 end
 
 local function mergeShared()
@@ -2815,7 +2819,7 @@ local function mergeShared()
 	-- marked or only named so.
 	for _, items in ipairs({ s.lists or {}, s.profiles or {} }) do
 		for _, x in ipairs(items) do
-			x.copyOf = x.copyOf or copyMark({}, x.name)
+			x.copyOf = x.copyOf or copyMark({ id = x.id }, x.name)
 		end
 	end
 	local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
@@ -2831,7 +2835,7 @@ local function mergeShared()
 		local got = type(x) == "table" and type(x.string) == "string" and ns.Shopping.decode(x.string)
 		if got and got[1] and type(x.id) == "string" then
 			got[1].id, got[1].edited = x.id, tonumber(x.edited) or 0
-			got[1].copyOf = copyMark(x, got[1].name)
+			got[1].copyOf = copyMark({ copyOf = x.copyOf }, got[1].name)
 			lists[#lists + 1] = got[1]
 		end
 	end
@@ -2839,7 +2843,7 @@ local function mergeShared()
 		local p = type(x) == "table" and type(x.string) == "string" and ns.SalePlan.decode(x.string)
 		if p and type(x.id) == "string" then
 			p.id, p.edited = x.id, tonumber(x.edited) or 0
-			p.copyOf = copyMark(x, p.name)
+			p.copyOf = copyMark({ copyOf = x.copyOf }, p.name)
 			profiles[#profiles + 1] = p
 		end
 	end
