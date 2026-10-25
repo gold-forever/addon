@@ -379,17 +379,6 @@ function Views.creditKills(pending, xpKills, corpses, seen, now)
 	return math.max(xpKills or 0, fresh)
 end
 
-function Views.killsInFight(xpKills, corpses, seen)
-	local fresh = 0
-	for _, guid in ipairs(corpses or {}) do
-		if string.find(guid, "^Creature%-") and not seen[guid] then
-			seen[guid] = true
-			fresh = fresh + 1
-		end
-	end
-	return math.max(xpKills or 0, fresh)
-end
-
 -- The rares seen, one row each from the rare stream's rows ({ t, npc, map, x, y, how }): how often, the
 -- last sighting's time, place and how it was seen; the latest first.
 function Views.rares(rows)
