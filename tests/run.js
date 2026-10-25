@@ -21,6 +21,24 @@ function state() {
     lua.lua_setfield(L, -2, to_luastring(name))
   }
   lua.lua_setglobal(L, to_luastring('SOURCES'))
+  // The three TOCs, as TOCS[name], and whether each file a TOC lists is there (FILES[path], for toc_test.lua).
+  lua.lua_newtable(L)
+  for (const name of fs.readdirSync(addonDir).filter((f) => f.endsWith('.toc'))) {
+    lua.lua_pushstring(L, to_luastring(fs.readFileSync(path.join(addonDir, name), 'utf8')))
+    lua.lua_setfield(L, -2, to_luastring(name))
+  }
+  lua.lua_setglobal(L, to_luastring('TOCS'))
+  lua.lua_newtable(L)
+  for (const toc of fs.readdirSync(addonDir).filter((f) => f.endsWith('.toc'))) {
+    for (const line of fs.readFileSync(path.join(addonDir, toc), 'utf8').split(/\r?\n/)) {
+      const file = line.trim()
+      if (file && !file.startsWith('#')) {
+        lua.lua_pushboolean(L, fs.existsSync(path.join(addonDir, ...file.split('\\'))))
+        lua.lua_setfield(L, -2, to_luastring(file))
+      }
+    }
+  }
+  lua.lua_setglobal(L, to_luastring('FILES'))
   // The game's global date, with UTC ("!") formats that hold in every time zone (gamedate.lua).
   const gamedate = fs.readFileSync(path.join(__dirname, 'gamedate.lua'), 'utf8')
   if (lauxlib.luaL_dostring(L, to_luastring(gamedate)) !== lua.LUA_OK) {
