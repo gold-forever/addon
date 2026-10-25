@@ -100,15 +100,10 @@ local function queue()
 	s.queue = s.queue or {}
 	return s.queue
 end
--- The auction panel's Buy tab shows the queue as a list: it follows every change (manual test run 001:
--- a cleared queue's list stayed). `how` is "added", "crafted" or "cleared".
+-- The auction panel's Buy tab, which shows the queue as a list, and the craft queue follow every change
+-- (manual test run 001: a cleared queue's list stayed). `how` is "added", "crafted" or "cleared".
 local function changed(how)
-	if ns.auctionRefresh then
-		ns.auctionRefresh()
-	end
-	if ns.craftQueueChanged then
-		ns.craftQueueChanged(how)
-	end
+	ns.emit("queueChanged", how)
 end
 function ns.queueAdd(recipeId, n)
 	local q = queue()

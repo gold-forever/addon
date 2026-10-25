@@ -458,6 +458,16 @@ end
 fire("ADDON_LOADED", "GoldForever")
 fire("PLAYER_LOGIN")
 fire("PLAYER_ENTERING_WORLD", true, false)
+-- Logged in: every name a file reads on ns is set, but those play sets later (nsnames.lua; review A-2).
+dofile(dir .. "/../tests/nsnames.lua")
+for _, f in ipairs(tocFiles()) do
+  if not f:find("^Libs/") then
+    local source = assert(io.open(dir .. "/" .. f)):read("*a")
+    for name, line in pairs((nsNames(source))) do
+      assert(ns[name] ~= nil or NS_OPTIONAL[name], "ns." .. name .. " read at " .. f .. ":" .. line .. " is not set after login")
+    end
+  end
+end
 fire("LOOT_READY")
 fire("LOOT_READY")
 fire("LOOT_SLOT_CLEARED", 1)
@@ -1714,7 +1724,7 @@ assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
   TooltipDataProcessor = nil
-  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, commands = {} })
+  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, commands = {}, on = function() end })
   TooltipDataProcessor = saved
   assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
 end

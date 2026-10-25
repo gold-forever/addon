@@ -78,7 +78,7 @@ end
 local running, runningAt, depth = nil, nil, 0
 local function stoppedBefore(now)
 	if depth > 0 and runningAt ~= now then
-		local db = ns.db and ns.db()
+		local db = ns.db()
 		if db then
 			db.stopped = db.stopped or {}
 			local e = db.stopped[running] or { n = 0 }
@@ -165,19 +165,6 @@ function ns.tipPrefix(tooltip)
 	return ns.PREFIX .. " "
 end
 
--- Panels outside the hub (the auction panel, the crafting strip, the mail helper, the HUD) redraw in a
--- new look while they show (manual test run 001: the crafting strip stayed arcane after a switch to
--- classic). ns.onLook(fn) adds one; ns.lookChanged() calls them.
-local lookListeners = {}
-function ns.onLook(name, fn)
-	lookListeners[#lookListeners + 1] = { name = name, fn = fn }
-end
-function ns.lookChanged()
-	for _, l in ipairs(lookListeners) do
-		ns.safely(l.name, l.fn)
-	end
-end
-
 function ns.after(seconds, name, fn)
 	C_Timer.After(seconds, function()
 		ns.safely(name, fn)
@@ -221,6 +208,24 @@ end
 frame:SetScript("OnEvent", function(_, event, ...)
 	dispatch(listeners[event], ...)
 end)
+
+-- The addon's own events: a file says what happened with ns.emit(name, ...), and the files above it that
+-- care hear it with ns.listen(name, label, fn), so a lower file never calls up into a higher one.
+--   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (Shop.lua);
+--   "pricesReady"  a new full scan's prices are in (Pricing.lua);
+--   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
+--                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).
+-- Each listener runs on its own, in the order they listened, so one that fails leaves the rest running.
+local heard = {} -- name -> { { name, fn } }
+function ns.listen(event, name, fn)
+	heard[event] = heard[event] or {}
+	table.insert(heard[event], { name = name, fn = fn })
+end
+function ns.emit(event, ...)
+	if heard[event] then
+		dispatch(heard[event], ...)
+	end
+end
 
 -- A unit event for one unit only ("player") has a frame of its own, so the client does not call the addon
 -- for every unit in a group: RegisterUnitEvent is per frame. Without it, every unit's.
@@ -593,7 +598,7 @@ local function printStatus()
 	print(string.format("  today %d crafts, %d skill-ups, %d quests, %d money changes, %d flights",
 		count(today.craft), count(today.skill), count(today.quest), count(today.money), count(today.flight)))
 	if me and me.flights then
-		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, (ns.price and ns.price.coins or Encode.money)(me.flights.cost)))
+		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
 	end
 	for name, e in pairs(db.errors) do
 		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))

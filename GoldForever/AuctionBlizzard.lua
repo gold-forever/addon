@@ -49,7 +49,7 @@ function Blizzard.browse(itemKey)
 	following = true
 	-- A browse result as Blizzard's list hands it: it shows minPrice at once ("rawCopper" nil without it,
 	-- manual test run 001), before its own search brings the listings; the market value stands in.
-	local price = ns.Prices and ns.Prices.value and ns.Prices.value(itemKey.itemID)
+	local price = ns.Prices.value(itemKey.itemID)
 	local ok = pcall(f.SelectBrowseResult, f, { itemKey = itemKey, minPrice = math.floor(price or 0), totalQuantity = 0 })
 	if not ok then
 		-- Else the item's name in Blizzard's search bar, searched there.

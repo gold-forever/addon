@@ -47,7 +47,7 @@ local function buildSessionNow(page)
 	note:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -8)
 	note:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local sum = ns.sessionSummary and ns.sessionSummary()
+		local sum = ns.sessionSummary()
 		local faint = Theme.escape(Theme.color.textFaint)
 		if not sum then
 			for _, c in ipairs(cards) do

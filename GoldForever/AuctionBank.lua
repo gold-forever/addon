@@ -11,7 +11,7 @@ local money = ns.ah.money
 local bankChosen -- the item chosen on the Bank tab
 local function buildBank(page)
 	local function wanted()
-		return ns.fetchList and ns.fetchList() or {}
+		return ns.fetchList() or {}
 	end
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3 },

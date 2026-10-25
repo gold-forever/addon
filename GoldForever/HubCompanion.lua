@@ -73,7 +73,7 @@ local function buildCompanion(page)
 		cards[1]:Set(st.age or "—", st.state == "ok" and "the prices file" or "")
 		cards[2]:Set(tostring(#st.markets), "in the file")
 		cards[3]:Set(mine and tostring(mine.items) or "—", mine and "items priced" or "none yet")
-		local d = ns.Dings and ns.Dings.current()
+		local d = ns.Dings.current()
 		cards[4]:Set(d and (d.on and "On" or "Off") or "—", d and (d.webhook == false and "no webhook on the site" or d.pending and "waiting for the upload" or d.companion and "this character" or "needs the companion") or "")
 		tbl:SetRows(st.markets)
 	end

@@ -1,7 +1,7 @@
 -- Claim.lua: /gf claim <code>, the proof in game that a character another account holds is yours
 -- (security review finding 4). The site hands out codes of eight letters and digits, shown ABCD-EFGH.
 
-local ns = {}
+local ns = { commands = {} }
 assert(load(SOURCES["Claim.lua"], "@Claim.lua"))("GoldForever", ns)
 local C = ns.Claim
 

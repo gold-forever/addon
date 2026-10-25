@@ -55,12 +55,14 @@ local function priceItem(id, l, into, low)
 	low[id] = Encode.cheapestFlat(l)
 end
 
--- After a scan's prices are in: the deals line, once (AuctionPanel.lua says it).
+-- A full scan just taken (Market.lua), whose prices are not yet in: when they are, "pricesReady" says so
+-- once (the deals line, Lists.lua).
+local scanned = false
 local function pricesReady()
-	if ns.dealsPending and ns.announceDeals then
-		ns.dealsPending = nil
+	if scanned then
+		scanned = false
 		C_Timer.After(0, function()
-			ns.safely("deals", ns.announceDeals)
+			ns.emit("pricesReady")
 		end)
 	end
 end
@@ -157,10 +159,7 @@ end
 -- later scan confirms it), else the own scan's (manual test run 001: Poached Nettlefish "sold for"
 -- 47,499g on the Crafting page from a single listing in the own scan).
 local function market(id)
-	if ns.Prices and ns.Prices.value then
-		return (ns.Prices.value(id))
-	end
-	return ownMarket(id)
+	return (ns.Prices.value(id))
 end
 
 local function cheapest(id)
@@ -171,10 +170,7 @@ end
 -- What buying one costs at the auction house: the pool's minimum when the prices file has it, picked as
 -- the market value is, else the own scan's cheapest (Prices.lua).
 local function buy(id)
-	if ns.Prices and ns.Prices.cheapest then
-		return ns.Prices.cheapest(id)
-	end
-	return cheapest(id)
+	return ns.Prices.cheapest(id)
 end
 
 -- The own scan's market value, cheapest unit and time, for the pool's fallback (Prices.lua).
@@ -294,8 +290,14 @@ local function coins(copper)
 	return ns.Money.format(copper, "icons")
 end
 
+-- A full scan was saved: its prices are built now, and "pricesReady" follows when they are in.
+local function afterScan()
+	scanned = true
+	ownMarket(0)
+end
+
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.
 ns.price = {
 	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
-	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
+	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT, afterScan = afterScan,
 }

@@ -44,7 +44,7 @@ end
 -- The next look round the list (Theme.order) from the saved one, not the one drawn last: what a
 -- right-click or the binding switches to.
 local function otherLook()
-	return Theme.nextLook(ns.currentLook and ns.currentLook() or Theme.skin.name)
+	return Theme.nextLook(ns.currentLook())
 end
 
 function Minimap_.toggleWindow()

@@ -140,9 +140,7 @@ local function openIn(window, key)
 	end
 end
 ns.openPage = function(key)
-	if ns.commands.ui then
-		ns.commands.ui(key)
-	end
+	ns.commands.ui(key)
 end
 
 local function windowFor(name)

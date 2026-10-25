@@ -166,7 +166,7 @@ local function buildHome(page)
 		local db, me, now = ns.db(), ns.me(), ns.now()
 		local faint = Theme.escape(Theme.color.textFaint)
 		-- Scan: the cooldown, or how long ago the last one was.
-		local st = ns.scanState and ns.scanState() or { wait = 0 }
+		local st = ns.scanState()
 		local last
 		for _, s in ipairs(db.scans or {}) do
 			if s.kind == "full" and (not last or s.t > last) then
@@ -178,14 +178,12 @@ local function buildHome(page)
 			or (last and ("Last scan " .. Views.ago(last, now) .. ": scan again") or "No scan yet: open the auction house"))
 		-- The bags: what they would sell for.
 		local list, total, unpriced = Views.bagWorth(me and me.bags, Encode.parseItems, function(id)
-			if ns.price then
-				return ns.price.worth(id)
-			end
+			return ns.price.worth(id)
 		end)
 		actions[2].title:SetText("Sell your bags")
 		actions[2].line:SetText(#list > 0 and string.format("%d items, about %s", #list, UI.layout.money(total, "gold")) or "Nothing priced in your bags")
 		-- The best craft at the latest prices.
-		local crafts = ns.profitableCrafts and ns.profitableCrafts() or {}
+		local crafts = ns.profitableCrafts()
 		local best = crafts[1]
 		actions[3].title:SetText(best and ("Craft " .. itemName(best.recipe.output)) or "Craft for profit")
 		actions[3].line:SetText(best and (UI.layout.money(best.profit, "gold") .. " profit a craft") or "No priced recipe makes a profit yet")

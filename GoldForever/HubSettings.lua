@@ -122,9 +122,7 @@ local function buildSettings(page)
 			{ side = 1, row = 0, label = "Minimap button", make = function(cell)
 				c.minimap = UI.Switch(cell, not minimap.hidden, function(on)
 					minimap.hidden = not on
-					if ns.refreshMinimap then
-						ns.refreshMinimap()
-					end
+					ns.refreshMinimap()
 				end)
 				return c.minimap
 			end },
@@ -202,11 +200,7 @@ local function buildSettings(page)
 			{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
 				on = function() return appraiser.shown end,
 				set = function(on)
-					if ns.setHud then
-						ns.setHud(on)
-					else
-						appraiser.shown = on
-					end
+					ns.setHud(on)
 				end },
 			{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
 				on = function() return not auction.hidden end,

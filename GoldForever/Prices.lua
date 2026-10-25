@@ -336,11 +336,7 @@ function Prices.value(id)
 	if markets and Prices.loaded(GoldForever_Prices) then
 		local value, _, _, scannedAt, week = entry(GoldForever_Prices, markets, id)
 		if value then
-			local own, ownAt
-			if ns.ownPrice then
-				local o, _, at = ns.ownPrice(id)
-				own, ownAt = o, at
-			end
+			local own, _, ownAt = ns.ownPrice(id)
 			local picked, from = Prices.pick(value, scannedAt, own, ownAt)
 			if from == "scan" then
 				return picked, "scan"
@@ -348,7 +344,7 @@ function Prices.value(id)
 			return value, "pool", Prices.trend(value, week), week
 		end
 	end
-	local own = ns.ownPrice and ns.ownPrice(id)
+	local own = ns.ownPrice(id)
 	if own then
 		return own, "scan"
 	end
@@ -358,11 +354,7 @@ end
 -- cheapest unit as the value is (Prices.pick), else the own scan's. A craft's reagents are priced so, the
 -- same source as its output's value, so a player with the prices file and no scan of their own sees profits.
 function Prices.cheapest(id)
-	local own, ownAt
-	if ns.ownPrice then
-		local _, low, at = ns.ownPrice(id)
-		own, ownAt = low, at
-	end
+	local _, own, ownAt = ns.ownPrice(id)
 	local markets = mine()
 	if markets and Prices.loaded(GoldForever_Prices) then
 		local _, low, _, scannedAt = entry(GoldForever_Prices, markets, id)
@@ -443,7 +435,7 @@ end
 -- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
 local neutralMarkets, neutralFor -- the neutral auction house's markets, and the region they are for
 function Prices.neutralMarkets()
-	if not (ns.atNeutralZone and ns.atNeutralZone()) then
+	if not ns.atNeutralZone() then
 		return nil
 	end
 	local client = ns.db().client
@@ -477,19 +469,17 @@ Prices.mine = function()
 	return mine()
 end
 
-if ns.on then
-	ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
-		if not isInitialLogin then
-			return
-		end
-		local s = ns.settings("prices", { tooltip = true })
-		local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
-		if text then
-			s.staleWarned = GetServerTime()
-			ns.say(text)
-		end
-	end)
-end
+ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
+	if not isInitialLogin then
+		return
+	end
+	local s = ns.settings("prices", { tooltip = true })
+	local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
+	if text then
+		s.staleWarned = GetServerTime()
+		ns.say(text)
+	end
+end)
 
 ns.commands.prices = function()
 	local lines = Prices.summary(GoldForever_Prices, mine(), GetServerTime())

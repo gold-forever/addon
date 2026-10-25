@@ -42,7 +42,7 @@ function UI.perLook(build, dock)
 		return true
 	end
 	function view:onLook(name, fn)
-		ns.onLook(name, function()
+		ns.listen("lookChanged", name, function()
 			local redrawn = self:redraw()
 			if fn then
 				fn(redrawn)

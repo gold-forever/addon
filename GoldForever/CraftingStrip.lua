@@ -85,7 +85,7 @@ local function refresh()
 	end
 	local faint = Theme.escape(Theme.color.textFaint)
 	local dash = faint .. "unknown|r"
-	local q = recipeID and ns.quoteRecipe and ns.quoteRecipe(recipeID)
+	local q = recipeID and ns.quoteRecipe(recipeID)
 	if not q then
 		strip.title:SetText(faint .. (recipeID and "This recipe makes no item, or the addon has not read it yet." or "Choose a recipe.") .. "|r")
 		for _, v in ipairs(strip.rows) do
@@ -102,7 +102,7 @@ local function refresh()
 	local quality = ns.price.itemInfo(r.output) or 1
 	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "× ") or "") .. ns.itemName(r.output) .. "|r")
 	strip.rows[1]:SetText(q.spend and money(q.spend) or dash)
-	local gear = ns.isGear and ns.isGear(r.output)
+	local gear = ns.isGear(r.output)
 	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and " any quality|r" or " after the cut|r")) or dash)
 	if q.profit and gear then
 		-- One price for every quality and item level: grey, not to be trusted.

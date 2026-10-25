@@ -22,7 +22,7 @@ function Holdings.heldHere(id, inBags)
 	local bank = me and me.bank and parsedOnce(bankParsed, me.bank.items)[id] or 0
 	-- The mailbox as last read, and what was bought since (it goes to the mailbox on retail).
 	local mail = me and me.mail and parsedOnce(mailParsed, me.mail.items)[id] or 0
-	local boughtSince = ns.boughtSince and ns.boughtSince(id) or 0
+	local boughtSince = ns.boughtSince(id)
 	return (inBags or 0) + bank + mail + boughtSince
 end
 

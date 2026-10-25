@@ -76,9 +76,7 @@ local function buildCrafting(page)
 	clear:SetPoint("BOTTOMRIGHT", -14, 8)
 	-- The craft queue window: where to get each reagent (CraftQueue.lua).
 	local queueWindow = UI.Button(detail, "Queue window", function()
-		if ns.openCraftQueue then
-			ns.openCraftQueue()
-		end
+		ns.openCraftQueue()
 	end, { width = 110, height = 22 })
 	queueWindow:SetPoint("RIGHT", clear, "LEFT", -6, 0)
 	for i, n in ipairs({ 5, 1 }) do
@@ -107,7 +105,7 @@ local function buildCrafting(page)
 	end
 	function page:Refresh()
 		local rows, profs, seenProf = {}, { { value = "all", label = "All professions" } }, {}
-		local quotes = ns.allCraftQuotes and ns.allCraftQuotes() or {}
+		local quotes = ns.allCraftQuotes()
 		for _, q in ipairs(quotes) do
 			if q.prof and not seenProf[q.prof] then
 				seenProf[q.prof] = true

@@ -32,7 +32,7 @@ function Lists.lists()
 	end
 	local p = s.profile and s.profiles and s.profiles[s.profile]
 	-- The craft queue's missing reagents, at under market value (Crafting page and strip).
-	local needs = ns.queueNeeds and ns.queueNeeds() or {}
+	local needs = ns.queueNeeds()
 	if next(needs) then
 		local entries = {}
 		-- Its prices are kept by item (it is made anew from the queue): s.queuePrices[id] = { maxUnit | pct }.
@@ -64,8 +64,8 @@ function Lists.lists()
 	return s.lists, shown[s.list], shown
 end
 
--- After a full scan: one chat line naming the list items now listed at or under their price.
-function ns.announceDeals()
+-- After a full scan, its prices in: one chat line naming the list items now listed at or under their price.
+local function announceDeals()
 	if settings().dealsAlert == false then
 		return
 	end
@@ -84,6 +84,7 @@ function ns.announceDeals()
 	ns.say(string.format("%d %s on your lists %s at or under your price: %s%s. Open the Buy tab.", #under, #under == 1 and "item" or "items",
 		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", …" or ""))
 end
+ns.listen("pricesReady", "deals", announceDeals)
 
 -- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
 -- by id, the newer edit wins and the other is dropped (Shopping.merge; no copies since 2026-10-24). A file

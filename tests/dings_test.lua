@@ -1,6 +1,6 @@
 -- Dings.lua: what the "Announce dings on Discord" switch shows, from the save and the companion's file.
 
-local ns = {}
+local ns = { commands = {} }
 assert(load(SOURCES["Dings.lua"], "@Dings.lua"))("GoldForever", ns)
 local D = ns.Dings
 

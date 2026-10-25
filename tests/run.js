@@ -31,6 +31,11 @@ function state() {
   if (lauxlib.luaL_loadbuffer(L, to_luastring(helpers), null, to_luastring('@helpers.lua')) !== lua.LUA_OK || lua.lua_pcall(L, 0, 0, 0) !== lua.LUA_OK) {
     throw new Error(`helpers.lua: ${lua.lua_tojsstring(L, -1)}`)
   }
+  // The names the addon's files read and set on ns (nsnames.lua), for names_test.lua.
+  const names = fs.readFileSync(path.join(__dirname, 'nsnames.lua'), 'utf8')
+  if (lauxlib.luaL_loadbuffer(L, to_luastring(names), null, to_luastring('@nsnames.lua')) !== lua.LUA_OK || lua.lua_pcall(L, 0, 0, 0) !== lua.LUA_OK) {
+    throw new Error(`nsnames.lua: ${lua.lua_tojsstring(L, -1)}`)
+  }
   return L
 }
 

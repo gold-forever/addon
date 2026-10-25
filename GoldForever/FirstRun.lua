@@ -67,9 +67,7 @@ local STEPS = { "What it records", "Where to start", "Look and colour", "The com
 local chosen = "trader"
 
 local function build()
-	if ns.applyLook then
-		ns.applyLook()
-	end
+	ns.applyLook()
 	local W, H = 560, 360
 	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	f:SetSize(W, H)
@@ -229,9 +227,7 @@ local function build()
 			local tables = settingsTables()
 			FirstRun.apply(chosen, tables)
 			-- The HUD on screen goes with its switch, as Settings → Modules does it.
-			if ns.setHud then
-				ns.setHud(tables.appraiser.shown)
-			end
+			ns.setHud(tables.appraiser.shown)
 		end
 		f:Hide()
 		ns.say(skipped and "first-run card skipped; everything stays as it was. /gf welcome shows it again."
@@ -272,9 +268,7 @@ function open(step)
 		ns.settings("firstRun", {}).waiting = true
 		return
 	end
-	if ns.applyLook then
-		ns.applyLook()
-	end
+	ns.applyLook()
 	local key = ns.Theme.key
 	if card and card ~= cards[key] then
 		card:Hide()

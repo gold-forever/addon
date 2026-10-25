@@ -172,10 +172,7 @@ local function finish(s, buckets, n)
 		-- The new prices are read (over frames for a big scan); the deals line follows when they are in. A
 		-- partial scan gives no prices and no deals line.
 		if n > 0 and not partial then
-			ns.dealsPending = true
-			if ns.price then
-				ns.price.own(0) -- builds the own scan's prices
-			end
+			ns.price.afterScan()
 		end
 		if partial then
 			ns.say(string.format("scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends.", s.read or 0, n))

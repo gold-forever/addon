@@ -56,7 +56,7 @@ function Kit.classColor(class)
 	return Theme.class[class or ""] or Theme.color.text
 end
 
-Kit.isRetail = ns.Realms and ns.Realms.isRetail and ns.Realms.isRetail(select(4, GetBuildInfo()))
+Kit.isRetail = ns.Realms.isRetail(select(4, GetBuildInfo()))
 
 function Kit.itemName(id)
 	local row = ns.db().catalogue.items[id]

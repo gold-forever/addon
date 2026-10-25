@@ -46,12 +46,10 @@ end)
 -- An open hub window rebuilt in the look and accent now set (ns.hubReopen, Hub.lua), or else the look set
 -- for what draws next; then the panels outside the hub redraw.
 local function reopen()
-	if not (ns.hubReopen and ns.hubReopen()) then
+	if not ns.hubReopen() then
 		Theme.apply(look(), accent())
 	end
-	if ns.lookChanged then
-		ns.lookChanged()
-	end
+	ns.emit("lookChanged")
 end
 
 -- "/gf look web", "/gf look classic" or "/gf look arcane": the window's look, kept in the settings. An

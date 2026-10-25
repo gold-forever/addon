@@ -23,7 +23,7 @@ Books.LEVELS = 100 -- the cheapest levels of a book the Shop reads
 
 -- The cheapest other listing in a book: one sneaky-price guard for Sell, Cancel and the sale plans.
 function Books.honest(levels, itemID)
-	return Post.honestCheapest(levels, ns.Prices and ns.Prices.value and (ns.Prices.value(itemID)) or nil)
+	return Post.honestCheapest(levels, (ns.Prices.value(itemID)))
 end
 
 -- Asks the server for the chosen row's listings, own ones apart, sorted by price.

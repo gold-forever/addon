@@ -110,9 +110,7 @@ local function buildLists(page)
 	end, { width = 120, height = 24 })
 	crafting:SetPoint("TOPRIGHT", 0, 2)
 	local queueWindow = UI.Button(page, "Queue window", function()
-		if ns.openCraftQueue then
-			ns.openCraftQueue()
-		end
+		ns.openCraftQueue()
 	end, { width = 110, height = 24 })
 	queueWindow:SetPoint("RIGHT", crafting, "LEFT", -6, 0)
 	-- The slot: drop an item on it (or click it holding one), or shift-click an item anywhere.

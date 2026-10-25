@@ -95,9 +95,5 @@ ns.commands.uidebug = function()
 		describe("Sell Post button", ah.panel.post and ah.panel.post.button, out)
 	end
 	local text = table.concat(out, "\n")
-	if ns.showCopy then
-		ns.showCopy("Gold Forever: widget report", text)
-	else
-		print(text)
-	end
+	ns.showCopy("Gold Forever: widget report", text)
 end

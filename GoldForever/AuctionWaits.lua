@@ -32,6 +32,8 @@ ns.auctionRefresh = function()
 		ah.refresh()
 	end
 end
+-- The craft queue shows in the Buy tab as a list (Shop.lua).
+ns.listen("queueChanged", "auction panel", ns.auctionRefresh)
 
 -- An action sent (a post, a buy, a cancel): the panel waits for its answer before the next press, and
 -- never longer than CONFIRM_TIMEOUT, so a failure the client reports nowhere the panel hears cannot
@@ -49,9 +51,7 @@ function ah.await(kind, key, note, onTimeout)
 			if note then
 				note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check it before trying again.|r")
 			end
-			if ns.auctionRefresh then
-				ns.auctionRefresh()
-			end
+			ns.auctionRefresh()
 		end
 	end)
 end

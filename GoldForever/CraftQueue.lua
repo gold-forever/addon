@@ -36,7 +36,7 @@ end
 
 -- Every row of the plan for the queue now (Views.queuePlan).
 function CraftQueue.plan()
-	local needs = ns.queueNeeds and ns.queueNeeds() or {}
+	local needs = ns.queueNeeds()
 	local me = ns.me()
 	local mine = { bags = {}, bank = {}, mail = {} }
 	local bank = me and me.bank and Encode.parseItems(me.bank.items) or {}
@@ -44,7 +44,7 @@ function CraftQueue.plan()
 	for id in pairs(needs) do
 		mine.bags[id] = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id)) or 0
 		mine.bank[id] = bank[id]
-		mine.mail[id] = (mail[id] or 0) + (ns.boughtSince and ns.boughtSince(id) or 0)
+		mine.mail[id] = (mail[id] or 0) + ns.boughtSince(id)
 	end
 	-- Other characters: what each holds of the reagents, from the save. This one is left out itself, not
 	-- by name: an alt of the same name on another realm is another character.
@@ -86,7 +86,7 @@ local function build()
 	f.table:SetPoint("TOPLEFT", 14, -64)
 	f.table:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 	f.take = UI.Button(f, "Take from bank", function()
-		local want = ns.fetchList and ns.fetchList()
+		local want = ns.fetchList()
 		if not want then
 			return
 		end
@@ -102,9 +102,7 @@ local function build()
 	end, { width = 130, height = 26 })
 	f.take:SetPoint("TOPLEFT", f.table, "BOTTOMLEFT", 0, -10)
 	f.clear = UI.Button(f, "Clear queue", function()
-		if ns.queueClear then
-			ns.queueClear()
-		end
+		ns.queueClear()
 	end, { width = 110, height = 26 })
 	f.clear:SetPoint("LEFT", f.take, "RIGHT", 6, 0)
 	f.note = UI.Text(f, "", { size = "xs", tone = "faint", wrap = true })
@@ -128,10 +126,10 @@ function CraftQueue.refresh()
 	end
 	frames:redraw()
 	local frame = frames.frame
-	local queue = ns.queueList and ns.queueList() or {}
+	local queue = ns.queueList()
 	local crafts = {}
 	for _, q in ipairs(queue) do
-		local r = ns.recipeOf and ns.recipeOf(q.recipe)
+		local r = ns.recipeOf(q.recipe)
 		crafts[#crafts + 1] = q.count .. "× " .. (r and ns.itemName(r.output) or ("recipe " .. q.recipe))
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
@@ -205,8 +203,8 @@ end
 
 -- The queue changed (Shop.lua): a craft added opens it (even after the X); a craft made only redraws it
 -- where it shows, so the X sticks (review B-25); an empty queue closes it.
-function ns.craftQueueChanged(how)
-	local queue = ns.queueList and ns.queueList() or {}
+local function queueChanged(how)
+	local queue = ns.queueList()
 	if how == "added" or #queue == 0 then
 		toldReady = nil
 	end
@@ -226,6 +224,7 @@ function ns.craftQueueChanged(how)
 		CraftQueue.show()
 	end
 end
+ns.listen("queueChanged", "craft queue", queueChanged)
 
 -- At a merchant: the queue's vendor reagents it sells, bought (owner, 2026-10-25: "be bought when talking
 -- to a vendor that has the item"), as many as are still to buy and the money allows, in stacks the
@@ -289,7 +288,7 @@ end)
 ns.on("PLAYER_ENTERING_WORLD", "craft queue", function(isInitialLogin, isReloadingUi)
 	if isInitialLogin or isReloadingUi then
 		ns.after(3, "craft queue", function()
-			local queue = ns.queueList and ns.queueList() or {}
+			local queue = ns.queueList()
 			if #queue > 0 and not settings().closed then
 				CraftQueue.show()
 			end
@@ -306,11 +305,9 @@ for _, event in ipairs({ "BAG_UPDATE_DELAYED", "MAIL_INBOX_UPDATE", "BANKFRAME_C
 		end
 	end)
 end
-if ns.onBagsRead then
-	ns.onBagsRead(function()
-		if frames.frame and frames.frame:IsShown() then
-			soon()
-		end
-	end)
-end
+ns.onBagsRead(function()
+	if frames.frame and frames.frame:IsShown() then
+		soon()
+	end
+end)
 frames:onLook("craft queue", CraftQueue.refresh)

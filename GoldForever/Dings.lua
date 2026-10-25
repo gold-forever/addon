@@ -55,9 +55,9 @@ end
 
 -- The state for the character online.
 function Dings.current()
-	local me = ns.me and ns.me()
+	local me = ns.me()
 	local guid = me and me.guid or (UnitGUID and UnitGUID("player"))
-	local db = ns.db and ns.db()
+	local db = ns.db()
 	local mine = db and db.dings and guid and db.dings[guid]
 	return Dings.state(mine, GoldForever_Prices, guid), guid
 end
@@ -75,16 +75,14 @@ function Dings.set(on)
 end
 
 -- "/gf dings on" or "/gf dings off"; "/gf dings" says where it stands.
-if ns.commands then
-	ns.commands.dings = function(arg)
-		arg = string.lower(arg or "")
-		if arg == "on" or arg == "off" then
-			if not Dings.set(arg == "on") then
-				ns.say(Dings.hint(Dings.current()))
-				return
-			end
+ns.commands.dings = function(arg)
+	arg = string.lower(arg or "")
+	if arg == "on" or arg == "off" then
+		if not Dings.set(arg == "on") then
+			ns.say(Dings.hint(Dings.current()))
+			return
 		end
-		local state = Dings.current()
-		ns.say(string.format("Discord dings are %s for this character. %s", state.on and "on" or "off", Dings.hint(state)))
 	end
+	local state = Dings.current()
+	ns.say(string.format("Discord dings are %s for this character. %s", state.on and "on" or "off", Dings.hint(state)))
 end

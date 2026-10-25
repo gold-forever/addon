@@ -134,9 +134,7 @@ local function show()
 		end)
 		frame:SetWidth(330)
 		body:SetWidth(310)
-		if ns.applyLook then
-			ns.applyLook()
-		end
+		ns.applyLook()
 		-- Two presses: the first says what it will sell, the second sells.
 		sell = ns.UI.Button(frame, "Sell junk", function()
 			ns.safely("sell junk", function()

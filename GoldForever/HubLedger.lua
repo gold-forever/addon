@@ -195,20 +195,16 @@ local function buildInventory(page)
 		itemId = function(r) return r.id end,
 		-- At the auction house, a click chooses the item in Post.
 		onRowClick = function(r)
-			if ns.auctionChoose then
-				ns.auctionChoose(r.id)
-			end
+			ns.auctionChoose(r.id)
 		end,
 	})
 	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
 		local rows, totals = Views.inventory(ns.db().characters, Encode.parseItems, function(id)
-			if ns.price then
-				return ns.price.worth(id)
-			end
+			return ns.price.worth(id)
 		end, itemQuality, itemName, filter, function(id)
-			return ns.price and ns.price.vendor(id)
+			return ns.price.vendor(id)
 		end)
 		cards[1]:Set(UI.layout.money(totals.worth, "gold"), filter.place == "gear" and "equipped: not counted" or "bound at vendor price")
 		cards[4]:Set("", "") -- the switch stands where a value would

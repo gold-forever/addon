@@ -113,9 +113,7 @@ local function build()
 			TAB[key].build(f)
 			-- Its widgets placed for certain: the panel anchored anew a frame later (see show).
 			C_Timer.After(0, function()
-				if ns.auctionAnchor then
-					ns.auctionAnchor()
-				end
+				ns.auctionAnchor()
 			end)
 		end
 	end
@@ -232,7 +230,7 @@ show = function(redrawn)
 	-- A new visit opens on Scan while a full scan may start, to prod the player into one (owner's answer,
 	-- 2026-10-24); else on Blizzard's tab.
 	if redrawn ~= true then
-		local st = ns.scanState and ns.scanState()
+		local st = ns.scanState()
 		local key = st and st.wait == 0 and st.phase == "idle" and "scan" or Blizzard.tabForMode(Blizzard.mode())
 		if key and key ~= ah.panel.tab then
 			ah.panel.select(key, true)
@@ -266,9 +264,7 @@ ns.on("AUCTION_HOUSE_SHOW_ERROR", "auction panel", function()
 		if note then
 			note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused it.|r")
 		end
-		if ns.auctionRefresh then
-			ns.auctionRefresh()
-		end
+		ns.auctionRefresh()
 	end
 end)
 
