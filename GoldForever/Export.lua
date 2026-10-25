@@ -25,8 +25,9 @@ local function literal(value)
 	if kind == "string" then
 		return (string.format("%q", value):gsub("\\\n", "\\n"))
 	elseif kind == "number" then
+		-- %.0f, not %d: the client's %d stops at 2^31, under one character's 913k gold in copper.
 		if value == math.floor(value) and math.abs(value) < 2 ^ 53 then
-			return string.format("%d", value)
+			return string.format("%.0f", value)
 		end
 		return string.format("%.17g", value)
 	elseif kind == "boolean" then
