@@ -71,6 +71,7 @@ function SalePlan.percentile(levels, pct)
 		return nil
 	end
 	local target = math.max(1, math.ceil(total * pct / 100))
+	-- pct is 1 to 100 (SalePlan.decode), so the last level at the latest reaches the target.
 	local units = 0
 	for _, l in ipairs(levels) do
 		units = units + l.quantity
@@ -78,7 +79,6 @@ function SalePlan.percentile(levels, pct)
 			return l.unitPrice
 		end
 	end
-	return levels[#levels].unitPrice
 end
 
 -- What one sell rule does now: { action = "post"|"ask"|"hold"|"skip", reason, quantity, unitPrice,
@@ -142,7 +142,7 @@ end
 -- The profile string ----------------------------------------------------------------------------------
 
 SalePlan.PREFIX = "GFP1:"
-local MAX_STRING, MAX_RULES, MAX_COPPER, MAX_UNITS = 16384, 200, 10000000000, 1000000
+local MAX_STRING, MAX_RULES, MAX_COPPER, MAX_UNITS = 16384, 200, Encode.MAX_COPPER, 1000000
 
 function SalePlan.text(p)
 	local lines = { "name " .. p.name, "by " .. p.author }

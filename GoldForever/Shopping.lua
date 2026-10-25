@@ -11,7 +11,7 @@ ns.Shopping = Shopping
 
 Shopping.PREFIX = "GFL1:"
 -- MAX_LISTS is the site's too (MAX_SHARED_ITEMS): a pasted string cannot fill the save with lists.
-local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, 10000000000, 50
+local MAX_STRING, MAX_ENTRIES, MAX_COPPER, MAX_LISTS = 16384, 200, Encode.MAX_COPPER, 50
 -- A share of the market value (owner's answer, 2026-10-24: "% of market"), and how many to hold.
 local MAX_PCT, MAX_UPTO = 1000, 1000000
 

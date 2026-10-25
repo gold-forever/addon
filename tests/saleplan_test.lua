@@ -31,6 +31,7 @@ local book = { lv(100, 10), lv(200, 10), lv(300, 80) }
 eq(P.percentile(book, 10), 100, "10%")
 eq(P.percentile(book, 15), 200, "15%")
 eq(P.percentile(book, 90), 300, "90%")
+eq(P.percentile(book, 100), 300, "100%: the dearest level")
 eq(P.percentile({}, 50), nil, "empty")
 
 -- planSell

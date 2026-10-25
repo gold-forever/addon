@@ -1,6 +1,7 @@
 -- Post.lua: the price to post at, the playground's suggestPost rule in whole silver.
 
 local ns = {}
+assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Post.lua"], "@Post.lua"))("GoldForever", ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 local P = ns.Post
