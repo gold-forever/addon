@@ -390,6 +390,35 @@ if SAVE then
   SlashCmdList.GOLDFOREVER("ui")
   timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
   timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
+  -- /gf export, the whole save (review B-1: 19 s in one call at level 9): built over frames, no frame's
+  -- share over GF_SMOKE_FRAME_MS (100 by default, as the client stops a script far later), into one
+  -- stream that inflates to the text of what it holds.
+  do
+    local steps, worst, total = 0, 0, 0
+    local function measured(fn)
+      local t = os.clock()
+      fn()
+      local ms = (os.clock() - t) * 1000
+      steps, worst, total = steps + 1, math.max(worst, ms), total + ms
+    end
+    local after = C_Timer.After
+    C_Timer.After = function(sec, fn) after(sec, function() measured(fn) end) end
+    collectgarbage("collect")
+    measured(function() SlashCmdList.GOLDFOREVER("export all") end)
+    wait(1)
+    C_Timer.After = after
+    local f = ns.exportFrame()
+    local ok = f and f:IsShown() and f.pending and true or false
+    if ok then
+      local packed = ns.Encode.unbase64(f.text:sub(#ns.Export.PREFIX + 1))
+      ok = LibStub("LibDeflate"):DecompressDeflate(packed) == ns.Export.serialize(f.pending.picked)
+    end
+    local budget = tonumber(os.getenv("GF_SMOKE_FRAME_MS")) or 100
+    if not ok or worst > budget then failedSteps = (failedSteps or 0) + 1 end
+    rows[#rows + 1] = string.format("%-34s %8.1f ms  %d frames, the longest %.1f ms, %d characters%s", "export: the whole save", total, steps, worst,
+      f and f.text and #f.text or 0, ok and (worst > budget and "  FAILED: a frame over the budget" or "") or "  FAILED: no export, or it does not inflate to what it holds")
+    if f then f:Hide() end
+  end
   -- Each item tooltip hook on its own, over every catalogued item, so its share shows.
   -- Twice: a first look at every item, then a working set shown again and again, as play does.
   for pass = 1, 2 do
@@ -1853,12 +1882,37 @@ do
   assert(warned == 1, "one warning for an old file: " .. warned)
   GoldForever_Prices = prices
 end
--- /gf export: the first holds everything, the next only what is new; both build without error.
-SlashCmdList.GOLDFOREVER("export")
+-- /gf export: the first holds everything, the next only what is new; both build without error, over
+-- frames, into one raw DEFLATE stream that inflates to the text of what it holds.
+local function exported(arg)
+  SlashCmdList.GOLDFOREVER(arg and ("export " .. arg) or "export")
+  wait(1)
+  local f = ns2.exportFrame()
+  assert(f and f:IsShown() and f.pending, "the export shows")
+  local packed = ns2.Encode.unbase64(f.text:sub(#ns2.Export.PREFIX + 1))
+  assert(LibStub("LibDeflate"):DecompressDeflate(packed) == ns2.Export.serialize(f.pending.picked), "the export inflates to the text of what it holds")
+  return f
+end
+-- What it holds counts as sent only once copied (review B-26): closed with Escape, the next holds it all again.
+local function copy(f)
+  local ctrl = IsControlKeyDown
+  IsControlKeyDown = function() return true end
+  f.box.scripts.OnKeyUp(f.box, "C")
+  IsControlKeyDown = ctrl
+end
+do
+  local f = exported()
+  assert(GoldForeverDB.exportedAt == nil and GoldForeverDB.exportSent == nil, "nothing counts as sent before the copy")
+  f:Hide()
+  f = exported()
+  assert(f.pending.picked.export.since == nil, "closed without copying: the next export holds everything again")
+  copy(f)
+  assert(f.pending == nil, "copied: sent")
+end
 local firstAt = GoldForeverDB.exportedAt
 seen("EXPORT AT ", tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil), "1792517540 sent items true")
 now = now + 60
-SlashCmdList.GOLDFOREVER("export")
+copy(exported())
 seen("EXPORT AGAIN after ", tostring(GoldForeverDB.exportedAt and firstAt and GoldForeverDB.exportedAt - firstAt) .. " s", "60 s")
 SlashCmdList.GOLDFOREVER("")
 money = 0; xpmax = 0; C_Container.GetContainerNumSlots = function() return 0 end
