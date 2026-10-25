@@ -117,7 +117,7 @@ local function refresh()
 		end
 		if n and sell then
 			local armed = armedAt and GetTime() - armedAt < SELL_ARMED
-			sell.label:SetText(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
+			sell:SetLabel(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
 				or string.format("Sell junk: %d %s · %s", n, n == 1 and "item" or "items", ns.price.coins(value)))
 			sell:Show()
 		elseif sell then

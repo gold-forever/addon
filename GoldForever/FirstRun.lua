@@ -220,7 +220,7 @@ local function build()
 		end
 		steps:SetText(table.concat(parts, "  ·  "))
 		back:SetShown(n > 1)
-		nextButton.label:SetText(n == #STEPS and "Done" or "Next")
+		nextButton:SetLabel(n == #STEPS and "Done" or "Next")
 	end
 	local function finish(skipped)
 		local s = ns.settings("firstRun", {})
