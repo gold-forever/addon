@@ -283,10 +283,7 @@ function open(step)
 end
 
 -- At load: a save with no characters yet is a new install, and is due the card.
-ns.on("ADDON_LOADED", "first run", function(name)
-	if name ~= "GoldForever" then
-		return
-	end
+ns.listen("ready", "first run", function()
 	local s = ns.settings("firstRun", {})
 	if s.due == nil then
 		s.due = FirstRun.isNew(ns.db())

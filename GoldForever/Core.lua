@@ -211,6 +211,8 @@ end)
 
 -- The addon's own events: a file says what happened with ns.emit(name, ...), and the files above it that
 -- care hear it with ns.listen(name, label, fn), so a lower file never calls up into a higher one.
+--   "ready"        the saved table is loaded and upgraded, before PLAYER_LOGIN: what needs only the save
+--                  starts here, not on ADDON_LOADED, so it never runs before the table exists;
 --   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (Shop.lua);
 --   "pricesReady"  a new full scan's prices are in (Pricing.lua);
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
@@ -617,6 +619,7 @@ ns.on("ADDON_LOADED", "core", function(name)
 	end
 	init()
 	prune()
+	ns.emit("ready")
 end)
 
 ns.on("PLAYER_LOGIN", "core", function()
