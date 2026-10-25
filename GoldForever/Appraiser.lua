@@ -469,7 +469,7 @@ end
 
 local hud -- the one-line HUD; hud.details is the session panel under it
 local huds = {} -- Theme.key -> HUD
-local built -- the Theme.key the HUD was drawn under
+local hudThemeKey -- the Theme.key the HUD was drawn under
 
 local function settings()
 	return ns.settings("appraiser", { shown = true })
@@ -574,7 +574,7 @@ local function refresh()
 		return
 	end
 	local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
-	if built ~= Theme.key then
+	if hudThemeKey ~= Theme.key then
 		local open = hud.details:IsShown()
 		hud:Hide()
 		build()
@@ -701,7 +701,7 @@ build = function()
 		if old and old ~= cached then
 			old:Hide()
 		end
-		hud, built = cached, Theme.key
+		hud, hudThemeKey = cached, Theme.key
 		hud:ClearAllPoints()
 		if s.point then
 			hud:SetPoint(s.point[1], UIParent, s.point[2], s.point[3], s.point[4])
@@ -824,7 +824,7 @@ build = function()
 	end, { width = 130, height = 26 })
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
 	hud.details = d
-	built = Theme.key
+	hudThemeKey = Theme.key
 	-- The clock runs whenever the HUD shows, however it came back (after combat, a loading screen, a new
 	-- look): manual test run 001, the HUD stood still at "1m · warming up…" in a delve until a /reload.
 	hud:HookScript("OnShow", function()
@@ -832,7 +832,7 @@ build = function()
 			startTicker()
 		end
 	end)
-	huds[built] = hud
+	huds[hudThemeKey] = hud
 end
 
 -- Whether the HUD stays out of the way now: in combat, when the player asked for that.
@@ -1112,7 +1112,7 @@ end)
 -- A frame's share (ns.frameSpent), else ROWS_A_FRAME rows: chunks of 500 rows were 6 ms each on two
 -- weeks of loot, too much for one frame.
 local ROWS_A_FRAME = 250
-local built = {} -- what to call once the counts are in
+local mobCountWaiters = {} -- what to call once the counts are in
 local function buildMobs()
 	if countingRows then
 		return
@@ -1135,7 +1135,7 @@ local function buildMobs()
 	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
 	-- them again, rather than showing part of them for the session.
 	local function failed(err)
-		mobs, countingRows, built = nil, nil, {}
+		mobs, countingRows, mobCountWaiters = nil, nil, {}
 		ns.fail("mob counts", err)
 	end
 	local function guarded()
@@ -1178,10 +1178,10 @@ local function buildMobs()
 			countRows(rows)
 		end
 		countingRows = nil
-		for _, fn in ipairs(built) do
+		for _, fn in ipairs(mobCountWaiters) do
 			ns.safely("mob counts", fn)
 		end
-		built = {}
+		mobCountWaiters = {}
 	end
 	guarded()
 end
@@ -1202,7 +1202,7 @@ end
 function ns.mobStats(whenBuilt)
 	if not mobs then
 		if whenBuilt then
-			built[#built + 1] = whenBuilt
+			mobCountWaiters[#mobCountWaiters + 1] = whenBuilt
 		end
 		buildMobs()
 	end
