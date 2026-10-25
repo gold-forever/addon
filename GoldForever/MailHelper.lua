@@ -119,13 +119,7 @@ local function refresh()
 	panel.count:SetText(n > 0 and string.format("%d auction %s: %s, %d %s", n, n == 1 and "mail" or "mails", UI.layout.money(gold, "gold"), items, items == 1 and "item" or "items")
 		or "No auction mail.")
 	local can = n > 0 and not run
-	if can then
-		panel.open:Enable()
-		panel.open:SetAlpha(1)
-	else
-		panel.open:Disable()
-		panel.open:SetAlpha(0.5)
-	end
+	panel.open:SetEnabled(can)
 end
 
 -- The batch's next step after `seconds`. Each call replaces the one still waiting, so one take runs at a

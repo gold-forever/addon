@@ -510,10 +510,13 @@ end
 
 -- A button: `primary`, `ghost` or the default. On the web: the site's rounded buttons (gold, bordered
 -- raised, or bare), lifting on hover. Classic: the client's red panel button, and a framed one for ghost.
+-- b:SetLabel(text) changes its text in the look's case; a button turned off is faded in every look. A
+-- click that fails is recorded, as every handler's is.
 function UI.Button(parent, label, onClick, opts)
 	opts = opts or {}
 	local skin = Theme.skin
 	local kind = opts.kind or "default"
+	local caps = skin.titleCaps
 	local b
 	-- In the classic look every button is the game's own, a ghost one too (manual test run 001: Stop and
 	-- New session, Clear queue, Rule › stood out as not classic).
@@ -554,19 +557,20 @@ function UI.Button(parent, label, onClick, opts)
 				b.pulse = UI.pulse(b, Theme.color.accentStrong)
 			end
 		end
-		b.label = UI.Text(b, skin.titleCaps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
+		b.label = UI.Text(b, caps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
 		b.label:SetPoint("CENTER")
 		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
 		-- A gradient lifts towards white: fading it showed the rounded slices' seams (manual test run 001).
 		local lifted = gradient and { Theme.mix(gradient[1], "#ffffff", 0.18), gradient[2], Theme.mix(gradient[3], "#ffffff", 0.18), gradient[4] }
-		b:SetScript("OnEnter", function(self)
+		-- Hooked, so a caller's own OnEnter (a tooltip) keeps the lift.
+		b:HookScript("OnEnter", function(self)
 			if gradient then
 				self.bg:SetGradient("HORIZONTAL", lifted)
 			else
 				self.bg:SetColor(lift, kind == "ghost" and (web and 1 or 0.6) or 1)
 			end
 		end)
-		b:SetScript("OnLeave", function(self)
+		b:HookScript("OnLeave", function(self)
 			if gradient then
 				self.bg:SetGradient("HORIZONTAL", gradient)
 			else
@@ -574,8 +578,20 @@ function UI.Button(parent, label, onClick, opts)
 			end
 		end)
 	end
+	function b:SetLabel(text)
+		self.label:SetText(caps and string.upper(text) or text)
+	end
+	-- Off: faded, in the classic look as well as its grey label.
+	b:HookScript("OnDisable", function(self)
+		self:SetAlpha(0.5)
+	end)
+	b:HookScript("OnEnable", function(self)
+		self:SetAlpha(1)
+	end)
 	if onClick then
-		b:SetScript("OnClick", onClick)
+		b:SetScript("OnClick", function(...)
+			ns.safely("button " .. label, onClick, ...)
+		end)
 	end
 	return b
 end
