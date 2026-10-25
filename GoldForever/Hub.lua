@@ -159,6 +159,11 @@ local function windowFor(name)
 		windows[key] = UI.Window(key == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. key, "Gold Forever", PAGES, settings(), {
 			version = ns.VERSION,
 			look = Theme.skins[name].label,
+			extra = { label = "Export", onClick = function()
+				ns.commands.export()
+			end, shown = function()
+				return not ns.Prices.connected(GoldForever_Prices, ns.now())
+			end },
 		})
 	end
 	return windows[key], built

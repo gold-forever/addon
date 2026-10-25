@@ -60,6 +60,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 
 - The Gold Forever window (`/gf`, or the minimap button) is a hub: a sidebar with a page search (a tab's
   name finds its page and opens that tab: "inv" opens Ledger's Inventory), the pages in groups, and the addon's own memory and CPU use at its foot.
+- An **Export** button beside Reload UI while the companion app is not at work (no prices file, or one
+  over a day old): it makes the `/gf export` text to paste on the site. The companion uploads your save
+  by itself.
 - **Home**: your next moves (when you can scan, what your bags would sell for, the best craft), today's
   money by where it came from, the bag items worth most (each says whether it sells best at the auction
   house or to a vendor; hover for the item), and a **gold goal** with the gold a day still needed. It
@@ -163,7 +166,8 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   craft queue's close button follows the look.
 - **Saves**: event days not yet exported are kept past the 14-day window, up to 30 days. `/gf export`
   is built over several frames, so a big save no longer stalls the game, and its text is let go when the
-  window closes. A loss in the chat reads "-1s 50c", not "98s 50c".
+  window closes, and a character with over 214k gold no longer stops it. A loss in the chat reads
+  "-1s 50c", not "98s 50c".
 - The mail helper takes one mail at a time, so a slow inbox cannot start a second run.
 
 ## 0.15.0

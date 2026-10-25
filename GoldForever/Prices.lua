@@ -464,6 +464,12 @@ function Prices.staleWarning(data, now, lastWarned)
 	return string.format("everyone's prices are %d %s old: is the companion app running? gold-forever.app/companion", days, days == 1 and "day" or "days")
 end
 
+-- Whether the companion app is at work: its prices file is loaded and no older than a day, as it writes
+-- one every hour. Without it the player uploads their save by hand (/gf export).
+function Prices.connected(data, now)
+	return Prices.status(data, nil, now).state == "ok" and amount(data.at) and now - data.at <= Prices.STALE_FILE or false
+end
+
 -- This character's market keys, for the Companion page.
 Prices.mine = function()
 	return mine()

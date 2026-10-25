@@ -272,4 +272,11 @@ eq(P.staleWarning({ at = NOW - 2 * DAY - 5 }, NOW, nil), "everyone's prices are 
 eq(P.staleWarning({ at = NOW - DAY - 5 }, NOW, nil):find("1 day old", 1, true) ~= nil, true, "one day")
 eq(P.staleWarning({ at = NOW - 2 * DAY }, NOW, NOW - 3600), nil, "warned an hour ago")
 
+-- The hub's Export button shows unless the companion is at work: its file loaded and under a day old.
+eq(P.connected({ v = 1, at = NOW - 3600, markets = { m = { [1] = good } } }, NOW), true, "a fresh file: connected")
+eq(P.connected({ v = 1, at = NOW - DAY - 5, markets = { m = { [1] = good } } }, NOW), false, "a day old: not running")
+eq(P.connected({ v = 1, markets = { m = { [1] = good } } }, NOW), false, "no time: not known to run")
+eq(P.connected(nil, NOW), false, "no file")
+eq(P.connected({ v = 2, at = NOW }, NOW), false, "a file this addon cannot read")
+
 return checks()
