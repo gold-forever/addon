@@ -12,10 +12,6 @@ local money = ns.ah.money
 -- dropping an item on the slot or shift-clicking it anywhere while the page shows; the chosen item's most
 -- per unit (under market, a fixed price or a share of the market value) and how many to hold. The craft
 -- queue's list is here too: its items follow the queue, their prices are set here.
-local function itemNameOf(id)
-	local _, _, _, _, name = ns.price.itemInfo(id)
-	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
-end
 local PRICE_MODES = { { value = "market", label = "Under market" }, { value = "fixed", label = "Fixed price" }, { value = "pct", label = "% of market" },
 	{ value = "lowest", label = "Lowest, ask over %" } }
 
@@ -309,7 +305,7 @@ local function buildLists(page)
 		list.entries[#list.entries + 1] = { itemId = id }
 		stamp(list)
 		chosenItem = id
-		page.note:SetText("Added " .. itemNameOf(id) .. ": set the most you pay below.")
+		page.note:SetText("Added " .. ns.itemName(id) .. ": set the most you pay below.")
 		page:Refresh()
 	end
 	page.addItem = add
@@ -354,7 +350,7 @@ local function buildLists(page)
 		local entries = {}
 		for i, e in ipairs(list.entries) do
 			local quality = ns.price.itemInfo(e.itemId)
-			entries[i] = { itemId = e.itemId, name = itemNameOf(e.itemId), quality = quality or 1,
+			entries[i] = { itemId = e.itemId, name = ns.itemName(e.itemId), quality = quality or 1,
 				price = e.maxUnit and money(e.maxUnit) or e.pct and (e.pct .. "% of market") or e.lowest and ("lowest, ask over " .. e.lowest .. "%") or "under market",
 				many = e.upTo and tostring(e.upTo) or "any" }
 		end
@@ -363,7 +359,7 @@ local function buildLists(page)
 		edit:SetShown(e ~= nil)
 		if e then
 			local editable = not list.profile or list.queue
-			editName:SetText(itemNameOf(e.itemId))
+			editName:SetText(ns.itemName(e.itemId))
 			local kind = pending and pending.id == e.itemId and pending.kind or e.maxUnit and "fixed" or e.pct and "pct" or e.lowest and "lowest" or "market"
 			mode:Set(kind)
 			amount:SetShown(kind ~= "market")

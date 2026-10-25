@@ -162,10 +162,7 @@ local function drawAway()
 	awayStamp.bank, awayStamp.mail, awayStamp.scan, awayStamp.file = bankT, mailT, ns.scanVersion, fileAt
 	away.list = ns.Views.elsewhere(me, ns.Encode.parseItems, function(id)
 		return (ns.Prices.value(id))
-	end, function(id)
-		local _, _, _, _, name = ns.price.itemInfo(id)
-		return name or (C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
-	end)
+	end, ns.itemName)
 	local e = away.list
 	away.text:SetText(e.count > 0 and string.format("Bank & mail: %d %s · %s", e.count, e.count == 1 and "item" or "items", money(e.total)) or "")
 end

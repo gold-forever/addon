@@ -58,19 +58,17 @@ end
 
 Kit.isRetail = ns.Realms.isRetail(select(4, GetBuildInfo()))
 
+-- Names and quality as the catalogue has them (Catalogue.lua), for the pages' tables.
 function Kit.itemName(id)
-	local row = ns.db().catalogue.items[id]
-	return (row and string.match(row, "^([^,]+)")) or ("Item " .. id)
+	return ns.Catalogue.name("item", id) or ("Item " .. id)
 end
 
 function Kit.itemQuality(id)
-	local row = ns.db().catalogue.items[id]
-	return tonumber(row and select(2, strsplit(",", row))) or 1
+	return ns.Catalogue.quality(id) or 1
 end
 
 function Kit.npcName(id)
-	local row = ns.db().catalogue.npcs[id]
-	return (row and string.match(row, "^([^,]+)")) or ("NPC " .. id)
+	return ns.Catalogue.name("npc", id) or ("NPC " .. id)
 end
 
 -- The item's own tooltip while the pointer is over the frame: the item is frame.itemId, set as it changes.

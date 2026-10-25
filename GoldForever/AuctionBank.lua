@@ -112,10 +112,7 @@ local function buildBank(page)
 		local me = ns.me()
 		local e = me and ns.Views.elsewhere(me, ns.Encode.parseItems, function(id)
 			return (ns.Prices.value(id))
-		end, function(id)
-			local _, _, _, _, n = ns.price.itemInfo(id)
-			return n or (C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
-		end) or { items = {} }
+		end, ns.itemName) or { items = {} }
 		local want, rows, n = wanted(), {}, 0
 		for i, it in ipairs(e.items) do
 			local take = it.place == "bank" and want[it.id] or nil
