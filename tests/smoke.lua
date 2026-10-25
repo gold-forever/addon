@@ -1940,6 +1940,22 @@ do
   copy(f)
   assert(f.pending == nil, "copied: sent")
 end
+-- A dropdown's options changed: the value shown again, in its new label (review C-27); past twelve
+-- options the menu scrolls with the wheel.
+do
+  local d = ns2.UI.Dropdown(UIParent, { { value = 1, label = "One" } }, 1)
+  d:SetOptions({ { value = 1, label = "Uno" } })
+  assert(d.text:GetText() == "Uno", "the new label of the value chosen: " .. tostring(d.text:GetText()))
+  local many = {}
+  for i = 1, 20 do many[i] = { value = i, label = "Item " .. i } end
+  d:SetOptions(many, 20)
+  assert(d.value == 20 and d.text:GetText() == "Item 20", "or the value given")
+  assert(d.menu.rows[12].shown and not d.menu.rows[13].shown, "twelve rows at a time")
+  d.menu.scripts.OnMouseWheel(d.menu, -3)
+  assert(not d.menu.rows[3].shown and d.menu.rows[4].shown and d.menu.rows[15].shown and not d.menu.rows[16].shown, "the wheel scrolls")
+  d.menu.scripts.OnMouseWheel(d.menu, -30)
+  assert(d.menu.rows[20].shown and d.menu.rows[9].shown, "to the last row, no further")
+end
 local firstAt = GoldForeverDB.exportedAt
 seen("EXPORT AT ", tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil), "1792517540 sent items true")
 now = now + 60
