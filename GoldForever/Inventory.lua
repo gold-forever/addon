@@ -249,7 +249,6 @@ local function fetchFromBank()
 	end
 	step()
 end
-ns.fetchFromBank = fetchFromBank
 
 local function bankOpened()
 	bankOpen = true

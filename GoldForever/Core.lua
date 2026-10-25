@@ -26,6 +26,9 @@ local db -- GoldForeverDB, once loaded
 local me -- this character's entry in db.characters
 local reloading = false -- set by the ReloadUI hook just before the UI unloads
 
+-- What the tests reach in a file and the addon itself does not use: kept apart from the names the files share.
+ns.test = {}
+
 function ns.db()
 	return db
 end

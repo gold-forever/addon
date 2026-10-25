@@ -386,7 +386,7 @@ if hooksecurefunc and ChatFrameUtil and ChatFrameUtil.InsertLink then
 elseif hooksecurefunc and ChatEdit_InsertLink then
 	hooksecurefunc("ChatEdit_InsertLink", addToList)
 end
-ns.AuctionPanelAltClick = chooseFromBag
+ns.test.AuctionPanelAltClick = chooseFromBag
 -- From the hub's Inventory: an item chosen in Post while the auction house is open.
 function ns.auctionChoose(itemID)
 	ns.safely("auction choose", chooseFromBag, nil, nil, itemID)

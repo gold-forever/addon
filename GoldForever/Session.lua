@@ -187,9 +187,9 @@ local function text()
 	return table.concat(lines, "\n")
 end
 
--- The session in words, for /gf session and the tests; and its kills, for the tests.
-ns.sessionText = text
-ns.sessionKills = function()
+-- The session in words, and its kills, for the tests.
+ns.test.sessionText = text
+ns.test.sessionKills = function()
 	return session and session.kills
 end
 

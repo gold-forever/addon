@@ -836,11 +836,11 @@ do
   AP.tab("scan")
   assert(not AP.bound(), "Space is free on the Scan tab")
   -- Alt-click on the bag's Linen (bag 0, slot 1) chooses it in Post, by slot or by link.
-  ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
   local _, picked = AP.state()
   assert(picked and picked.id == 2589 and AP.bound(), "alt-click chose Linen and opened Post")
   AP.tab("scan")
-  ns.AuctionPanelAltClick("|cffffffff|Hitem:2589::::::::30|h[Linen Cloth]|h|r", nil)
+  ns.test.AuctionPanelAltClick("|cffffffff|Hitem:2589::::::::30|h[Linen Cloth]|h|r", nil)
   _, picked = AP.state()
   assert(picked and picked.id == 2589, "by link where no slot is given")
   AP.tab("scan")
@@ -1308,7 +1308,7 @@ do
   local posted
   function f:SetPostItem(loc) posted = loc; self:SetDisplayMode(M.CommoditiesSell) end
   ns.AuctionPanel.tab("post")
-  ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
   assert(posted and p.tab == "post", "chosen on Sell: into Blizzard's Sell window")
   -- Posting from the panel empties Blizzard's Sell window first (its frame would ask the emptied bag slot
   -- for an item level and fail).
@@ -1326,7 +1326,7 @@ do
   function f:SelectBrowseResult() browsed = browsed + 1 end
   local keyInfo = C_AuctionHouse.GetItemKeyInfo
   C_AuctionHouse.GetItemKeyInfo = function() return info end
-  ns.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
   assert(browsed == 0, "not shown before the item key's info is loaded")
   info = { isCommodity = true }
   fire("ITEM_KEY_ITEM_INFO_RECEIVED", 2589)
@@ -1452,7 +1452,7 @@ do
   local site = ns.Shopping.encode({ { name = "From the site", entries = { { itemId = 2589, maxUnit = 3000 } } } })
   local profile = ns.SalePlan.encode({ name = "Site profile", author = "Me", sell = {}, buy = { { itemID = 2589, upTo = 10, maxUnit = 3000 } } })
   GoldForever_Prices = { v = 1, at = now, markets = {}, shared = { at = 77, lists = { { id = "s1", edited = 100, string = site } }, profiles = { { id = "p1", edited = 100, string = profile } } } }
-  ns.mergeShared()
+  ns.test.mergeShared()
   local auction = ns.settings("auction", { rule = {}, duration = 2 })
   local found
   for _, l in ipairs(auction.lists) do if l.id == "s1" then found = l end end
@@ -1461,7 +1461,7 @@ do
   for _, p in ipairs(auction.profiles) do if p.id == "p1" then p1 = p end end
   assert(p1 and p1.buy[1].upTo == 10, "and its profile")
   local count = #auction.lists
-  ns.mergeShared()
+  ns.test.mergeShared()
   assert(#auction.lists == count, "the same file is not merged twice")
   -- A list deleted in the game stays deleted, and the site's copies are never taken (manual test run 001:
   -- deleted lists and "(older copy)" lists came back at every reload).
@@ -1470,13 +1470,13 @@ do
   auction.removedShared.s1 = now
   local copy = ns.Shopping.encode({ { name = "From the site (older copy)", entries = {} } })
   GoldForever_Prices.shared = { at = 78, lists = { { id = "s1", edited = 100, string = site }, { id = "c1", edited = 100, string = copy } }, profiles = {} }
-  ns.mergeShared()
+  ns.test.mergeShared()
   for _, l in ipairs(auction.lists) do
     assert(l.id ~= "s1" and l.id ~= "c1", "neither the deleted list nor a site copy came back: " .. tostring(l.name))
   end
   -- A list of the player's own named "(older copy)" is not taken for a copy and kept (review C-24).
   table.insert(auction.lists, { id = "g1", edited = now, name = "Old stock (older copy)", entries = {} })
-  ns.mergeShared()
+  ns.test.mergeShared()
   assert(auction.lists[#auction.lists].id == "g1", "the player's list kept")
   table.remove(auction.lists)
   -- The profile in use stays in use when an earlier merge's copy before it is dropped (review B-11).
@@ -1484,7 +1484,7 @@ do
   local B, C = { id = "pb", name = "B", author = "", sell = {}, buy = {} }, { id = "pc", name = "C", author = "", sell = {}, buy = {} }
   auction.profiles = { { id = "pa", name = "A (older copy)", author = "", sell = {}, buy = {}, copyOf = "pz" }, B, C }
   auction.profile = 2
-  ns.mergeShared()
+  ns.test.mergeShared()
   assert(#auction.profiles == 2 and auction.profiles[auction.profile] == B, "B still in use, not C: " .. tostring(auction.profile and auction.profiles[auction.profile] and auction.profiles[auction.profile].name))
   auction.profiles, auction.profile = keepProfiles, keepProfile
   GoldForever_Prices = prices
@@ -1571,7 +1571,7 @@ do
   MailFrame = nil
 end
 seen("RARE ROWS ", tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]), "1792517415,1,947,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate;1792517415,1,61234,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate", "nil")
-seen("APPRAISER\n", tostring(ns.sessionText and ns.sessionText()), "Loot something to start a session.")
+seen("APPRAISER\n", tostring(ns.test.sessionText and ns.test.sessionText()), "Loot something to start a session.")
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
 seen("TOOLTIP ", tostring(GameTooltip.lines[1]), "looted 4× · ~4s 50c a loot", "looted 4× · ~2s 62c a loot")
 -- The pool's prices from GoldForever_Data (contract T01): one line for the player's own market.
@@ -1734,13 +1734,13 @@ seen("MOB ", tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lin
 -- One more loot of that mob after its tooltip was built: counted in place, not by reading every row.
 -- It is a fight of its own with no kill XP (a grey mob): its corpse counts as one kill once the fight
 -- closes, and looting it again later counts nothing.
-local killsBefore = ns.sessionKills() or 0
+local killsBefore = ns.test.sessionKills() or 0
 fire("PLAYER_REGEN_DISABLED")
 fire("PLAYER_REGEN_ENABLED")
 slots = { { kind = 2, sources = { "Creature-0-4620-0-12-1922-000J", 40 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) money = money + 40; fire("PLAYER_MONEY") fire("LOOT_CLOSED")
 wait(10)
-assert(ns.sessionKills() == killsBefore + 1, "a grey mob's corpse is a kill: " .. tostring(ns.sessionKills()) .. " after " .. killsBefore)
+assert(ns.test.sessionKills() == killsBefore + 1, "a grey mob's corpse is a kill: " .. tostring(ns.test.sessionKills()) .. " after " .. killsBefore)
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
 seen("MOB AFTER LOOT ", tostring(GameTooltip.lines[1]), "looted 5× · ~3s 68c a loot", "looted 5× · ~2s 18c a loot")
@@ -1895,7 +1895,7 @@ do
   assert((#frames - before) <= 47, "Settings builds at most 47 frames at opening: " .. (#frames - before))
 end
 -- The Guide names only commands the addon has.
-for _, c in ipairs(ns.GUIDE_COMMANDS) do
+for _, c in ipairs(ns.test.GUIDE_COMMANDS) do
   local word = c[1]:match("^/gf%s*(%S*)")
   assert(word == "" or ns.commands[word], "the Guide's command exists: " .. c[1])
 end
@@ -2176,7 +2176,7 @@ local function recorded()
 end
 assert(#recorded() == 0, "errors before the reload:\n" .. table.concat(recorded(), "\n"))
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
-local before = ns.sessionText()
+local before = ns.test.sessionText()
 fire("PLAYER_LOGOUT")
 -- The save was written by an older version, with an error it recorded: the new version starts with none.
 local thisVersion = GoldForeverDB.addon
@@ -2203,7 +2203,7 @@ assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"]
   "days not yet exported are kept, within 30 days")
 GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
 GoldForeverDB.exportedAt = exportedBefore
-local after = ns2.sessionText and ns2.sessionText() or ""
+local after = ns2.test.sessionText and ns2.test.sessionText() or ""
 seen("AFTER RELOAD\n", tostring(after), "Farming 3:57\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 64c|r\nXP: 44400 · 673011/h · level 31 in 4m (~133 kills)\nBags: 8 free")
 do
   local kinds = {}

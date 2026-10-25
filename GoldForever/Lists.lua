@@ -162,4 +162,4 @@ end
 ns.on("PLAYER_LOGIN", "shared lists", function()
 	mergeShared()
 end)
-ns.mergeShared = mergeShared
+ns.test.mergeShared = mergeShared

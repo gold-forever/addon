@@ -20,7 +20,7 @@ local GUIDE_COMMANDS = {
 	{ "/gf look arcane", "a look (web, classic, arcane)" }, { "/gf accent #2fd1a8", "an accent colour" }, { "/gf dings on", "Discord dings" },
 	{ "/gf scan", "a full scan at the auction house" }, { "/gf welcome", "the first-run card" }, { "/gf prices", "the prices file" },
 }
-ns.GUIDE_COMMANDS = GUIDE_COMMANDS
+ns.test.GUIDE_COMMANDS = GUIDE_COMMANDS
 
 local function buildGuide(page)
 	local body = Kit.scrollBody(page, 680, 900)

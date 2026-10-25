@@ -25,7 +25,6 @@ local function realName(v)
 	end
 	return v
 end
-ns.realName = realName
 
 -- A stored row's fields: name, minLevel, maxLevel, classification, type.
 local function fields(row)
@@ -83,7 +82,6 @@ local function seeUnit(unit)
 	npcs[id] = Encode.row(name and Encode.name(name) or named or "", range[1], range[2],
 		classification or (stored and stored[4]) or nil, kind and Encode.name(kind) or (stored and stored[5]) or nil)
 end
-ns.seeUnit = seeUnit
 
 ns.on("PLAYER_TARGET_CHANGED", "npcs", function()
 	seeUnit("target")
@@ -450,7 +448,6 @@ local function copy(value, depth)
 	end
 	return out
 end
-ns.copy = copy
 
 local function call(fn, ...)
 	if type(fn) ~= "function" then
