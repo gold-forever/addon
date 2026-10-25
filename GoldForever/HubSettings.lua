@@ -96,7 +96,7 @@ local function buildSettings(page)
 		-- The controls, each set again from the settings at every refresh (a command may have changed one).
 		local c = {}
 		local function bigDrop()
-			return math.floor((appraiser.bigDrop or ns.BIG_DROP or 10000) / 10000)
+			return math.floor((appraiser.bigDrop or ns.BIG_DROP) / 10000)
 		end
 		settingsCard(g, "Display", 0, {
 			{ side = 0, row = 0, label = "Look", full = true, make = function(cell)

@@ -162,7 +162,7 @@ ns.profitableCrafts = profitable
 -- For the hub's Crafting page: every known recipe that makes an item, each with its quote and name.
 function ns.allCraftQuotes()
 	local me = ns.me()
-	if not me or not ns.price then
+	if not me then
 		return {}
 	end
 	local cols, held = columns("recipe"), stock()
@@ -190,7 +190,7 @@ end
 -- For the crafting strip: one recipe's quote from the catalogue, with what this character holds; nil
 -- for a recipe the catalogue lacks or one that makes no item (an enchant).
 function ns.quoteRecipe(id)
-	if not ns.me() or not ns.price then
+	if not ns.me() then
 		return nil
 	end
 	local r = recipe(id, columns("recipe"))
