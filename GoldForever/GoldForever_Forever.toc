@@ -52,6 +52,7 @@ AuctionBooks.lua
 SellingRulesPage.lua
 ShoppingListsPage.lua
 AuctionPanel.lua
+UiDebug.lua
 CraftingStrip.lua
 CraftQueue.lua
 FirstRun.lua
