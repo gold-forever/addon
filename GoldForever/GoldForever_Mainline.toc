@@ -38,6 +38,7 @@ Loot.lua
 Inventory.lua
 Professions.lua
 Market.lua
+Trade.lua
 Ledger.lua
 Knowledge.lua
 Character.lua

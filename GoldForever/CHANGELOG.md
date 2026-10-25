@@ -124,6 +124,10 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 
 ### Saves and fixes
 
+- Records three new things for your pages on the site and the shared prices: how long each scanned
+  listing has left (so the site can tell a sale from an auction that ran out), what you sell to and buy
+  from vendors, and what you buy on the auction house and your auctions that expire or that you cancel.
+  As before, nothing about other players is kept: no buyer or seller names.
 - On retail, mob and object names hidden in combat are no longer saved as "Unknown": the addon looks
   again after the fight and at the loot window, and fills a missing name in later, so your farming
   sessions on the site name what you killed and gathered.
