@@ -2236,10 +2236,15 @@ do
   local f = exported()
   assert(GoldForeverDB.exportedAt == nil and GoldForeverDB.exportSent == nil, "nothing counts as sent before the copy")
   f:Hide()
+  -- Closed, the string and what it held are let go, copied or not (review B-26).
+  assert(f.pending == nil and f.text == nil and f.box:GetText() == "", "closed without copying: the export is let go")
   f = exported()
   assert(f.pending.picked.export.since == nil, "closed without copying: the next export holds everything again")
   copy(f)
   assert(f.pending == nil, "copied: sent")
+  assert(f.text and f.box:GetText() == f.text, "copied, the string stays while it shows")
+  f:Hide()
+  assert(f.text == nil and f.box:GetText() == "", "copied and closed: the export is let go")
 end
 -- A dropdown's options changed: the value shown again, in its new label (review C-27); past twelve
 -- options the menu scrolls with the wheel.

@@ -38,9 +38,12 @@ end
 local function build()
 	frame = UI.Dialog({ name = "GoldForeverExport", width = 560, height = 190, at = { "CENTER" }, strata = "DIALOG", movable = true,
 		title = "Gold Forever export" })
-	-- Closed without copying: nothing counts as sent, and what it held is let go.
+	-- Closed, copied or not: nothing more counts as sent, and the string and what it held are let go
+	-- (review B-26): a big save's export is megabytes of text, kept till the next export otherwise.
 	frame:SetScript("OnHide", function()
 		frame.pending = nil
+		frame.text = nil
+		frame.box:SetText("")
 	end)
 
 	frame.summary = UI.Text(frame, "", { tone = "muted" })
