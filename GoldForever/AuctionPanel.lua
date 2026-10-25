@@ -111,7 +111,7 @@ local function build()
 	end
 	tabs:SetPoint("TOPLEFT", 16, -42)
 	tabs:SetPoint("TOPRIGHT", -16, -42)
-	-- Each tab's page, as p[key]. The page frames in the order they were always made.
+	-- Each tab's page, also as p[key].
 	for _, key in ipairs({ "scan", "post", "shop", "cancel", "bank" }) do
 		local f = CreateFrame("Frame", nil, p)
 		f:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
