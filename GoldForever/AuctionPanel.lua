@@ -15,18 +15,7 @@ local W = 420
 local DURATIONS = { { value = 1, label = "12 hours" }, { value = 2, label = "24 hours" }, { value = 3, label = "48 hours" } }
 local CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next press is taken
 
-local function settings()
-	-- The saved table as it is, once there: no defaults made on every call (it is read per row).
-	local s = ns.db().settings.auction or ns.settings("auction", { rule = {}, duration = 2 })
-	s.durations = s.durations or {}
-	s.quantities = s.quantities or {}
-	for k, v in pairs(Post.DEFAULT) do
-		if s.rule[k] == nil then
-			s.rule[k] = v
-		end
-	end
-	return s
-end
+local settings = ns.auctionSettings
 
 local panel -- built the first time the auction house opens (or again after a look change)
 local built -- Theme.key it was drawn under
@@ -123,30 +112,9 @@ local function sellable()
 end
 
 -- A row priced: market value, the cheapest other listing (live or from the scan) and the suggestion.
--- The active sale profile (Rule tab), or nil.
-local function activeProfile(s)
-	s = s or settings()
-	return s.profile and s.profiles and s.profiles[s.profile] or nil
-end
+local activeProfile = ns.activeProfile
 
--- The bank's and mailbox's item strings, parsed once each time they change (not once per row).
-local bankParsed, mailParsed = {}, {}
-local function parsedOnce(cache, text)
-	if text ~= cache.text then
-		cache.text, cache.items = text, ns.Encode.parseItems(text)
-	end
-	return cache.items
-end
-
--- What this character holds of an item, bags and bank (decision 12: keep counts per character).
-local function heldHere(id, inBags)
-	local me = ns.me()
-	local bank = me and me.bank and parsedOnce(bankParsed, me.bank.items)[id] or 0
-	-- The mailbox as last read, and what was bought since (it goes to the mailbox on retail).
-	local mail = me and me.mail and parsedOnce(mailParsed, me.mail.items)[id] or 0
-	local boughtSince = ns.boughtSince and ns.boughtSince(id) or 0
-	return (inBags or 0) + bank + mail + boughtSince
-end
+local heldHere = ns.Holdings.heldHere
 
 -- A sale plan's step as the Post tab's suggestion: posts in whole silver; "ask" posts the plan's price
 -- after a second press; hold and skip post nothing.
@@ -971,49 +939,13 @@ ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
 		or ("Press again to buy " .. text .. "."))
 	refresh()
 end)
--- What was bought since the mailbox was last read, for the craft queue: retail sends a purchase to the
--- mailbox, so the bags do not show it (manual test run 001: a reagent bought stayed on the Craft queue
--- list). settings().bought = { { id, n, t } }; dropped once the mailbox has been read after it.
-local function recordBought(b)
-	local s = settings()
-	s.bought = s.bought or {}
-	s.bought[#s.bought + 1] = { id = b.id, n = b.n, t = ns.now() }
-end
--- Units of an item bought and not in the mailbox as read yet. A read: the save changes only when the
--- mailbox is read (below).
-function ns.boughtSince(id)
-	local me = ns.me()
-	local mailAt = me and me.mail and me.mail.t or 0
-	local n = 0
-	for _, b in ipairs(settings().bought or {}) do
-		if b.t > mailAt and b.id == id then
-			n = n + b.n
-		end
-	end
-	return n
-end
--- Purchases from before the mailbox was last read are in it (or the bags) by now: dropped from the save,
--- once the mailbox has been read (Inventory.lua reads it on the same event, at the same pace).
-ns.on("MAIL_INBOX_UPDATE", "bought", ns.throttle("bought", 2, function()
-	local me = ns.me()
-	local list = settings().bought
-	local mailAt = me and me.mail and me.mail.t
-	if not (list and mailAt) then
-		return
-	end
-	for i = #list, 1, -1 do
-		if list[i].t <= mailAt then
-			table.remove(list, i)
-		end
-	end
-end))
 
 local function bought(ok, why)
 	if not panel or not panel.shop.note then
 		return -- a purchase from Blizzard's own window, the Shop not drawn
 	end
 	if ok and buying then
-		recordBought(buying)
+		ns.Holdings.recordBought(buying)
 	end
 	buying = nil
 	waits.shop, purchase = nil, nil
