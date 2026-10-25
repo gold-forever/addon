@@ -121,4 +121,30 @@ eq(ex[4], "The cheapest is 200000c: you post at 120000c (normal price)", "far ov
 local atFloor = P.examples({ undercut = "1s", floor = 80, normal = 120, belowFloor = "floor" }, function(c) return c .. "c" end)
 eq(atFloor[3], "The cheapest is 50000c: you post at 80000c (at floor)", "or posted at the floor")
 
+-- The player's own auctions as the Auctions tab reads them (review C-14).
+do
+	local infos = {
+		{ auctionID = 1, itemKey = { itemID = 2589 }, status = 0, buyoutAmount = 120, quantity = 20 },
+		{ auctionID = 2, itemKey = { itemID = 14047, itemLevel = 30 }, status = 0, buyoutAmount = 9001, quantity = 2 },
+		{ auctionID = 3, itemKey = { itemID = 2589 }, status = 1, buyoutAmount = 120, quantity = 5 },
+		{ auctionID = 4, itemKey = { itemID = 2592 }, status = 0, buyoutAmount = 0 },
+		nil,
+		{ auctionID = 6, itemKey = { itemID = 4306 }, buyoutAmount = 700 },
+	}
+	local keys = { [2589] = { isCommodity = true, itemName = "Linen Cloth" }, [14047] = { isCommodity = false } }
+	local names = { [14047] = { 3, "Runecloth" } }
+	local owned = P.readOwned(6, function(i) return infos[i] end, function(k) return keys[k.itemID] end, function(id)
+		local x = names[id]
+		if x then
+			return x[1], nil, nil, nil, x[2]
+		end
+	end)
+	eq(#owned, 3, "active ones with a buyout: sold, no buyout and missing left out")
+	eq(owned[1].unit .. " " .. tostring(owned[1].commodity) .. " " .. owned[1].name .. " " .. owned[1].quality, "120 true Linen Cloth 1", "a commodity: its buyout is the unit price")
+	eq(owned[2].unit .. " " .. owned[2].quantity .. " " .. owned[2].name .. " " .. owned[2].quality .. " " .. owned[2].itemKey.itemLevel, "4501 2 Runecloth 3 30", "an item: the auction's buyout a unit, rounded")
+	eq(owned[3].name .. " " .. owned[3].quantity .. " " .. tostring(owned[3].commodity), "item 4306 1 false", "no names and no key info: by its id, one, not a commodity")
+	eq(#P.readOwned(0, nil, nil, nil), 0, "no auctions")
+	eq(P.readOwned(1, function() return infos[1] end, nil, function() end)[1].commodity, false, "a client without key info: not a commodity")
+end
+
 return checks()

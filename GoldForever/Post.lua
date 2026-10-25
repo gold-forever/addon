@@ -106,6 +106,28 @@ function Post.undercutList(auctions, tolerance)
 	return out
 end
 
+-- The player's own auctions, from the client's list of them: `info(i)` for i up to `n` (as
+-- C_AuctionHouse.GetOwnedAuctionInfo), `keyInfo(itemKey)` (GetItemKeyInfo, may be nil) and `itemInfo(id)`
+-- (quality, _, _, _, name). Active ones with a buyout only (status 0); sold ones wait in the list for their
+-- mail. Returns { auctionID, itemID, itemKey, quantity, unit, commodity, name, quality }.
+function Post.readOwned(n, info, keyInfo, itemInfo)
+	local owned = {}
+	for i = 1, n do
+		local a = info(i)
+		if a and a.itemKey and (a.status or 0) == 0 and a.buyoutAmount and a.buyoutAmount > 0 then
+			local key = keyInfo and keyInfo(a.itemKey)
+			local commodity = key and key.isCommodity or false
+			local qty = a.quantity or 1
+			-- ASSUMED: a commodity's buyoutAmount is its unit price, an item's the whole auction's.
+			local unit = commodity and a.buyoutAmount or math.floor(a.buyoutAmount / math.max(1, qty) + 0.5)
+			local quality, _, _, _, name = itemInfo(a.itemKey.itemID)
+			owned[#owned + 1] = { auctionID = a.auctionID, itemID = a.itemKey.itemID, itemKey = a.itemKey, quantity = qty,
+				unit = unit, commodity = commodity, name = (key and key.itemName) or name or ("item " .. a.itemKey.itemID), quality = quality or 1 }
+		end
+	end
+	return owned
+end
+
 -- What a rule does, as four sentences for an item worth `market` (10g unless given): someone a little
 -- under the market, no one else, someone far under (past the floor), someone far over. money(copper)
 -- formats an amount.
