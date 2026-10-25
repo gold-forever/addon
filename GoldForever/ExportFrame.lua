@@ -36,25 +36,15 @@ local function copied()
 end
 
 local function build()
-	frame = UI.Panel(UIParent, { name = "GoldForeverExport" })
-	frame:SetSize(560, 190)
-	frame:SetPoint("CENTER")
-	frame:SetFrameStrata("DIALOG")
-	frame:SetMovable(true)
-	frame:EnableMouse(true)
-	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-	table.insert(UISpecialFrames, "GoldForeverExport") -- Escape closes it
+	frame = UI.Dialog({ name = "GoldForeverExport", width = 560, height = 190, at = { "CENTER" }, strata = "DIALOG", movable = true,
+		title = "Gold Forever export" })
 	-- Closed without copying: nothing counts as sent, and what it held is let go.
 	frame:SetScript("OnHide", function()
 		frame.pending = nil
 	end)
 
-	local title = UI.Text(frame, "Gold Forever export", { size = "lg" })
-	title:SetPoint("TOPLEFT", 16, -14)
 	frame.summary = UI.Text(frame, "", { tone = "muted" })
-	frame.summary:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+	frame.summary:SetPoint("TOPLEFT", frame.heading, "BOTTOMLEFT", 0, -6)
 	local how = UI.Text(frame, "Press Ctrl+C to copy, then paste it at " .. SITE, { tone = "faint" })
 	how:SetPoint("TOPLEFT", frame.summary, "BOTTOMLEFT", 0, -6)
 
@@ -154,20 +144,9 @@ end
 local copy
 function ns.showCopy(title, text)
 	if not copy then
-		copy = UI.Panel(UIParent, { name = "GoldForeverCopy" })
-		copy:SetSize(640, 420)
-		copy:SetPoint("CENTER")
-		copy:SetFrameStrata("DIALOG")
-		copy:SetMovable(true)
-		copy:EnableMouse(true)
-		copy:RegisterForDrag("LeftButton")
-		copy:SetScript("OnDragStart", copy.StartMoving)
-		copy:SetScript("OnDragStop", copy.StopMovingOrSizing)
-		table.insert(UISpecialFrames, "GoldForeverCopy") -- Escape closes it
-		copy.title = UI.Text(copy, "", { size = "lg" })
-		copy.title:SetPoint("TOPLEFT", 16, -14)
+		copy = UI.Dialog({ name = "GoldForeverCopy", width = 640, height = 420, at = { "CENTER" }, strata = "DIALOG", movable = true, title = "" })
 		local how = UI.Text(copy, "Ctrl+A, then Ctrl+C to copy it all.", { tone = "faint" })
-		how:SetPoint("TOPLEFT", copy.title, "BOTTOMLEFT", 0, -6)
+		how:SetPoint("TOPLEFT", copy.heading, "BOTTOMLEFT", 0, -6)
 		local scroll = CreateFrame("ScrollFrame", nil, copy, "UIPanelScrollFrameTemplate")
 		scroll:SetPoint("TOPLEFT", how, "BOTTOMLEFT", 0, -10)
 		scroll:SetPoint("BOTTOMRIGHT", -36, 52)
@@ -194,7 +173,7 @@ function ns.showCopy(title, text)
 		end)
 		close:SetPoint("BOTTOMRIGHT", -16, 14)
 	end
-	copy.title:SetText(title)
+	copy.heading:SetText(title)
 	copy.text = text
 	copy.box:SetText(text)
 	copy:Show()

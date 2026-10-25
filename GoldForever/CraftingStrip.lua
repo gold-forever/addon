@@ -24,15 +24,9 @@ local function host()
 end
 
 local function build()
-	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
-	f:SetWidth(W)
-	f:SetHeight(120 + 4 * 20 + LINES * 18 + 30)
-	f:SetFrameStrata("HIGH")
+	local f = UI.Dialog({ window = true, width = W, height = 120 + 4 * 20 + LINES * 18 + 30, strata = "HIGH", icon = "flask-conical", title = "Gold Forever",
+		titleTone = "muted" })
 	f:Hide()
-	local mark = UI.Icon(f, "flask-conical", 16, "accent")
-	mark:SetPoint("TOPLEFT", 14, -14)
-	local head = UI.Text(f, Theme.skin.titleCaps and "GOLD FOREVER" or "Gold Forever", { size = "sm", medium = true, tone = "muted" })
-	head:SetPoint("LEFT", mark, "RIGHT", 6, 0)
 	f.title = UI.Text(f, "", { size = "md", medium = true, wrap = true })
 	f.title:SetPoint("TOPLEFT", 14, -40)
 	f.title:SetWidth(W - 28)

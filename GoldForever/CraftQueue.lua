@@ -65,28 +65,11 @@ function CraftQueue.plan()
 end
 
 local function build()
-	local f = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
-	f:SetSize(W, 340)
-	f:SetFrameStrata("MEDIUM")
-	f:SetMovable(true)
-	f:EnableMouse(true)
-	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		local p, _, rel, x, y = self:GetPoint()
-		settings().point = { p, rel, x, y }
-	end)
-	local mark = UI.Icon(f, "flask-conical", 16, "accent")
-	mark:SetPoint("TOPLEFT", 14, -14)
-	local title = UI.Text(f, Theme.skin.titleCaps and "CRAFT QUEUE" or "Craft queue", { size = "md", medium = true })
-	title:SetPoint("LEFT", mark, "RIGHT", 6, 0)
-	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-	close:SetPoint("TOPRIGHT", -4, -4)
-	close:SetScript("OnClick", function()
-		settings().closed = true
-		f:Hide()
-	end)
+	-- Closed with its X, it stays closed until a craft is queued again.
+	local f = UI.Dialog({ window = true, width = W, height = 340, strata = "MEDIUM", movable = true, store = settings, at = { "LEFT", 40, 60 },
+		icon = "flask-conical", title = "Craft queue", titleSize = "md", close = function()
+			settings().closed = true
+		end })
 	f.crafts = UI.Text(f, "", { size = "xs", tone = "muted", wrap = true })
 	f.crafts:SetPoint("TOPLEFT", 14, -38)
 	f.crafts:SetPoint("RIGHT", f, "RIGHT", -14, 0)
@@ -133,13 +116,7 @@ end
 
 -- Where the player left it, else at the left of the screen.
 local function dock(f)
-	local p = settings().point
-	f:ClearAllPoints()
-	if p then
-		f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-	else
-		f:SetPoint("LEFT", UIParent, "LEFT", 40, 60)
-	end
+	f:Restore()
 end
 
 -- One window per look and accent.

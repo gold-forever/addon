@@ -210,20 +210,9 @@ function UI.Window(name, title, pages, store, opts)
 		sweep:Play()
 		w.shimmer = sweep
 	end
-	local close
-	if skin.closeTemplate then
-		close = CreateFrame("Button", nil, w, skin.closeTemplate)
-		close:SetPoint("TOPRIGHT", hero, "TOPRIGHT", 2, 2)
-	else
-		close = UI.Button(w, "", nil, { kind = "ghost", width = 30, height = 30 })
-		local x = UI.Icon(close, "x", 16, "muted")
-		x:SetPoint("CENTER")
-		close:SetPoint("TOPRIGHT", hero, "TOPRIGHT", -14, -14)
-	end
+	local close = UI.CloseButton(w)
+	close:SetPoint("TOPRIGHT", hero, "TOPRIGHT", close.template and 2 or -14, close.template and 2 or -14)
 	close:SetFrameLevel(hero:GetFrameLevel() + 5)
-	close:SetScript("OnClick", function()
-		w:Hide()
-	end)
 
 	-- The page ----
 	local content = CreateFrame("Frame", nil, w)
