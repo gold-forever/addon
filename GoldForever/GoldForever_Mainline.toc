@@ -49,6 +49,7 @@ SalePlan.lua
 AuctionSettings.lua
 Holdings.lua
 Lists.lua
+AuctionWaits.lua
 AuctionPanel.lua
 CraftingStrip.lua
 CraftQueue.lua
