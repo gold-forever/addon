@@ -208,15 +208,11 @@ local function buildMobs(page)
 		end
 		local rows = {}
 		for id, m in pairs(mobs or {}) do
-			local value = m.coin
-			for item, d in pairs(m.items) do
-				value = value + (worth(item) or 0) * d.units
-			end
 			rows[#rows + 1] = {
 				name = Kit.npcName(id),
 				loots = m.loots,
 				coin = m.coin / m.loots,
-				value = value / m.loots,
+				value = Views.mobValue(m, worth) or 0,
 			}
 		end
 		tbl:SetRows(rows)

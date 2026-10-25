@@ -44,15 +44,7 @@ local function buildRares(page)
 		end)
 		local rows = {}
 		for _, r in ipairs(Views.rares(Views.rows(ns.db(), "rare"))) do
-			local m = mobs and mobs[r.npc]
-			local value
-			if m and m.loots > 0 then
-				value = m.coin
-				for item, d in pairs(m.items) do
-					value = value + (worth(item) or 0) * d.units
-				end
-				value = value / m.loots
-			end
+			local value = Views.mobValue(mobs and mobs[r.npc], worth)
 			rows[#rows + 1] = {
 				name = Kit.npcName(r.npc),
 				seen = r.seen,
