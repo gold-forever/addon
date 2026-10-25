@@ -4,7 +4,7 @@ local _, ns = ...
 local Theme, UI = ns.Theme, ns.UI
 local settings = ns.auctionSettings
 local lists, stamp = ns.Lists.lists, ns.Lists.stamp
-local money = ns.ah.money
+local money = ns.Money.auction
 
 -- Shopping lists, a page of the hub (owner's answers, 2026-10-24, manual test run 001: the Buy tab had
 -- no way to rename or delete a list or to price an item, and adding needed a click in a field first).

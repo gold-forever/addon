@@ -3,7 +3,7 @@
 local _, ns = ...
 local Theme, UI = ns.Theme, ns.UI
 local searchEntry = ns.AuctionBooks.searchEntry
-local money = ns.ah.money
+local money = ns.Money.auction
 
 -- Bank (owner, 2026-10-24 and 25): what the bank and mailbox hold that the auction house pays for, most
 -- worth first. A click chooses one and shows its listings in Blizzard's window, as on Sell; Take all, or

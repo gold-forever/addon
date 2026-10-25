@@ -6,7 +6,7 @@ local ah = ns.ah
 local Blizzard = ns.AuctionBlizzard
 local settings = ns.auctionSettings
 local bookKey = ns.AuctionBooks.bookKey
-local await, busy, money = ah.await, ah.busy, ah.money
+local await, busy, money = ah.await, ah.busy, ns.Money.auction
 local CONFIRM_TIMEOUT = ah.CONFIRM_TIMEOUT
 
 -- The player's own auctions (design 009, Cancel undercut; owner: build it now, 5% by default): each

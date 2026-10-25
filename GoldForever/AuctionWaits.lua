@@ -1,7 +1,7 @@
 -- Gold Forever: what the auction panel's tabs share (ns.ah), and the waits for an action's answer.
 
 local _, ns = ...
-local Theme, UI = ns.Theme, ns.UI
+local Theme = ns.Theme
 
 -- The panel's state, one table the tabs reach: the panel built for the look in use (`panel`, `panels` by
 -- Theme.key, `built` the key it was drawn under); Sell's `rows` and `chosen` row; `live`, item key ->
@@ -17,11 +17,6 @@ local Theme, UI = ns.Theme, ns.UI
 -- draws the tab in view again (AuctionPanel.lua sets it).
 local ah = { panels = {}, rows = {}, live = {}, waits = {}, owned = {} }
 ns.ah = ah
-
--- Gold and silver: a price rounded to the gold read as wrong beside the auction house's own (8g for 8g 69s).
-function ah.money(c)
-	return UI.layout.money(c, "silver")
-end
 
 ah.WIDTH = 420 -- the panel's width
 ah.CONFIRM_TIMEOUT = 5 -- seconds to wait for a post's answer before the next press is taken

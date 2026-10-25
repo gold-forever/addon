@@ -8,7 +8,7 @@ local settings = ns.auctionSettings
 local heldHere = ns.Holdings.heldHere
 local lists = ns.Lists.lists
 local bookKey, searchEntry = Books.bookKey, Books.searchEntry
-local await, busy, money = ah.await, ah.busy, ah.money
+local await, busy, money = ah.await, ah.busy, ns.Money.auction
 
 -- Shopping lists (design 009, Shop): items with the most to pay a unit, or "under market". Choosing an
 -- entry searches it; Buy next buys what its deal covers: a commodity in the client's two steps (a quote,

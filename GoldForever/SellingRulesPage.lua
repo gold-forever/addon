@@ -6,7 +6,7 @@ local Theme, UI, Post = ns.Theme, ns.UI, ns.Post
 local ah = ns.ah
 local settings, activeProfile = ns.auctionSettings, ns.activeProfile
 local stamp = ns.Lists.stamp
-local money = ah.money
+local money = ns.Money.auction
 
 -- The selling rules, a page of the hub (manual test run 001: too much for the panel, and hard to read):
 -- the rule's controls at the left, each saying what it does; at the right what the rule does to an item

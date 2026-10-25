@@ -12,7 +12,7 @@ local Blizzard, Books = ns.AuctionBlizzard, ns.AuctionBooks
 local settings, activeProfile = ns.auctionSettings, ns.activeProfile
 local heldHere = ns.Holdings.heldHere
 local bookKey, search, LISTED = Books.bookKey, Books.search, Books.LISTED
-local await, busy, money = ah.await, ah.busy, ah.money
+local await, busy, money = ah.await, ah.busy, ns.Money.auction
 
 local DURATIONS = { { value = 1, label = "12 hours" }, { value = 2, label = "24 hours" }, { value = 3, label = "48 hours" } }
 

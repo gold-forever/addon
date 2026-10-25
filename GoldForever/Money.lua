@@ -94,3 +94,9 @@ local MODES = { plain = plain, colour = colour, cell = cell, icons = icons }
 function Money.format(copper, mode, precision)
 	return MODES[mode or "plain"](copper, precision)
 end
+
+-- The auction panel's money: gold and silver, as the auction house's own (a price rounded to the gold read
+-- as wrong beside it: 8g for 8g 69s).
+function Money.auction(copper)
+	return colour(copper, "silver")
+end

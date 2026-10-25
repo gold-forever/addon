@@ -10,7 +10,7 @@ local Blizzard = ns.AuctionBlizzard
 local settings = ns.auctionSettings
 local Sell, Buy, Cancel = ns.AuctionSell, ns.AuctionBuy, ns.AuctionCancel
 local search, searchEntry = ns.AuctionBooks.search, ns.AuctionBooks.searchEntry
-local busy, money = ah.busy, ah.money
+local busy, money = ah.busy, ns.Money.auction
 
 -- The tabs in their order: { key, label, build(page), refresh(page) }. Named as Blizzard's tabs are
 -- (manual test run 001); the keys stay as the save knows them.
