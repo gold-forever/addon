@@ -960,6 +960,16 @@ do
   local planned
   for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then planned = r end end
   assert(planned and planned.need == 6, "it plans the Linen")
+  -- The holdings of the queue's reagents alone: as every item's holdings, for those items.
+  do
+    local needs, all = ns.queueNeeds(), ns.Views.holdings(GoldForeverDB.characters, ns.Encode.parseItems)
+    local some = ns.Views.holdingsOf(GoldForeverDB.characters, ns.Encode.parseItems, needs)
+    for id in pairs(needs) do
+      assert((all[id] and all[id].total) == (some[id] and some[id].total) and #(all[id] and all[id].by or {}) == #(some[id] and some[id].by or {}), "the same holdings of " .. id)
+    end
+    for id in pairs(some) do assert(needs[id], "only the reagents: " .. id) end
+    assert(next(some) ~= nil, "someone holds a reagent")
+  end
   GoldForeverDB.settings.craftQueue.closed = true
   cq:Hide()
   ns.queueAdd(2963, 0)

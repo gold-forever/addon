@@ -56,16 +56,14 @@ function CraftQueue.plan()
 	-- Other characters: what each holds of the reagents, from the save.
 	local others = {}
 	local myName = me and me.name
-	for id, e in pairs(Views.holdings(ns.db().characters, Encode.parseItems)) do
-		if needs[id] then
-			local list = {}
-			for _, h in ipairs(e.by) do
-				if h.name ~= myName then
-					list[#list + 1] = { name = h.name, total = h.total }
-				end
+	for id, e in pairs(Views.holdingsOf(ns.db().characters, Encode.parseItems, needs)) do
+		local list = {}
+		for _, h in ipairs(e.by) do
+			if h.name ~= myName then
+				list[#list + 1] = { name = h.name, total = h.total }
 			end
-			others[id] = list
 		end
+		others[id] = list
 	end
 	local plan = Views.queuePlan(needs, mine, guildCounts(), others)
 	-- A reagent a vendor sells without limit (seen at a merchant) is bought there, not at the auction house.
