@@ -7,6 +7,9 @@
 local _, ns = ...
 local Encode = ns.Encode
 
+local Catalogue = {}
+ns.Catalogue = Catalogue
+
 -- minLevel and equipLoc are appended to design 002's columns.
 ns.FIELDS.item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc"
 
@@ -128,3 +131,23 @@ ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
 		end
 	end)
 end)
+
+-- The quest an item starts: its ID when a loot window said so, true when only its tooltip does.
+function Catalogue.startsQuest(id)
+	local catalogue = ns.db().catalogue
+	local quest = catalogue.questStarters and catalogue.questStarters[id]
+	if quest then
+		return quest
+	end
+	local tooltip = catalogue.tooltips[id] or (ns.lean and ns.itemTooltipText(id))
+	return tooltip and (string.find(tooltip, ITEM_STARTS_QUEST or "This Item Begins a Quest", 1, true) and true) or nil
+end
+
+-- Whether this character finished the quest; unknown (nil) without a quest ID.
+function Catalogue.questDone(quest)
+	if type(quest) ~= "number" then
+		return nil
+	end
+	local completed = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted or IsQuestFlaggedCompleted
+	return completed and completed(quest) or false
+end

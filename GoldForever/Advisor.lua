@@ -1,6 +1,6 @@
 -- Gold Forever: the loot advisor. What to do with what is in the bags: sell it to a vendor, post it
 -- on the auction house, or disenchant it, whichever brings the most, with the totals. Shown at a
--- vendor and with /gf bags. Prices and valuation are the appraiser's (ns.price).
+-- vendor and with /gf bags. Prices and valuation are Pricing.lua's (ns.price).
 
 local _, ns = ...
 

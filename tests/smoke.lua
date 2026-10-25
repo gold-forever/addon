@@ -2307,7 +2307,7 @@ do
     if ms > worst then worst = ms end
     clock = clock + 0.001
   end
-  -- The first price asked after the scan rebuilds the prices from it (Appraiser.lua), over frames too.
+  -- The first price asked after the scan rebuilds the prices from it (Pricing.lua), over frames too.
   -- (The addon was reloaded above: ns2 is the one running now.)
   local rframes, rworst = 0, 0
   ns2.price.market(2001)

@@ -166,7 +166,7 @@ local function finish(s, buckets, n)
 		local scans = ns.db().scans
 		scans[#scans + 1] = record
 		prune()
-		-- Prices built from the scans (Appraiser.lua) are stale now; the count of scans may not change.
+		-- Prices built from the scans (Pricing.lua) are stale now; the count of scans may not change.
 		ns.scanVersion = (ns.scanVersion or 0) + 1
 		ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
 		-- The new prices are read (over frames for a big scan); the deals line follows when they are in. A

@@ -36,7 +36,10 @@ Legacy.lua
 Achievements.lua
 Disenchant.lua
 Crafting.lua
-Appraiser.lua
+Session.lua
+Hud.lua
+MobStats.lua
+Tooltips.lua
 Prices.lua
 Advisor.lua
 Rares.lua
