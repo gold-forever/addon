@@ -20,6 +20,7 @@ Realms.lua
 Core.lua
 Claim.lua
 Theme.lua
+Looks.lua
 UI.lua
 ExportFrame.lua
 Views.lua
