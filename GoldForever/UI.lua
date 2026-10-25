@@ -98,50 +98,17 @@ end
 
 -- A whole number in groups of three, with the client's separator ("3,000,000").
 function UI.layout.group(n)
-	local sign, digits = string.match(tostring(math.floor(n or 0)), "^(%-?)(%d+)$")
-	local sep = LARGE_NUMBER_SEPARATOR or ","
-	local out = string.gsub(string.reverse(digits or "0"), "(%d%d%d)", "%1" .. sep)
-	out = string.reverse(out)
-	if string.sub(out, 1, #sep) == sep then
-		out = string.sub(out, #sep + 1)
-	end
-	return (sign or "") .. out
+	return ns.Money.group(n)
 end
 
 function UI.layout.money(copper, precision)
-	copper = math.floor((copper or 0) + 0.5)
-	local sign = copper < 0 and "-" or ""
-	copper = math.abs(copper)
-	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
-	local function coin(n, unit, hex)
-		return Theme.escape(hex) .. n .. unit .. "|r"
-	end
-	local parts = {}
-	if g > 0 then
-		parts[#parts + 1] = coin(UI.layout.group(g), "g", Theme.color.gold)
-	end
-	-- "silver": gold and silver, as auction prices are set (8g 69s); copper only under a gold, and only
-	-- when there is some (7s, not 7s 0c).
-	if precision == "silver" and (g > 0 or (s > 0 and c == 0)) then
-		if s > 0 then
-			parts[#parts + 1] = coin(s, "s", Theme.color.silver)
-		end
-	elseif precision ~= "gold" or g == 0 then
-		if s > 0 or g > 0 then
-			parts[#parts + 1] = coin(s, "s", Theme.color.silver)
-		end
-		parts[#parts + 1] = coin(c, "c", Theme.color.copper)
-	end
-	return sign .. table.concat(parts, " ")
+	return ns.Money.format(copper, "colour", precision)
 end
 
 -- Money in a table cell: a faint dash for nothing, so rows of "0c" don't drown the amounts; gold and
 -- silver unless told otherwise (manual test run 001: "17g 70s 0c" in Auction sales, "1,425g 0s 0c").
 function UI.layout.amount(copper, precision)
-	if math.floor(math.abs(copper or 0) + 0.5) == 0 then
-		return Theme.escape(Theme.color.textFaint) .. "—|r"
-	end
-	return UI.layout.money(copper, precision or "silver")
+	return ns.Money.format(copper, "cell", precision)
 end
 
 -- What a row's tooltip shows for the cells too narrow for their text: each column's title and its

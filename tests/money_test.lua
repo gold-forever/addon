@@ -1,9 +1,10 @@
--- Money as the addon writes it: plain text (Encode.money, the chat and the export), the game's coin
--- colours (UI.layout.money and .amount, the windows) and the coin icons (ns.price.coins, tooltips).
--- Each pinned as it reads, character for character.
+-- Money as the addon writes it (Money.lua): plain text (Encode.money, the chat), the game's coin colours
+-- (UI.layout.money and .amount, the windows) and the coin icons (ns.price.coins, tooltips). Each pinned
+-- as it reads, character for character.
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
 assert(load(SOURCES["UI.lua"], "@UI.lua"))("GoldForever", ns)
 local E, L = ns.Encode, ns.UI.layout
@@ -59,6 +60,7 @@ GetCoinTextureString = function(copper)
 	return "<" .. copper .. ">"
 end
 local withIcons = { Encode = ns.Encode }
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", withIcons)
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", withIcons)
 local coins = withIcons.price.coins
 eq(coins(0), "<0>", "icons nothing")
@@ -70,8 +72,20 @@ eq(coins(-150), "<-150>", "icons a loss, as the client is handed it")
 eq(#asked, 6, "the client asked each time")
 GetCoinTextureString = nil
 local noIcons = { Encode = ns.Encode }
+assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", noIcons)
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", noIcons)
 eq(noIcons.price.coins(123456), "12g 34s 0c", "no icons: plain, copper dropped from a gold")
 eq(noIcons.price.coins(37), "37c", "no icons: copper only")
+
+-- The one formatter behind them all, by mode.
+local M = ns.Money
+eq(M.format(10925), "1g 9s 25c", "plain by default")
+eq(M.format(10925, "plain"), E.money(10925), "plain is Encode.money")
+eq(M.format(86900, "colour", "silver"), L.money(86900, "silver"), "colour is UI.layout.money")
+eq(M.format(0, "cell"), L.amount(0), "cell is UI.layout.amount")
+eq(withIcons.Money.format(123456, "icons"), "<123400>", "icons is ns.price.coins")
+eq(M.format(123456, "icons"), "12g 34s 0c", "icons without the client's function, plain")
+eq(M.group(-1234567), "-1,234,567", "grouped, a loss")
+eq(L.group(1234), "1,234", "UI.layout.group is Money.group")
 
 return checks()

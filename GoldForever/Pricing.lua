@@ -296,17 +296,8 @@ local function disenchantWorth(id)
 end
 
 -- Money with the game's coin icons, as its own Sell Price line; from a gold up, gold and silver only.
--- Retail has the function under C_CurrencyInfo (manual test run 001: the tooltips showed plain text).
-local coinTexture = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
 local function coins(copper)
-	copper = math.floor(copper + 0.5)
-	if copper >= 10000 then
-		copper = math.floor(copper / 100) * 100
-	end
-	if coinTexture then
-		return coinTexture(copper)
-	end
-	return Encode.money(copper)
+	return ns.Money.format(copper, "icons")
 end
 
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.

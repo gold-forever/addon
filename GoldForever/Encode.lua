@@ -316,14 +316,7 @@ end
 
 -- "1g 23s 4c", "23s 4c", "4c": copper as text, for where coin icons cannot go.
 function Encode.money(copper)
-	copper = math.floor(copper + 0.5)
-	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
-	if g > 0 then
-		return string.format("%dg %ds %dc", g, s, c)
-	elseif s > 0 then
-		return string.format("%ds %dc", s, c)
-	end
-	return string.format("%dc", c)
+	return ns.Money.format(copper, "plain")
 end
 
 -- XP gained between two readings: within a level, the difference; across a level-up, the rest of
