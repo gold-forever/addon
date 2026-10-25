@@ -125,6 +125,28 @@ luajit tests/smoke.lua GoldForever    # the whole addon loads on a stand-in game
 The game runs Lua 5.1 and fengari 5.3, so the unit tests cover pure helpers; anything that calls the
 game API is tested in game. The `tests` folder sits beside `GoldForever`, so it is never installed.
 
+**Code layout:** the files load in the TOC's order and share one table, `ns`. Each layer calls only the
+layers below it; a lower file tells the ones above what happened by an event (`ns.emit`, heard with
+`ns.listen`): `ready`, `queueChanged`, `pricesReady` and `lookChanged`.
+
+1. **Pure** (no game API, unit tested): `Encode`, `Money`, `Scans`, `Export`, `Realms`, `Views`, `Post`,
+   `SalePlan`, `Shopping`, `Crafting`, `Disenchant`, `Theme`, `UILayout`.
+2. **Runtime:** `Core`: the saved table, the game's events (`ns.on`), the addon's own, `ns.safely`, the
+   settings and their defaults (`ns.DEFAULTS`).
+3. **Collectors**, which record into the save: `Catalogue`, `Loot`, `Inventory`, `Professions`, `Market`,
+   `Ledger`, `Knowledge`, `Character`, `Legacy`, `Achievements`, `Rares`, `Auctions`, `Levelling`, `Dings`,
+   `Claim`.
+4. **Services:** `Pricing` (`ns.price`), `Prices` (everyone's prices), `Session`, `MobStats`,
+   `CraftPlanner` (the craft quotes and queue), `Holdings`, `Lists`, `AuctionSettings`.
+5. **UI kit:** `UIDraw`, `UIControls`, `UIData`, `UIWindows` (`UI.perLook`, `UI.Dialog`), `Looks`,
+   `HubKit`, `HubWindow`.
+6. **Surfaces:** `Hud`, `Tooltips`, `Advisor`, `CraftQueue`, `CraftingStrip`, `MailHelper`, `FirstRun`,
+   `Minimap`, `ExportFrame`; the auction panel, `AuctionPanel` with `AuctionWaits`, `AuctionBlizzard`,
+   `AuctionBooks` and a file a tab (`AuctionScanTab`, `AuctionSell`, `AuctionBuy`, `AuctionCancel`,
+   `AuctionBank`); the hub's pages, a file each (`HubHome`, `HubLedger`, `HubSession`, `HubCrafting`,
+   `HubRares`, `HubCompanion`, `HubSettings`, `HubGuide`, `DesignSystem`, `SellingRulesPage`,
+   `ShoppingListsPage`); `Hub` (the window, its pages, `/gf ui`); `UiDebug`.
+
 ## What to test (in this order)
 
 1. **Loads:** log in. `/gf` prints the number of characters and today's events.
@@ -147,7 +169,8 @@ The game writes it only at logout, exit and `/reload`; a crash writes nothing. I
 previous version as `GoldForever.lua.bak`.
 
 **Releasing:** a tag `addon-v<version>` runs `.github/workflows/addon-release.yml`. The tag must
-match the TOCs' `## Version`. It tests, packages with the BigWigs packager (`.pkgmeta`), attests the
+match the three TOCs' `## Version` and Core.lua's `VERSION` (a test keeps those four, and the TOCs'
+file lists, the same). It tests, packages with the BigWigs packager (`.pkgmeta`), attests the
 zip, and publishes it to this repository's releases (and to CurseForge and Wago once their project
 ids and tokens are set).
 

@@ -46,8 +46,9 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   buy rules become a list in the Buy tab.
 - With the companion app, lists and profiles you keep on gold-forever.app come into the game (the
   newer edit wins).
-- Prices are whole silver unless the auction house takes copper (the addon asks the game). A single cheap
-  unit far under the rest is ignored when pricing ("sneaky prices").
+- Prices are whole silver unless the auction house takes copper (the addon asks the game). One or two
+  cheap units more than 30% under the next price are ignored when pricing ("sneaky prices"), the same way
+  in Sell, Auctions and the sale profiles.
 - The panel's title row says what your bank and mailbox hold that the auction house pays for; a click
   opens the **Bank** tab: click an item to see its listings, then **Take all** or **Take…** an amount;
   it moves into your bags the next time you open your bank (a part of a stack is split off).
@@ -135,6 +136,31 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
 - A new addon version starts with no recorded errors.
 - Big saves stay smooth: scans, prices and mob counts are worked over several frames, and tooltips do
   less work per hover.
+
+### More fixes
+
+- **Auction house**: a scan with many bid-only listings is no longer thrown away as cut short. Sell,
+  Buy and Auctions each wait for their own answer from the server, so one never unblocks another, and a
+  purchase with no answer is let go. Blizzard's own Sell window can still confirm a warned post. Check my
+  auctions ends, and says so, when the server sends no list. Gear at two item levels is judged against
+  its own listings. A price typed as "1,000" is a thousand gold. A sale profile never posts under its
+  floor after rounding to the silver. `/gf ah` away from the auction house no longer opens an empty
+  panel. A price over a million gold in the prices file is refused.
+- **Crafting**: reagents are priced like the item they make, so crafts show a profit with the prices
+  file and no scan of your own. No disenchant values on retail, where the table does not apply. The craft
+  queue reopens only when you add a craft, not when you make one, says "ready to craft" once, counts
+  your mail when taking from the bank, and listens only to your own casts. The crafting strip no longer
+  shows the last profession's recipe in another profession's window.
+- **Home and the window**: the bags' worth leaves out soulbound items. The last scan on Home and the
+  Scan tab are your own market's: on WoW: Forever a Horde character no longer sees an Alliance alt's
+  scan as its own (on retail one auction house serves both sides, so it still counts). "At the level
+  cap" counts characters by level. Settings shows each switch as it is when opened, and the first-run
+  presets show or hide the HUD at once. A table's sort order survives a column added or moved. The
+  craft queue's close button follows the look.
+- **Saves**: event days not yet exported are kept past the 14-day window, up to 30 days. `/gf export`
+  is built over several frames, so a big save no longer stalls the game, and its text is let go when the
+  window closes. A loss in the chat reads "-1s 50c", not "98s 50c".
+- The mail helper takes one mail at a time, so a slow inbox cannot start a second run.
 
 ## 0.15.0
 
