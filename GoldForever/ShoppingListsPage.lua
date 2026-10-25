@@ -19,6 +19,7 @@ local function buildLists(page)
 	local s = settings()
 	local LEFT = 220
 	local chosenItem -- the itemId chosen on the right
+	local say -- the page note, set under what it is about
 
 	-- Left: the lists.
 	local head = UI.Text(page, "LISTS", { size = "xs", medium = true, tone = "faint" })
@@ -81,7 +82,7 @@ local function buildLists(page)
 		-- A second press deletes (a list can hold many items).
 		if self.armed ~= list then
 			self.armed = list
-			page.note:SetText(Theme.escape(Theme.color.warning) .. "Press Delete again to delete \"" .. list.name .. "\".|r")
+			say(Theme.escape(Theme.color.warning) .. "Press Delete again to delete \"" .. list.name .. "\".|r")
 			return
 		end
 		self.armed = nil
@@ -92,7 +93,7 @@ local function buildLists(page)
 		end
 		table.remove(mine, i)
 		s.list, chosenItem = math.max(1, s.list - 1), nil
-		page.note:SetText("Deleted.")
+		say("Deleted.")
 		page:Refresh()
 	end, { width = 70, height = 26 })
 	delete:SetPoint("LEFT", newList, "RIGHT", 5, 0)
@@ -188,8 +189,11 @@ local function buildLists(page)
 	removeItem:SetPoint("TOPRIGHT", 0, -20)
 
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
-	page.note:SetPoint("TOPLEFT", edit, "BOTTOMLEFT", 0, -6)
-	page.note:SetPoint("RIGHT", page, "RIGHT")
+	local function noteUnderEdit()
+		page.note:SetPoint("TOPLEFT", edit, "BOTTOMLEFT", 0, -6)
+		page.note:SetPoint("RIGHT", page, "RIGHT")
+	end
+	noteUnderEdit()
 
 	-- Import and export, under the lists: one field, the GFL1 string in or out.
 	local field = UI.SearchBox(page, "Paste a GFL1 string", nil)
@@ -199,7 +203,7 @@ local function buildLists(page)
 	importButton = UI.Button(page, "Import", function()
 		local got, err = ns.Shopping.decode(field:GetText())
 		if not got then
-			page.note:SetText(Theme.escape(Theme.color.danger) .. err .. "|r")
+			say(Theme.escape(Theme.color.danger) .. err .. "|r", importButton)
 			return
 		end
 		local mine = lists()
@@ -215,7 +219,7 @@ local function buildLists(page)
 		chosenItem = nil
 		field:SetText("")
 		field:ClearFocus()
-		page.note:SetText(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"))
+		say(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"), importButton)
 		page:Refresh()
 	end, { width = 70, height = 26 })
 	importButton:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -8)
@@ -224,9 +228,20 @@ local function buildLists(page)
 		field:SetText(ns.Shopping.encode({ { name = list.name, character = list.character, entries = list.entries } }))
 		field:SetFocus()
 		field:HighlightText()
-		page.note:SetText("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.")
+		say("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.")
 	end, { width = 70, height = 26 })
 	exportButton:SetPoint("LEFT", importButton, "RIGHT", 5, 0)
+	-- Under the given button of the paste box, as wide as the box (addon#17); else under the item's settings.
+	function say(text, button)
+		page.note:ClearAllPoints()
+		if button then
+			page.note:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -6)
+			page.note:SetPoint("RIGHT", field, "RIGHT")
+		else
+			noteUnderEdit()
+		end
+		page.note:SetText(text)
+	end
 
 	-- The chosen entry, and where its price is kept (the craft queue's by item, others on the entry).
 	local function chosenEntry()
@@ -260,13 +275,13 @@ local function buildLists(page)
 			share = n and n > 0 and math.min(n, 1000) or nil
 		end
 		if kind ~= "market" and not maxUnit and not share then
-			page.note:SetText(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter."
+			say(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter."
 				or kind == "lowest" and "Type the share of the market value to ask over, as 120, then Enter." or "Type a share of the market value, as 80, then Enter.") .. "|r")
 			return
 		end
 		t.maxUnit, t.pct, t.lowest = maxUnit, kind == "pct" and share or nil, kind == "lowest" and share or nil
 		if kind == "lowest" and not e.upTo and not list.queue then
-			page.note:SetText("Set How many too: Lowest buys until you hold that many, asking over your share.")
+			say("Set How many too: Lowest buys until you hold that many, asking over your share.")
 		end
 		if not list.queue then
 			stamp(list)
@@ -300,7 +315,7 @@ local function buildLists(page)
 			return
 		end
 		if not list then
-			page.note:SetText("This list follows the craft queue or the profile; choose one of yours to add to.")
+			say("This list follows the craft queue or the profile; choose one of yours to add to.")
 			return
 		end
 		for _, e in ipairs(list.entries) do
@@ -313,7 +328,7 @@ local function buildLists(page)
 		list.entries[#list.entries + 1] = { itemId = id }
 		stamp(list)
 		chosenItem = id
-		page.note:SetText("Added " .. ns.itemName(id) .. ": set the most you pay below.")
+		say("Added " .. ns.itemName(id) .. ": set the most you pay below.")
 		page:Refresh()
 	end
 	page.addItem = add

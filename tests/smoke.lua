@@ -68,6 +68,14 @@ local CHILDREN = { CraftingPage = true, SchematicForm = true }
 -- What a widget was given by SetText and SetHeight (or SetSize), kept beside it: the addon keeps child
 -- frames under keys such as `text` itself.
 local texts, heights = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+-- And its anchors since the last ClearAllPoints, each as SetPoint was called.
+local points = setmetatable({}, { __mode = "k" })
+-- The anchor of `w` on `point` ({ point, ... } as given to SetPoint), or nil.
+function anchor(w, point)
+  for _, a in ipairs(points[w] or {}) do
+    if a[1] == point then return a end
+  end
+end
 -- Every font string made, to find a line by its text.
 fontStrings = setmetatable({}, { __mode = "k" })
 -- The text of a font string that begins with `start`, or nil.
@@ -85,6 +93,13 @@ local function widget(t)
     end
     if k == "SetHeight" and METHODS[FLAVOUR][k] then return function(self, h) heights[self] = h end end
     if k == "SetSize" and METHODS[FLAVOUR][k] then return function(self, _, h) heights[self] = h end end
+    if k == "SetPoint" and METHODS[FLAVOUR][k] then
+      return function(self, ...)
+        points[self] = points[self] or {}
+        table.insert(points[self], { ... })
+      end
+    end
+    if k == "ClearAllPoints" and METHODS[FLAVOUR][k] then return function(self) points[self] = nil end end
     -- Only methods (capitalised, as the client's are); a missing field is nil, as on a real frame.
     if type(k) ~= "string" or not k:match("^%u") then return nil end
     if CHILDREN[k] then return widget() end
@@ -1482,6 +1497,35 @@ do
     assert(auction.lists[n].name == "Shared" and auction.lists[n].character == nil, "every character's stays every character's")
     assert(select(2, ns.Lists.lists()) == auction.lists[n], "the last imported in view")
     SlashCmdList.GOLDFOREVER("ui")
+    auction.lists, auction.list = keep, keepList
+  end
+  -- Import's message sits under the paste box and the Import button, left-aligned with them and as wide
+  -- as the box, in every look (addon#17); a message about the chosen item goes back under its settings.
+  do
+    local auction = GoldForeverDB.settings.auction
+    local keep, keepList = auction.lists, auction.list
+    for _, look in ipairs({ "web", "classic", "arcane" }) do
+      SlashCmdList.GOLDFOREVER("look " .. look)
+      SlashCmdList.GOLDFOREVER("ui lists")
+      local L = ns.listsPage
+      local c = L.controls
+      local function under(what)
+        local top, right = anchor(L.note, "TOPLEFT"), anchor(L.note, "RIGHT")
+        return top and right and top[2] == what and top[3] == "BOTTOMLEFT" and top[4] == 0 and right[2] == c.field and right[3] == "RIGHT"
+      end
+      c.field:SetText(ns.Shopping.encode({ { name = "Imported", entries = {} } }))
+      c.import.scripts.OnClick(c.import)
+      assert(L.note:GetText() == "Imported 1 list." and under(c.import), look .. ": the Import message under the Import button")
+      c.field:SetText("not a list")
+      c.import.scripts.OnClick(c.import)
+      assert(L.note:GetText():find("|r", 1, true) and under(c.import), look .. ": an Import refused says so under the button too")
+      c.field:SetText(ns.Shopping.encode({ { name = "Imported", entries = {} } }))
+      c.import.scripts.OnClick(c.import)
+      L.addItem(2589)
+      assert(L.note:GetText():find("^Added") and not under(c.import) and (anchor(L.note, "RIGHT") or {})[2] == L, look .. ": the added item's message under its settings")
+      SlashCmdList.GOLDFOREVER("ui")
+    end
+    SlashCmdList.GOLDFOREVER("look web")
     auction.lists, auction.list = keep, keepList
   end
   -- The widget report runs on what the client has.
