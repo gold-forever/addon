@@ -10,7 +10,6 @@ local Encode = ns.Encode
 
 local CUT = 0.05 -- a faction auction house's cut; the character sells on its own
 local IDLE_SECONDS = 15 * 60 -- the web app's session split
-local MIN_RATE_SECONDS = 60 -- no gold per hour for the first minute: one lucky drop is not a rate
 local TOP_ITEMS = 4
 local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 ns.BIG_DROP = BIG_DROP
@@ -476,61 +475,48 @@ local function settings()
 	return ns.settings("appraiser", { shown = true })
 end
 
+-- The session in words, from its figures (ns.sessionSummary).
 local function text()
-	if not session then
+	local sum = ns.sessionSummary()
+	if not sum then
 		return "Loot something to start a session."
 	end
-	-- An ended session stops its clock at its last loot (or at Stop).
-	local elapsed = (idle() and session.last or GetTime()) - session.start
-	local value, unpriced = itemsValue()
-	local total = session.coin + value
+	local elapsed, r = sum.elapsed, sum.rates
 	local lines = {
-		string.format("%s%d:%02d", idle() and "Ended after " or "Farming ", math.floor(elapsed / 60), math.floor(elapsed % 60)),
-		"Coin: " .. coins(session.coin),
-		"Items: " .. coins(value) .. (unpriced > 0 and string.format(" (+%d unpriced)", unpriced) or ""),
-		"|cffffffffTotal: " .. coins(total) .. "|r",
+		string.format("%s%d:%02d", sum.ended and "Ended after " or "Farming ", math.floor(elapsed / 60), math.floor(elapsed % 60)),
+		"Coin: " .. coins(sum.coin),
+		"Items: " .. coins(sum.value) .. (sum.unpriced > 0 and string.format(" (+%d unpriced)", sum.unpriced) or ""),
+		"|cffffffffTotal: " .. coins(r.total) .. "|r",
 	}
-	local rated = elapsed >= MIN_RATE_SECONDS
-	if rated then
-		table.insert(lines, "|cffffd100Per hour: " .. coins(total * 3600 / elapsed) .. "|r")
+	if r.rated then
+		table.insert(lines, "|cffffd100Per hour: " .. coins(r.goldPerHour) .. "|r")
 	else
 		table.insert(lines, "|cff999999Per hour: after a minute|r")
 	end
 	-- XP, and when the next level comes at this pace (not at the level cap: no XP to gain).
-	if session.xp > 0 and xpSeen and xpSeen.max > 0 then
-		local line = "XP: " .. number(session.xp)
-		if rated then
-			local perHour = session.xp * 3600 / elapsed
-			line = line .. " · " .. number(perHour) .. "/h · level " .. (xpSeen.level + 1) .. " in "
-				.. Encode.duration((xpSeen.max - xpSeen.cur) / perHour * 3600)
+	if sum.xp > 0 and xpSeen and xpSeen.max > 0 then
+		local line = "XP: " .. number(sum.xp)
+		if r.rated then
+			line = line .. " · " .. number(r.xpPerHour) .. "/h · level " .. sum.nextLevel .. " in " .. Encode.duration(r.dingIn or 0)
 		end
 		if (session.xpKills or 0) > 0 and session.killXp > 0 then
-			line = line .. string.format(" (~%s kills)", number(math.ceil((xpSeen.max - xpSeen.cur) / (session.killXp / session.xpKills))))
+			line = line .. string.format(" (~%s kills)", number(r.killsToLevel or 0))
 		end
 		table.insert(lines, line)
 	end
 	-- Bags: free slots, and when they run out at the rate they have been filling.
-	local used = session.bagBase - session.bagFree
-	local filling = GetTime() - session.bagBaseAt
-	local bags = "Bags: " .. session.bagFree .. " free"
-	if session.bagFree == 0 then
+	local bags = "Bags: " .. sum.bagFree .. " free"
+	if sum.bagFree == 0 then
 		bags = "|cffff5555Bags full|r"
-	elseif used >= 1 and filling >= 120 then
-		bags = bags .. " · full in ~" .. Encode.duration(session.bagFree / (used / filling))
+	elseif sum.fullIn then
+		bags = bags .. " · full in ~" .. Encode.duration(sum.fullIn)
 	end
 	table.insert(lines, bags)
 	-- The most valuable items so far.
-	local ranked = {}
-	for id, n in pairs(session.items) do
-		ranked[#ranked + 1] = { id = id, n = n, value = (worth(id) or 0) * n }
-	end
-	table.sort(ranked, function(a, b)
-		return a.value > b.value
-	end)
-	for i = 1, math.min(TOP_ITEMS, #ranked) do
-		local r = ranked[i]
-		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(r.id)) or ("item " .. r.id)
-		table.insert(lines, string.format("|cffaaaaaa%d× %s: %s|r", r.n, name, r.value > 0 and coins(r.value) or "no price"))
+	for i = 1, math.min(TOP_ITEMS, #sum.ranked) do
+		local item = sum.ranked[i]
+		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(item.id)) or ("item " .. item.id)
+		table.insert(lines, string.format("|cffaaaaaa%d× %s: %s|r", item.n, name, item.value > 0 and coins(item.value) or "no price"))
 	end
 	return table.concat(lines, "\n")
 end
