@@ -24,6 +24,7 @@ UI.lua
 ExportFrame.lua
 Views.lua
 Catalogue.lua
+Pricing.lua
 Loot.lua
 Inventory.lua
 Professions.lua
