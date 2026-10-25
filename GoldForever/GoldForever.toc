@@ -60,3 +60,4 @@ HubSettings.lua
 HubGuide.lua
 DesignSystem.lua
 Minimap.lua
+Hub.lua
