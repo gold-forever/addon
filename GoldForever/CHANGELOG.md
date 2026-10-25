@@ -1,6 +1,6 @@
 # Gold Forever
 
-## 0.16.0 (not released yet)
+## 0.16.0 (2026-10-25)
 
 The auction house tools and a new window. Gold Forever gets a panel beside the auction house (scan, post,
 shop, cancel undercut, rules and sale profiles), a hub window with pages for your money, characters,
@@ -170,7 +170,7 @@ crafting, sessions and rares, three looks to choose from, a session HUD, and mor
   "-1s 50c", not "98s 50c".
 - The mail helper takes one mail at a time, so a slow inbox cannot start a second run.
 
-## 0.15.0
+## 0.15.0 (never released on its own; part of 0.16.0)
 
 - Prices from everyone's scans in the item tooltip: "Pool: 12s 34c · min buyout 11s 0c · 3 players ·
   scanned 2h ago", for the market of the character you are playing. The Gold Forever companion app
