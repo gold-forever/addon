@@ -36,7 +36,7 @@ end
 
 -- The settings: the angle on the rim and whether the player hid the button.
 local function settings()
-	return ns.settings("minimap", { angle = 225, hidden = false })
+	return ns.settings("minimap")
 end
 
 -- What a click does, shared by the button, the compartment and the bindings ---------------------------------

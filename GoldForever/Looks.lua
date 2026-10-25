@@ -4,7 +4,7 @@ local _, ns = ...
 local Theme = ns.Theme
 
 local function settings()
-	return ns.settings("window", {})
+	return ns.settings("window")
 end
 
 local function look()

@@ -18,7 +18,7 @@ local function buildScan(page)
 	end, { kind = "primary", width = 140, height = 30 })
 	button:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, -14)
 	-- Off at first: a scan starts when the player asks (manual test run 001).
-	local scanSettings = ns.settings("scan", { auto = false })
+	local scanSettings = ns.settings("scan")
 	local auto = UI.Switch(page, scanSettings.auto, function(on)
 		scanSettings.auto = on
 	end)

@@ -314,7 +314,7 @@ local function auctionOpened()
 		return
 	end
 	auctionOpen = true
-	if not ns.settings("scan", { auto = false }).auto then
+	if not ns.settings("scan").auto then
 		return
 	end
 	ns.after(1, "scan", function()

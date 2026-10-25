@@ -12,7 +12,7 @@ ns.HubKit = Kit
 ns.hubPages = {}
 
 function Kit.settings()
-	return ns.settings("window", {})
+	return ns.settings("window")
 end
 
 -- A page's table order, saved with the window: the column and direction last picked, at first the column

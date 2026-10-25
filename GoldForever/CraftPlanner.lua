@@ -97,7 +97,7 @@ end
 -- The craft queue (owner's answer, 2026-10-24): recipes and how many of each, kept in the settings;
 -- the Shop lists the reagents still missing for all of it.
 local function queue()
-	local s = ns.settings("crafting", { strip = true })
+	local s = ns.settings("crafting")
 	s.queue = s.queue or {}
 	return s.queue
 end
@@ -138,7 +138,7 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft queue", function(unit, _, spell)
 end)
 
 function ns.queueClear()
-	local s = ns.settings("crafting", { strip = true })
+	local s = ns.settings("crafting")
 	s.queue = {}
 	changed("cleared")
 end

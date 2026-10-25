@@ -53,11 +53,11 @@ local Theme, UI = ns.Theme, ns.UI
 
 local function settingsTables()
 	return {
-		prices = ns.settings("prices", { tooltip = true }),
-		auction = ns.settings("auction", { rule = {}, duration = 2 }),
-		crafting = ns.settings("crafting", { strip = true }),
-		appraiser = ns.settings("appraiser", { shown = true }),
-		advisor = ns.settings("advisor", { shown = true }),
+		prices = ns.settings("prices"),
+		auction = ns.settings("auction"),
+		crafting = ns.settings("crafting"),
+		appraiser = ns.settings("appraiser"),
+		advisor = ns.settings("advisor"),
 	}
 end
 
@@ -160,7 +160,7 @@ local function build()
 	end
 	local accentLabel = UI.Text(p3, "Accent colour", { size = "xs", medium = true, tone = "faint" })
 	accentLabel:SetPoint("TOPLEFT", 0, -68)
-	local current = ns.settings("window", {}).accent
+	local current = ns.settings("window").accent
 	local own = UI.Button(p3, "The look's own", function()
 		if current then
 			redraw(function()
@@ -221,7 +221,7 @@ local function build()
 		nextButton:SetLabel(n == #STEPS and "Done" or "Next")
 	end
 	local function finish(skipped)
-		local s = ns.settings("firstRun", {})
+		local s = ns.settings("firstRun")
 		s.done = true
 		if not skipped then
 			local tables = settingsTables()
@@ -265,7 +265,7 @@ local cards = {}
 -- `step`: the step to show (a new look reopens it on that step), else the first.
 function open(step)
 	if InCombatLockdown and InCombatLockdown() then
-		ns.settings("firstRun", {}).waiting = true
+		ns.settings("firstRun").waiting = true
 		return
 	end
 	ns.applyLook()
@@ -284,13 +284,13 @@ end
 
 -- At load: a save with no characters yet is a new install, and is due the card.
 ns.listen("ready", "first run", function()
-	local s = ns.settings("firstRun", {})
+	local s = ns.settings("firstRun")
 	if s.due == nil then
 		s.due = FirstRun.isNew(ns.db())
 	end
 end)
 ns.on("PLAYER_ENTERING_WORLD", "first run", function()
-	local s = ns.settings("firstRun", {})
+	local s = ns.settings("firstRun")
 	if s.due and not s.done then
 		C_Timer.After(2, function()
 			ns.safely("first run", open)
@@ -298,7 +298,7 @@ ns.on("PLAYER_ENTERING_WORLD", "first run", function()
 	end
 end)
 ns.on("PLAYER_REGEN_ENABLED", "first run", function()
-	local s = ns.settings("firstRun", {})
+	local s = ns.settings("firstRun")
 	if s.waiting and not s.done then
 		s.waiting = nil
 		open()
@@ -307,7 +307,7 @@ end)
 
 -- "/gf welcome": the card again.
 ns.commands.welcome = function()
-	ns.settings("firstRun", {}).done = nil
+	ns.settings("firstRun").done = nil
 	open()
 end
 

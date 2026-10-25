@@ -80,10 +80,10 @@ local function buildSettings(page)
 	page.modules:Hide()
 	page.discord:Hide()
 
-	local appraiser = ns.settings("appraiser", { shown = true })
-	local advisor = ns.settings("advisor", { shown = true })
-	local rares = ns.settings("rares", { announce = true, mark = true })
-	local minimap = ns.settings("minimap", { angle = 225, hidden = false })
+	local appraiser = ns.settings("appraiser")
+	local advisor = ns.settings("advisor")
+	local rares = ns.settings("rares")
+	local minimap = ns.settings("minimap")
 	-- Each tab drawn the first time it is chosen (General when the page opens).
 	local fills = {}
 	fills.general = function()
@@ -192,10 +192,10 @@ local function buildSettings(page)
 		-- Modules: each part of the addon a player sees, on or off at once, no reload. The recorder is not
 		-- one: what the save records stays the same whatever is switched off.
 		local m = page.modules
-		local auction = ns.settings("auction", { rule = {}, duration = 2 })
-		local prices = ns.settings("prices", { tooltip = true })
-		local crafting = ns.settings("crafting", { strip = true })
-		local mail = ns.settings("mail", { helper = true })
+		local auction = ns.settings("auction")
+		local prices = ns.settings("prices")
+		local crafting = ns.settings("crafting")
+		local mail = ns.settings("mail")
 		local MODULES = {
 			{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
 				on = function() return appraiser.shown end,

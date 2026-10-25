@@ -76,7 +76,7 @@ local panels -- one panel per look and accent (UI.perLook)
 local run -- a batch in progress: { left, waiting, failed, next }
 
 local function settings()
-	return ns.settings("mail", { helper = true })
+	return ns.settings("mail")
 end
 
 local function headers()

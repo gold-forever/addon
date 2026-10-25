@@ -14,7 +14,7 @@ local Theme, UI = ns.Theme, ns.UI
 local W, LINES = 280, 6
 
 local function settings()
-	return ns.settings("crafting", { strip = true })
+	return ns.settings("crafting")
 end
 
 local recipeID

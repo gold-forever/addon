@@ -9,7 +9,7 @@ local LIST_LENGTH = 8 -- items shown per list; the rest are summed in one line
 local frame, body
 
 local function settings()
-	return ns.settings("advisor", { shown = true })
+	return ns.settings("advisor")
 end
 
 -- Bag contents by item and whether it is bound (bound items cannot go to the auction house).

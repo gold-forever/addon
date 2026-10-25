@@ -372,7 +372,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			return
 		end
 		-- Settings → Modules can switch the line off.
-		if ns.settings("prices", { tooltip = true }).tooltip == false then
+		if ns.settings("prices").tooltip == false then
 			return
 		end
 		local now = GetServerTime()
@@ -473,7 +473,7 @@ ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
 	if not isInitialLogin then
 		return
 	end
-	local s = ns.settings("prices", { tooltip = true })
+	local s = ns.settings("prices")
 	local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
 	if text then
 		s.staleWarned = GetServerTime()

@@ -14,7 +14,7 @@ local W = 600
 local toldReady -- "ready to craft" said for this queue: once, until a craft is queued again
 
 local function settings()
-	return ns.settings("craftQueue", { closed = false })
+	return ns.settings("craftQueue")
 end
 
 -- The guild bank of the character's guild, as last read: counts by item.

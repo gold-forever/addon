@@ -6,7 +6,7 @@ local Post = ns.Post
 
 function ns.auctionSettings()
 	-- The saved table as it is, once there: no defaults made on every call (it is read per row).
-	local s = ns.db().settings.auction or ns.settings("auction", { rule = {}, duration = 2 })
+	local s = ns.db().settings.auction or ns.settings("auction")
 	s.durations = s.durations or {}
 	s.quantities = s.quantities or {}
 	for k, v in pairs(Post.DEFAULT) do

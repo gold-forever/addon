@@ -136,7 +136,7 @@ function ns.fetchList()
 	if not guid then
 		return nil
 	end
-	local s = ns.settings("fetch", {})
+	local s = ns.settings("fetch")
 	s[guid] = s[guid] or {}
 	return s[guid]
 end
@@ -353,7 +353,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
 			return
 		end
-		if ns.settings("prices", { tooltip = true }).held == false then
+		if ns.settings("prices").held == false then
 			return
 		end
 		local now = stamp()

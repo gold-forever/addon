@@ -291,17 +291,48 @@ function ns.alert(text)
 	print(ns.PREFIX .. " " .. text)
 end
 
--- A feature's settings table in the saved file, made with its defaults the first time. A default added
--- in a later version reaches a table saved before it; what the player set stays.
+-- Each feature's settings section and its defaults, in one place (db.settings[section]).
+ns.DEFAULTS = {
+	window = {}, -- the look, the accent, the hub's place and its pages' choices
+	appraiser = { shown = true }, -- the session HUD
+	advisor = { shown = true },
+	rares = { announce = true, mark = true },
+	crafting = { strip = true }, -- the crafting strip, and the craft queue's recipes
+	craftQueue = { closed = false },
+	scan = { auto = false },
+	prices = { tooltip = true },
+	auction = { rule = {}, duration = 2 },
+	mail = { helper = true },
+	minimap = { angle = 225, hidden = false },
+	firstRun = {},
+	fetch = {},
+}
+
+-- A copy, so the saved file never holds the defaults' own tables.
+local function fresh(value)
+	if type(value) ~= "table" then
+		return value
+	end
+	local out = {}
+	for k, v in pairs(value) do
+		out[k] = fresh(v)
+	end
+	return out
+end
+
+-- A feature's settings table in the saved file, made with its defaults the first time (ns.DEFAULTS
+-- unless others are given). A default added in a later version reaches a table saved before it; what the
+-- player set stays.
 function ns.settings(name, defaults)
+	defaults = defaults or ns.DEFAULTS[name]
 	local s = ns.db().settings
 	if not s[name] then
-		s[name] = defaults
+		s[name] = fresh(defaults)
 	elseif defaults then
 		local saved = s[name]
 		for key, value in pairs(defaults) do
 			if saved[key] == nil then
-				saved[key] = value
+				saved[key] = fresh(value)
 			end
 		end
 	end

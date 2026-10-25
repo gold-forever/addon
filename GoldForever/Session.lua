@@ -138,7 +138,7 @@ local function itemsValue()
 end
 
 local function settings()
-	return ns.settings("appraiser", { shown = true })
+	return ns.settings("appraiser")
 end
 
 -- The session in words, from its figures (ns.sessionSummary).
