@@ -213,7 +213,7 @@ end)
 -- care hear it with ns.listen(name, label, fn), so a lower file never calls up into a higher one.
 --   "ready"        the saved table is loaded and upgraded, before PLAYER_LOGIN: what needs only the save
 --                  starts here, not on ADDON_LOADED, so it never runs before the table exists;
---   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (Shop.lua);
+--   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (CraftPlanner.lua);
 --   "pricesReady"  a new full scan's prices are in (Pricing.lua);
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
 --                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).

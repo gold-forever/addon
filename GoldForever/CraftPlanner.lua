@@ -1,7 +1,8 @@
--- Gold Forever: the recipes the character knows, quoted at the latest prices (the same rules as the
--- web app's Crafting view, "use what I have": Crafting.lua), and the craft queue, for the hub's Home and
--- Crafting pages, the crafting strip and the Buy tab's "Craft queue" list. The floating "crafts to make"
--- window at the auction house is gone (manual test run 001): the Crafting page shows the same, and more.
+-- Gold Forever: the craft planner (ns.CraftPlanner). The recipes the character knows, quoted at the
+-- latest prices (the same rules as the web app's Crafting view, "use what I have": Crafting.lua), and the
+-- craft queue, for the hub's Home and Crafting pages, the crafting strip and the Buy tab's "Craft queue"
+-- list. The floating "crafts to make" window at the auction house is gone (manual test run 001): the
+-- Crafting page shows the same, and more. Not the shopping lists, which are Shopping.lua's.
 
 local _, ns = ...
 
@@ -202,6 +203,12 @@ function ns.quoteRecipe(id)
 	q.recipe = r
 	return q
 end
+
+-- The planner as one module; the names above stay, for the files that use them.
+ns.CraftPlanner = {
+	quoteRecipe = ns.quoteRecipe, allCraftQuotes = ns.allCraftQuotes, profitableCrafts = profitable, isGear = isGear, recipeOf = ns.recipeOf,
+	queueAdd = ns.queueAdd, queueClear = ns.queueClear, queueList = ns.queueList, queueNeeds = ns.queueNeeds,
+}
 
 -- /gf shop: the Crafting page, recipes by profit.
 ns.commands.shop = function()

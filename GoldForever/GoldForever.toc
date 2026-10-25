@@ -49,7 +49,7 @@ Tooltips.lua
 Prices.lua
 Advisor.lua
 Rares.lua
-Shop.lua
+CraftPlanner.lua
 Auctions.lua
 Levelling.lua
 Dings.lua

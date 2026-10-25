@@ -32,7 +32,7 @@ ns.auctionRefresh = function()
 		ah.refresh()
 	end
 end
--- The craft queue shows in the Buy tab as a list (Shop.lua).
+-- The craft queue shows in the Buy tab as a list (CraftPlanner.lua).
 ns.listen("queueChanged", "auction panel", ns.auctionRefresh)
 
 -- An action sent (a post, a buy, a cancel): the panel waits for its answer before the next press, and

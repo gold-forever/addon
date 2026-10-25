@@ -201,7 +201,7 @@ function ns.openCraftQueue()
 	CraftQueue.show()
 end
 
--- The queue changed (Shop.lua): a craft added opens it (even after the X); a craft made only redraws it
+-- The queue changed (CraftPlanner.lua): a craft added opens it (even after the X); a craft made only redraws it
 -- where it shows, so the X sticks (review B-25); an empty queue closes it.
 local function queueChanged(how)
 	local queue = ns.queueList()
