@@ -188,7 +188,7 @@ local function seeMap()
 	end
 end
 
-for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
+for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
 	ns.on(event, "maps", seeMap)
 end
 
@@ -259,13 +259,6 @@ local function readMapArt(manual)
 	end
 	step()
 end
-
-ns.module("Knowledge", {
-	requires = { "Store" },
-	enable = function()
-		ns.after(10, "map art", readMapArt)
-	end,
-})
 
 ns.commands.maps = function()
 	readMapArt(true)
@@ -414,10 +407,6 @@ local function dumpApi()
 	db.api = api
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "api", function()
-	ns.after(10, "api", dumpApi)
-end)
-
 -- Game rules -------------------------------------------------------------------------------------
 
 -- A plain copy of an API result, depth- and size-limited, for the saved file.
@@ -488,9 +477,19 @@ local function readGameRules()
 	}
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "gameRules", function()
-	ns.after(6, "gameRules", readGameRules)
-end)
+ns.module("Knowledge", {
+	requires = { "Store" },
+	enable = function()
+		ns.after(10, "map art", readMapArt)
+	end,
+	-- The map is seen on every zone change, a loading screen's too; the API and the game rules are read
+	-- again after every loading screen.
+	world = function()
+		ns.safely("maps", seeMap)
+		ns.after(10, "api", dumpApi)
+		ns.after(6, "gameRules", readGameRules)
+	end,
+})
 
 -- Legacy perks ------------------------------------------------------------------------------------
 
