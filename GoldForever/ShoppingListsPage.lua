@@ -82,7 +82,7 @@ local function buildLists(page)
 		-- A second press deletes (a list can hold many items).
 		if self.armed ~= list then
 			self.armed = list
-			say(Theme.escape(Theme.color.warning) .. "Press Delete again to delete \"" .. list.name .. "\".|r")
+			say(Theme.escape(Theme.color.warning) .. "Press Delete again to delete \"" .. list.name .. "\".|r", true)
 			return
 		end
 		self.armed = nil
@@ -93,7 +93,7 @@ local function buildLists(page)
 		end
 		table.remove(mine, i)
 		s.list, chosenItem = math.max(1, s.list - 1), nil
-		say("Deleted.")
+		say("Deleted.", true)
 		page:Refresh()
 	end, { width = 70, height = 26 })
 	delete:SetPoint("LEFT", newList, "RIGHT", 5, 0)
@@ -203,7 +203,7 @@ local function buildLists(page)
 	importButton = UI.Button(page, "Import", function()
 		local got, err = ns.Shopping.decode(field:GetText())
 		if not got then
-			say(Theme.escape(Theme.color.danger) .. err .. "|r", importButton)
+			say(Theme.escape(Theme.color.danger) .. err .. "|r", true)
 			return
 		end
 		local mine = lists()
@@ -219,7 +219,7 @@ local function buildLists(page)
 		chosenItem = nil
 		field:SetText("")
 		field:ClearFocus()
-		say(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"), importButton)
+		say(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"), true)
 		page:Refresh()
 	end, { width = 70, height = 26 })
 	importButton:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -8)
@@ -228,14 +228,15 @@ local function buildLists(page)
 		field:SetText(ns.Shopping.encode({ { name = list.name, character = list.character, entries = list.entries } }))
 		field:SetFocus()
 		field:HighlightText()
-		say("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.")
+		say("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.", true)
 	end, { width = 70, height = 26 })
 	exportButton:SetPoint("LEFT", importButton, "RIGHT", 5, 0)
-	-- Under the given button of the paste box, as wide as the box (addon#17); else under the item's settings.
-	function say(text, button)
+	-- Import's, Export's and Delete's under the paste box's buttons, as wide as the box (addon#17, addon#18);
+	-- else under the item's settings.
+	function say(text, atBox)
 		page.note:ClearAllPoints()
-		if button then
-			page.note:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -6)
+		if atBox then
+			page.note:SetPoint("TOPLEFT", importButton, "BOTTOMLEFT", 0, -6)
 			page.note:SetPoint("RIGHT", field, "RIGHT")
 		else
 			noteUnderEdit()

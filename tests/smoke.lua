@@ -1537,6 +1537,13 @@ do
       c.import.scripts.OnClick(c.import)
       L.addItem(2589)
       assert(L.note:GetText():find("^Added") and not under(c.import) and (anchor(L.note, "RIGHT") or {})[2] == L, look .. ": the added item's message under its settings")
+      -- Export's and Delete's sit there too (addon#18).
+      c.export.scripts.OnClick(c.export)
+      assert(L.note:GetText():find("^Copy it") and under(c.import), look .. ": the Export message under the paste box")
+      c.delete.scripts.OnClick(c.delete)
+      assert(L.note:GetText():find("Press Delete again", 1, true) and under(c.import), look .. ": Delete's warning under the paste box")
+      c.delete.scripts.OnClick(c.delete)
+      assert(L.note:GetText() == "Deleted." and under(c.import), look .. ": Deleted under the paste box")
       SlashCmdList.GOLDFOREVER("ui")
     end
     SlashCmdList.GOLDFOREVER("look web")

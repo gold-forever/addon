@@ -8,7 +8,10 @@
   skipped.
 - **Sale profiles for one character.** A sale profile made for one character on the site is offered on
   the Selling rules page, and prices the Sell tab, on that character only; other profiles work on every
-  character. Importing another character's profile makes it yours.
+  character. Importing another character's profile makes it yours. A profile string with a line Gold
+  Forever does not know yet is still read, that line skipped.
+- **Shopping lists page messages where you look.** Import's, Export's and Delete's messages show under the
+  paste box and its buttons, left-aligned with them, in every look.
 
 ## 0.16.1 (2026-10-25)
 

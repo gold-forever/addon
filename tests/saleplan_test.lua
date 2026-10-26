@@ -97,7 +97,11 @@ eq(err:find("Line 2", 1, true) ~= nil, true, "names the line")
 eq((P.decode(wrap("sell 1 keep 5 undercut 1 extra 3"))), nil, "an extra word")
 eq((P.decode(wrap("sell 1 keep 5 percentile 101"))), nil, "over 100%")
 eq((P.decode(wrap("buy 1 upto 5 max 99999999999999"))), nil, "too much copper")
-eq((P.decode(wrap("rm 1 keep 5"))), nil, "an unknown rule")
+-- A line it does not know is skipped, as a list string's: a later format change cannot break a profile.
+local later = P.decode(wrap("name a\nby x\nnote for raids\nsell 1 keep 5 undercut 1\nrm 1 keep 5\nbuy 2 upto 5 max 9"))
+eq(later and #later.sell .. " " .. #later.buy, "1 1", "unknown lines skipped")
+eq(P.decode(wrap("version 2\nname a")).name, "a", "an unknown line before the name")
+eq((P.decode(wrap("note x\nsell 1 keep five undercut 1"))), nil, "a damaged known line is still refused")
 eq(P.decode(wrap("sell 1 keep 5 undercut 1")).sell[1].floorPct, 0, "no floor is none")
 eq(P.ruleFor(profile, 13444).keep, 5, "the rule for an item")
 

@@ -181,8 +181,9 @@ local function cleanName(v)
 	return (string.match(string.sub(string.gsub(v, "|", ""), 1, 40), "^%s*(.-)%s*$"))
 end
 
--- Reads a profile string someone shared. It is untrusted: every number is bounded, names lose the game's
--- "|" escapes, and anything unexpected is refused with its line. Returns the profile, or nil and why.
+-- Reads a profile string someone shared. It is untrusted: every number is bounded and names lose the game's
+-- "|" escapes. A line it does not know is skipped (a later format may add some); a known line that is wrong
+-- refuses it, with its line. Returns the profile, or nil and why.
 function SalePlan.decode(input)
 	local s = string.match(input or "", "^%s*(.-)%s*$")
 	if string.sub(s, 1, #SalePlan.PREFIX) ~= SalePlan.PREFIX then
@@ -211,13 +212,12 @@ function SalePlan.decode(input)
 			local word, previous = words[1], last
 			last = word
 			if word == "for" then
-				-- One character's profile, straight after its by line, by its GUID as the game writes it:
-				-- "Player-<server id>-<8 hex digits>" (the same rule as a list's, Shopping.decode).
-				local server, hex = string.match(line, "^for Player%-(%d+)%-([0-9A-F]+)$")
-				if previous ~= "by" or not server or #server > 5 or #hex ~= 8 then
+				-- One character's profile, straight after its by line.
+				local character = ns.Shopping.forLine(line)
+				if previous ~= "by" or not character then
 					return bad()
 				end
-				profile.character = string.sub(line, 5)
+				profile.character = character
 			elseif word == "name" or word == "by" then
 				local v = cleanName(string.sub(line, #word + 1))
 				if word == "name" then
@@ -225,7 +225,7 @@ function SalePlan.decode(input)
 				else
 					profile.author = v
 				end
-			else
+			elseif word == "sell" or word == "buy" then
 				if #profile.sell + #profile.buy >= MAX_RULES then
 					return nil, "More than " .. MAX_RULES .. " rules"
 				end
@@ -267,10 +267,9 @@ function SalePlan.decode(input)
 						return bad()
 					end
 					profile.sell[#profile.sell + 1] = { itemID = itemID, keep = keep, price = price, floorPct = floorPct }
-				else
-					return bad()
 				end
 			end
+			-- Any other line is one a later format added: skipped, so it cannot break the rules around it.
 		end
 	end
 	return profile

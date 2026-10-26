@@ -114,6 +114,11 @@ eq((S.decode(wrap("list a\nfor " .. GUID .. "\nfor " .. GUID))), nil, "two for l
 eq((S.decode(wrap("list a\nfor Bob"))), nil, "not a character's GUID")
 eq((S.decode(wrap("list a\nfor Player-1234-0ABC123"))), nil, "seven hex digits")
 eq((S.decode(wrap("list a\nfor Player-123456-0ABC1234"))), nil, "a six-digit server id")
+-- One rule for a "for" line's character, lists' and profiles' alike.
+eq(S.forLine("for " .. GUID), GUID, "a for line names its character")
+eq(S.forLine("for Bob"), nil, "not a character's GUID")
+eq(S.forLine("for Player-1234-0abc1234"), nil, "lower-case hex")
+eq(S.forLine("for Player-1234-0ABC1234 x"), nil, "a word after the GUID")
 -- A line it does not know is skipped, the rest read: a later format change cannot break a list again.
 local later = S.decode(wrap("list a\nnote raid on thursday\nitem 1 market\ncolour blue\nlist b\nitem 2 max 5"))
 eq(later and #later .. " " .. #later[1].entries .. " " .. later[2].entries[1].maxUnit, "2 1 5", "unknown lines skipped")

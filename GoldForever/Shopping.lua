@@ -147,6 +147,16 @@ function Shopping.encode(lists)
 	return Shopping.PREFIX .. Encode.base64(Shopping.text(lists))
 end
 
+-- The character a "for" line names, by its GUID as the game writes it: "Player-<server id>-<8 hex digits>";
+-- nil when the line is not that. A list's and a profile's (SalePlan.decode) alike.
+function Shopping.forLine(line)
+	local server, hex = string.match(line, "^for Player%-(%d+)%-([0-9A-F]+)$")
+	if not server or #server > 5 or #hex ~= 8 then
+		return nil
+	end
+	return string.sub(line, 5)
+end
+
 -- Reads a list string someone shared: untrusted, so bounded and stripped of the game's "|" escapes.
 -- A line it does not know is skipped (a later format may add some); a known line that is wrong refuses it.
 -- Returns lists, or nil and what is wrong.
@@ -178,12 +188,12 @@ function Shopping.decode(input)
 				local name = string.match(string.sub(string.gsub(string.sub(line, 6), "|", ""), 1, 40), "^%s*(.-)%s*$")
 				lists[#lists + 1] = { name = name ~= "" and name or "Unnamed", entries = {} }
 			elseif word == "for" then
-				-- One character's list, by its GUID as the game writes it: "Player-<server id>-<8 hex digits>".
-				local list, server, hex = lists[#lists], string.match(line, "^for Player%-(%d+)%-([0-9A-F]+)$")
-				if not list or list.character or not server or #server > 5 or #hex ~= 8 then
+				-- One character's list.
+				local list, character = lists[#lists], Shopping.forLine(line)
+				if not list or list.character or not character then
 					return bad()
 				end
-				list.character = string.sub(line, 5)
+				list.character = character
 			elseif word == "item" then
 				local id, rest = string.match(line, "^item (%d+) (.+)$")
 				local list = lists[#lists]
