@@ -7,12 +7,13 @@ local frame = CreateFrame("Frame")
 local listeners = {} -- event -> { { name, fn } }
 local missing = {} -- events this client does not know, for the diagnostics
 
+-- The listeners there when the event came: one added meanwhile (an addon loaded on demand) hears the next.
 local function dispatch(list, ...)
-	for _, l in ipairs(list) do
+	for i = 1, #list do
 		if ns.stopped() then
 			return
 		end
-		ns.safely(l.name, l.fn, ...)
+		ns.safely(list[i].name, list[i].fn, ...)
 	end
 end
 

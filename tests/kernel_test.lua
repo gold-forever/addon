@@ -41,6 +41,22 @@ ns.safely("next", function() end)
 eq(GoldForeverDB.stopped.long.n, 2, "and again each time")
 eq(GoldForeverDB.stopped.next, nil, "a call that returns is not")
 
+-- A listener added while its event is dispatched (an addon loaded on demand at AUCTION_HOUSE_SHOW
+-- subscribing to it) first hears the next one, so what the event started is not done twice.
+local heard = {}
+ns.on("GF_TEST_EVENT", "first", function()
+	heard[#heard + 1] = "first"
+	if #heard == 1 then
+		ns.on("GF_TEST_EVENT", "added", function()
+			heard[#heard + 1] = "added"
+		end)
+	end
+end)
+handler(nil, "GF_TEST_EVENT")
+eq(table.concat(heard, ", "), "first", "a listener added during its event does not hear that one")
+handler(nil, "GF_TEST_EVENT")
+eq(table.concat(heard, ", "), "first, first, added", "it hears the next")
+
 local function savedFields(source)
 	local reads = nsNames(source)
 	local found = {}
