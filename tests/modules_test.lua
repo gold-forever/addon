@@ -96,7 +96,7 @@ local KNOWN = {
 	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",
 	["Looks.lua PLAYER_LOGIN"] = "the UI kit, not a collector: applying the look moves with the UI kit",
 	["Minimap.lua PLAYER_LOGIN"] = "a window, not a collector: it moves with the surfaces",
-	["Prices.lua PLAYER_ENTERING_WORLD"] = "the stale-prices warning needs isInitialLogin, so a reload does not repeat it",
+	["Prices.lua PLAYER_ENTERING_WORLD"] = "a read model, not a collector: the stale-prices warning moves with the read models",
 }
 local known = {}
 for entry, why in pairs(KNOWN) do
