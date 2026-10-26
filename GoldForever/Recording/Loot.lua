@@ -139,10 +139,6 @@ local purse -- GetMoney() at the last money change
 local early -- { amount, at }: a rise that came before its money slot cleared, for a second
 local EARLY_SECONDS = 1
 
-ns.on("PLAYER_ENTERING_WORLD", "loot coin", function()
-	purse = GetMoney()
-end)
-
 ns.on("PLAYER_MONEY", "loot coin", function()
 	local now = GetMoney()
 	local rise = purse and now - purse or 0
@@ -303,5 +299,9 @@ ns.module("Loot", {
 		C_Timer.NewTicker(ns.db().settings.sampleSeconds or 5, function()
 			ns.safely("positions", sample)
 		end)
+	end,
+	-- The money a coin loot is measured from is taken again after every loading screen.
+	world = function()
+		purse = GetMoney()
 	end,
 })
