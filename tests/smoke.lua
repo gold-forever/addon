@@ -315,6 +315,26 @@ local function seen(label, value, forever, retail)
   local want = FLAVOUR == "retail" and retail or forever
   if value ~= want then error(label:gsub("%s+$", "") .. ": expected [" .. tostring(want) .. "], got [" .. value .. "]", 2) end
 end
+-- GF_SMOKE_DUMP=<a file>: the save as the run leaves it, written there with sorted keys (savedump.lua) for
+-- run.js to compare with the golden copy; on a given save (GF_SMOKE_SAVE), what the run changed in it.
+local function exit(code)
+  local file = os.getenv("GF_SMOKE_DUMP")
+  if file then
+    local Dump = dofile(dir .. "/../tests/savedump.lua")
+    local text
+    if os.getenv("GF_SMOKE_SAVE") then
+      local before = {}
+      setfenv(assert(loadfile(os.getenv("GF_SMOKE_SAVE"))), before)()
+      text = Dump.changes(before.GoldForeverDB, GoldForeverDB)
+    else
+      text = Dump.save(GoldForeverDB)
+    end
+    local out = assert(io.open(file, "w"))
+    out:write(text)
+    out:close()
+  end
+  os.exit(code)
+end
 -- GF_SMOKE_SAVE=<a copy of a SavedVariables file>: the addon on a real save instead of the session
 -- below, as that save's character, through every page, tab, look and panel, timed (tests/realsave.md).
 local SAVE = os.getenv("GF_SMOKE_SAVE")
@@ -495,7 +515,7 @@ if SAVE then
   end
   io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
   io.write(string.format("MEMORY %.0f KB after a full collect\n", (function() collectgarbage("collect") return collectgarbage("count") end)()))
-  os.exit((#errors == 0 and not failedSteps) and 0 or 1)
+  exit((#errors == 0 and not failedSteps) and 0 or 1)
 end
 fire("ADDON_LOADED", "GoldForever")
 fire("PLAYER_LOGIN")
@@ -2831,5 +2851,5 @@ end
 do
   local left = recorded()
   io.write("ERRORS " .. #left .. "\n", table.concat(left, "\n"), "\n")
-  os.exit(#left == 0 and 0 or 1)
+  exit(#left == 0 and 0 or 1)
 end

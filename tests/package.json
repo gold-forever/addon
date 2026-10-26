@@ -3,7 +3,8 @@
   "private": true,
   "description": "Unit tests for the addon's pure-Lua code, run on fengari (Lua 5.3 in JS).",
   "scripts": {
-    "test": "node run.js"
+    "test": "node run.js",
+    "golden": "node run.js --golden"
   },
   "devDependencies": {
     "fengari": "^0.1.5"
