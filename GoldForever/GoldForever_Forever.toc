@@ -82,6 +82,7 @@ Tools\SalePlan.lua
 Tools\AuctionSettings.lua
 Tools\Holdings.lua
 Tools\Lists.lua
+Tools\AuctionState.lua
 Tools\AuctionWaits.lua
 Tools\AuctionBlizzard.lua
 Tools\AuctionBooks.lua
