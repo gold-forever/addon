@@ -1,5 +1,5 @@
-# A tag addon-v<version> (addon-v0.13.1) tests the addon, packages GoldForever/ with the BigWigs
-# packager (.pkgmeta), attests the zip's build provenance, and publishes GoldForever-<version>.zip: to a
+# A tag addon-v<version> (addon-v0.13.1) tests the addon, packages GoldForever/ and GoldForever_Auctions/
+# with the BigWigs packager (.pkgmeta), attests the zip's build provenance, and publishes GoldForever-<version>.zip: to a
 # GitHub release always, and to
 # CurseForge and Wago when their project ids are in the TOC (X-Curse-Project-ID, X-Wago-ID) and their
 # tokens are repository secrets (CF_API_KEY, WAGO_API_TOKEN). Without them the packager skips that site
@@ -39,8 +39,8 @@ jobs:
           HAS_WAGO_TOKEN: ${{ secrets.WAGO_API_TOKEN != '' }}
         run: |
           version="${GITHUB_REF_NAME#addon-v}"
-          # The version is in the three TOCs and in Kernel/Core.lua: each must say the tag's.
-          for toc in GoldForever/GoldForever.toc GoldForever/GoldForever_Mainline.toc GoldForever/GoldForever_Forever.toc; do
+          # The version is in each addon's three TOCs and in Kernel/Core.lua: each must say the tag's.
+          for toc in GoldForever/GoldForever{,_Mainline,_Forever}.toc GoldForever_Auctions/GoldForever_Auctions{,_Mainline,_Forever}.toc; do
             toc_version=$(sed -n 's/^## Version: *//p' "$toc" | tr -d '\r')
             if [[ "$version" != "$toc_version" ]]; then
               echo "::error::the tag says $version but $toc says $toc_version"

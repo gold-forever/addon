@@ -1,6 +1,7 @@
 # The BigWigs packager builds the addon from this repository (.github/workflows/addon-release.yml).
-# move-folders lifts GoldForever/ to the package's root and registers it as the place the TOC files
-# are read from; the tests and the repository's own files are left out.
+# move-folders lifts GoldForever/ and GoldForever_Auctions/ (the auction house panel, which the core
+# loads on demand) to the package's root and registers them as the places the TOC files are read
+# from; the tests and the repository's own files are left out.
 package-as: GoldForever
 
 enable-nolib-creation: no
@@ -12,6 +13,7 @@ manual-changelog:
 
 move-folders:
   GoldForever/GoldForever: GoldForever
+  GoldForever/GoldForever_Auctions: GoldForever_Auctions
 
 ignore:
   - tests
