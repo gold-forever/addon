@@ -1011,6 +1011,15 @@ do
   AP.tab("scan")
   AP.tab("post")
   assert(AP.bound(), "Space posts on the Post tab")
+  -- Bindings cannot change in combat: Space is freed when the fight ends.
+  InCombatLockdown = function() return true end
+  AP.tab("scan")
+  wait(0)
+  assert(AP.bound(), "in combat the binding stays")
+  InCombatLockdown = nil
+  fireNow("PLAYER_REGEN_ENABLED")
+  assert(not AP.bound(), "freed when the fight ends")
+  AP.tab("post")
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   local rows, chosen = AP.state()
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")

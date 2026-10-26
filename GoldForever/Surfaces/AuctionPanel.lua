@@ -23,9 +23,20 @@ end
 local refresh, show
 
 -- Space posts only while the Post tab shows: an override binding on a named button, set and cleared as
--- the tab and the panel change (never in combat, when bindings cannot change). Elsewhere it jumps.
-local function bindSpace(p)
-	if (InCombatLockdown and InCombatLockdown()) or not SetOverrideBindingClick then
+-- the tab and the panel change; in combat, when bindings cannot change, once the fight ends. Elsewhere it
+-- jumps.
+local bindSpace
+local function rebind()
+	if ah.panel then
+		bindSpace(ah.panel)
+	end
+end
+function bindSpace(p)
+	if not SetOverrideBindingClick then
+		return
+	end
+	if ns.inCombat() then
+		ns.afterCombat("auction panel", rebind)
 		return
 	end
 	local want = p:IsShown() and p.tab == "post"
@@ -277,13 +288,6 @@ local function hide()
 	ah.live, ah.waits, ah.armed, ah.confirm, ah.purchase, ah.checking = {}, {}, nil, nil, nil, nil
 	ah.buying, ah.overArmed = nil, nil
 end
-
--- A panel hidden in combat could not clear its binding then: set it right when the fight ends.
-ns.on("PLAYER_REGEN_ENABLED", "auction panel", function()
-	if ah.panel then
-		bindSpace(ah.panel)
-	end
-end)
 
 -- The named button the Space binding clicks (SetOverrideBindingClick takes a global name): a key press
 -- is a hardware event, as a click is.
