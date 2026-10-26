@@ -297,8 +297,11 @@ local function sample()
 	ns.append("pos", Encode.row(ns.now(), me.ref, map, x, y))
 end
 
-ns.on("PLAYER_LOGIN", "positions", function()
-	C_Timer.NewTicker(ns.db().settings.sampleSeconds or 5, function()
-		ns.safely("positions", sample)
-	end)
-end)
+ns.module("Loot", {
+	requires = { "Store" },
+	enable = function()
+		C_Timer.NewTicker(ns.db().settings.sampleSeconds or 5, function()
+			ns.safely("positions", sample)
+		end)
+	end,
+})

@@ -78,7 +78,6 @@ local KNOWN = {
 	"Lists.lua PLAYER_LOGIN",
 	"Looks.lua PLAYER_LOGIN",
 	"Loot.lua PLAYER_ENTERING_WORLD",
-	"Loot.lua PLAYER_LOGIN",
 	"Market.lua PLAYER_ENTERING_WORLD",
 	"Minimap.lua PLAYER_LOGIN",
 	"MobStats.lua PLAYER_ENTERING_WORLD",
