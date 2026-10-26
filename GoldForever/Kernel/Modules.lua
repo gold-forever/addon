@@ -6,19 +6,26 @@
 -- that fails to init or enable is recorded (ns.fail) and the others still start; one that requires a failed,
 -- missing or circular module does not start, and is recorded too. A failing world is recorded, and the
 -- module's world runs again at the next loading screen.
+--
+-- A module declared after the kernel started them (an addon loaded on demand) starts at ns.startLate():
+-- every step the kernel has run, after the modules it requires; its world runs from the next loading screen.
 
 local _, ns = ...
 
 local modules, declared = {}, {} -- name -> module; the modules in the order the files declared them
+local order -- the modules in the order they start, made again when one is declared
+local STEPS = { "init", "enable" }
+local reached = {} -- step -> true once the kernel has run it
 
 function ns.module(name, def)
 	if modules[name] then
 		ns.fail(name, "module declared twice")
 		return
 	end
-	local m = { name = name, requires = def.requires or {}, init = def.init, enable = def.enable, world = def.world }
+	local m = { name = name, requires = def.requires or {}, init = def.init, enable = def.enable, world = def.world, ran = {} }
 	modules[name] = m
 	declared[#declared + 1] = m
+	order = nil
 end
 
 local function placeable(m, placed)
@@ -63,8 +70,7 @@ local function unplaceable(m, placed)
 end
 
 -- Every module after the ones it requires: each time the first declared that can go next. Those left over
--- are recorded as failed.
-local order
+-- are recorded as failed, once.
 local function ordered()
 	if order then
 		return order
@@ -83,7 +89,7 @@ local function ordered()
 		end
 	end
 	for _, m in ipairs(declared) do
-		if not placed[m.name] then
+		if not placed[m.name] and not m.failed then
 			m.failed = true
 			ns.fail(m.name, unplaceable(m, placed))
 		end
@@ -91,26 +97,50 @@ local function ordered()
 	return order
 end
 
--- Runs each module's `step` ("init" or "enable") in dependency order.
--- None starts once the save could not be loaded (ns.stopped).
-function ns.startModules(step)
+-- Runs the module's `step`, unless a module it requires failed.
+local function run(m, step)
+	m.ran[step] = true
+	for _, need in ipairs(m.requires) do
+		if modules[need].failed then
+			m.failed = true
+			ns.fail(m.name, "requires " .. need .. ", which failed")
+			return
+		end
+	end
+	if m[step] and not ns.safely(m.name, m[step]) then
+		m.failed = true
+	end
+	m.enabled = m.enabled or (step == "enable" and not m.failed)
+end
+
+-- Runs each step the kernel has reached that the module has not run yet.
+local function start(m)
+	for _, step in ipairs(STEPS) do
+		if not reached[step] or m.failed then
+			return
+		end
+		if not m.ran[step] then
+			run(m, step)
+		end
+	end
+end
+
+-- What every module declared has not run yet of the steps the kernel has reached, in dependency order: for
+-- a module declared after the others started (an addon loaded on demand). None starts once the save could
+-- not be loaded (ns.stopped).
+function ns.startLate()
 	for _, m in ipairs(ordered()) do
 		if ns.stopped() then
 			return
 		end
-		if not m.failed then
-			for _, need in ipairs(m.requires) do
-				if modules[need].failed and not m.failed then
-					m.failed = true
-					ns.fail(m.name, "requires " .. need .. ", which failed")
-				end
-			end
-		end
-		if not m.failed and m[step] and not ns.safely(m.name, m[step]) then
-			m.failed = true
-		end
-		m.enabled = m.enabled or (step == "enable" and not m.failed)
+		start(m)
 	end
+end
+
+-- Runs each module's `step` ("init" or "enable") in dependency order.
+function ns.startModules(step)
+	reached[step] = true
+	ns.startLate()
 end
 
 -- Runs each enabled module's world at a loading screen, in dependency order.

@@ -85,6 +85,28 @@ worlds = {}
 handler(nil, "PLAYER_ENTERING_WORLD", false, true)
 eq(table.concat(worlds, ", "), "Early false true, Late false true, Shaky", "and again at every loading screen, a world that failed included; none for a module that did not start")
 
+-- A module declared after login (an addon loaded on demand, GoldForever_Auctions) starts when the kernel is
+-- asked (ns.startLate): its init then its enable, after the modules it requires; those already started do
+-- not start again, and its world runs from the next loading screen.
+ran, worlds = {}, {}
+ns.module("Arrival", { requires = { "Late" }, init = step("init Arrival"), enable = step("enable Arrival"), world = world("Arrival") })
+ns.module("Stray", { requires = { "Elsewhere" }, init = step("init Stray") })
+ns.module("Arrival", { init = step("init Arrival again") })
+eq(#ran, 0, "a module declared after login does not start on its own")
+ns.startLate()
+eq(table.concat(ran, ", "), "init Arrival, enable Arrival", "a late module's init and enable, and no other module's again")
+eq(errors.Stray and errors.Stray.msg, "requires Elsewhere, which no module declares", "a late module's missing requirement is recorded")
+eq(errors.Arrival and errors.Arrival.msg, "module declared twice", "a late module declared twice is recorded, the first kept")
+ns.fail("Lonely", "seen")
+ran = {}
+ns.module("Second", { init = step("init Second") })
+ns.startLate()
+eq(table.concat(ran, ", "), "init Second", "asked again, only the module declared since starts")
+eq(errors.Lonely.msg, "seen", "a module that could not start is not recorded again")
+eq(#worlds, 0, "no world for a late module until the next loading screen")
+handler(nil, "PLAYER_ENTERING_WORLD", false, false)
+eq(table.concat(worlds, ", "), "Early false false, Late false false, Shaky, Arrival false false", "then every world, the late module's after the ones it requires")
+
 -- Modules set themselves up through ns.module: these files still subscribe to PLAYER_LOGIN or
 -- PLAYER_ENTERING_WORLD, each line a file and the event with why it stays; the list only shrinks. A file
 -- that moves leaves it, and a new one fails here.
