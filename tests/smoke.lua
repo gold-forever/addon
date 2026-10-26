@@ -1152,6 +1152,15 @@ do
     C_Container.GetContainerItemInfo = function(bag, slot) local id = inBank[bag] and inBank[bag][slot] return id and { itemID = id, stackCount = 20, hyperlink = "|Hitem:" .. id .. "::::::::30|h[x]|h" } or nil end
     C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot end
     C_Container.GetContainerNumFreeSlots = function() return 10, 0 end
+    -- Never in combat (the clock set back after, so the session's timers fall where they did).
+    InCombatLockdown = function() return true end
+    local at = clock
+    fireNow("BANKFRAME_OPENED")
+    runTimers(clock + 0.7)
+    fireNow("BANKFRAME_CLOSED")
+    clock = at
+    InCombatLockdown = nil
+    assert(#used == 0 and ns.fetchList()[2589] == 25, "nothing taken in combat: " .. table.concat(used, ","))
     fire("BANKFRAME_OPENED")
     wait(2)
     assert(table.concat(used, ",") == "-1:1,split -1:3x5,to 0:1", "25 of two stacks of 20: one whole, five split off: " .. table.concat(used, ","))

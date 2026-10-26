@@ -177,7 +177,7 @@ end
 local FETCH_GAP = 0.15
 local function fetchFromBank()
 	local want = ns.fetchList()
-	if not want or not next(want) or (InCombatLockdown and InCombatLockdown()) then
+	if not want or not next(want) or ns.inCombat() then
 		return
 	end
 	local moves, left = {}, {}
@@ -217,7 +217,7 @@ local function fetchFromBank()
 		i = i + 1
 		local m = moves[i]
 		-- The bank closed, or a fight began, mid-fetch: this stack was not taken, so it stays to look for.
-		if not m or not bankOpen or (InCombatLockdown and InCombatLockdown()) then
+		if not m or not bankOpen or ns.inCombat() then
 			i = i - 1
 			done()
 			return
