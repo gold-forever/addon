@@ -56,7 +56,7 @@ function Kit.classColor(class)
 	return Theme.class[class or ""] or Theme.color.text
 end
 
-Kit.isRetail = ns.Realms.isRetail(select(4, GetBuildInfo()))
+Kit.isRetail = ns.retail
 
 -- Names and quality as the catalogue has them (Catalogue.lua), for the pages' tables.
 function Kit.itemName(id)
