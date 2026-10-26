@@ -48,4 +48,41 @@ for _, f in pairs(D.field) do
 	declared[f] = true
 end
 eq(sorted(used), sorted(declared), "the tables use the declared fields, all of them")
+
+-- DataFormat.lua is the one place the file's shape is named: its readers (the files that name the global
+-- or read ns.DataFormat) index it by DataFormat's names, never the global directly or a field by a quoted
+-- name; a new one fails here. A field read by dot through a local (data.markets) is not seen.
+local FIELD = {}
+for _, f in pairs(D.field) do
+	FIELD[f] = true
+end
+local function literalReads(source)
+	local found = {}
+	local n = 0
+	for line in (source .. "\n"):gmatch("([^\n]*)\n") do
+		n = n + 1
+		local code = line:gsub("%-%-.*$", "")
+		local hit = code:find(D.GLOBAL .. "%s*[%.:%[]")
+		for name in code:gmatch('%[%s*"([%w_]+)"%s*%]') do
+			hit = hit or FIELD[name]
+		end
+		if hit then
+			found[#found + 1] = "line " .. n
+		end
+	end
+	return table.concat(found, ", ")
+end
+local readers = 0
+for file, source in pairs(SOURCES) do
+	if file ~= "DataFormat.lua" and (source:find(D.GLOBAL, 1, true) or nsNames(source).DataFormat) then
+		readers = readers + 1
+		eq(literalReads(source), "", file .. " reads the data file by DataFormat's names")
+	end
+end
+eq(readers >= 4, true, "the data file's readers are found")
+
+-- The scan sees a literal read, and not one by DataFormat's names or in a comment.
+eq(literalReads('local m = GoldForever_Prices.markets\nlocal s = file["shared"]\nlocal t = x["title"]'), "line 1, line 2",
+	"the global indexed, a field by its quoted name, and not another quoted key")
+eq(literalReads("local m = data[F.markets] -- data.markets"), "", "DataFormat's names, and a comment")
 return checks()
