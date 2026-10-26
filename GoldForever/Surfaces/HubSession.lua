@@ -142,12 +142,12 @@ local function buildLevelling(page)
 	tbl:SetPoint("TOPLEFT", mix, "BOTTOMLEFT", 0, -16)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local me, db = ns.me(), ns.db()
-		if not me then
+		local view = ns.SessionView.levelling()
+		if not view then
 			return
 		end
+		local me, lv = view.character, view.levelling
 		page:SetTitle(string.format("Levelling · %s%s|r, level %d", Theme.escape(classColor(me.class)), me.name or "?", me.level or 0))
-		local lv = Views.levelling(Views.rows(db, "level", me.ref), Views.rows(db, "xp", me.ref), me.ref)
 		local xp = me.xp
 		if xp and xp.max and xp.max > 0 then
 			local have = math.min(xp.rested or 0, xp.max * Views.RESTED_CAP_LEVELS)

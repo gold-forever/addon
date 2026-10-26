@@ -80,6 +80,7 @@ Surfaces\FirstRun.lua
 Tools\MailHelper.lua
 Surfaces\HubHome.lua
 Surfaces\HubLedger.lua
+ReadModels\SessionView.lua
 Surfaces\HubSession.lua
 Surfaces\HubCrafting.lua
 ReadModels\RaresView.lua
