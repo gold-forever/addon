@@ -77,6 +77,7 @@ Surfaces\ShoppingListsPage.lua
 Surfaces\AuctionPanel.lua
 Surfaces\UiDebug.lua
 Surfaces\CraftingStrip.lua
+ReadModels\CraftQueueView.lua
 Surfaces\CraftQueue.lua
 Surfaces\FirstRun.lua
 Tools\MailHelper.lua

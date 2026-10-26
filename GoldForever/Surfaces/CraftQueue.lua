@@ -5,7 +5,7 @@
 -- Crafting page or the Craft queue list. Take from bank marks the reagents for the next bank visit.
 
 local _, ns = ...
-local Theme, UI, Views, Encode = ns.Theme, ns.UI, ns.Views, ns.Encode
+local Theme, UI, Views, Encode, CraftQueueView = ns.Theme, ns.UI, ns.Views, ns.Encode, ns.CraftQueueView
 
 local CraftQueue = {}
 ns.CraftQueue = CraftQueue
@@ -15,23 +15,6 @@ local toldReady -- "ready to craft" said for this queue: once, until a craft is 
 
 local function settings()
 	return ns.settings("craftQueue")
-end
-
--- The guild bank of the character's guild, as last read: counts by item.
-local function guildCounts()
-	local me = ns.me()
-	local guild = GetGuildInfo and GetGuildInfo("player")
-	local out = {}
-	if not me or not guild then
-		return out
-	end
-	local bank = ns.db().guildBanks[ns.market(string.lower(me.faction or "?")) .. ":" .. guild]
-	for _, tab in pairs(bank and bank.tabs or {}) do
-		for id, n in pairs(Encode.parseItems(tab.items)) do
-			out[id] = (out[id] or 0) + n
-		end
-	end
-	return out
 end
 
 -- Every row of the plan for the queue now (Views.queuePlan).
@@ -46,17 +29,8 @@ function CraftQueue.plan()
 		mine.bank[id] = bank[id]
 		mine.mail[id] = (mail[id] or 0) + ns.boughtSince(id)
 	end
-	-- Other characters: what each holds of the reagents, from the save. This one is left out itself, not
-	-- by name: an alt of the same name on another realm is another character.
-	local others = {}
-	for id, e in pairs(Views.holdingsOf(ns.db().characters, Encode.parseItems, needs, me)) do
-		local list = {}
-		for _, h in ipairs(e.by) do
-			list[#list + 1] = { name = h.name, total = h.total }
-		end
-		others[id] = list
-	end
-	local plan = Views.queuePlan(needs, mine, guildCounts(), others)
+	local guild = GetGuildInfo and GetGuildInfo("player")
+	local plan = Views.queuePlan(needs, mine, CraftQueueView.guildCounts(me, guild), CraftQueueView.others(needs, me))
 	-- A reagent a vendor sells without limit (seen at a merchant) is bought there, not at the auction house.
 	for _, r in ipairs(plan) do
 		r.vendor = ns.price.vendorBuy(r.id) ~= nil

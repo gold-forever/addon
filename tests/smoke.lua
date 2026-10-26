@@ -1301,6 +1301,16 @@ do
     for _, o in ipairs(others or {}) do names[#names + 1] = o.name .. " " .. o.n end
     assert(#names == 1 and names[1] == ns.me().name .. " 4", "the alt's Linen, not this character's own: " .. table.concat(names, ", "))
   end
+  -- The guild bank of this character's guild, as last read, is planned from.
+  do
+    local key = ns.market(string.lower(ns.me().faction or "?")) .. ":" .. GetGuildInfo("player")
+    local kept = GoldForeverDB.guildBanks[key]
+    GoldForeverDB.guildBanks[key] = { tabs = { { items = "2589*1" } } }
+    local fromGuild
+    for _, r in ipairs(ns.CraftQueue.plan()) do if r.id == 2589 then fromGuild = r.guild end end
+    GoldForeverDB.guildBanks[key] = kept
+    assert(fromGuild == 1, "the Linen in the guild bank: " .. tostring(fromGuild))
+  end
   GoldForeverDB.settings.craftQueue.closed = true
   cq:Hide()
   ns.queueAdd(2963, 0)

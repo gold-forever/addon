@@ -3,7 +3,6 @@
 -- only shrinks. A file that stops reading ns.db leaves it, and a new one fails here.
 
 local KNOWN = {
-	"CraftQueue.lua",
 	"ExportFrame.lua",
 }
 
