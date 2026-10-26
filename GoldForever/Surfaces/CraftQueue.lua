@@ -279,7 +279,7 @@ for _, event in ipairs({ "BAG_UPDATE_DELAYED", "MAIL_INBOX_UPDATE", "BANKFRAME_C
 		end
 	end)
 end
-ns.onBagsRead(function()
+ns.listen("bagsRead", "craft queue", function()
 	if frames.frame and frames.frame:IsShown() then
 		soon()
 	end

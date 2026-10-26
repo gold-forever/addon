@@ -18,7 +18,7 @@ local homeSoon = ns.throttle("ui home", 2, function()
 	end
 end)
 ns.on("PLAYER_MONEY", "ui home", homeSoon)
-ns.onBagsRead(homeSoon)
+ns.listen("bagsRead", "ui home", homeSoon)
 
 -- The next moves, from the save and the prices: scan, sell what the bags hold, the best craft; today's
 -- money by where it came from; and the bag items worth most.

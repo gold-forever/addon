@@ -50,21 +50,13 @@ local function read(ids)
 	return { used = used, total = total, items = Encode.items(counts), bound = next(bound) and Encode.items(bound) or nil, t = ns.now() }
 end
 
--- Pages that show the bags (Home) and redraw when they are read.
-local bagsRead = {}
-function ns.onBagsRead(fn)
-	bagsRead[#bagsRead + 1] = fn
-end
-
 local function readBags()
 	local me = ns.me()
 	if me and not ns.tornDown() then
 		local bags = read(BAGS)
 		if bags.total > 0 then
 			me.bags = bags
-			for _, fn in ipairs(bagsRead) do
-				ns.safely("bags read", fn)
-			end
+			ns.emit("bagsRead")
 		end
 	end
 end

@@ -25,6 +25,7 @@ end)
 -- care hear it with ns.listen(name, label, fn), so a lower file never calls up into a higher one.
 --   "ready"        the saved table is loaded and upgraded, before PLAYER_LOGIN: what needs only the save
 --                  starts here, not on ADDON_LOADED, so it never runs before the table exists;
+--   "bagsRead"     the bags were read into the save (Inventory.lua): the pages that show them redraw;
 --   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (CraftPlanner.lua);
 --   "pricesReady"  a new full scan's prices are in (Pricing.lua);
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
