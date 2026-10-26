@@ -343,14 +343,11 @@ setmetatable(_G, {
   __index = function(_, k) if k == "GoldForever_Prices" then return pricesFile end end,
   __newindex = function(g, k, v) if k == "GoldForever_Prices" then pricesFile = noting(v, "prices") else rawset(g, k, v) end end,
 })
--- Read though the companion never writes it: Lists.lua takes a shared entry's copyOf as the server's mark
--- of a copy it kept, which format.go does not carry. The list only shrinks.
-local PRICES_KNOWN = { ["entry.copyOf"] = true }
 local function unlistedPriceFields()
   local out = {}
   for asked in pairs(pricesAsked) do
     local shape, field = asked:match("^(%w+)%.(.*)$")
-    if not ns.DataFormat.tables[shape][field] and not PRICES_KNOWN[asked] then out[#out + 1] = "GoldForever_Prices " .. shape .. " field " .. field .. " is read but not in DataFormat.lua" end
+    if not ns.DataFormat.tables[shape][field] then out[#out + 1] = "GoldForever_Prices " .. shape .. " field " .. field .. " is read but not in DataFormat.lua" end
   end
   table.sort(out)
   return out

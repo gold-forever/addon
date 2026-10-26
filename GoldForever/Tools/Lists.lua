@@ -115,14 +115,11 @@ ns.listen("pricesReady", "deals", announceDeals)
 -- Lists and profiles the companion carries from the site (Data.lua's `shared`), merged in at login:
 -- by id, the newer edit wins and the other is dropped (Shopping.merge; no copies since 2026-10-24). A file
 -- already merged is not merged again.
--- A copy the site kept: marked so by the server, or named so by an earlier merge. In the save, only a list
--- or profile with no id is taken for one by its name: one the player made (stamped with an id) keeps any
--- name. What the site sends is judged by its name too (left out, never deleted).
-local function copyMark(x, name)
-	if type(x.copyOf) == "string" then
-		return x.copyOf
-	end
-	return not x.id and type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
+-- A copy the site kept, named so by an earlier merge. In the save, only a list or profile with no id is
+-- taken for one by its name: one the player made (stamped with an id) keeps any name. What the site sends
+-- is judged by its name too (left out, never deleted).
+local function copyMark(id, name)
+	return not id and type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
 end
 
 local function mergeShared()
@@ -148,7 +145,7 @@ local function mergeShared()
 	-- marked or only named so.
 	for _, items in ipairs({ s.lists or {}, s.profiles or {} }) do
 		for _, x in ipairs(items) do
-			x.copyOf = x.copyOf or copyMark({ id = x.id }, x.name)
+			x.copyOf = x.copyOf or copyMark(x.id, x.name)
 		end
 	end
 	local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
@@ -164,7 +161,7 @@ local function mergeShared()
 		local got = type(x) == "table" and type(x[F.string]) == "string" and ns.Shopping.decode(x[F.string])
 		if got and got[1] and type(x[F.id]) == "string" then
 			got[1].id, got[1].edited = x[F.id], tonumber(x[F.edited]) or 0
-			got[1].copyOf = copyMark({ copyOf = x.copyOf }, got[1].name)
+			got[1].copyOf = copyMark(nil, got[1].name)
 			lists[#lists + 1] = got[1]
 		end
 	end
@@ -172,7 +169,7 @@ local function mergeShared()
 		local p = type(x) == "table" and type(x[F.string]) == "string" and ns.SalePlan.decode(x[F.string])
 		if p and type(x[F.id]) == "string" then
 			p.id, p.edited = x[F.id], tonumber(x[F.edited]) or 0
-			p.copyOf = copyMark({ copyOf = x.copyOf }, p.name)
+			p.copyOf = copyMark(nil, p.name)
 			profiles[#profiles + 1] = p
 		end
 	end
