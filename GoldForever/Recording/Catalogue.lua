@@ -10,9 +10,6 @@ local Encode = ns.Encode
 local Catalogue = {}
 ns.Catalogue = Catalogue
 
--- minLevel and equipLoc are appended to design 002's columns.
-ns.FIELDS.item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc"
-
 local GetItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
 local pending = {} -- item IDs waiting for their info to load
 

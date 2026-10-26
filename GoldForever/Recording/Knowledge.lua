@@ -5,12 +5,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.npc = "name,minLevel,maxLevel,classification,type"
-ns.FIELDS.object = "name"
-ns.FIELDS.map = "name,type,parent"
--- On Forever GetTrainerServiceInfo returns name, category, icon; the columns follow that order.
-ns.FIELDS.trainerService = "name,category,icon,cost,skill,skillRank,level"
-
 -- NPCs -------------------------------------------------------------------------------------------
 
 local levels = {} -- npc ID -> { min, max } seen this session, to widen the level range

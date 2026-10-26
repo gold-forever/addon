@@ -4,9 +4,70 @@
 local _, ns = ...
 local Encode = ns.Encode
 
--- Column dictionary; each collector adds its own entries when its file loads.
+-- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
+-- the order the TOCs load them.
 ns.FIELDS = {
 	sys = "t,char,kind",
+	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns.
+	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc",
+	-- Loot.lua. fish is appended to design 002's columns: set when the loot is a fishing catch.
+	loot = "t,char,map,x,y,src,first,coin,items,fish",
+	pos = "t,char,map,x,y",
+	-- Professions.lua. name is appended to design 002's columns: it lets the web app show recipes whose
+	-- output is not an item (enchants).
+	recipe = "skillLine,output,min,max,reagents,name",
+	skill = "t,char,line,skill,max,spell,src,map",
+	-- Market.lua. left: the auctions' time-left band (Enum.AuctionHouseTimeLeftBand: 0 under 30 minutes,
+	-- 1 under 2 hours, 2 under 12 hours, 3 longer), so a listing that vanishes can be told sold from expired
+	-- (data gap D1). Rows are grouped by item, unit price and band; empty on a client without the call.
+	-- GetReplicateItemTimeLeft answers 1–4 (the owner's retail scan, 2026-10-23: 1, 2, 3 and 4, never 0), so
+	-- the band is its answer less one; anything else is left empty. A scan written this way says so with
+	-- `bands = 0` (the band numbering starts at 0); scans before it wrote the raw 1–4.
+	scan = "item,unit,qty,auctions,left",
+	-- Retail only: each distinct item a scan names, for telling commodities from gear (Realms.itemRow).
+	scanItem = "item,class,subclass,stack",
+	-- qty is appended to design 002's columns: buy is the price of one purchase of qty items.
+	vendor = "buy,limited,t,qty",
+	merchant = "map,x,y,items",
+	-- Trade.lua.
+	merchantTrade = "t,char,kind,item,qty,price,map",
+	-- Ledger.lua.
+	craft = "t,char,recipe,item,qty,skill,map",
+	money = "t,char,delta,ctx",
+	quest = "t,char,quest,kind,xp,money,map",
+	questName = "name",
+	flight = "t,char,from,to,cost,map",
+	taxiNode = "name",
+	-- Knowledge.lua.
+	npc = "name,minLevel,maxLevel,classification,type",
+	object = "name",
+	map = "name,type,parent",
+	-- On Forever GetTrainerServiceInfo returns name, category, icon; the columns follow that order.
+	trainerService = "name,category,icon,cost,skill,skillRank,level",
+	-- Character.lua.
+	currency = "name",
+	faction = "name",
+	-- Legacy.lua.
+	legacyPerk = "name,maxRank,spell,description,tree,x,y",
+	legacyReward = "level,item,name,description",
+	-- Achievements.lua.
+	achievement = "name,points,category,icon,description,reward",
+	statistic = "name,category",
+	-- Rares.lua.
+	rare = "t,char,npc,map,x,y,how",
+	-- Auctions.lua.
+	post = "t,char,item,qty,unit,duration,commodity",
+	sale = "t,char,item,qty,price,deposit,cut",
+	-- price: the total paid in copper; commodity: 1 for a commodity, empty for an item.
+	ahBuy = "t,char,item,qty,price,commodity",
+	-- unit: the price asked per unit, when known (a cancel knows it; an expiry mail does not).
+	auctionEnd = "t,char,item,qty,unit,outcome",
+	-- Levelling.lua.
+	level = "t,char,kind,level,played,levelPlayed,money,map,x,y",
+	xp = "t,char,xp,kind,rested,instance,map,level,x,y",
+	zone = "t,char,map,instance,instanceId",
+	boss = "t,char,encounter,name,difficulty,size,success,map,instanceId",
+	instance = "name,type",
 }
 
 -- A declaration's column names in order and by name, read once.

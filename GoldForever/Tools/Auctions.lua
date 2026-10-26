@@ -7,13 +7,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.post = "t,char,item,qty,unit,duration,commodity"
-ns.FIELDS.sale = "t,char,item,qty,price,deposit,cut"
--- price: the total paid in copper; commodity: 1 for a commodity, empty for an item.
-ns.FIELDS.ahBuy = "t,char,item,qty,price,commodity"
--- unit: the price asked per unit, when known (a cancel knows it; an expiry mail does not).
-ns.FIELDS.auctionEnd = "t,char,item,qty,unit,outcome"
-
 local DEDUPE_SECONDS = 5 -- a post and its confirmation are one auction
 
 local lastPost -- { key, at }

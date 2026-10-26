@@ -11,8 +11,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.merchantTrade = "t,char,kind,item,qty,price,map"
-
 local atMerchant = false
 
 ns.on("MERCHANT_SHOW", "trade", function()

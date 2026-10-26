@@ -4,11 +4,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
--- name is appended to design 002's columns: it lets the web app show recipes whose output is not
--- an item (enchants).
-ns.FIELDS.recipe = "skillLine,output,min,max,reagents,name"
-ns.FIELDS.skill = "t,char,line,skill,max,spell,src,map"
-
 local BASIC = Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 local SALVAGE = Enum and Enum.TradeskillRecipeType and Enum.TradeskillRecipeType.Salvage
 

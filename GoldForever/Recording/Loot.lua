@@ -7,10 +7,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
--- fish is appended to design 002's columns: set when the loot is a fishing catch.
-ns.FIELDS.loot = "t,char,map,x,y,src,first,coin,items,fish"
-ns.FIELDS.pos = "t,char,map,x,y"
-
 local FARMING_SECONDS = 15 * 60 -- the frontend's idle split
 local ITEM_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Item or 1
 local MONEY_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Money or 2

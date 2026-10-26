@@ -8,9 +8,6 @@ local Encode = ns.Encode
 local FACTION = 2802
 local TREE = 1187
 
-ns.FIELDS.legacyPerk = "name,maxRank,spell,description,tree,x,y"
-ns.FIELDS.legacyReward = "level,item,name,description"
-
 -- Perk name and description: the definition's own text, else its spell's.
 local function perkText(definition)
 	local name = definition.overrideName

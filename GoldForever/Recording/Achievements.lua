@@ -4,9 +4,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.achievement = "name,points,category,icon,description,reward"
-ns.FIELDS.statistic = "name,category"
-
 local text = Encode.text
 
 local function categoryName(category)

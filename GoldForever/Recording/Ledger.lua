@@ -4,11 +4,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.craft = "t,char,recipe,item,qty,skill,map"
-ns.FIELDS.money = "t,char,delta,ctx"
-ns.FIELDS.quest = "t,char,quest,kind,xp,money,map"
-ns.FIELDS.questName = "name"
-
 local function GetItemCount(id)
 	return (C_Item and C_Item.GetItemCount or _G.GetItemCount)(id)
 end
@@ -240,9 +235,6 @@ ns.on("QUEST_TURNED_IN", "quest", function(id, xp, reward)
 end)
 
 -- Flights ----------------------------------------------------------------------------------------
-
-ns.FIELDS.flight = "t,char,from,to,cost,map"
-ns.FIELDS.taxiNode = "name"
 
 local CURRENT = Enum and Enum.FlightPathState and Enum.FlightPathState.Current
 

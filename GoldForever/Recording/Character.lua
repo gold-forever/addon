@@ -4,9 +4,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.currency = "name"
-ns.FIELDS.faction = "name"
-
 local function readCurrencies()
 	local me = ns.me()
 	if not me or not (C_CurrencyInfo and C_CurrencyInfo.GetCurrencyListSize) then

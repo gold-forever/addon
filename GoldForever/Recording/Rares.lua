@@ -6,8 +6,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.rare = "t,char,npc,map,x,y,how"
-
 local SKULL = 8
 local RARE = { rare = true, rareelite = true }
 

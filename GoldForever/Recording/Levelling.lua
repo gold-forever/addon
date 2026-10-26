@@ -8,12 +8,6 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-ns.FIELDS.level = "t,char,kind,level,played,levelPlayed,money,map,x,y"
-ns.FIELDS.xp = "t,char,xp,kind,rested,instance,map,level,x,y"
-ns.FIELDS.zone = "t,char,map,instance,instanceId"
-ns.FIELDS.boss = "t,char,encounter,name,difficulty,size,success,map,instanceId"
-ns.FIELDS.instance = "name,type"
-
 local WINDOW = 3 -- seconds between an XP gain and what earned it (a kill, a quest, a new zone)
 local PLAYED_TIMEOUT = 10 -- seconds to wait for /played before writing a level row without it
 

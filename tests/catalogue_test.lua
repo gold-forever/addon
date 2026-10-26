@@ -16,7 +16,6 @@ C_TooltipInfo = {
 local function session(db, lean)
 	local scheduled = {}
 	local ns = {
-		FIELDS = {},
 		lean = lean,
 		db = function()
 			return db
@@ -30,6 +29,7 @@ local function session(db, lean)
 		on = function() end,
 	}
 	assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Catalogue.lua"], "@Catalogue.lua"))("GoldForever", ns)
 	-- Runs the earliest scheduled callback, as the game's timer would.
 	local function tick()
@@ -118,7 +118,6 @@ eq(asked[200001], 1, "lean, next session: a row without a tooltip is not asked f
 -- Columns read by name (ns.FIELDS), not by place.
 local rowsDb = { catalogue = { items = { [7] = "Linen Cloth,1,5,7,5,20,13", [8] = ",3,5", [9] = "Odd" }, npcs = { [42] = "Hogger,9,11,elite" }, tooltips = {} } }
 ns = session(rowsDb, true)
-ns.FIELDS.npc = "name,minLevel,maxLevel,classification,type"
 local C = ns.Catalogue
 eq(C.name("item", 7), "Linen Cloth", "an item's name")
 eq(C.quality(7), 1, "an item's quality, a number")
