@@ -1,6 +1,7 @@
--- ns.module (Kernel/Modules.lua): each module's init runs once the addon has loaded and its enable once the
--- player has logged in, after the modules it requires whatever order the files declared them in; a failing,
--- missing or circular module is recorded, not raised, and the others still start.
+-- ns.module (Kernel/Modules.lua): each module's init runs once the addon has loaded, its enable once the
+-- player has logged in and its world on every loading screen, after the modules it requires whatever order
+-- the files declared them in; a failing, missing or circular module is recorded, not raised, and the others
+-- still start.
 
 -- Modules.lua, Core.lua, Schema.lua and Migrations.lua on a stand-in client: enough to load them and run their ADDON_LOADED
 -- and PLAYER_LOGIN.
@@ -25,7 +26,12 @@ end
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 
-local ran = {}
+local ran, worlds = {}, {}
+local function world(name)
+	return function(isInitialLogin, isReloadingUi)
+		worlds[#worlds + 1] = name .. " " .. tostring(isInitialLogin) .. " " .. tostring(isReloadingUi)
+	end
+end
 local function step(what)
 	return function()
 		ran[#ran + 1] = what
@@ -35,11 +41,20 @@ end
 ns.module("Reader", { requires = { "Store" }, init = function()
 	ran[#ran + 1] = GoldForeverDB and "init Reader with the save" or "init Reader without the save"
 end })
-ns.module("Late", { requires = { "Early" }, init = step("init Late"), enable = step("enable Late") })
-ns.module("Early", { init = step("init Early"), enable = step("enable Early") })
+ns.module("Late", { requires = { "Early" }, init = step("init Late"), enable = step("enable Late"), world = world("Late") })
+ns.module("Early", { init = step("init Early"), enable = step("enable Early"), world = world("Early") })
 ns.module("Early", { init = step("init Early again") })
-ns.module("Broken", { init = function() error("boom") end, enable = step("enable Broken") })
-ns.module("AfterBroken", { requires = { "Broken" }, init = step("init AfterBroken"), enable = step("enable AfterBroken") })
+ns.module("Broken", { init = function() error("boom") end, enable = step("enable Broken"), world = world("Broken") })
+ns.module("AfterBroken", { requires = { "Broken" }, init = step("init AfterBroken"), enable = step("enable AfterBroken"), world = world("AfterBroken") })
+ns.module("NoEnable", { enable = function() error("no enable") end, world = world("NoEnable") })
+local shaky = 0
+ns.module("Shaky", { world = function()
+	shaky = shaky + 1
+	if shaky == 1 then
+		error("first loading screen")
+	end
+	worlds[#worlds + 1] = "Shaky"
+end })
 ns.module("Lonely", { requires = { "Nowhere" }, init = step("init Lonely") })
 ns.module("Ping", { requires = { "Pong" }, init = step("init Ping") })
 ns.module("Pong", { requires = { "Ping" }, init = step("init Pong") })
@@ -62,13 +77,21 @@ eq(errors.Pong and errors.Pong.msg, "requires Ping, which requires it in turn", 
 eq(errors.Echo and errors.Echo.msg, "requires Ping, which cannot start", "a module that requires one in a cycle does not start")
 eq(errors.Store or errors.Reader or errors.Late or errors.Free, nil, "the modules that start record no error")
 
+eq(#worlds, 0, "no world before the first loading screen")
+handler(nil, "PLAYER_ENTERING_WORLD", true, false)
+eq(table.concat(worlds, ", "), "Early true false, Late true false", "each world at a loading screen, in the same order, with isInitialLogin and isReloadingUi")
+eq(errors.Shaky and errors.Shaky.msg:find("first loading screen") ~= nil, true, "a failing world is recorded")
+worlds = {}
+handler(nil, "PLAYER_ENTERING_WORLD", false, true)
+eq(table.concat(worlds, ", "), "Early false true, Late false true, Shaky", "and again at every loading screen, a world that failed included; none for a module that did not start")
+
 -- Modules set themselves up through ns.module: these files still subscribe to PLAYER_LOGIN or
 -- PLAYER_ENTERING_WORLD, each line a file and the event with why it stays; the list only shrinks. A file
 -- that moves leaves it, and a new one fails here.
 local KNOWN = {
 	["Achievements.lua PLAYER_ENTERING_WORLD"] = "achievements and statistics are read again after every loading screen",
 	["Character.lua PLAYER_ENTERING_WORLD"] = "currencies, reputation and gear are read again after every loading screen",
-	["Core.lua PLAYER_ENTERING_WORLD"] = "the login or resume row needs isInitialLogin and isReloadingUi, which an enable is not given",
+	["Core.lua PLAYER_ENTERING_WORLD"] = "the kernel itself: it runs every module's world and records the login or resume row",
 	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable and records the character",
 	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
 	["FirstRun.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: the first-run card is offered again after every loading screen",

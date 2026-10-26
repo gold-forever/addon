@@ -444,6 +444,10 @@ ns.on("PLAYER_ENTERING_WORLD", "core", function(isInitialLogin, isReloadingUi)
 	end
 end)
 
+ns.on("PLAYER_ENTERING_WORLD", "modules", function(isInitialLogin, isReloadingUi)
+	ns.enterWorld(isInitialLogin, isReloadingUi)
+end)
+
 -- UnitLevel may still say the old level at this event; its first argument is the new one.
 ns.on("PLAYER_LEVEL_UP", "core", function(level)
 	recordIdentity()

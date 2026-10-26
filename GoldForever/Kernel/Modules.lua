@@ -1,9 +1,11 @@
 -- Gold Forever: the module lifecycle. A file declares its module with
--- ns.module(name, { requires = { names }, init = fn, enable = fn }) instead of setting itself up on
--- PLAYER_LOGIN in .toc order. The kernel (Core.lua) runs every init once the addon has loaded and every
--- enable once the player has logged in, each module after the ones it requires, otherwise in the order
--- declared. A module that fails is recorded (ns.fail) and the others still start; one that requires a
--- failed, missing or circular module does not start, and is recorded too.
+-- ns.module(name, { requires = { names }, init = fn, enable = fn, world = fn(isInitialLogin, isReloadingUi) })
+-- instead of setting itself up on PLAYER_LOGIN or PLAYER_ENTERING_WORLD in .toc order. The kernel (Core.lua)
+-- runs every init once the addon has loaded, every enable once the player has logged in and every world on
+-- each loading screen, each module after the ones it requires, otherwise in the order declared. A module
+-- that fails to init or enable is recorded (ns.fail) and the others still start; one that requires a failed,
+-- missing or circular module does not start, and is recorded too. A failing world is recorded, and the
+-- module's world runs again at the next loading screen.
 
 local _, ns = ...
 
@@ -14,7 +16,7 @@ function ns.module(name, def)
 		ns.fail(name, "module declared twice")
 		return
 	end
-	local m = { name = name, requires = def.requires or {}, init = def.init, enable = def.enable }
+	local m = { name = name, requires = def.requires or {}, init = def.init, enable = def.enable, world = def.world }
 	modules[name] = m
 	declared[#declared + 1] = m
 end
@@ -106,6 +108,16 @@ function ns.startModules(step)
 		end
 		if not m.failed and m[step] and not ns.safely(m.name, m[step]) then
 			m.failed = true
+		end
+		m.enabled = m.enabled or (step == "enable" and not m.failed)
+	end
+end
+
+-- Runs each enabled module's world at a loading screen, in dependency order.
+function ns.enterWorld(isInitialLogin, isReloadingUi)
+	for _, m in ipairs(ordered()) do
+		if m.enabled and not m.failed and m.world then
+			ns.safely(m.name, m.world, isInitialLogin, isReloadingUi)
 		end
 	end
 end
