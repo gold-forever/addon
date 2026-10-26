@@ -42,6 +42,14 @@ eq(picked.catalogue.items[2592], "Wool", "a new catalogue entry goes in")
 X.markSent(db, picked)
 eq(db.exportSent.items[2592], true, "and is remembered as sent")
 eq(X.select(db, nil, 1).catalogue.items[2589], "Linen", "the first export, or export all, holds the whole catalogue")
+-- Recorded as sent in the save: the time the next export starts from, and what it held.
+local sentBefore = db.exportSent
+ns.db = function() return db end
+db.exportSent = nil
+X.recordSent(picked, 1000000 + 4 * 86400)
+eq(db.exportedAt, 1000000 + 4 * 86400, "recorded as sent: the next export starts from it")
+eq(db.exportSent.items[2592], true, "and what it held is remembered as sent")
+ns.db, db.exportedAt, db.exportSent = nil, nil, sentBefore
 eq(picked.characters.c1.name, "Testchar", "characters, always")
 eq(picked.events[day(1000000)], nil, "an event day before the last export's")
 eq(picked.events[day(1000000 + 3 * 86400)].loot[1], "b", "an event day after it")

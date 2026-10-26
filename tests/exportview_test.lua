@@ -1,5 +1,4 @@
--- ExportView.lua: the export over the save, from the last export on or everything again, and what an
--- export held marked as sent.
+-- ExportView.lua: the export over the save, from the last export on or everything again.
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
@@ -39,9 +38,8 @@ end
 eq(days(held(false)), day(T + 3 * 86400), "the days from the last export on")
 eq(days(held(true)), day(T) .. " " .. day(T + 3 * 86400), "all: every day again")
 
-local picked = held(true)
-V.sent(picked, T + 4 * 86400)
-eq(save.exportedAt, T + 4 * 86400, "sent: the next export starts from it")
-eq(save.exportSent.items[2589], true, "and what it held is remembered as sent")
-eq(days(held(false)), "", "nothing new since")
+save.exportedAt = T + 4 * 86400
+eq(days(held(false)), "", "nothing new since the last export")
+eq(save.exportedAt, T + 4 * 86400, "reading the export leaves the save as it was")
+eq(save.exportSent, nil, "and marks nothing as sent")
 return checks()

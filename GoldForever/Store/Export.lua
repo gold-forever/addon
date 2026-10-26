@@ -1,7 +1,8 @@
 -- Gold Forever: the export string a player pastes on the site (design 005), for players who do not
 -- go looking for SavedVariables files. "GF1:" + base64(raw DEFLATE(Lua table text)): the same
 -- schema as GoldForever.lua (design 002), so the site reads it with the parser it already has.
--- Pure Lua 5.1 here; the frame and the compression are wired in ExportFrame.lua.
+-- Pure Lua 5.1 here; the frame and the compression are wired in ExportFrame.lua. Export.recordSent is the
+-- one write: it reaches the save through ns.db.
 
 local _, ns = ...
 ns = ns or {}
@@ -147,6 +148,14 @@ function Export.markSent(db, picked)
 			sent[key] = true
 		end
 	end
+end
+
+-- What an export built at `now` held (`picked`, as Export.builder hands it) counts as sent, in the save:
+-- the next export starts from it.
+function Export.recordSent(picked, now)
+	local db = ns.db()
+	db.exportedAt = now
+	Export.markSent(db, picked)
 end
 
 -- Standard base64 with padding, which the site decodes with the JDK.

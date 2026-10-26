@@ -28,7 +28,7 @@ local function copied()
 	local pending = frame.pending
 	if pending then
 		frame.pending = nil
-		ExportView.sent(pending.picked, pending.now)
+		Export.recordSent(pending.picked, pending.now)
 	end
 	frame.summary:SetText("Copied. Paste it at " .. SITE)
 end
