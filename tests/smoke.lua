@@ -2650,8 +2650,13 @@ end
 local firstAt = GoldForeverDB.exportedAt
 seen("EXPORT AT ", tostring(firstAt) .. " sent items " .. tostring(GoldForeverDB.exportSent and GoldForeverDB.exportSent.items ~= nil), "1792517540 sent items true")
 now = now + 60
-copy(exported())
+local again = exported()
+assert(again.pending.picked.export.since == firstAt, "the next export holds what is new since the last: " .. tostring(again.pending.picked.export.since))
+copy(again)
 seen("EXPORT AGAIN after ", tostring(GoldForeverDB.exportedAt and firstAt and GoldForeverDB.exportedAt - firstAt) .. " s", "60 s")
+local all = exported("all")
+assert(all.pending.picked.export.since == nil, "/gf export all holds everything again: " .. tostring(all.pending.picked.export.since))
+all:Hide()
 SlashCmdList.GOLDFOREVER("")
 money = 0; xpmax = 0; C_Container.GetContainerNumSlots = function() return 0 end
 fire("PLAYER_LEAVING_WORLD")

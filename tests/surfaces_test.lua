@@ -1,10 +1,8 @@
--- The windows read the save only through what the rest of the addon works out from it: a window that
--- indexes ns.db breaks when the way data is recorded changes. These Surfaces/ files still do; the list
--- only shrinks. A file that stops reading ns.db leaves it, and a new one fails here.
+-- The windows read the save only through what the rest of the addon works out from it (ReadModels/): a
+-- window that indexes ns.db breaks when the way data is recorded changes. No Surfaces/ file does; a new
+-- one fails here.
 
-local KNOWN = {
-	"ExportFrame.lua",
-}
+local KNOWN = {}
 
 local reading = {}
 for file, source in pairs(SOURCES) do

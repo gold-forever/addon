@@ -2,7 +2,7 @@
 -- `/gf export` holds what is new since the last export; `/gf export all` holds everything again.
 
 local _, ns = ...
-local UI, Export, Theme = ns.UI, ns.Export, ns.Theme
+local UI, Export, ExportView, Theme = ns.UI, ns.Export, ns.ExportView, ns.Theme
 
 local SITE = "gold-forever.app/me/upload"
 local DEFLATE = { level = Export.LEVEL }
@@ -28,9 +28,7 @@ local function copied()
 	local pending = frame.pending
 	if pending then
 		frame.pending = nil
-		local db = ns.db()
-		db.exportedAt = pending.now
-		Export.markSent(db, pending.picked)
+		ExportView.sent(pending.picked, pending.now)
 	end
 	frame.summary:SetText("Copied. Paste it at " .. SITE)
 end
@@ -115,11 +113,9 @@ ns.commands.export = function(arg)
 		ns.say("the export is still being built.")
 		return
 	end
-	local db = ns.db()
 	local LibDeflate = LibStub("LibDeflate")
 	local now = ns.now()
-	local since = string.lower(arg or "") ~= "all" and db.exportedAt or nil
-	local step = Export.builder(db, since, now, function(part)
+	local step = ExportView.builder(string.lower(arg or "") == "all", now, function(part)
 		return LibDeflate:CompressDeflate(part, DEFLATE)
 	end)
 	building = GetTime()

@@ -32,6 +32,7 @@ UIKit\UIData.lua
 UIKit\UIWindows.lua
 UIKit\HubKit.lua
 Surfaces\HubWindow.lua
+ReadModels\ExportView.lua
 Surfaces\ExportFrame.lua
 ReadModels\Views.lua
 ReadModels\SaveView.lua
