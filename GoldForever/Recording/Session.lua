@@ -427,12 +427,16 @@ local function restore(reloaded)
 	changed("restored")
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "appraiser", function(isInitialLogin, isReloadingUi)
-	xpSeen = readXp()
-	if isInitialLogin or isReloadingUi then
-		restore(isReloadingUi)
-	end
-end)
+-- XP is read again after every loading screen; a login or a /reload restores the session.
+ns.module("Session", {
+	requires = { "Store" },
+	world = function(isInitialLogin, isReloadingUi)
+		xpSeen = readXp()
+		if isInitialLogin or isReloadingUi then
+			restore(isReloadingUi)
+		end
+	end,
+})
 ns.on("PLAYER_XP_UPDATE", "appraiser", function()
 	xpSeen = readXp()
 	changed("xp")
