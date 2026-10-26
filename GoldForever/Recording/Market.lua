@@ -65,7 +65,7 @@ local function prune()
 	-- Retail: one auction house per connected realm group whichever side's auctioneer opened it, and a
 	-- full scan of ~300,000 auctions is ~2 MB of the save: only the newest per group is kept, so the save
 	-- stays under the server's upload limit (10 MiB). The server keeps every scan it was sent.
-	local retail = ns.Realms.isRetail(ns.db().client and ns.db().client.interface)
+	local retail = ns.retail
 	local keepRecent, keepMax = retail and 1 or KEEP_RECENT, retail and 1 or KEEP_MAX
 	local function group(market)
 		return retail and ns.Scans.marketGroup(market) or market
@@ -219,7 +219,7 @@ local function read()
 	-- background and a /reload can come first.
 	local instant, stack = ns.Realms.itemApis()
 	local timeLeft = C_AuctionHouse.GetReplicateItemTimeLeft
-	if ns.Realms.isRetail(ns.db().client and ns.db().client.interface) then
+	if ns.retail then
 		s.items = {}
 	end
 	local function batch()
