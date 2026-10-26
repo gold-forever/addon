@@ -98,9 +98,12 @@ local function prune()
 end
 
 -- A file saved by an older version with more scans shrinks at the next login, not the next scan.
-ns.on("PLAYER_LOGIN", "scans", function()
-	ns.safely("scans", prune)
-end)
+ns.module("Market", {
+	requires = { "Store" },
+	enable = function()
+		ns.safely("scans", prune)
+	end,
+})
 
 -- Rows written per frame when a scan is saved: like reading, spread so no frame stalls (design 009,
 -- Performance budget). A retail scan has ~110,000 rows; written at once they took a frame of their own.
