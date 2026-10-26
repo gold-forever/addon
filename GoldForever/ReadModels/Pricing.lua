@@ -29,7 +29,7 @@ local function latestScan()
 		return nil
 	end
 	local market = ns.market(string.lower(me.faction or "?"))
-	return ns.Scans.latestFull(db.scans, market, ns.Realms.isRetail(db.client and db.client.interface))
+	return ns.Scans.latestFull(db.scans, market, ns.retail)
 end
 
 -- Reads one chunk of rows into listings: item ID -> { unit1, qty1, unit2, qty2, … }, a flat list an item
@@ -273,8 +273,7 @@ end
 -- What disenchanting one is worth, and the skill it needs; nil when it cannot be disenchanted. The table
 -- is the classic one (Disenchant.lua): on retail it would value greens in Illusion Dust, so none there.
 local function disenchantWorth(id)
-	local client = ns.db().client
-	if ns.Realms.isRetail(client and client.interface) then
+	if ns.retail then
 		return nil
 	end
 	local quality, ilvl, class = itemInfo(id)
