@@ -1,0 +1,20 @@
+# Gold Forever's auction house panel, which the core loads when the auction house opens (Kernel/OnDemand.lua).
+# Its interface and version are those of the core's TOC of the same name (tests/toc_test.lua).
+## Interface: 16001
+## Title: Gold Forever Auctions
+## Notes: Gold Forever's auction house panel. Gold Forever loads it when the auction house opens.
+## Version: 0.16.1
+## IconTexture: Interface\AddOns\GoldForever\Media\Icon.tga
+## LoadOnDemand: 1
+## Dependencies: GoldForever
+
+Kernel\Namespace.lua
+Tools\AuctionWaits.lua
+Tools\AuctionBlizzard.lua
+Tools\AuctionBooks.lua
+Surfaces\AuctionScanTab.lua
+Surfaces\AuctionSell.lua
+Surfaces\AuctionBuy.lua
+Surfaces\AuctionCancel.lua
+Surfaces\AuctionBank.lua
+Surfaces\AuctionPanel.lua

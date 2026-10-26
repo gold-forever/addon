@@ -1,0 +1,23 @@
+# Gold Forever's auction house panel, which the core loads when the auction house opens (Kernel/OnDemand.lua).
+# Its interface and version are those of the core's TOC of the same name (tests/toc_test.lua).
+# Retail. Patch 12.1.5 is interface 120105 (warcraft.wiki.gg, "Getting the current interface number",
+# 2026-10-22); the 12.0 numbers stay for players a patch behind. After a retail patch, add the number
+# /dump select(4, GetBuildInfo()) prints, or the client calls the addon out of date.
+## Interface: 120105, 120100, 120007, 120005, 120001, 120000
+## Title: Gold Forever Auctions
+## Notes: Gold Forever's auction house panel. Gold Forever loads it when the auction house opens.
+## Version: 0.16.1
+## IconTexture: Interface\AddOns\GoldForever\Media\Icon.tga
+## LoadOnDemand: 1
+## Dependencies: GoldForever
+
+Kernel\Namespace.lua
+Tools\AuctionWaits.lua
+Tools\AuctionBlizzard.lua
+Tools\AuctionBooks.lua
+Surfaces\AuctionScanTab.lua
+Surfaces\AuctionSell.lua
+Surfaces\AuctionBuy.lua
+Surfaces\AuctionCancel.lua
+Surfaces\AuctionBank.lua
+Surfaces\AuctionPanel.lua

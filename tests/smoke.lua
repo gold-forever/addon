@@ -300,14 +300,28 @@ function ChatFrame1:IsEventRegistered(e) return self.registered[e] end
 function ChatFrame1:UnregisterEvent(e) self.registered[e] = nil end
 function ChatFrame1:RegisterEvent(e) self.registered[e] = true end
 SlashCmdList = {}
--- The files the client loads, in its order: the list in the TOC this client reads.
-function tocFiles()
+-- The files the client loads of an addon (the core by default), in its order: the list in the TOC this
+-- client reads, each path from the addon's folder.
+function addonDir(addon)
+  return addon and (dir .. "/../" .. addon) or dir
+end
+function tocFiles(addon)
   local out = {}
-  for line in io.lines(dir .. (FLAVOUR == "retail" and "/GoldForever_Mainline.toc" or "/GoldForever_Forever.toc")) do
+  for line in io.lines(addonDir(addon) .. "/" .. (addon or "GoldForever") .. (FLAVOUR == "retail" and "_Mainline.toc" or "_Forever.toc")) do
     -- The TOC's paths use the client's backslash.
     if line:match("%.lua%s*$") then out[#out + 1] = (line:match("^%s*(.-)%s*$"):gsub("\\", "/")) end
   end
   return out
+end
+-- The client's loader of an addon loaded on demand (GoldForever_Auctions): its files run there and then,
+-- given a table of the addon's own. The global, as older clients have it: a C_AddOns stood in here would be
+-- recorded among the client's namespaces, and the golden saves would differ (ondemand_test.lua uses it).
+function LoadAddOn(addon)
+  local own = {}
+  for _, f in ipairs(tocFiles(addon)) do
+    assert(loadfile(addonDir(addon) .. "/" .. f))(addon, own)
+  end
+  return true
 end
 local ns = {}
 -- An observation the run prints, pinned: its value on WoW: Forever, and on retail where that differs.
@@ -494,9 +508,9 @@ if SAVE then
     end
   end
   timed("HUD on and off", function() GoldForever_ToggleHud() wait(1) GoldForever_ToggleHud() end)
-  local AP = ns.AuctionPanel
   AuctionHouseFrame = widget()
   timed("auction house: open", function() fire("AUCTION_HOUSE_SHOW") end)
+  local AP = ns.AuctionPanel
   for _, tab in ipairs({ "scan", "post", "shop", "cancel" }) do
     timed("auction house: " .. tab, function() AP.tab(tab) end)
   end

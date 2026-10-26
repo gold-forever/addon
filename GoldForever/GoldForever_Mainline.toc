@@ -23,6 +23,7 @@ Kernel\Modules.lua
 Kernel\Errors.lua
 Kernel\Events.lua
 Kernel\Combat.lua
+Kernel\OnDemand.lua
 Kernel\Chat.lua
 Kernel\Commands.lua
 Store\Save.lua
@@ -86,17 +87,8 @@ Tools\AuctionSettings.lua
 Tools\Holdings.lua
 Tools\Lists.lua
 Tools\AuctionState.lua
-Tools\AuctionWaits.lua
-Tools\AuctionBlizzard.lua
-Tools\AuctionBooks.lua
-Surfaces\AuctionScanTab.lua
-Surfaces\AuctionSell.lua
-Surfaces\AuctionBuy.lua
-Surfaces\AuctionCancel.lua
-Surfaces\AuctionBank.lua
 Surfaces\SellingRulesPage.lua
 Surfaces\ShoppingListsPage.lua
-Surfaces\AuctionPanel.lua
 Surfaces\UiDebug.lua
 Surfaces\CraftingStrip.lua
 ReadModels\CraftQueueView.lua

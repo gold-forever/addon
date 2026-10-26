@@ -8,18 +8,26 @@ const fs = require('fs')
 const path = require('path')
 const { lua, lauxlib, lualib, to_luastring } = require('fengari')
 
-const addonDir = path.join(__dirname, '..', 'GoldForever')
-// The addon's own files, in their layer folders (not Libs/): keyed by file name, with the TOC's path beside it.
+const repo = path.join(__dirname, '..')
+// The two addons: the core, and the auction house panel it loads on demand.
+const addons = ['GoldForever', 'GoldForever_Auctions']
+// The addons' own files, in their layer folders (not Libs/): keyed by file name, with the TOC's path and
+// the addon beside it.
 const addonPaths = {}
-for (const layer of fs.readdirSync(addonDir, { withFileTypes: true })) {
-  if (!layer.isDirectory() || layer.name === 'Libs') continue
-  for (const f of fs.readdirSync(path.join(addonDir, layer.name)).filter((f) => f.endsWith('.lua'))) {
-    if (addonPaths[f]) throw new Error(`${f} is in two folders`)
-    addonPaths[f] = `${layer.name}\\${f}`
+const addonOf = {}
+for (const addon of addons) {
+  for (const layer of fs.readdirSync(path.join(repo, addon), { withFileTypes: true })) {
+    if (!layer.isDirectory() || layer.name === 'Libs') continue
+    for (const f of fs.readdirSync(path.join(repo, addon, layer.name)).filter((f) => f.endsWith('.lua'))) {
+      if (addonPaths[f]) throw new Error(`${f} is in two folders`)
+      addonPaths[f] = `${layer.name}\\${f}`
+      addonOf[f] = addon
+    }
   }
 }
 const addonFiles = Object.keys(addonPaths)
-const source = (name) => fs.readFileSync(path.join(addonDir, ...addonPaths[name].split('\\')), 'utf8')
+const source = (name) => fs.readFileSync(path.join(repo, addonOf[name], ...addonPaths[name].split('\\')), 'utf8')
+const tocs = addons.flatMap((addon) => fs.readdirSync(path.join(repo, addon)).filter((f) => f.endsWith('.toc')).map((toc) => ({ addon, toc })))
 const tests = fs.readdirSync(__dirname).filter((f) => f.endsWith('_test.lua'))
 
 function state() {
@@ -38,20 +46,28 @@ function state() {
     lua.lua_setfield(L, -2, to_luastring(name))
   }
   lua.lua_setglobal(L, to_luastring('PATHS'))
-  // The three TOCs, as TOCS[name], and whether each file a TOC lists is there (FILES[path], for toc_test.lua).
+  // Each file's addon, as ADDON[name].
   lua.lua_newtable(L)
-  for (const name of fs.readdirSync(addonDir).filter((f) => f.endsWith('.toc'))) {
-    lua.lua_pushstring(L, to_luastring(fs.readFileSync(path.join(addonDir, name), 'utf8')))
+  for (const name of addonFiles) {
+    lua.lua_pushstring(L, to_luastring(addonOf[name]))
     lua.lua_setfield(L, -2, to_luastring(name))
+  }
+  lua.lua_setglobal(L, to_luastring('ADDON'))
+  // Each addon's three TOCs, as TOCS[name], and whether each file a TOC lists is in its addon's folder
+  // (FILES["addon\\path"], for toc_test.lua).
+  lua.lua_newtable(L)
+  for (const { addon, toc } of tocs) {
+    lua.lua_pushstring(L, to_luastring(fs.readFileSync(path.join(repo, addon, toc), 'utf8')))
+    lua.lua_setfield(L, -2, to_luastring(toc))
   }
   lua.lua_setglobal(L, to_luastring('TOCS'))
   lua.lua_newtable(L)
-  for (const toc of fs.readdirSync(addonDir).filter((f) => f.endsWith('.toc'))) {
-    for (const line of fs.readFileSync(path.join(addonDir, toc), 'utf8').split(/\r?\n/)) {
+  for (const { addon, toc } of tocs) {
+    for (const line of fs.readFileSync(path.join(repo, addon, toc), 'utf8').split(/\r?\n/)) {
       const file = line.trim()
       if (file && !file.startsWith('#')) {
-        lua.lua_pushboolean(L, fs.existsSync(path.join(addonDir, ...file.split('\\'))))
-        lua.lua_setfield(L, -2, to_luastring(file))
+        lua.lua_pushboolean(L, fs.existsSync(path.join(repo, addon, ...file.split('\\'))))
+        lua.lua_setfield(L, -2, to_luastring(`${addon}\\${file}`))
       }
     }
   }
@@ -165,7 +181,6 @@ for (const name of tests) {
 // what the addon records fails here. When the change is meant: `npm run golden` writes them anew.
 const { spawnSync } = require('child_process')
 const os = require('os')
-const repo = path.join(__dirname, '..')
 const goldenDir = path.join(__dirname, 'golden')
 const updateGolden = process.argv.includes('--golden')
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'gf-smoke-'))

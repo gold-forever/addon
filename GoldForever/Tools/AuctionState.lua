@@ -1,5 +1,6 @@
--- Gold Forever: what the auction panel's tabs share (ns.ah), apart from the panel: the hub's pages and
--- /gf uidebug read it too.
+-- Gold Forever: the auction panel's place in the core. The panel and its tabs are an addon of their own,
+-- GoldForever_Auctions, loaded when the auction house first opens; until then the core holds what its
+-- tabs share (ns.ah), which the hub's pages and /gf uidebug read too, and stands in for what it offers.
 
 local _, ns = ...
 
@@ -26,3 +27,19 @@ ns.auctionRefresh = function()
 end
 -- The craft queue shows in the Buy tab as a list (CraftPlanner.lua).
 ns.listen("queueChanged", "auction panel", ns.auctionRefresh)
+
+local AUCTIONS = "GoldForever_Auctions"
+ns.on("AUCTION_HOUSE_SHOW", "auction tools", function()
+	ns.loadOnDemand(AUCTIONS)
+end)
+
+-- Until the panel is loaded: an item chosen from the hub's Inventory has no panel to go to, and /gf ah
+-- loads it to answer.
+function ns.auctionChoose() end
+local function loadThenAh(...)
+	ns.loadOnDemand(AUCTIONS)
+	if ns.commands.ah ~= loadThenAh then
+		ns.commands.ah(...)
+	end
+end
+ns.commands.ah = loadThenAh
