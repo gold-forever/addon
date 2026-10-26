@@ -125,8 +125,7 @@ end
 
 -- Legacy is WoW: Forever's: on retail the reads find nothing of it (faction 2802 may be something else).
 local function forever()
-	local client = ns.db().client
-	return not ns.Realms.isRetail(client and client.interface)
+	return not ns.retail
 end
 
 local function readLegacy()
