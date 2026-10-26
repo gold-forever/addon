@@ -94,7 +94,6 @@ local KNOWN = {
 	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable and records the character",
 	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
 	["FirstRun.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: the first-run card is offered again after every loading screen",
-	["Legacy.lua PLAYER_ENTERING_WORLD"] = "the Legacy perks are read again after every loading screen",
 	["Levelling.lua PLAYER_ENTERING_WORLD"] = "the login row needs isInitialLogin; XP and the zone are read again after every loading screen",
 	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",
 	["Looks.lua PLAYER_LOGIN"] = "the UI kit, not a collector: applying the look moves with the UI kit",

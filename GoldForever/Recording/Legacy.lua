@@ -181,12 +181,16 @@ local function findTrees()
 	step()
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "legacy", function()
-	ns.after(8, "legacy", function()
-		readLegacy()
-		findTrees()
-	end)
-end)
+-- The Legacy perks are read again after every loading screen.
+ns.module("Legacy", {
+	requires = { "Store" },
+	world = function()
+		ns.after(8, "legacy", function()
+			readLegacy()
+			findTrees()
+		end)
+	end,
+})
 local legacySoon = ns.throttle("legacy", 5, readLegacy)
 ns.on("TRAIT_CONFIG_UPDATED", "legacy", legacySoon)
 ns.on("TRAIT_TREE_CURRENCY_INFO_UPDATED", "legacy", legacySoon)
