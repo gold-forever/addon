@@ -293,12 +293,22 @@ end)
 
 -- Whether the HUD stays out of the way now: in combat, when the player asked for that.
 local function tucked()
-	return settings().hideInCombat and InCombatLockdown and InCombatLockdown()
+	return settings().hideInCombat and ns.inCombat()
+end
+
+-- Back when the fight it was tucked away for ends, while it is still wanted and a session runs.
+local function untuck()
+	if huds.frame and settings().shown and settings().hideInCombat and Session.get() then
+		huds.frame:Show()
+		refresh()
+		startTicker()
+	end
 end
 
 local function show()
 	local hud = huds.frame or huds:get()
 	if tucked() then
+		ns.afterCombat("appraiser", untuck)
 		return
 	end
 	hud:Show()
@@ -310,13 +320,7 @@ ns.on("PLAYER_REGEN_DISABLED", "appraiser", function()
 	if huds.frame and settings().hideInCombat then
 		huds.frame:Hide()
 	end
-end)
-ns.on("PLAYER_REGEN_ENABLED", "appraiser", function()
-	if huds.frame and settings().shown and settings().hideInCombat and Session.get() then
-		huds.frame:Show()
-		refresh()
-		startTicker()
-	end
+	ns.afterCombat("appraiser", untuck)
 end)
 
 huds:onLook("appraiser", function()

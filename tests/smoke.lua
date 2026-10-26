@@ -2512,6 +2512,20 @@ do
   -- Tucked away in combat, the binding turns it off rather than on.
   local lockdown, hide = InCombatLockdown, GoldForeverDB.settings.appraiser.hideInCombat
   GoldForeverDB.settings.appraiser.hideInCombat = true
+  -- Tucked away for a fight and back after it, while a session runs.
+  assert(ns.Session.get() and ns.test.hud():IsShown(), "the HUD shows, a session running")
+  fireNow("PLAYER_REGEN_DISABLED")
+  assert(not ns.test.hud():IsShown(), "tucked away in combat")
+  fireNow("PLAYER_REGEN_ENABLED")
+  assert(ns.test.hud():IsShown(), "back after the fight")
+  -- Asked for while the client locks the UI (a reload in combat, no fight start seen): shown after it.
+  ns.test.hud():Hide()
+  InCombatLockdown = function() return true end
+  ns.setHud(true)
+  assert(not ns.test.hud():IsShown(), "not shown while the UI is locked")
+  InCombatLockdown = lockdown
+  fireNow("PLAYER_REGEN_ENABLED")
+  assert(ns.test.hud():IsShown(), "shown when the fight ends")
   InCombatLockdown = function() return true end
   fire("PLAYER_REGEN_DISABLED")
   GoldForever_ToggleHud()
