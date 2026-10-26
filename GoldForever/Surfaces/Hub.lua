@@ -223,11 +223,11 @@ ns.commands.ui = function(page)
 end
 
 -- An open window rebuilt in the look and accent now set, on the same page (/gf look, /gf accent in
--- Looks.lua). Returns whether a window was open.
-ns.hubReopen = function()
+-- Looks.lua).
+ns.listen("lookChanged", "hub", function()
 	local open = shown()
 	if not open then
-		return false
+		return
 	end
 	open:Hide()
 	local window, built = windowFor(ns.currentLook())
@@ -238,5 +238,4 @@ ns.hubReopen = function()
 	if not (fresh and showing(window, key)) then
 		window:SelectPage(key)
 	end
-	return true
-end
+end)

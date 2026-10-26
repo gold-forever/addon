@@ -45,12 +45,10 @@ ns.on("PLAYER_LOGIN", "look", function()
 	ns.applyLook()
 end)
 
--- An open hub window rebuilt in the look and accent now set (ns.hubReopen, Hub.lua), or else the look set
--- for what draws next; then the panels outside the hub redraw.
+-- The look and accent now set, for what draws next; then an open hub window (Hub.lua) and the panels
+-- outside it redraw.
 local function reopen()
-	if not ns.hubReopen() then
-		Theme.apply(look(), accent())
-	end
+	Theme.apply(look(), accent())
 	ns.emit("lookChanged")
 end
 
