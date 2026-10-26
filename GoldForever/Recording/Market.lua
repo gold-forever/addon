@@ -51,7 +51,6 @@ local function readNeutral()
 	end
 	neutralHere = found
 end
-ns.on("PLAYER_ENTERING_WORLD", "neutral zone", readNeutral)
 ns.on("ZONE_CHANGED_NEW_AREA", "neutral zone", readNeutral)
 function ns.atNeutralZone()
 	return neutralHere
@@ -102,6 +101,10 @@ ns.module("Market", {
 	requires = { "Store" },
 	enable = function()
 		ns.safely("scans", prune)
+	end,
+	-- Whether the zone is neutral changes with the zone.
+	world = function()
+		readNeutral()
 	end,
 })
 

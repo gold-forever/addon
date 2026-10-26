@@ -1990,15 +1990,15 @@ if INTERFACE < 110000 then
   e[5], e[4] = nil, at
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
--- In a zone with a neutral auction house (Tanaris here), the neutral market's line comes first, on
--- Forever only; elsewhere it is not shown (design 009 decision 9).
+-- In a zone with a neutral auction house (Tanaris here, reached through a loading screen), the neutral
+-- market's line comes first, on Forever only; elsewhere it is not shown (design 009 decision 9).
 if INTERFACE < 110000 then
   local neutralKey = POOL_MINE:gsub("%-" .. side .. "$", "-neutral")
   GoldForever_Prices.markets[neutralKey] = { [2589] = { 5000, 4500, 2, now } }
   assert(poolLine(2589, "Neutral AH ") == nil, "no neutral line outside a neutral zone")
   local where = C_Map.GetBestMapForUnit
   C_Map.GetBestMapForUnit = function() return 1446 end
-  fire("ZONE_CHANGED_NEW_AREA")
+  fire("PLAYER_ENTERING_WORLD", false, false)
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   local neutralAt, poolAt

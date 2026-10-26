@@ -101,7 +101,6 @@ local KNOWN = {
 	["Levelling.lua PLAYER_ENTERING_WORLD"] = "the login row needs isInitialLogin; XP and the zone are read again after every loading screen",
 	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",
 	["Looks.lua PLAYER_LOGIN"] = "the UI kit, not a collector: applying the look moves with the UI kit",
-	["Market.lua PLAYER_ENTERING_WORLD"] = "whether the zone is neutral changes with the zone",
 	["Minimap.lua PLAYER_LOGIN"] = "a window, not a collector: it moves with the surfaces",
 	["MobStats.lua PLAYER_ENTERING_WORLD"] = "counts that failed to build are built again at the next loading screen",
 	["Prices.lua PLAYER_ENTERING_WORLD"] = "the stale-prices warning needs isInitialLogin, so a reload does not repeat it",
