@@ -5,7 +5,10 @@ local ns = { db = function() return save end }
 assert(load(SOURCES["SaveView.lua"], "@SaveView.lua"))("GoldForever", ns)
 local V = ns.SaveView
 
+save = nil
+eq(V.loaded(), false, "no save before the addon has loaded")
 save = { characters = {} }
+eq(V.loaded(), true, "a save, empty or not, is loaded")
 eq(V.isNew(), true, "no characters: a new install")
 save = {}
 eq(V.isNew(), true, "no table either")

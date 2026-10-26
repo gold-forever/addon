@@ -4,6 +4,7 @@
 local _, ns = ...
 local Encode = ns.Encode
 local Catalogue = ns.Catalogue
+local SaveView = ns.SaveView
 local price = ns.price
 local ownMarket, vendor, worth, disenchantWorth, enchanting, coins = price.own, price.vendor, price.worth, price.disenchant, price.enchanting, price.coins
 
@@ -50,7 +51,7 @@ end
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
 	local function mobTooltip(tooltip, data)
-		if tooltip ~= GameTooltip or not data or not ns.db() then
+		if tooltip ~= GameTooltip or not data or not SaveView.loaded() then
 			return
 		end
 		-- A unit the client keeps secret: nothing to look up (tested before any other use of the value).
@@ -86,7 +87,7 @@ end
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
 	local function itemTooltip(tooltip, data)
-		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not ns.db() then
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not SaveView.loaded() then
 			return
 		end
 		local m, v = ownMarket(data.id), vendor(data.id) -- the own scan's line; the pool has its own
