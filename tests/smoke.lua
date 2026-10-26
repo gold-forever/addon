@@ -232,7 +232,7 @@ C_Map = { GetBestMapForUnit = function() return 1429 end,
   GetMapInfo = function(m) return m == 1429 and { name = "Elwynn Forest", mapType = 3, parentMapID = 1415 } or { name = "Eastern Kingdoms", mapType = 2, parentMapID = 0 } end }
 Enum = { TooltipDataType = { Item = 0, Unit = 2 }, GameRule = { XpRate = 1, NoTrade = 2 }, LootSlotType = { None = 0, Item = 1, Money = 2 }, BagIndex = { Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, Bank = -1, BankBag_1 = 6 } }
 -- Retail's interaction manager names its windows as well as the older events do.
-if INTERFACE >= 110000 then Enum.PlayerInteractionType = { TradePartner = 1, Merchant = 5, TaxiNode = 6, Trainer = 7, MailInfo = 17, Auctioneer = 21 } end
+if INTERFACE >= 110000 then Enum.PlayerInteractionType = { TradePartner = 1, Merchant = 5, TaxiNode = 6, Trainer = 7, MailInfo = 17, Auctioneer = 21 }; Enum.TradeskillRecipeType = { Item = 1, Salvage = 2, Enchant = 3, Recraft = 4, Gathering = 5 } end
 bagFree = 10
 C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return bagFree, 0 end return 0, 0 end, GetContainerNumSlots = function(b) return b == 0 and (bagsFull and 3 or 2) or 0 end,
   GetContainerItemInfo = function(b, s)
@@ -856,6 +856,20 @@ do
   end
   fireNow("TRADE_SKILL_CLOSE")
   ProfessionsFrame = nil
+end
+-- A retail salvage recipe (Portioned Steak) has no reagent slots: its reagent is the salvage slot, any
+-- of the items the client lists, as many as quantityMax (gold-forever#35).
+if INTERFACE >= 110000 then
+  local api = C_TradeSkillUI
+  C_TradeSkillUI = setmetatable({ GetAllRecipeIDs = function() return { 445118 } end,
+    GetRecipeInfo = function() return { learned = true, name = "Portioned Steak" } end,
+    GetBaseProfessionInfo = function() return { professionID = 185, professionName = "Cooking" } end,
+    GetRecipeSchematic = function() return { recipeType = Enum.TradeskillRecipeType.Salvage, outputItemID = 222738, quantityMin = 5, quantityMax = 5, reagentSlotSchematics = {} } end,
+    GetSalvagableItemIDs = function() return { 223512, 223513 } end }, { __index = api })
+  fire("TRADE_SKILL_SHOW")
+  wait(3)
+  seen("SALVAGE RECIPE ", tostring(GoldForeverDB.catalogue.recipes[445118]), "185,222738,5,5,223512*5,Portioned Steak")
+  C_TradeSkillUI = api
 end
 -- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
 do

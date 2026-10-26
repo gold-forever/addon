@@ -10,6 +10,7 @@ ns.FIELDS.recipe = "skillLine,output,min,max,reagents,name"
 ns.FIELDS.skill = "t,char,line,skill,max,spell,src,map"
 
 local BASIC = Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
+local SALVAGE = Enum and Enum.TradeskillRecipeType and Enum.TradeskillRecipeType.Salvage
 
 -- Current skill in a profession, by skill line.
 function ns.skill(line)
@@ -73,6 +74,15 @@ local function schematic(id, line, name)
 		if basic and reagent and reagent.itemID then
 			reagents[tostring(reagent.itemID)] = slot.quantityRequired or 1
 			ns.catalogueItem(reagent.itemID)
+		end
+	end
+	-- A salvage recipe has no reagent slots: it takes any one of its salvagable items, as many as
+	-- quantityMax (the count the client's salvage slot asks for).
+	if SALVAGE and s.recipeType == SALVAGE and C_TradeSkillUI.GetSalvagableItemIDs then
+		local item = (C_TradeSkillUI.GetSalvagableItemIDs(id) or {})[1]
+		if item then
+			reagents[tostring(item)] = s.quantityMax or 1
+			ns.catalogueItem(item)
 		end
 	end
 	if s.outputItemID then
