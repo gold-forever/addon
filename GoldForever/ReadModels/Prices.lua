@@ -281,13 +281,10 @@ end
 -- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
 local neutralMarkets, neutralFor -- the neutral auction house's markets, and the region they are for
 function Prices.neutralMarkets()
-	if not ns.atNeutralZone() then
+	if not ns.forever or not ns.atNeutralZone() then
 		return nil
 	end
 	local client = ns.db().client
-	if not ns.Realms.isForever(client.interface) then
-		return nil
-	end
 	local key = client.region
 	if not neutralMarkets or neutralFor ~= key then
 		neutralMarkets, neutralFor = Prices.markets(ns.market("neutral"), client.interface, client.portal), key
