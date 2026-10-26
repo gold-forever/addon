@@ -102,14 +102,12 @@ ns.on("TIME_PLAYED_MSG", "played", function(total, thisLevel)
 end)
 
 -- A login row tells when the current level started even when its level-up was never seen.
-ns.on("PLAYER_ENTERING_WORLD", "levelling", function(isInitialLogin)
-	if isInitialLogin then
-		local t = ns.now()
-		ns.after(3, "played", function()
-			askPlayed("login", UnitLevel("player"), t)
-		end)
-	end
-end)
+local function loggedIn()
+	local t = ns.now()
+	ns.after(3, "played", function()
+		askPlayed("login", UnitLevel("player"), t)
+	end)
+end
 
 ns.on("PLAYER_LEVEL_UP", "levelling", function(level)
 	local reached, t = tonumber(level) or UnitLevel("player"), ns.now()
@@ -174,9 +172,6 @@ local function xpChanged()
 	end)
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "xp", function()
-	seen = read()
-end)
 ns.on("PLAYER_XP_UPDATE", "xp", xpChanged)
 -- Rested XP grows while resting; taking the rise keeps it from counting as rested XP spent. A fall is
 -- XP being earned, which the XP update counts (whichever of the two events comes first).
@@ -237,6 +232,20 @@ local function zoneChanged()
 	ns.record("zone", { t = ns.now(), char = me.ref, map = m, instance = instance(), instanceId = id })
 end
 
-for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
+for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
 	ns.on(event, "zone", zoneChanged)
 end
+
+-- At a loading screen: the login row at a login, XP read again, and the zone, as at any zone change.
+ns.module("Levelling", {
+	requires = { "Store" },
+	world = function(isInitialLogin)
+		if isInitialLogin then
+			loggedIn()
+		end
+		ns.safely("xp", function()
+			seen = read()
+		end)
+		ns.safely("zone", zoneChanged)
+	end,
+})
