@@ -465,6 +465,9 @@ if SAVE then
   end)
   C_Timer.After = after
   rows[#rows + 1] = string.format("%-34s %8.1f ms  (%s)", "slowest single step after login", worst, worstAt)
+  -- What the addon holds once logged in, before any window or the auction house is opened.
+  collectgarbage("collect")
+  local loginKB = collectgarbage("count")
   local pages = { "home", "money", "characters", "inventory", "sales", "crafting", "now", "levelling", "mobs", "rares", "companion", "settings", "guide", "design" }
   for _, look in ipairs({ "web", "classic", "arcane" }) do
     timed(look .. ": open the hub", function() SlashCmdList.GOLDFOREVER("look " .. look) SlashCmdList.GOLDFOREVER("ui home") end)
@@ -558,7 +561,7 @@ if SAVE then
     if (e.t or 0) >= now - 3600 then errors[#errors + 1] = name .. ": " .. tostring(e.msg) end
   end
   io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
-  io.write(string.format("MEMORY %.0f KB after a full collect\n", (function() collectgarbage("collect") return collectgarbage("count") end)()))
+  io.write(string.format("MEMORY %.0f KB after login, %.0f KB at the end, after a full collect\n", loginKB, (function() collectgarbage("collect") return collectgarbage("count") end)()))
   exit((#errors == 0 and not failedSteps) and 0 or 1)
 end
 fire("ADDON_LOADED", "GoldForever")
