@@ -61,7 +61,6 @@ local KNOWN = {
 	"Loot.lua",
 	"Professions.lua",
 	"Rares.lua",
-	"Trade.lua",
 }
 
 local function appendsItself(source)

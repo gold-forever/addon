@@ -40,7 +40,7 @@ local function record(kind, key, qty, price)
 		return
 	end
 	local map = ns.position()
-	ns.append("merchantTrade", Encode.row(ns.now(), me.ref, kind, key, qty, price, map))
+	ns.record("merchantTrade", { t = ns.now(), char = me.ref, kind = kind, item = key, qty = qty, price = price, map = map })
 	ns.catalogueItem(key)
 end
 
