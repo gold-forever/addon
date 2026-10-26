@@ -542,6 +542,7 @@ local function sys(kind)
 		ns.append("sys", Encode.row(GetServerTime(), me.ref, kind))
 	end
 end
+ns.sys = sys -- for the session's Start and Stop (Session.lua)
 
 -- Launch-week checks -----------------------------------------------------------------------------
 

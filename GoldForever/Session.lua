@@ -7,6 +7,7 @@ local Encode = ns.Encode
 local Catalogue = ns.Catalogue
 
 local IDLE_SECONDS = 15 * 60 -- the web app's session split
+local SHORTEST = 10 * 60 -- an ended session shorter than this, first loot to last, is no session (the site's rule too)
 local TOP_ITEMS = 4
 local BIG_DROP = 10000 -- 1 gold: the default big-drop threshold
 ns.BIG_DROP = BIG_DROP
@@ -17,11 +18,32 @@ local worth, itemInfo, disenchantWorth, enchanting, coins = price.worth, price.i
 local Session = {}
 ns.Session = Session
 
--- { start, last, coin, items = { [id] = count }, xp, killXp, kills, bagBase, bagBaseAt, bagFree }
+-- { start, last, firstLoot, lastLoot, byHand, coin, items = { [id] = count }, xp, killXp, kills, bagBase,
+-- bagBaseAt, bagFree }
 local session
 
+local function settings()
+	return ns.settings("appraiser")
+end
+
+-- "Start and stop sessions by themselves": on (the default), loot or kill XP starts a session and 15
+-- minutes without loot ends it; off, only the HUD's Start and Stop do.
+local function automatic()
+	return settings().autoSession ~= false
+end
+
+-- A session ends the way it started: one started with Start runs until Stop, whatever the toggle says now.
 local function idle()
-	return not session or session.stopped or GetTime() - session.last > IDLE_SECONDS
+	return not session or session.stopped or (not session.byHand and GetTime() - session.last > IDLE_SECONDS)
+end
+
+-- Whether the session is shown: a running one, or an ended one of 10 minutes or more from its first loot
+-- to its last.
+local function counts()
+	if idle() then
+		return session ~= nil and session.firstLoot ~= nil and session.lastLoot - session.firstLoot >= SHORTEST
+	end
+	return true
 end
 
 -- Free slots in general-purpose bags (profession bags take only their own kind of item).
@@ -36,17 +58,24 @@ local function freeSlots()
 	return free
 end
 
--- The current session, started now when there is none or the last one went idle. A kill's XP comes
--- before its loot, so either starts one.
+local function fresh(now)
+	local free = freeSlots()
+	return {
+		start = now, last = now, coin = 0, items = {},
+		xp = 0, killXp = 0, kills = 0, xpKills = 0,
+		bagBase = free, bagBaseAt = now, bagFree = free,
+	}
+end
+
+-- The current session, started now when there is none or the last one went idle, if sessions start by
+-- themselves; nil otherwise. A kill's XP comes before its loot, so either starts one.
 local function current()
 	local now = GetTime()
 	if idle() then
-		local free = freeSlots()
-		session = {
-			start = now, last = now, coin = 0, items = {},
-			xp = 0, killXp = 0, kills = 0, xpKills = 0,
-			bagBase = free, bagBaseAt = now, bagFree = free,
-		}
+		if not automatic() then
+			return nil
+		end
+		session = fresh(now)
 	end
 	session.last = now
 	return session
@@ -86,7 +115,7 @@ local uncorpsed = {} -- times of kills credited by XP whose corpse is not looted
 local function closeFight()
 	local f = fight
 	fight = nil
-	if f and session then
+	if f and not idle() then
 		session.kills = session.kills + ns.Views.creditKills(uncorpsed, f.xpKills, f.corpses, corpsesSeen, GetTime())
 	end
 end
@@ -106,6 +135,9 @@ end)
 
 table.insert(ns.xpListeners, function(gained, kind)
 	local s = current()
+	if not s then
+		return
+	end
 	s.xp = s.xp + gained
 	if kind == "kill" or kind == "boss" then
 		s.killXp = s.killXp + gained
@@ -137,15 +169,11 @@ local function itemsValue()
 	return total, unpriced
 end
 
-local function settings()
-	return ns.settings("appraiser")
-end
-
 -- The session in words, from its figures (ns.sessionSummary).
 local function text()
 	local sum = ns.sessionSummary()
 	if not sum then
-		return "Loot something to start a session."
+		return automatic() and "Loot something to start a session." or "Press Start on the HUD to start a session."
 	end
 	local elapsed, r = sum.elapsed, sum.rates
 	local lines = {
@@ -198,9 +226,10 @@ local function elapsed()
 	return (idle() and session.last or GetTime()) - session.start
 end
 
--- The session in figures, for the HUD and the hub's Session page: nil before any session.
+-- The session in figures, for the HUD and the hub's Session page: nil before any session, or when the
+-- last one is not shown (counts).
 function ns.sessionSummary()
-	if not session then
+	if not counts() then
 		return nil
 	end
 	local secs = elapsed()
@@ -232,20 +261,8 @@ function ns.sessionItem(id)
 	return quality, name
 end
 
--- For the HUD: the session (nil before any), whether it has ended, and the Stop button.
-function Session.get()
-	return session
-end
-Session.idle = idle
-function Session.stop()
-	if session and not idle() then
-		session.stopped = true
-		session.last = GetTime()
-	end
-end
-
 -- What shows the session (the HUD) is told when it changes: "loot" and "restored" may bring it up,
--- "xp", "bags" and "reset" redraw it.
+-- "xp", "bags", "reset", "start", "stop" and "mode" redraw it.
 local watchers = {}
 function Session.watch(fn)
 	watchers[#watchers + 1] = fn
@@ -253,6 +270,35 @@ end
 local function changed(how)
 	for _, fn in ipairs(watchers) do
 		fn(how)
+	end
+end
+
+-- For the HUD: the session (nil before any, or when it is not shown), whether it has ended, the toggle,
+-- and Start and Stop, each recorded as a system event so the site's session is the game's.
+function Session.get()
+	return counts() and session or nil
+end
+Session.idle = idle
+Session.automatic = automatic
+function Session.setAutomatic(on)
+	settings().autoSession = on and true or false
+	changed("mode")
+end
+function Session.start()
+	if not idle() then
+		return
+	end
+	session = fresh(GetTime())
+	session.byHand = true
+	ns.sys("session_start")
+	changed("start")
+end
+function Session.stop()
+	if session and not idle() then
+		session.stopped = true
+		session.last = GetTime()
+		ns.sys("session_stop")
+		changed("stop")
 	end
 end
 
@@ -285,7 +331,14 @@ local function bigDrops(taken)
 end
 
 table.insert(ns.lootListeners, function(coin, taken, rows)
-	current()
+	ns.safely("big drop", bigDrops, taken)
+	if not current() then
+		changed("loot") -- outside a session: the HUD offers Start
+		return
+	end
+	local now = GetTime()
+	session.firstLoot = session.firstLoot or now
+	session.lastLoot = now
 	-- Creature corpses looted for the first time: in the open fight, or a fight of their own.
 	local corpses = {}
 	for _, row in ipairs(rows or {}) do
@@ -300,7 +353,6 @@ table.insert(ns.lootListeners, function(coin, taken, rows)
 	elseif #corpses > 0 then
 		session.kills = session.kills + ns.Views.creditKills(uncorpsed, 0, corpses, corpsesSeen, GetTime())
 	end
-	ns.safely("big drop", bigDrops, taken)
 	session.coin = session.coin + coin
 	for key, n in pairs(taken) do
 		local id = Encode.itemId(key)
@@ -327,6 +379,9 @@ ns.on("PLAYER_LOGOUT", "appraiser", function()
 		age = now - session.start,
 		sinceLoot = now - session.last,
 		sinceBagBase = now - session.bagBaseAt,
+		sinceFirstLoot = session.firstLoot and now - session.firstLoot,
+		sinceLastLoot = session.lastLoot and now - session.lastLoot,
+		byHand = session.byHand,
 		coin = session.coin,
 		items = session.items,
 		xp = session.xp,
@@ -345,7 +400,7 @@ local function restore()
 		return
 	end
 	local gap = math.max(0, GetServerTime() - (saved.savedAt or 0))
-	if saved.sinceLoot + gap > IDLE_SECONDS then
+	if not saved.byHand and saved.sinceLoot + gap > IDLE_SECONDS then
 		return
 	end
 	local now = GetTime()
@@ -361,6 +416,9 @@ local function restore()
 		bagBase = saved.bagBase or freeSlots(),
 		bagBaseAt = now - (saved.sinceBagBase or 0) - gap,
 		bagFree = freeSlots(),
+		firstLoot = saved.sinceFirstLoot and now - saved.sinceFirstLoot - gap,
+		lastLoot = saved.sinceLastLoot and now - saved.sinceLastLoot - gap,
+		byHand = saved.byHand,
 	}
 	changed("restored")
 end

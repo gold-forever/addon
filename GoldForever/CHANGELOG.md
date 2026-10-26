@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Sessions by hand.** A new setting, "Start and stop sessions by themselves", on by default, in the
+  session HUD's panel and in Settings → General. On, nothing changes. Off, loot and kill XP start no
+  session (they are still recorded); the HUD shows Start, and Stop while a session runs, and only Stop
+  ends it. Each Start and Stop is recorded for the site, so its session is the game's.
+- **No session under 10 minutes.** A session that ended less than 10 minutes from its first loot to its
+  last is not shown as a finished session on the HUD, in /gf session or on the Session page.
 - **Lists for one character.** A shopping list made for one character on the site shows on that
   character only, on the Buy tab and the Shopping lists page; other lists, and the craft queue's, show
   on every character. Importing another character's list makes it yours. A list string with a line Gold Forever does not know yet is still read, that line

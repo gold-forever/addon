@@ -15,6 +15,21 @@ end
 local build
 local startTicker -- set below; the HUD's OnShow starts it
 
+local W, H = 540, 34
+local BY_HAND = 72 -- the line's extra width for Start and Stop
+
+-- Start and Stop on the line, when sessions do not start and stop by themselves; the line widens for them.
+local function byHand(hud)
+	local manual = not Session.automatic()
+	local running = manual and not Session.idle()
+	hud.start:SetShown(manual and not running)
+	hud.stop:SetShown(running)
+	hud:SetWidth(manual and W + BY_HAND or W)
+	hud.ding:ClearAllPoints()
+	hud.ding:SetPoint("RIGHT", manual and -(12 + BY_HAND) or -12, 0)
+	hud.details.auto:Set(not manual)
+end
+
 local function refresh()
 	if not huds.frame or not huds.frame:IsShown() then
 		return
@@ -22,11 +37,12 @@ local function refresh()
 	local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
 	huds:redraw()
 	local hud = huds.frame
+	byHand(hud)
 	local faint = Theme.escape(Theme.color.textFaint)
 	local session = Session.get()
 	if not session then
 		hud.time:SetText("")
-		hud.gold:SetText(faint .. "Loot or kill something to start a session.|r")
+		hud.gold:SetText(faint .. (Session.automatic() and "Loot or kill something to start a session." or "Press Start to start a session.") .. "|r")
 		hud.xp:SetText("")
 		hud.kills:SetText("")
 		hud.ding:SetText("")
@@ -123,7 +139,6 @@ function ns.makeWindow(name, title, store, point, onClose)
 	return f, text
 end
 
-local W, H = 540, 34
 local ROWS = { "Coin", "Loot, at what it sells for", "Total", "XP", "Kills", "Bags" }
 local TOP_LOOT = 5
 
@@ -191,12 +206,20 @@ build = function()
 	hud.ding = UI.Text(hit, "", { size = "sm", tone = "muted", align = "RIGHT" })
 	hud.ding:SetPoint("RIGHT", -12, 0)
 	hud.ding:SetWidth(110)
+	hud.start = UI.Button(hit, "Start", function()
+		Session.start()
+	end, { kind = "primary", width = 64, height = 24 })
+	hud.start:SetPoint("RIGHT", -6, 0)
+	hud.stop = UI.Button(hit, "Stop", function()
+		Session.stop()
+	end, { kind = "ghost", width = 64, height = 24 })
+	hud.stop:SetPoint("RIGHT", -6, 0)
 
 	-- The session, under the line.
 	local d = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.96, borderColor = Theme.color.borderStrong })
 	d:SetPoint("TOPLEFT", hud, "BOTTOMLEFT", 0, -6)
 	d:SetWidth(W)
-	d:SetHeight(48 + #ROWS * 20 + 26 + TOP_LOOT * 28 + 48)
+	d:SetHeight(48 + #ROWS * 20 + 26 + TOP_LOOT * 28 + 48 + 34)
 	d:EnableMouse(true)
 	d:Hide()
 	local head = UI.Text(d, Theme.skin.titleCaps and "THIS SESSION" or "This session", { size = "lg", medium = true })
@@ -233,9 +256,14 @@ build = function()
 	end
 	d.empty = UI.Text(d, "Nothing looted yet.", { size = "sm", tone = "faint" })
 	d.empty:SetPoint("TOPLEFT", 16, y - 22)
+	d.auto = UI.Switch(d, Session.automatic(), function(on)
+		Session.setAutomatic(on)
+	end)
+	d.auto:SetPoint("BOTTOMLEFT", 16, 52)
+	local autoLabel = UI.Text(d, "Start and stop sessions by themselves", { size = "sm", tone = "muted" })
+	autoLabel:SetPoint("LEFT", d.auto, "RIGHT", 10, 0)
 	local stop = UI.Button(d, "Stop", function()
 		Session.stop()
-		refresh()
 	end, { kind = "ghost", width = 80, height = 26 })
 	stop:SetPoint("BOTTOMLEFT", 12, 12)
 	local reset = UI.Button(d, "New session", function()
@@ -337,6 +365,10 @@ ns.commands.appraise = function()
 end
 
 ns.commands.hud = ns.commands.appraise
+
+ns.test.hud = function()
+	return huds.frame
+end
 
 Session.watch(function(how)
 	if how == "loot" or how == "restored" then

@@ -2165,7 +2165,7 @@ do
   SlashCmdList.GOLDFOREVER("look web")
   SlashCmdList.GOLDFOREVER("ui settings")
   print("SETTINGS FRAMES at opening: " .. (#frames - before))
-  assert((#frames - before) <= 47, "Settings builds at most 47 frames at opening: " .. (#frames - before))
+  assert((#frames - before) <= 50, "Settings builds at most 50 frames at opening: " .. (#frames - before))
 end
 -- The Guide names only commands the addon has.
 for _, c in ipairs(ns.test.GUIDE_COMMANDS) do
@@ -2725,6 +2725,71 @@ do
   assert(rows > 0 and ns2.lastScan.kind == "full", "with its prices")
   fire("AUCTION_HOUSE_CLOSED")
   C_AuctionHouse.GetReplicateItemInfo = info
+end
+-- Sessions by hand (issue 45): with "Start and stop sessions by themselves" off, loot starts nothing (it is
+-- still recorded), the HUD offers Start, and Start and Stop are recorded as system events. A session that
+-- ended under 10 minutes from its first loot to its last is not shown as finished.
+do
+  local Session = ns2.Session
+  local function sysKinds()
+    local out = {}
+    for _, chunk in ipairs((GoldForeverDB.events[ns2.Encode.day(GetServerTime())] or {}).sys or {}) do
+      for row in chunk:gmatch("[^;]+") do out[#out + 1] = row:match("([^,]+)$") end
+    end
+    return table.concat(out, " ")
+  end
+  local function loot(copper)
+    slots = { { kind = 2, sources = { "Creature-0-4620-0-12-1922-000K", copper } } }
+    fire("LOOT_READY") money = money + copper; fire("PLAYER_MONEY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+  end
+  local function lootRows()
+    local n = 0
+    for _, chunk in ipairs((GoldForeverDB.events[ns2.Encode.day(GetServerTime())] or {}).loot or {}) do
+      for _ in chunk:gmatch("[^;]+") do n = n + 1 end
+    end
+    return n
+  end
+  assert(Session.automatic() == true, "sessions start and stop by themselves for a new player")
+  ns2.setHud(true)
+  Session.setAutomatic(false)
+  assert(GoldForeverDB.settings.appraiser.autoSession == false, "the toggle is saved")
+  SlashCmdList.GOLDFOREVER("reset")
+  local rows = lootRows()
+  loot(30)
+  assert(lootRows() == rows + 1, "loot outside a session is still recorded")
+  assert(Session.get() == nil and ns2.sessionSummary() == nil, "toggle off: loot starts no session")
+  xpcur = xpcur + 100; fire("PLAYER_XP_UPDATE")
+  assert(Session.get() == nil, "toggle off: kill XP starts no session")
+  local hud = ns2.test.hud()
+  assert(hud and hud:IsShown() and hud.start:IsShown() and not hud.stop:IsShown(), "the HUD shows Start")
+  local kinds = sysKinds()
+  kinds = kinds == "" and "" or kinds .. " "
+  hud.start:GetScript("OnClick")(hud.start)
+  assert(sysKinds() == kinds .. "session_start", "Start records session_start: " .. sysKinds())
+  assert(Session.get() and not Session.idle() and hud.stop:IsShown() and not hud.start:IsShown(), "running, the HUD shows Stop")
+  loot(20)
+  clock = clock + 16 * 60; now = now + 16 * 60
+  assert(not Session.idle(), "toggle off: 15 minutes without loot does not end it")
+  loot(20)
+  hud.stop:GetScript("OnClick")(hud.stop)
+  assert(sysKinds() == kinds .. "session_start session_stop", "Stop records session_stop: " .. sysKinds())
+  local sum = ns2.sessionSummary()
+  assert(sum and sum.ended and sum.coin == 40, "a session of 16 minutes from first to last loot is shown as ended")
+  -- Under 10 minutes from first loot to last: ended, but not shown as a finished session.
+  hud.start:GetScript("OnClick")(hud.start)
+  loot(10)
+  clock = clock + 9 * 60; now = now + 9 * 60
+  loot(10)
+  hud.stop:GetScript("OnClick")(hud.stop)
+  assert(Session.get() == nil and ns2.sessionSummary() == nil, "a session under 10 minutes is not shown as finished")
+  assert(ns2.test.sessionText() == "Press Start on the HUD to start a session.", "nor in /gf session: " .. ns2.test.sessionText())
+  -- Back on: loot starts a session again, and the Stop under the HUD is recorded too.
+  Session.setAutomatic(true)
+  assert(not hud.start:IsShown() and not hud.stop:IsShown(), "toggle on: no Start or Stop on the line")
+  loot(10)
+  assert(Session.get() and not Session.idle(), "toggle on: loot starts a session")
+  Session.stop()
+  assert(sysKinds():match("session_stop$") and select(2, sysKinds():gsub("session_stop", "")) == 3, "Stop with the toggle on records session_stop")
 end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.

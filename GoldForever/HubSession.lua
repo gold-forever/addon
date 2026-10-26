@@ -57,7 +57,8 @@ local function buildSessionNow(page)
 				l:SetText("")
 			end
 			tbl:SetRows({})
-			note:SetText("Loot or kill something to start a session. A break of 15 minutes ends it.")
+			note:SetText(ns.Session.automatic() and "Loot or kill something to start a session. A break of 15 minutes ends it."
+				or "Press Start on the HUD to start a session, and Stop to end it.")
 			return
 		end
 		local r = sum.rates

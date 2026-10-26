@@ -146,6 +146,12 @@ local function buildSettings(page)
 				end)
 				return c.hideInCombat
 			end },
+			{ side = 0, row = 2, label = "Start and stop sessions by themselves", make = function(cell)
+				c.autoSession = UI.Switch(cell, ns.Session.automatic(), function(on)
+					ns.Session.setAutomatic(on)
+				end)
+				return c.autoSession
+			end },
 			{ side = 0, row = 1, label = "Mark rares with a skull", make = function(cell)
 				c.mark = UI.Switch(cell, rares.mark, function(on)
 					rares.mark = on
@@ -183,6 +189,7 @@ local function buildSettings(page)
 			c.minimap:Set(not minimap.hidden)
 			c.scale:Set(math.floor((window.scale or 1) * 100 + 0.5))
 			c.hideInCombat:Set(appraiser.hideInCombat)
+			c.autoSession:Set(ns.Session.automatic())
 			c.mark:Set(rares.mark)
 			c.party:Set(rares.party == true)
 			c.bigDrop:Set(bigDrop())
