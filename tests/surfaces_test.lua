@@ -8,7 +8,6 @@ local KNOWN = {
 	"FirstRun.lua",
 	"HubHome.lua",
 	"HubLedger.lua",
-	"HubRares.lua",
 	"HubSession.lua",
 	"Tooltips.lua",
 	"UiDebug.lua",

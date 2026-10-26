@@ -82,6 +82,7 @@ Surfaces\HubHome.lua
 Surfaces\HubLedger.lua
 Surfaces\HubSession.lua
 Surfaces\HubCrafting.lua
+ReadModels\RaresView.lua
 Surfaces\HubRares.lua
 Surfaces\HubCompanion.lua
 Surfaces\HubSettings.lua

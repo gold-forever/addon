@@ -43,15 +43,14 @@ local function buildRares(page)
 			end
 		end)
 		local rows = {}
-		for _, r in ipairs(Views.rares(Views.rows(ns.db(), "rare"))) do
-			local value = Views.mobValue(mobs and mobs[r.npc], worth)
+		for _, r in ipairs(ns.RaresView.rows(mobs, worth)) do
 			rows[#rows + 1] = {
 				name = Kit.npcName(r.npc),
 				seen = r.seen,
 				last = r.last,
 				where = mapName(r.map) .. ((r.x and r.y) and string.format("  %.1f, %.1f", r.x / 10, r.y / 10) or ""),
 				how = r.how or "",
-				value = value,
+				value = r.value,
 			}
 		end
 		tbl:SetRows(rows)
