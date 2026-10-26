@@ -2,7 +2,7 @@
 -- worth most.
 
 local _, ns = ...
-local Theme, UI, Encode, Views = ns.Theme, ns.UI, ns.Encode, ns.Views
+local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
 local Kit = ns.HubKit
 local settings, itemName, itemQuality = Kit.settings, Kit.itemName, Kit.itemQuality
 
@@ -163,7 +163,10 @@ local function buildHome(page)
 	homes[#homes + 1] = page
 
 	function page:Refresh()
-		local db, me, now = ns.db(), ns.me(), ns.now()
+		local now = ns.now()
+		local home = ns.HomeView.home(now, function(id)
+			return ns.price.worth(id)
+		end)
 		local faint = Theme.escape(Theme.color.textFaint)
 		-- Scan: the cooldown, or how long ago the last one of the character's market was (an alt's on the
 		-- other side is not this one's).
@@ -174,9 +177,7 @@ local function buildHome(page)
 		actions[1].line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60)
 			or (last and ("Last scan " .. Views.ago(last, now) .. ": scan again") or "No scan yet: open the auction house"))
 		-- The bags: what they would sell for.
-		local list, total, unpriced = Views.bagWorth(me and me.bags, Encode.parseItems, function(id)
-			return ns.price.worth(id)
-		end)
+		local list, total, unpriced = home.bags.list, home.bags.total, home.bags.unpriced
 		actions[2].title:SetText("Sell your bags")
 		actions[2].line:SetText(#list > 0 and string.format("%d items, about %s", #list, UI.layout.money(total, "gold")) or "Nothing priced in your bags")
 		-- The best craft at the latest prices.
@@ -186,10 +187,7 @@ local function buildHome(page)
 		actions[3].line:SetText(best and (UI.layout.money(best.profit, "gold") .. " profit a craft") or "No priced recipe makes a profit yet")
 
 		-- The goal.
-		local gold = 0
-		for _, c in pairs(db.characters or {}) do
-			gold = gold + (c.money or 0)
-		end
+		local gold = home.gold
 		local goal = settings().goal
 		if goal then
 			local g = Views.goal(now, gold, goal)
@@ -204,7 +202,7 @@ local function buildHome(page)
 		end
 
 		-- Today's money for this character, by where it came from.
-		local ledger = me and Views.ledger(Views.rows(db, "money", me.ref, Views.dayStart(now)), Views.rows(db, "flight"), me.ref, Views.dayStart(now)) or { categories = {}, net = 0 }
+		local ledger = home.today
 		table.sort(ledger.categories, function(a, b)
 			return math.abs(a.net) > math.abs(b.net)
 		end)

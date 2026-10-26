@@ -81,6 +81,7 @@ Surfaces\CraftingStrip.lua
 Surfaces\CraftQueue.lua
 Surfaces\FirstRun.lua
 Tools\MailHelper.lua
+ReadModels\HomeView.lua
 Surfaces\HubHome.lua
 Surfaces\HubLedger.lua
 ReadModels\SessionView.lua

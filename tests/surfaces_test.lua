@@ -6,7 +6,6 @@ local KNOWN = {
 	"CraftQueue.lua",
 	"ExportFrame.lua",
 	"FirstRun.lua",
-	"HubHome.lua",
 	"HubLedger.lua",
 	"Tooltips.lua",
 	"UiDebug.lua",
