@@ -9,6 +9,8 @@ local heldHere = ns.Holdings.heldHere
 local Lists = {}
 ns.Lists = Lists
 
+local F = ns.DataFormat.field
+
 -- An id for a list or profile made here, and its edited time stamped (design 009, decision 11).
 function Lists.newId()
 	return string.format("g%x%06x", ns.now(), math.random(0, 0xffffff))
@@ -124,7 +126,8 @@ local function copyMark(x, name)
 end
 
 local function mergeShared()
-	local shared = type(GoldForever_Prices) == "table" and type(GoldForever_Prices.shared) == "table" and GoldForever_Prices.shared or nil
+	local file = GoldForever_Prices
+	local shared = type(file) == "table" and type(file[F.shared]) == "table" and file[F.shared] or nil
 	local s = settings()
 	-- The list and profile in use are kept by index: found again once the drop and the merge are done.
 	local before = #visible(s)
@@ -152,23 +155,23 @@ local function mergeShared()
 	if n > 0 then
 		ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
 	end
-	if not shared or shared.at == s.sharedAt then
+	if not shared or shared[F.at] == s.sharedAt then
 		restore()
 		return
 	end
 	local lists, profiles = {}, {}
-	for _, x in ipairs(type(shared.lists) == "table" and shared.lists or {}) do
-		local got = type(x) == "table" and type(x.string) == "string" and ns.Shopping.decode(x.string)
-		if got and got[1] and type(x.id) == "string" then
-			got[1].id, got[1].edited = x.id, tonumber(x.edited) or 0
+	for _, x in ipairs(type(shared[F.lists]) == "table" and shared[F.lists] or {}) do
+		local got = type(x) == "table" and type(x[F.string]) == "string" and ns.Shopping.decode(x[F.string])
+		if got and got[1] and type(x[F.id]) == "string" then
+			got[1].id, got[1].edited = x[F.id], tonumber(x[F.edited]) or 0
 			got[1].copyOf = copyMark({ copyOf = x.copyOf }, got[1].name)
 			lists[#lists + 1] = got[1]
 		end
 	end
-	for _, x in ipairs(type(shared.profiles) == "table" and shared.profiles or {}) do
-		local p = type(x) == "table" and type(x.string) == "string" and ns.SalePlan.decode(x.string)
-		if p and type(x.id) == "string" then
-			p.id, p.edited = x.id, tonumber(x.edited) or 0
+	for _, x in ipairs(type(shared[F.profiles]) == "table" and shared[F.profiles] or {}) do
+		local p = type(x) == "table" and type(x[F.string]) == "string" and ns.SalePlan.decode(x[F.string])
+		if p and type(x[F.id]) == "string" then
+			p.id, p.edited = x[F.id], tonumber(x[F.edited]) or 0
 			p.copyOf = copyMark({ copyOf = x.copyOf }, p.name)
 			profiles[#profiles + 1] = p
 		end
@@ -177,7 +180,7 @@ local function mergeShared()
 	s.removedShared = s.removedShared or {}
 	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, s.removedShared)
 	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, s.removedShared)
-	s.sharedAt = shared.at
+	s.sharedAt = shared[F.at]
 	restore()
 	if a + b > 0 then
 		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))

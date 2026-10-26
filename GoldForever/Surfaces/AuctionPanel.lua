@@ -155,7 +155,7 @@ local function drawAway()
 	end
 	local file = GoldForever_Prices
 	local bankT, mailT = me.bank and me.bank.t, me.mail and me.mail.t
-	local fileAt = type(file) == "table" and file.at or nil
+	local fileAt = type(file) == "table" and file[ns.DataFormat.field.at] or nil
 	if away.list and awayStamp.bank == bankT and awayStamp.mail == mailT and awayStamp.scan == ns.scanVersion and awayStamp.file == fileAt then
 		return
 	end

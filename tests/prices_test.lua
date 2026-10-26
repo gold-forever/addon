@@ -10,6 +10,7 @@ ns.commands = {}
 ns.on = function() end
 -- The real money formatter (ns.price.coins): without the client's coin icons, plain text.
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", ns)
+assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Prices.lua"], "@Prices.lua"))("GoldForever", ns)
 local P = ns.Prices
 
@@ -285,4 +286,14 @@ eq(P.connected({ v = 1, markets = { m = { [1] = good } } }, NOW), false, "no tim
 eq(P.connected(nil, NOW), false, "no file")
 eq(P.connected({ v = 2, at = NOW }, NOW), false, "a file this addon cannot read")
 
+-- A file this addon was not written for (DataFormat.lua): an older version shows no prices either, and
+-- says so; a field the addon does not know, and an item figure past the fifth, are ignored.
+eq(P.line({ v = 0, at = NOW, markets = { [MARKET] = { [2589] = good } } }, { MARKET }, 2589, NOW), nil, "an older version")
+eq(summary({ v = 0, at = NOW }, nil), "the prices file is version 0; this addon reads version 1. Update the addon.", "an older version, said")
+local known = data({ 1234, 1100, 3, NOW - 3 * 3600, 1100 })
+local more = data({ 1234, 1100, 3, NOW - 3 * 3600, 1100, 99 })
+more.future = { anything = true }
+more.markets[MARKET].future = "x"
+eq(P.line(more, { MARKET }, 2589, NOW), P.line(known, { MARKET }, 2589, NOW), "an unknown field and a sixth figure change nothing")
+eq(P.status(more, { MARKET }, NOW).state, "ok", "and the file is read")
 return checks()

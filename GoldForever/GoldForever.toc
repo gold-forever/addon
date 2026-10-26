@@ -48,6 +48,7 @@ Recording\Session.lua
 Surfaces\Hud.lua
 Recording\MobStats.lua
 Surfaces\Tooltips.lua
+ReadModels\DataFormat.lua
 ReadModels\Prices.lua
 ReadModels\Advisor.lua
 Recording\Rares.lua

@@ -12,21 +12,23 @@ ns = ns or {}
 local Dings = {}
 ns.Dings = Dings
 
+local F = ns.DataFormat.field
+
 -- What the switch shows for a character, from its choice in the save (`mine`: { on, t } or nil), the
 -- companion's data file (`data`: GoldForever_Prices, or nil without the companion) and its guid.
 -- Returns { companion, webhook (true, false, or nil when the file does not say), on, pending }: pending
 -- when the choice in the save is newer than the site's ding state (dings.at), so the site has not had it.
 function Dings.state(mine, data, guid)
 	local companion = type(data) == "table"
-	local site = companion and type(data.dings) == "table" and data.dings or nil
+	local site = companion and type(data[F.dings]) == "table" and data[F.dings] or nil
 	local webhook = nil
-	if site and type(site.webhook) == "boolean" then
-		webhook = site.webhook
+	if site and type(site[F.webhook]) == "boolean" then
+		webhook = site[F.webhook]
 	end
-	local siteOn = site and type(site.characters) == "table" and site.characters[guid] == true or false
+	local siteOn = site and type(site[F.characters]) == "table" and site[F.characters][guid] == true or false
 	-- When the site's ding state last changed (the companion rewrites the file for it alone, keeping the
 	-- prices' `at`); an older file without it falls back to the file's own time.
-	local at = site and type(site.at) == "number" and site.at or (companion and type(data.at) == "number" and data.at) or nil
+	local at = site and type(site[F.at]) == "number" and site[F.at] or (companion and type(data[F.at]) == "number" and data[F.at]) or nil
 	local choice = type(mine) == "table" and type(mine.on) == "boolean" and type(mine.t) == "number" and mine or nil
 	if choice and (not at or choice.t > at) then
 		return { companion = companion, webhook = webhook, on = choice.on, pending = true }

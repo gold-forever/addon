@@ -10,7 +10,9 @@ ns = ns or {}
 local Prices = {}
 ns.Prices = Prices
 
-local VERSION = 1 -- the GoldForever_Prices layout this addon reads
+-- The GoldForever_Prices layout this addon reads, its fields and an item's figures (DataFormat.lua).
+local VERSION = ns.DataFormat.VERSION
+local F, ITEM = ns.DataFormat.field, ns.DataFormat.item
 local STALE_SECONDS = 3 * 86400 -- a price scanned longer ago than this is greyed
 local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
 local REGIONS = { US = "NA", NA = "NA", EU = "EU", KR = "KR", TW = "TW", CN = "CN" }
@@ -184,9 +186,10 @@ end
 -- A file without the fifth, or with it unusable, shows no typical price and no trend.
 local function entry(data, markets, id)
 	for _, market in ipairs(markets) do
-		local e = field(field(field(data, "markets"), market), id)
-		if e and amount(e[1]) and amount(e[2]) and amount(e[3]) and amount(e[4]) then
-			return e[1], e[2], e[3], e[4], (amount(e[5]) and e[5] > 0) and e[5] or nil
+		local e = field(field(field(data, F.markets), market), id)
+		if e and amount(e[ITEM.value]) and amount(e[ITEM.minBuyout]) and amount(e[ITEM.players]) and amount(e[ITEM.scannedAt]) then
+			local week = e[ITEM.week]
+			return e[ITEM.value], e[ITEM.minBuyout], e[ITEM.players], e[ITEM.scannedAt], (amount(week) and week > 0) and week or nil
 		end
 	end
 end
@@ -237,7 +240,7 @@ end
 
 -- Whether data is a prices file this addon reads.
 function Prices.loaded(data)
-	return type(data) == "table" and data.v == VERSION and type(data.markets) == "table"
+	return type(data) == "table" and data[F.version] == VERSION and type(data[F.markets]) == "table"
 end
 
 local function ago(t, now)
@@ -290,24 +293,24 @@ function Prices.summary(data, mine, now)
 	if type(data) ~= "table" then
 		return { "no prices file loaded. The companion app writes it into the GoldForever_Data addon." }
 	end
-	if data.v ~= VERSION then
-		return { string.format("the prices file is version %s; this addon reads version %d. Update the addon.", tostring(data.v), VERSION) }
+	if data[F.version] ~= VERSION then
+		return { string.format("the prices file is version %s; this addon reads version %d. Update the addon.", tostring(data[F.version]), VERSION) }
 	end
 	if not Prices.loaded(data) then
 		return { "the prices file cannot be read. The companion app writes it again on its next update." }
 	end
 	local keys, used = {}, {}
-	for key in pairs(data.markets) do
+	for key in pairs(data[F.markets]) do
 		keys[#keys + 1] = tostring(key)
 	end
 	table.sort(keys)
 	for _, key in ipairs(mine or {}) do
 		used[key] = true
 	end
-	local age = amount(data.at) and ("written " .. ago(data.at, now)) or "of unknown age"
+	local age = amount(data[F.at]) and ("written " .. ago(data[F.at], now)) or "of unknown age"
 	local lines = { string.format("prices file %s · %d %s", age, #keys, #keys == 1 and "market" or "markets") }
 	for _, key in ipairs(keys) do
-		local n = count(data.markets[key])
+		local n = count(data[F.markets][key])
 		lines[#lines + 1] = string.format("%s: %d %s%s", key, n, n == 1 and "item" or "items", used[key] and " · this character's" or "")
 	end
 	return lines
@@ -417,8 +420,8 @@ function Prices.status(data, mine, now)
 	if type(data) ~= "table" then
 		return { state = "missing", markets = {} }
 	end
-	if data.v ~= VERSION then
-		return { state = "version", version = data.v, markets = {} }
+	if data[F.version] ~= VERSION then
+		return { state = "version", version = data[F.version], markets = {} }
 	end
 	if not Prices.loaded(data) then
 		return { state = "broken", markets = {} }
@@ -428,7 +431,7 @@ function Prices.status(data, mine, now)
 		used[key] = true
 	end
 	local markets = {}
-	for key, items in pairs(data.markets) do
+	for key, items in pairs(data[F.markets]) do
 		markets[#markets + 1] = { key = tostring(key), items = count(items), mine = used[key] or false }
 	end
 	table.sort(markets, function(a, b)
@@ -439,11 +442,11 @@ function Prices.status(data, mine, now)
 	end)
 	local missing = {}
 	for _, key in ipairs(mine or {}) do
-		if not data.markets[key] then
+		if not data[F.markets][key] then
 			missing[#missing + 1] = key
 		end
 	end
-	return { state = "ok", at = amount(data.at) and data.at or nil, age = amount(data.at) and ago(data.at, now) or nil, markets = markets, missing = missing }
+	return { state = "ok", at = amount(data[F.at]) and data[F.at] or nil, age = amount(data[F.at]) and ago(data[F.at], now) or nil, markets = markets, missing = missing }
 end
 
 -- The neutral auction house's market keys while the player is in its zone, on Forever; else nil.
@@ -467,10 +470,10 @@ end
 -- 2026-10-24), at most once a day; nil when there is nothing to say (no file, a fresh one, warned today).
 Prices.STALE_FILE = 86400
 function Prices.staleWarning(data, now, lastWarned)
-	if type(data) ~= "table" or not amount(data.at) then
+	if type(data) ~= "table" or not amount(data[F.at]) then
 		return nil
 	end
-	local age = now - data.at
+	local age = now - data[F.at]
 	if age <= Prices.STALE_FILE or (lastWarned and now - lastWarned < 86400) then
 		return nil
 	end
@@ -481,7 +484,7 @@ end
 -- Whether the companion app is at work: its prices file is loaded and no older than a day, as it writes
 -- one every hour. Without it the player uploads their save by hand (/gf export).
 function Prices.connected(data, now)
-	return Prices.status(data, nil, now).state == "ok" and amount(data.at) and now - data.at <= Prices.STALE_FILE or false
+	return Prices.status(data, nil, now).state == "ok" and amount(data[F.at]) and now - data[F.at] <= Prices.STALE_FILE or false
 end
 
 -- This character's market keys, for the Companion page.

@@ -1,6 +1,7 @@
 -- Dings.lua: what the "Announce dings on Discord" switch shows, from the save and the companion's file.
 
 local ns = { commands = {} }
+assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Dings.lua"], "@Dings.lua"))("GoldForever", ns)
 local D = ns.Dings
 
@@ -56,4 +57,8 @@ s = D.state({ on = "yes", t = 2000 }, { at = "soon", dings = { webhook = "maybe"
 eq(s.on, false, "a malformed choice and file read as off")
 eq(s.webhook, nil, "a malformed webhook flag says nothing")
 
+-- The site's side is read whatever the file's v says (DataFormat.lua), and a field it does not know is ignored.
+s = D.state(nil, { v = 2, at = 1000, future = true, dings = { webhook = true, characters = { [ME] = true }, future = 1 } }, ME)
+eq(s.webhook, true, "another version: the webhook flag read")
+eq(s.on, true, "another version: the character's choice read")
 return checks()

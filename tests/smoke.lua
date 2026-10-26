@@ -315,9 +315,54 @@ local function seen(label, value, forever, retail)
   local want = FLAVOUR == "retail" and retail or forever
   if value ~= want then error(label:gsub("%s+$", "") .. ": expected [" .. tostring(want) .. "], got [" .. value .. "]", 2) end
 end
+-- GoldForever_Prices, the companion's data file, as the addon reads it: its tables but those the addon walks
+-- (the markets, an item's figures, the lists, the dings' characters) stand empty in front of their fields,
+-- so each field asked of them is noted; the run fails on one ReadModels/DataFormat.lua does not list.
+local pricesFile, pricesAsked = nil, {}
+local PRICES_CHILDREN = { prices = { shared = "shared", dings = "dings" }, shared = { lists = "entries", profiles = "entries" } }
+local function noting(t, shape)
+  if type(t) ~= "table" or getmetatable(t) then return t end
+  local fields = {}
+  for k, v in pairs(t) do fields[k] = v end
+  for k in pairs(fields) do t[k] = nil end
+  return setmetatable(t, {
+    __index = function(_, k)
+      pricesAsked[shape .. "." .. tostring(k)] = true
+      local v, child = fields[k], (PRICES_CHILDREN[shape] or {})[k]
+      if child == "entries" and type(v) == "table" then
+        for i, entry in ipairs(v) do v[i] = noting(entry, "entry") end
+      elseif child then
+        v = noting(v, child)
+      end
+      return v
+    end,
+    __newindex = function(_, k, v) fields[k] = v end,
+  })
+end
+setmetatable(_G, {
+  __index = function(_, k) if k == "GoldForever_Prices" then return pricesFile end end,
+  __newindex = function(g, k, v) if k == "GoldForever_Prices" then pricesFile = noting(v, "prices") else rawset(g, k, v) end end,
+})
+-- Read though the companion never writes it: Lists.lua takes a shared entry's copyOf as the server's mark
+-- of a copy it kept, which format.go does not carry. The list only shrinks.
+local PRICES_KNOWN = { ["entry.copyOf"] = true }
+local function unlistedPriceFields()
+  local out = {}
+  for asked in pairs(pricesAsked) do
+    local shape, field = asked:match("^(%w+)%.(.*)$")
+    if not ns.DataFormat.tables[shape][field] and not PRICES_KNOWN[asked] then out[#out + 1] = "GoldForever_Prices " .. shape .. " field " .. field .. " is read but not in DataFormat.lua" end
+  end
+  table.sort(out)
+  return out
+end
 -- GF_SMOKE_DUMP=<a file>: the save as the run leaves it, written there with sorted keys (savedump.lua) for
 -- run.js to compare with the golden copy; on a given save (GF_SMOKE_SAVE), what the run changed in it.
 local function exit(code)
+  local unlisted = unlistedPriceFields()
+  if #unlisted > 0 then
+    io.write(table.concat(unlisted, "\n"), "\n")
+    code = 1
+  end
   local file = os.getenv("GF_SMOKE_DUMP")
   if file then
     local Dump = dofile(dir .. "/../tests/savedump.lua")
@@ -1734,7 +1779,8 @@ do
   local prices = GoldForever_Prices
   local site = ns.Shopping.encode({ { name = "From the site", entries = { { itemId = 2589, maxUnit = 3000 } } } })
   local profile = ns.SalePlan.encode({ name = "Site profile", author = "Me", sell = {}, buy = { { itemID = 2589, upTo = 10, maxUnit = 3000 } } })
-  GoldForever_Prices = { v = 1, at = now, markets = {}, shared = { at = 77, lists = { { id = "s1", edited = 100, string = site } }, profiles = { { id = "p1", edited = 100, string = profile } } } }
+  -- Read whatever the file's v says (DataFormat.lua): a file of another version still brings them.
+  GoldForever_Prices = { v = 2, at = now, markets = {}, shared = { at = 77, lists = { { id = "s1", edited = 100, string = site } }, profiles = { { id = "p1", edited = 100, string = profile } } } }
   ns.test.mergeShared()
   local auction = ns.settings("auction", { rule = {}, duration = 2 })
   local found
@@ -2019,7 +2065,7 @@ assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
   TooltipDataProcessor = nil
-  assert(loadfile(dir .. "/ReadModels/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, commands = {}, on = function() end })
+  assert(loadfile(dir .. "/ReadModels/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, DataFormat = ns.DataFormat, commands = {}, on = function() end })
   TooltipDataProcessor = saved
   assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
 end
