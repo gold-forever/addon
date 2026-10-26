@@ -210,8 +210,3 @@ ns.CraftPlanner = {
 	quoteRecipe = ns.quoteRecipe, allCraftQuotes = ns.allCraftQuotes, profitableCrafts = profitable, isGear = isGear, recipeOf = ns.recipeOf,
 	queueAdd = ns.queueAdd, queueClear = ns.queueClear, queueList = ns.queueList, queueNeeds = ns.queueNeeds,
 }
-
--- /gf shop: the Crafting page, recipes by profit.
-ns.commands.shop = function()
-	ns.openPage("crafting")
-end

@@ -179,3 +179,8 @@ local function buildCrafting(page)
 end
 
 ns.hubPages.crafting = buildCrafting
+
+-- /gf shop: the Crafting page, recipes by profit.
+ns.commands.shop = function()
+	ns.openPage("crafting")
+end
