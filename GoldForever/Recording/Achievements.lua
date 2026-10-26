@@ -113,10 +113,14 @@ local function readAchievements()
 	end)
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "achievements", function()
-	ns.after(12, "achievements", readAchievements)
-	ns.after(14, "statistics", readStatistics)
-end)
+-- Achievements and statistics are read again after every loading screen.
+ns.module("Achievements", {
+	requires = { "Store" },
+	world = function()
+		ns.after(12, "achievements", readAchievements)
+		ns.after(14, "statistics", readStatistics)
+	end,
+})
 ns.on("ACHIEVEMENT_EARNED", "achievements", ns.throttle("achievements", 10, readAchievements))
 ns.on("PLAYER_LOGOUT", "statistics", function()
 	if not ns.tornDown() then

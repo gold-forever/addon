@@ -89,7 +89,6 @@ eq(table.concat(worlds, ", "), "Early false true, Late false true, Shaky", "and 
 -- PLAYER_ENTERING_WORLD, each line a file and the event with why it stays; the list only shrinks. A file
 -- that moves leaves it, and a new one fails here.
 local KNOWN = {
-	["Achievements.lua PLAYER_ENTERING_WORLD"] = "achievements and statistics are read again after every loading screen",
 	["Core.lua PLAYER_ENTERING_WORLD"] = "the kernel itself: it runs every module's world and records the login or resume row",
 	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable and records the character",
 	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
