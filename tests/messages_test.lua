@@ -27,6 +27,15 @@ for file, source in pairs(SOURCES) do
 	end
 end
 
+-- The contract files, the save's and the data file's shape, may be read from any layer (owner, addon#40).
+local CONTRACTS = { "Schema.lua", "DataFormat.lua" }
+local contract = {}
+for _, file in ipairs(CONTRACTS) do
+	for name in pairs(select(2, nsNames(SOURCES[file]))) do
+		contract[name] = true
+	end
+end
+
 -- These files still read a name only a layer above sets, each with why it stays; the list only shrinks
 -- (addon#40). None is a call a message would replace: each is a query of a helper that sits above its reader.
 local KNOWN = {
@@ -38,7 +47,6 @@ local KNOWN = {
 	["Advisor.lua ns.makeWindow"] = "the loot advisor's window, which sits with its read model",
 	["Advisor.lua ns.applyLook"] = "the loot advisor's window, which sits with its read model",
 	["Advisor.lua ns.UI"] = "the loot advisor's window, which sits with its read model",
-	["Dings.lua ns.DataFormat"] = "the data file's contract (rule 8): the dings switch reads the companion's side from it",
 	["Inventory.lua ns.Views"] = "the read models' list of places items are held, for the Held tooltip index",
 	["Market.lua ns.Scans"] = "the read model's market groups, for which scans the save keeps on retail",
 	["MobStats.lua ns.price"] = "the read model's prices, to value what each NPC dropped",
@@ -59,7 +67,7 @@ local function readsUp(file, source)
 	local found = {}
 	local reads, sets = nsNames(source)
 	for name in pairs(reads) do
-		if not sets[name] and lowest[name] and lowest[name] > layerOf(file) then
+		if not sets[name] and not contract[name] and lowest[name] and lowest[name] > layerOf(file) then
 			found[#found + 1] = file .. " ns." .. name
 		end
 	end
@@ -136,6 +144,7 @@ eq(heard > 0, true, "the messages listened to are read")
 -- The scans see what they look for, and not a comment or a string.
 local reads = readsUp("Loot.lua", 'local x = ns.openPage("home") -- ns.UI\nlocal s = "ns.Theme"')
 eq(table.concat(reads, ", "), "Loot.lua ns.openPage", "a collector reading a hub function")
+eq(#readsUp("Loot.lua", "local f = ns.DataFormat"), 0, "a collector reading the data file's contract")
 eq(ownListeners("function ns.onBagsRead(fn) end\nns.on(\"BAG_UPDATE\", \"x\", f) -- ns.onX = f"), "ns.onBagsRead", "a list of its own")
 local said = messages('ns.emit("bagsRead") ns.emit( "lookChanged", x) -- ns.emit("old")', "emit")
 eq(said.bagsRead and said.lookChanged and not said.old, true, "messages emitted, and not one in a comment")
