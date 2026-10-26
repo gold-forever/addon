@@ -120,7 +120,7 @@ end)
 -- XP -------------------------------------------------------------------------------------------------
 
 local seen -- { cur, max, rested }: the last reading
-local combatAt, zoneAt, bossAt, exploredAt = -math.huge, -math.huge, -math.huge, -math.huge
+local zoneAt, bossAt, exploredAt = -math.huge, -math.huge, -math.huge
 
 local function read()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0 }
@@ -140,7 +140,7 @@ local function kindAt(at, fighting)
 		return "boss"
 	elseif near(exploredAt) then
 		return "explore"
-	elseif fighting or near(combatAt) then
+	elseif fighting or near(ns.combatEnded()) then
 		return "kill"
 	elseif near(zoneAt) then
 		return "explore"
@@ -207,11 +207,6 @@ ns.on("UI_INFO_MESSAGE", "explore", function(_, message)
 	discovered(message)
 end)
 ns.on("CHAT_MSG_SYSTEM", "explore", discovered)
-
--- Combat's end: a kill's XP can come a moment after it.
-ns.on("PLAYER_REGEN_ENABLED", "xp", function()
-	combatAt = GetTime()
-end)
 
 -- Zones ------------------------------------------------------------------------------------------------
 
