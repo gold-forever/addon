@@ -2301,6 +2301,15 @@ do
   SlashCmdList.GOLDFOREVER("look web")
   assert(GoldForeverDB.settings.firstRun.done == true and not card:IsShown(), "done, and closed")
   assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
+  -- Asked for in combat: shown when the fight ends.
+  InCombatLockdown = function() return true end
+  SlashCmdList.GOLDFOREVER("welcome")
+  assert(not ns.FirstRun.card():IsShown(), "not in combat")
+  InCombatLockdown = nil
+  fireNow("PLAYER_REGEN_ENABLED")
+  assert(ns.FirstRun.card():IsShown(), "shown when the fight ends")
+  ns.FirstRun.card():Hide()
+  GoldForeverDB.settings.firstRun.done = true
   -- Back to everything on, for the rest of the run.
   ns.FirstRun.apply("everything", { prices = GoldForeverDB.settings.prices, auction = GoldForeverDB.settings.auction,
     crafting = ns.settings("crafting", { strip = true }), appraiser = GoldForeverDB.settings.appraiser,

@@ -257,10 +257,16 @@ end
 -- One card per look and accent, built the first time it is needed (frames are never freed): every
 -- loading screen asks for the card until it is done or skipped, and it is not built again for that.
 local cards = {}
+-- Asked for in combat: once the fight ends, on the first step, unless it was done meanwhile.
+local function openAfterCombat()
+	if not ns.settings("firstRun").done then
+		open()
+	end
+end
 -- `step`: the step to show (a new look reopens it on that step), else the first.
 function open(step)
-	if InCombatLockdown and InCombatLockdown() then
-		ns.settings("firstRun").waiting = true
+	if ns.inCombat() then
+		ns.afterCombat("first run", openAfterCombat)
 		return
 	end
 	ns.applyLook()
@@ -290,13 +296,6 @@ ns.on("PLAYER_ENTERING_WORLD", "first run", function()
 		C_Timer.After(2, function()
 			ns.safely("first run", open)
 		end)
-	end
-end)
-ns.on("PLAYER_REGEN_ENABLED", "first run", function()
-	local s = ns.settings("firstRun")
-	if s.waiting and not s.done then
-		s.waiting = nil
-		open()
 	end
 end)
 
