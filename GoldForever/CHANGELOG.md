@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **The auction house panel loads when you first open the auction house.** It is a second folder,
+  GoldForever_Auctions, shown in the AddOns list as Gold Forever Auctions (load on demand); keep both
+  folders. A character who never visits the auction house never loads it. Nothing else changes.
 - **Sessions by hand.** A new setting, "Start and stop sessions by themselves", on by default, in the
   session HUD's panel and in Settings → General. On, nothing changes. Off, loot and kill XP start no
   session (they are still recorded); the HUD shows Start, and Stop while a session runs. Stop or a logout
