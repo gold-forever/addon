@@ -492,17 +492,21 @@ Prices.mine = function()
 	return mine()
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "stale prices", function(isInitialLogin)
-	if not isInitialLogin then
-		return
-	end
-	local s = ns.settings("prices")
-	local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
-	if text then
-		s.staleWarned = GetServerTime()
-		ns.say(text)
-	end
-end)
+ns.module("Prices", {
+	requires = { "Store" },
+	-- The stale-prices warning, at the login's loading screen only.
+	world = function(isInitialLogin)
+		if not isInitialLogin then
+			return
+		end
+		local s = ns.settings("prices")
+		local text = Prices.staleWarning(GoldForever_Prices, GetServerTime(), s.staleWarned)
+		if text then
+			s.staleWarned = GetServerTime()
+			ns.say(text)
+		end
+	end,
+})
 
 ns.commands.prices = function()
 	local lines = Prices.summary(GoldForever_Prices, mine(), GetServerTime())

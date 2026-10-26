@@ -8,6 +8,8 @@ assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
 ns.commands = {}
 ns.on = function() end
+local modules = {} -- name -> what the file declared with ns.module
+ns.module = function(name, def) modules[name] = def end
 -- The real money formatter (ns.price.coins): without the client's coin icons, plain text.
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", ns)
 assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
@@ -278,6 +280,26 @@ eq(P.staleWarning({ at = NOW - 3600 }, NOW, nil), nil, "a fresh file")
 eq(P.staleWarning({ at = NOW - 2 * DAY - 5 }, NOW, nil), "everyone's prices are 2 days old: is the companion app running? gold-forever.app/companion", "two days")
 eq(P.staleWarning({ at = NOW - DAY - 5 }, NOW, nil):find("1 day old", 1, true) ~= nil, true, "one day")
 eq(P.staleWarning({ at = NOW - 2 * DAY }, NOW, NOW - 3600), nil, "warned an hour ago")
+
+-- The warning runs from the Prices module's world hook: at the login's loading screen, not a /reload's or
+-- a later one, and noted in the prices settings so it shows at most once a day.
+local prices, said = {}, {}
+ns.settings = function(name) return name == "prices" and prices or nil end
+ns.say = function(text) said[#said + 1] = text end
+function GetServerTime() return NOW end
+GoldForever_Prices = { v = 1, at = NOW - 2 * DAY - 5, markets = {} }
+local world = modules.Prices and modules.Prices.world
+eq(type(world), "function", "the Prices module has a world hook")
+eq(table.concat(modules.Prices.requires or {}, ","), "Store", "after the Store, as it reads the prices settings")
+world(false, true)
+world(false, false)
+eq(#said, 0, "no warning at a /reload or a later loading screen")
+world(true, false)
+eq(said[1], P.staleWarning(GoldForever_Prices, NOW, nil), "the warning at login")
+eq(prices.staleWarned, NOW, "noted when it was given")
+world(true, false)
+eq(#said, 1, "not again the same day")
+GoldForever_Prices = nil
 
 -- The hub's Export button shows unless the companion is at work: its file loaded and under a day old.
 eq(P.connected({ v = 1, at = NOW - 3600, markets = { m = { [1] = good } } }, NOW), true, "a fresh file: connected")
