@@ -60,7 +60,7 @@ GetCoinTextureString = function(copper)
 	asked[#asked + 1] = copper
 	return "<" .. copper .. ">"
 end
-local withIcons = { Encode = ns.Encode }
+local withIcons = { Encode = ns.Encode, listen = function() end }
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", withIcons)
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", withIcons)
 local coins = withIcons.price.coins
@@ -72,7 +72,7 @@ eq(coins(123456), "<123400>", "icons from a gold, no copper")
 eq(coins(-150), "<-150>", "icons a loss, as the client is handed it")
 eq(#asked, 6, "the client asked each time")
 GetCoinTextureString = nil
-local noIcons = { Encode = ns.Encode }
+local noIcons = { Encode = ns.Encode, listen = function() end }
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", noIcons)
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", noIcons)
 eq(noIcons.price.coins(123456), "12g 34s 0c", "no icons: plain, copper dropped from a gold")

@@ -11,6 +11,7 @@ for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "View
 end
 ns.commands = {}
 ns.on = function() end
+ns.listen = function() end
 local modules = {} -- name -> what the file declared with ns.module
 ns.module = function(name, def) modules[name] = def end
 -- The real money formatter (ns.price.coins): without the client's coin icons, plain text.

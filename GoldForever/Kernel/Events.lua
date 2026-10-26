@@ -27,6 +27,7 @@ end)
 --                  starts here, not on ADDON_LOADED, so it never runs before the table exists;
 --   "bagsRead"     the bags were read into the save (Inventory.lua): the pages that show them redraw;
 --   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (CraftPlanner.lua);
+--   "scanSaved"    a full scan with listings is in the save (Market.lua): its prices are built anew;
 --   "pricesReady"  a new full scan's prices are in (Pricing.lua);
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
 --                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).

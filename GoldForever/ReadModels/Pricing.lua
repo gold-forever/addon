@@ -291,14 +291,14 @@ local function coins(copper)
 end
 
 -- A full scan was saved: its prices are built now, and "pricesReady" follows when they are in.
-local function afterScan()
+ns.listen("scanSaved", "prices", function()
 	scanned = true
 	ownMarket(0)
-end
+end)
 
 -- For the loot advisor (Advisor.lua): the same prices and valuation as here.
 ns.price = {
 	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
-	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT, afterScan = afterScan,
+	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
 	latestScan = latestScan,
 }
