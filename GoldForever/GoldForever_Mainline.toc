@@ -36,6 +36,9 @@ UIKit\Looks.lua
 UIKit\UILayout.lua
 UIKit\UIDraw.lua
 UIKit\UIControls.lua
+UIKit\UITabs.lua
+UIKit\UISlider.lua
+UIKit\UIDropdown.lua
 UIKit\UIData.lua
 UIKit\UIWindows.lua
 UIKit\HubKit.lua
