@@ -33,9 +33,7 @@ ns.on("AUCTION_HOUSE_SHOW", "auction tools", function()
 	ns.loadOnDemand(AUCTIONS)
 end)
 
--- Until the panel is loaded: an item chosen from the hub's Inventory has no panel to go to, and /gf ah
--- loads it to answer.
-function ns.auctionChoose() end
+-- Until the panel is loaded, /gf ah loads it to answer.
 local function loadThenAh(...)
 	ns.loadOnDemand(AUCTIONS)
 	if ns.commands.ah ~= loadThenAh then

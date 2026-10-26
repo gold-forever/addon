@@ -398,9 +398,9 @@ elseif hooksecurefunc and ChatEdit_InsertLink then
 end
 ns.test.AuctionPanelAltClick = chooseFromBag
 -- From the hub's Inventory: an item chosen in Post while the auction house is open.
-function ns.auctionChoose(itemID)
-	ns.safely("auction choose", chooseFromBag, nil, nil, itemID)
-end
+ns.listen("itemChosen", "auction choose", function(itemID)
+	chooseFromBag(nil, nil, itemID)
+end)
 
 -- "/gf ah" shows or hides the panel at the auction house, and remembers.
 ns.commands.ah = function()

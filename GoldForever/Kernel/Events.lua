@@ -29,6 +29,7 @@ end)
 --   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (CraftPlanner.lua);
 --   "scanSaved"    a full scan with listings is in the save (Market.lua): its prices are built anew;
 --   "pricesReady"  a new full scan's prices are in (Pricing.lua);
+--   "itemChosen"   an item clicked in the hub's Inventory, with its id: the auction panel chooses it in Post;
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
 --                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).
 -- Each listener runs on its own, in the order they listened, so one that fails leaves the rest running.

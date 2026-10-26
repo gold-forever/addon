@@ -193,7 +193,7 @@ local function buildInventory(page)
 		itemId = function(r) return r.id end,
 		-- At the auction house, a click chooses the item in Post.
 		onRowClick = function(r)
-			ns.auctionChoose(r.id)
+			ns.emit("itemChosen", r.id)
 		end,
 	})
 	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
