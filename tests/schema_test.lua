@@ -1,7 +1,7 @@
 -- ns.record (Store/Schema.lua): a row by column name, written in the order the schema declares, to today's
 -- bucket of its stream; a stream or column the schema does not have is recorded as an error, not raised.
 
--- Core.lua and Schema.lua on a stand-in client: enough to load them and run their ADDON_LOADED.
+-- Modules.lua, Core.lua and Schema.lua on a stand-in client: enough to load them and run their ADDON_LOADED.
 local handler
 local said = {}
 function GetBuildInfo() return "1.16.0", "60000", "", 16001 end
@@ -16,6 +16,7 @@ SlashCmdList = {}
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
+assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
 assert(load(SOURCES["Core.lua"], "@Core.lua"))("GoldForever", ns)
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 ns.FIELDS.trial = "t,char,kind,price"

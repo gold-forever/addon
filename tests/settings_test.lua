@@ -1,7 +1,7 @@
 -- Each feature's settings and their defaults (Core.lua: ns.DEFAULTS, ns.settings): a fresh save gets these
 -- tables, pinned as each file asked for them before they were kept in one place (review C-26).
 
--- Core.lua on a stand-in client: enough to load it and run its ADDON_LOADED.
+-- Modules.lua and Core.lua on a stand-in client: enough to load them and run their ADDON_LOADED.
 local handler
 function GetBuildInfo() return "1.16.0", "60000", "", 16001 end
 function GetServerTime() return 1761148800 end
@@ -13,6 +13,7 @@ SlashCmdList = {}
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
+assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
 assert(load(SOURCES["Core.lua"], "@Core.lua"))("GoldForever", ns)
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 handler(nil, "ADDON_LOADED", "GoldForever")

@@ -16,6 +16,7 @@ Kernel\Money.lua
 ReadModels\Scans.lua
 Store\Export.lua
 Kernel\Realms.lua
+Kernel\Modules.lua
 Kernel\Core.lua
 Store\Schema.lua
 Recording\Claim.lua
