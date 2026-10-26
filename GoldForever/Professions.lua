@@ -12,6 +12,28 @@ ns.FIELDS.skill = "t,char,line,skill,max,spell,src,map"
 local BASIC = Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 local SALVAGE = Enum and Enum.TradeskillRecipeType and Enum.TradeskillRecipeType.Salvage
 
+-- Each retail salvage recipe's first input item, from the game data (the recipe's salvage effect and
+-- the items that salvage takes). The client lists none for some of them (the refines, shatters,
+-- Thaumaturgy), and may not call them salvage.
+local SALVAGE_INPUT = {
+	[374627] = 190395, [375731] = 193216, [375763] = 193217, [376562] = 193050, [376611] = 193208,
+	[376612] = 193210, [376613] = 193213, [376614] = 193214, [382374] = 198651, [382981] = 191472,
+	[388274] = 194785, [388280] = 194793, [388281] = 194809, [388282] = 194801, [391088] = 191460,
+	[391089] = 191461, [395696] = 192852, [427174] = 210796, [430315] = 211802, [430345] = 210796,
+	[434018] = 210930, [434020] = 213453, [438811] = 210796, [438812] = 210797, [440929] = 212670,
+	[440934] = 212672, [440937] = 212664, [440938] = 212665, [440942] = 212667, [440943] = 212668,
+	[444181] = 210796, [444224] = 222654, [444225] = 222654, [444226] = 222663, [444227] = 222681,
+	[445117] = 210796, [445118] = 223512, [445119] = 223512, [445120] = 222720, [445127] = 220153,
+	[445466] = 213611, [446926] = 224828, [447310] = 219150, [447311] = 4359, [447313] = 221871,
+	[447869] = 223972, [447870] = 222708, [447871] = 223512, [462857] = 222732, [470726] = 219949,
+	[1226167] = 242308, [1229930] = 243574, [1230078] = 245830, [1230079] = 251923,
+	[1230080] = 245830, [1230081] = 251923, [1230082] = 245838, [1230083] = 251923,
+	[1230084] = 245830, [1230085] = 251923, [1231127] = 237359, [1231132] = 242612,
+	[1232247] = 242273, [1233129] = 241289, [1233130] = 241327, [1235731] = 236951,
+	[1259655] = 238365, [1269575] = 236761, [1280394] = 243602, [1280401] = 243605,
+	[1296449] = 275280, [1296450] = 275285,
+}
+
 -- Current skill in a profession, by skill line.
 function ns.skill(line)
 	if GetProfessions then
@@ -78,12 +100,13 @@ local function schematic(id, line, name)
 	end
 	-- A salvage recipe has no reagent slots: it takes any one of its salvagable items, as many as
 	-- quantityMax (the count the client's salvage slot asks for).
+	local item = SALVAGE_INPUT[id]
 	if SALVAGE and s.recipeType == SALVAGE and C_TradeSkillUI.GetSalvagableItemIDs then
-		local item = (C_TradeSkillUI.GetSalvagableItemIDs(id) or {})[1]
-		if item then
-			reagents[tostring(item)] = s.quantityMax or 1
-			ns.catalogueItem(item)
-		end
+		item = (C_TradeSkillUI.GetSalvagableItemIDs(id) or {})[1] or item
+	end
+	if item then
+		reagents[tostring(item)] = s.quantityMax or 1
+		ns.catalogueItem(item)
 	end
 	if s.outputItemID then
 		ns.catalogueItem(s.outputItemID)
@@ -165,6 +188,34 @@ local function readRecipes()
 end
 
 local recipesSoon = ns.throttle("recipes", 2, readRecipes)
+
+local function ids(list)
+	return #list > 0 and table.concat(list, ", ") or "none"
+end
+
+-- For a bug report: what the client says of one recipe, and the catalogue row the reader makes of it.
+ns.commands.recipeprobe = function(arg)
+	local id = tonumber(arg)
+	if not id or not C_TradeSkillUI or not C_TradeSkillUI.GetRecipeSchematic then
+		print(ns.PREFIX .. ": /gf recipeprobe <recipe ID>")
+		return
+	end
+	local info = C_TradeSkillUI.GetRecipeInfo and C_TradeSkillUI.GetRecipeInfo(id) or {}
+	local s = C_TradeSkillUI.GetRecipeSchematic(id, false) or {}
+	print(ns.PREFIX .. ": recipe " .. id .. " " .. tostring(info.name))
+	print(("type %s, salvage %s, output %s, %s-%s"):format(tostring(s.recipeType), tostring(info.isSalvageRecipe),
+		tostring(s.outputItemID), tostring(s.quantityMin), tostring(s.quantityMax)))
+	for i, slot in ipairs(s.reagentSlotSchematics or {}) do
+		local items = {}
+		for _, reagent in ipairs(slot.reagents or {}) do
+			items[#items + 1] = reagent.itemID or ("currency " .. tostring(reagent.currencyID))
+		end
+		print(("slot %d: type %s, %s of %s"):format(i, tostring(slot.reagentType), tostring(slot.quantityRequired), ids(items)))
+	end
+	local salvagable = C_TradeSkillUI.GetSalvagableItemIDs and C_TradeSkillUI.GetSalvagableItemIDs(id)
+	print("salvagable: " .. (salvagable and ids(salvagable) or "no API"))
+	print("row: " .. tostring(schematic(id, lineOf(id), info.name)))
+end
 
 -- Skill-ups ---------------------------------------------------------------------------------------
 

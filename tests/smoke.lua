@@ -869,7 +869,47 @@ if INTERFACE >= 110000 then
   fire("TRADE_SKILL_SHOW")
   wait(3)
   seen("SALVAGE RECIPE ", tostring(GoldForeverDB.catalogue.recipes[445118]), "185,222738,5,5,223512*5,Portioned Steak")
+  -- The refines, shatters, Thaumaturgy and a Hearty Feast: the client lists no salvagable item, or
+  -- does not call the recipe a salvage; the reagent is the recipe's first salvage input in the game data.
+  local function read(id, line, name, recipeType, output, quantity, salvagable)
+    C_TradeSkillUI = setmetatable({ GetAllRecipeIDs = function() return { id } end,
+      GetRecipeInfo = function() return { learned = false, name = name } end,
+      GetBaseProfessionInfo = function() return { professionID = line, professionName = name } end,
+      GetRecipeSchematic = function() return { recipeType = recipeType, outputItemID = output, quantityMin = quantity, quantityMax = quantity, reagentSlotSchematics = {} } end,
+      GetSalvagableItemIDs = function() return salvagable end }, { __index = api })
+    fire("TRADE_SKILL_SHOW")
+    wait(3)
+    return tostring(GoldForeverDB.catalogue.recipes[id])
+  end
+  local SALVAGE, GATHERING = Enum.TradeskillRecipeType.Salvage, Enum.TradeskillRecipeType.Gathering
+  seen("REFINE HIDES ", read(375731, 393, "Refine Hides", SALVAGE, 198424, 5, {}), "393,198424,5,5,193216*5,Refine Hides")
+  seen("REFINE HERBS ", read(438811, 182, "Refine Herbs", GATHERING, 217105, 5, {}), "182,217105,5,5,210796*5,Refine Herbs")
+  seen("SHATTER ESSENCE ", read(445466, 333, "Shatter Essence", SALVAGE, 220381, 1, {}), "333,220381,1,1,213611*1,Shatter Essence")
+  seen("THAUMATURGY ", read(430315, 171, "Thaumaturgy", SALVAGE, 211796, 20, {}), "171,211796,20,20,211802*20,Thaumaturgy")
+  seen("HEARTY FEAST ", read(1232247, 185, "Hearty Feast", SALVAGE, 228721, 10, {}), "185,228721,10,10,242273*10,Hearty Feast")
+  -- What the client lists comes first.
+  seen("CLIENT SALVAGE ", read(445120, 185, "Hearty Food", SALVAGE, 222693, 5, { 222735 }), "185,222693,5,5,222735*5,Hearty Food")
   C_TradeSkillUI = api
+end
+-- "/gf recipeprobe <id>" prints what the client says of one recipe and the row the reader makes of it.
+do
+  local api = C_TradeSkillUI
+  C_TradeSkillUI = setmetatable({ GetRecipeInfo = function() return { name = "Refine Hides", isSalvageRecipe = true } end,
+    GetRecipeSchematic = function() return { recipeType = 2, outputItemID = 198424, quantityMin = 5, quantityMax = 5,
+      reagentSlotSchematics = { { reagentType = 0, quantityRequired = 1, reagents = { { itemID = 190000 }, { currencyID = 3000 } } } } } end,
+    GetSalvagableItemIDs = function() return { 193222, 193216 } end }, { __index = api })
+  local said, out = print, {}
+  print = function(...) out[#out + 1] = table.concat({ ... }, " ") end
+  SlashCmdList.GOLDFOREVER("recipeprobe 375731")
+  SlashCmdList.GOLDFOREVER("recipeprobe")
+  print, C_TradeSkillUI = said, api
+  -- WoW: Forever has no salvage recipe type, so only the game data's input counts there.
+  local function want(salvage)
+    return ns.PREFIX .. ": recipe 375731 Refine Hides / type 2, salvage true, output 198424, 5-5"
+      .. " / slot 1: type 0, 1 of 190000, currency 3000 / salvagable: 193222, 193216"
+      .. " / row: ,198424,5,5,190000*1+" .. salvage .. "*5,Refine Hides / " .. ns.PREFIX .. ": /gf recipeprobe <recipe ID>"
+  end
+  seen("RECIPE PROBE ", table.concat(out, " / "), want(193216), want(193222))
 end
 -- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
 do
