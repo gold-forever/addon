@@ -365,9 +365,13 @@ end)
 
 -- A /reload (or a quick relog) keeps the session: it is saved when the file is written, and picked
 -- up on load for the same character unless it went idle meanwhile. Times are kept as ages, since the
--- client's clock (GetTime) and the server's differ.
+-- client's clock (GetTime) and the server's differ. A logout ends a session started with Start, as the
+-- site ends every session at a logout: only a /reload keeps it.
 ns.on("PLAYER_LOGOUT", "appraiser", function()
 	local db, me = ns.db(), ns.me()
+	if session and session.byHand and not ns.reloading() then
+		Session.stop()
+	end
 	if not session or idle() or not me then
 		db.appraiserSession = nil
 		return
@@ -392,11 +396,11 @@ ns.on("PLAYER_LOGOUT", "appraiser", function()
 	}
 end)
 
-local function restore()
+local function restore(reloaded)
 	local db, me = ns.db(), ns.me()
 	local saved = db.appraiserSession
 	db.appraiserSession = nil
-	if not saved or not me or saved.character ~= me.ref then
+	if not saved or not me or saved.character ~= me.ref or (saved.byHand and not reloaded) then
 		return
 	end
 	local gap = math.max(0, GetServerTime() - (saved.savedAt or 0))
@@ -426,7 +430,7 @@ end
 ns.on("PLAYER_ENTERING_WORLD", "appraiser", function(isInitialLogin, isReloadingUi)
 	xpSeen = readXp()
 	if isInitialLogin or isReloadingUi then
-		restore()
+		restore(isReloadingUi)
 	end
 end)
 ns.on("PLAYER_XP_UPDATE", "appraiser", function()
@@ -455,6 +459,9 @@ ns.commands.session = function()
 end
 
 ns.commands.reset = function()
+	if not idle() then
+		ns.sys("session_stop")
+	end
 	session = nil
 	changed("reset")
 	ns.say("farming session reset.")

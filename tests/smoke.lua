@@ -12,6 +12,8 @@ function print(...) io.write("[chat] ", table.concat({...}, " "), "\n") end
 -- As the client's: the hook runs after the original with the same arguments, and every value the
 -- original returns is passed on (a hooked C_Item.GetItemInfo still gives its sell price, the 11th).
 local function after(hook, args, ...) hook(unpack(args, 1, args.n)); return ... end
+-- /reload: the addon hooks it to tell a reload from a logout.
+function ReloadUI() end
 function hooksecurefunc(a, b, c)
   if type(a) == "string" then local orig = _G[a]; _G[a] = function(...) return after(b, { n = select("#", ...), ... }, orig(...)) end
   else local orig = a[b]; a[b] = function(...) return after(c, { n = select("#", ...), ... }, orig(...)) end end
@@ -2738,6 +2740,9 @@ do
     end
     return table.concat(out, " ")
   end
+  local function stops()
+    return select(2, sysKinds():gsub("session_stop", ""))
+  end
   local function loot(copper)
     slots = { { kind = 2, sources = { "Creature-0-4620-0-12-1922-000K", copper } } }
     fire("LOOT_READY") money = money + copper; fire("PLAYER_MONEY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
@@ -2783,13 +2788,43 @@ do
   hud.stop:GetScript("OnClick")(hud.stop)
   assert(Session.get() == nil and ns2.sessionSummary() == nil, "a session under 10 minutes is not shown as finished")
   assert(ns2.test.sessionText() == "Press Start on the HUD to start a session.", "nor in /gf session: " .. ns2.test.sessionText())
+  -- New session during a running one ends it, recorded.
+  hud.start:GetScript("OnClick")(hud.start)
+  local before = stops()
+  SlashCmdList.GOLDFOREVER("reset")
+  assert(stops() == before + 1, "New session during a running session records session_stop")
+  -- A logout ends a session started with Start, recorded; the next login has none, and time away never counts.
+  hud.start:GetScript("OnClick")(hud.start)
+  loot(10)
+  before = stops()
+  fire("PLAYER_LOGOUT")
+  assert(stops() == before + 1 and Session.idle(), "a logout ends a session started with Start, recorded")
+  assert(GoldForeverDB.appraiserSession == nil, "and keeps nothing for the next login")
+  fire("PLAYER_ENTERING_WORLD", true, false)
+  assert(Session.idle(), "the next login has no session running")
+  -- A /reload is not a logout: the session survives it, and no stop is recorded.
+  hud.start:GetScript("OnClick")(hud.start)
+  loot(10)
+  before = stops()
+  ReloadUI(); fire("PLAYER_LOGOUT")
+  assert(stops() == before and GoldForeverDB.appraiserSession and GoldForeverDB.appraiserSession.byHand, "a /reload keeps the session, no stop recorded")
+  local kept = GoldForeverDB.appraiserSession
+  fire("PLAYER_ENTERING_WORLD", false, true)
+  assert(not Session.idle() and ns2.sessionSummary().coin == 10, "the session started with Start runs on after the /reload")
+  -- Saved at a /reload and the game gone without a logout (a crash): the next login does not pick it up.
+  SlashCmdList.GOLDFOREVER("reset")
+  GoldForeverDB.appraiserSession = kept
+  fire("PLAYER_ENTERING_WORLD", true, false)
+  assert(Session.idle(), "a login restores no session started with Start: time away never counts")
   -- Back on: loot starts a session again, and the Stop under the HUD is recorded too.
+  Session.stop()
   Session.setAutomatic(true)
   assert(not hud.start:IsShown() and not hud.stop:IsShown(), "toggle on: no Start or Stop on the line")
   loot(10)
-  assert(Session.get() and not Session.idle(), "toggle on: loot starts a session")
+  assert(Session.get() and not Session.idle() and not Session.get().byHand, "toggle on: loot starts a session")
+  before = stops()
   Session.stop()
-  assert(sysKinds():match("session_stop$") and select(2, sysKinds():gsub("session_stop", "")) == 3, "Stop with the toggle on records session_stop")
+  assert(stops() == before + 1, "Stop with the toggle on records session_stop")
 end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.

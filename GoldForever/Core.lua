@@ -543,6 +543,10 @@ local function sys(kind)
 	end
 end
 ns.sys = sys -- for the session's Start and Stop (Session.lua)
+-- Whether the UI is unloading for a /reload, not a logout (the session ends at a logout only).
+function ns.reloading()
+	return reloading
+end
 
 -- Launch-week checks -----------------------------------------------------------------------------
 
