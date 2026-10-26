@@ -10,6 +10,10 @@
   the Selling rules page, and prices the Sell tab, on that character only; other profiles work on every
   character. Importing another character's profile makes it yours. A profile string with a line Gold
   Forever does not know yet is still read, that line skipped.
+- **The typical price in the tooltip.** An item's market line shows its typical price, the median of its
+  daily prices over the last 7 full days (the price the site calls typical), and today's price against it:
+  `Market 12s 34c · typical 11s 0c (+12%) · min 11s 0c`. With no typical price yet, the line is as before.
+  The Sell tab says "typical price" and "vs typical" where it said "7-day avg".
 - **Shopping lists page messages where you look.** Import's, Export's and Delete's messages show under the
   paste box and its buttons, left-aligned with them, in every look.
 

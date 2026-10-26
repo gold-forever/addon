@@ -179,9 +179,9 @@ function Prices.markets(market, interface, portal)
 end
 
 -- The first market's valid entry for the item: value, minimum buyout, players, scan time.
--- An item's entry: { market value, min buyout, players, scanned at[, week: the mean of its daily values
--- over the 7 full days before the scan's day, absent with fewer than 3 or in a reset] }. The fifth is new (owner's answer, 2026-10-24: a trend at launch); a file without it, or
--- with it unusable, shows no trend.
+-- An item's entry: { market value, min buyout, players, scanned at[, week: the typical price, the median of
+-- its daily values over the 7 full days before the scan's day, absent with fewer than 3 or in a reset] }.
+-- A file without the fifth, or with it unusable, shows no typical price and no trend.
 local function entry(data, markets, id)
 	for _, market in ipairs(markets) do
 		local e = field(field(field(data, "markets"), market), id)
@@ -200,25 +200,39 @@ function Prices.trend(value, week)
 end
 
 -- What Sell measures the floor and normal price against (owner's answer, 2026-10-24, manual test run
--- 001: a pool value far over today's listings held every Small Egg): the 7-day average where the pool
+-- 001: a pool value far over today's listings held every Small Egg): the typical price where the pool
 -- has one, so a day's dip or spike does not move it; else the value, and where it came from.
 function Prices.sellBase(value, from, week)
 	if week and week > 0 then
-		return week, "7-day avg"
+		return week, "typical price"
 	end
 	return value, from
 end
 
--- " · +8% vs 7-day avg", " · steady vs 7-day avg" within 1%, or "" without a trend. The average is the
--- mean of the item's daily values over the 7 full days before its scan (the server's `week`).
+local function signed(pct)
+	if math.abs(pct) < 1 then
+		return "steady"
+	end
+	return string.format("%s%d%%", pct > 0 and "+" or "-", math.abs(pct))
+end
+
+-- " · +8% vs typical", " · steady vs typical" within 1%, or "" without a trend. The typical price is the
+-- median of the item's daily values over the 7 full days before its scan (the server's `week`), as the
+-- site names it.
 function Prices.trendText(pct)
 	if not pct then
 		return ""
 	end
-	if math.abs(pct) < 1 then
-		return " · steady vs 7-day avg"
+	return " · " .. signed(pct) .. " vs typical"
+end
+
+-- " · typical 11s 0c (+12%)" for the tooltip's line, or "" without a typical price.
+local function typicalText(value, week)
+	local pct = Prices.trend(value, week)
+	if not pct then
+		return ""
 	end
-	return string.format(" · %s%d%% vs 7-day avg", pct > 0 and "+" or "-", math.abs(pct))
+	return " · typical " .. ns.price.coins(week) .. " (" .. signed(pct) .. ")"
 end
 
 -- Whether data is a prices file this addon reads.
@@ -245,10 +259,10 @@ function Prices.line(data, markets, id, now, label)
 	if not value then
 		return nil
 	end
-	-- Short (manual test run 001): the value, the trend, the cheapest; the age only once it is old.
+	-- Short (manual test run 001): the value, the typical price, the cheapest; the age only once it is old.
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	return string.format("%s %s%s · min %s%s", label or "Market", coins(value), Prices.trendText(Prices.trend(value, week)),
+	return string.format("%s %s%s · min %s%s", label or "Market", coins(value), typicalText(value, week),
 		coins(minBuyout), stale and (" · " .. age) or ""), stale
 end
 

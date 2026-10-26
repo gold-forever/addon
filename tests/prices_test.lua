@@ -25,19 +25,25 @@ eq(P.line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c 
 
 eq(P.line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "a fractional count is not an error")
 
--- The week's trend, when the file carries the mean of the 7 days before (a fifth field).
-eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Market 12s 34c · +12% vs 7-day avg · min 11s 0c", "up on the week")
-eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Market 10s 0c · -20% vs 7-day avg · min 9s 0c", "down on the week")
-eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Market 10s 0c · steady vs 7-day avg · min 9s 0c", "within 1%")
-eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "an unusable week shows no trend")
+-- The typical price (the median of the item's daily values over the 7 days before, a fifth field) and the
+-- value against it, beside the value; nothing extra without it.
+eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Market 12s 34c · typical 11s 0c (+12%) · min 11s 0c", "up on the typical price")
+eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Market 10s 0c · typical 12s 50c (-20%) · min 9s 0c", "down on it")
+eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Market 10s 0c · typical 10s 4c (steady) · min 9s 0c", "within 1%")
+eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "an unusable typical price shows nothing extra")
+eq(P.line(data({ 1000, 900, 1, NOW, 1250 }, MARKET), { MARKET }, 2589, NOW, "Neutral AH"), "Neutral AH 10s 0c · typical 12s 50c (-20%) · min 9s 0c", "the neutral AH's line too")
+-- The Sell tab's trend, named as the site names the price.
+eq(P.trendText(8), " · +8% vs typical", "the Sell tab's trend")
+eq(P.trendText(0), " · steady vs typical", "steady")
+eq(P.trendText(nil), "", "no trend")
 -- The own scan wins when it is newer and the pool is more than twice or under half of it.
 eq(table.concat({ P.pick(480000, 100, 9900, 200) }, " "), "9900 scan", "the pool far over a newer own scan")
 eq(table.concat({ P.pick(480000, 300, 9900, 200) }, " "), "480000 pool", "an older own scan does not")
 eq(table.concat({ P.pick(12000, 100, 9900, 200) }, " "), "12000 pool", "within twice: the pool")
 eq(table.concat({ P.pick(1000, 100, 9900, 200) }, " "), "9900 scan", "far under it too")
 eq(table.concat({ P.pick(1000, 100, nil, nil) }, " "), "1000 pool", "no own scan")
--- Sell measures against the 7-day average where there is one.
-eq(table.concat({ P.sellBase(128300, "pool", 90000) }, " "), "90000 7-day avg", "the week's average")
+-- Sell measures against the typical price where there is one.
+eq(table.concat({ P.sellBase(128300, "pool", 90000) }, " "), "90000 typical price", "the typical price")
 eq(table.concat({ P.sellBase(128300, "pool", nil) }, " "), "128300 pool", "else the value")
 eq(P.line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "nor a zero one")
 eq(P.trend(nil, 1000), nil, "no value, no trend")

@@ -105,11 +105,11 @@ P.copper = false
 eq(P.suggest(rule, 10041, nil).unit, 12000, "silver mode: to the nearest silver")
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9500, "whole silver otherwise")
 
--- The trend's advice: rising at 10% over the 7-day average, falling at 10% under, else none.
-eq(P.trendHint(12), "rising: maybe wait", "well over the week's average")
+-- The trend's advice: rising at 10% over the typical price (the 7-day median), falling at 10% under, else none.
+eq(P.trendHint(12), "rising: maybe wait", "well over the typical price")
 eq(P.trendHint(10), "rising: maybe wait", "at the threshold")
 eq(P.trendHint(-15), "falling", "well under")
-eq(P.trendHint(9), nil, "near the average: no advice")
+eq(P.trendHint(9), nil, "near the typical price: no advice")
 eq(P.trendHint(nil), nil, "no trend known")
 
 -- What a rule does, in sentences for an item worth 10g (manual test run 001: the rule was hard to read).
