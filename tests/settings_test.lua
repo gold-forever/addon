@@ -16,6 +16,7 @@ assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
 assert(load(SOURCES["Core.lua"], "@Core.lua"))("GoldForever", ns)
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
+assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 handler(nil, "ADDON_LOADED", "GoldForever")
 
 local function show(v)

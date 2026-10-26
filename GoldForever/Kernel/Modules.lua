@@ -90,8 +90,12 @@ local function ordered()
 end
 
 -- Runs each module's `step` ("init" or "enable") in dependency order.
+-- None starts once the save could not be loaded (ns.stopped).
 function ns.startModules(step)
 	for _, m in ipairs(ordered()) do
+		if ns.stopped() then
+			return
+		end
 		if not m.failed then
 			for _, need in ipairs(m.requires) do
 				if modules[need].failed and not m.failed then

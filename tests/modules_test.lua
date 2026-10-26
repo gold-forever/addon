@@ -2,7 +2,7 @@
 -- player has logged in, after the modules it requires whatever order the files declared them in; a failing,
 -- missing or circular module is recorded, not raised, and the others still start.
 
--- Modules.lua, Core.lua and Schema.lua on a stand-in client: enough to load them and run their ADDON_LOADED
+-- Modules.lua, Core.lua, Schema.lua and Migrations.lua on a stand-in client: enough to load them and run their ADDON_LOADED
 -- and PLAYER_LOGIN.
 local handler
 local said = {}
@@ -21,6 +21,7 @@ assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
 assert(load(SOURCES["Core.lua"], "@Core.lua"))("GoldForever", ns)
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
+assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 
 local ran = {}
 local function step(what)

@@ -8,7 +8,6 @@
 local addonName, ns = ...
 local Encode = ns.Encode
 
-local SCHEMA = 1
 local VERSION = "0.16.1"
 ns.VERSION = VERSION
 
@@ -20,6 +19,9 @@ ns.lean = (select(4, GetBuildInfo()) or 0) >= 110000
 local db -- GoldForeverDB, once loaded
 local me -- this character's entry in db.characters
 local reloading = false -- set by the ReloadUI hook just before the UI unloads
+-- Why the save could not be loaded (Migrations.lua): the addon then stands down for the session, so nothing
+-- is recorded into a save it cannot read and the player is told once.
+local stopped
 
 -- What the tests reach in a file and the addon itself does not use: kept apart from the names the files share.
 ns.test = {}
@@ -41,6 +43,10 @@ function ns.readable(v)
 		return nil
 	end
 	return v
+end
+
+function ns.stopped()
+	return stopped
 end
 
 function ns.me()
@@ -199,6 +205,9 @@ local missing = {} -- events this client does not know, for the diagnostics
 
 local function dispatch(list, ...)
 	for _, l in ipairs(list) do
+		if stopped then
+			return
+		end
 		ns.safely(l.name, l.fn, ...)
 	end
 end
@@ -303,14 +312,14 @@ ns.DEFAULTS = {
 	fetch = {},
 }
 
--- A copy, so the saved file never holds the defaults' own tables.
-local function fresh(value)
+-- A deep copy: the saved file never holds the defaults' own tables, and a save is upgraded on a copy.
+function ns.copy(value)
 	if type(value) ~= "table" then
 		return value
 	end
 	local out = {}
 	for k, v in pairs(value) do
-		out[k] = fresh(v)
+		out[k] = ns.copy(v)
 	end
 	return out
 end
@@ -322,12 +331,12 @@ function ns.settings(name, defaults)
 	defaults = defaults or ns.DEFAULTS[name]
 	local s = ns.db().settings
 	if not s[name] then
-		s[name] = fresh(defaults)
+		s[name] = ns.copy(defaults)
 	elseif defaults then
 		local saved = s[name]
 		for key, value in pairs(defaults) do
 			if saved[key] == nil then
-				saved[key] = fresh(value)
+				saved[key] = ns.copy(value)
 			end
 		end
 	end
@@ -361,16 +370,17 @@ local function region()
 	return id and (REGIONS[id] or tostring(id)) or nil
 end
 
--- Creates or upgrades the saved table. Existing data is kept; only missing parts are added.
+-- Creates or upgrades the saved table: its migrations first (Migrations.lua), then only missing parts are
+-- added. A save that cannot be upgraded, or one from a newer version, is left as it is and not loaded.
 local function init()
-	GoldForeverDB = GoldForeverDB or {}
-	db = GoldForeverDB
-	-- A newer version's file keeps its schema, so its data is never labelled as the older one's.
-	if db.schema and db.schema > SCHEMA then
-		ns.say("this file was written by a newer version. Update the addon.")
-	else
-		db.schema = SCHEMA
+	local upgraded, why = ns.upgrade(GoldForeverDB or {}, ns.SCHEMA, ns.MIGRATIONS, GetServerTime())
+	if not upgraded then
+		stopped = why
+		error(why, 0)
 	end
+	GoldForeverDB = upgraded
+	db = upgraded
+	db.schema = ns.SCHEMA
 	-- Errors are of the build that recorded them (owner's answer, 2026-10-24): a new version starts with
 	-- none, so what the player and the site see is only from the build running.
 	if db.addon ~= VERSION then
@@ -592,7 +602,7 @@ local function printCheck()
 		end
 	end
 	table.sort(names)
-	print(ns.PREFIX .. " " .. VERSION .. " · schema " .. SCHEMA .. " · " .. db.client.build)
+	print(ns.PREFIX .. " " .. VERSION .. " · schema " .. ns.SCHEMA .. " · " .. db.client.build)
 	for _, name in ipairs(names) do
 		print(string.format("  %s %s", diag[name] and "|cff56c98fyes|r" or "|cffe8615ano|r", name))
 	end
@@ -755,7 +765,9 @@ SlashCmdList.GOLDFOREVER = function(message)
 	local name, rest = string.match(message or "", "^%s*(%S*)%s*(.-)%s*$")
 	name = string.lower(name or "")
 	local command = ns.commands[name]
-	if command then
+	if stopped then
+		ns.say("off this session: " .. stopped)
+	elseif command then
 		ns.safely("/gf " .. name, command, rest)
 	elseif name == "" and ns.commands.ui then
 		ns.safely("/gf", ns.commands.ui, "")

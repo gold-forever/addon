@@ -31,6 +31,7 @@ local function session(db, lean)
 	}
 	assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
+	assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Catalogue.lua"], "@Catalogue.lua"))("GoldForever", ns)
 	-- Runs the earliest scheduled callback, as the game's timer would.
 	local function tick()

@@ -22,6 +22,7 @@ Kernel\Realms.lua
 Kernel\Modules.lua
 Kernel\Core.lua
 Store\Schema.lua
+Store\Migrations.lua
 Recording\Claim.lua
 UIKit\Theme.lua
 UIKit\Looks.lua

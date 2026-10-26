@@ -2557,8 +2557,6 @@ fire("PLAYER_LOGOUT")
 local thisVersion = GoldForeverDB.addon
 GoldForeverDB.addon = "0.15.0"
 GoldForeverDB.errors.old = { n = 3, msg = "fixed since", t = now - 86400 }
--- A newer version wrote the file: its schema stays, the data is not relabelled as the older one's.
-GoldForeverDB.schema = 99
 -- Days older than the 14 kept but not yet exported stay, up to 30 days; an older one goes.
 local exportedBefore = GoldForeverDB.exportedAt
 GoldForeverDB.exportedAt = now - 26 * 86400
@@ -2572,8 +2570,6 @@ tablesHaveHeights(ns2)
 clock = clock + 5; now = now + 5
 fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
 assert(GoldForeverDB.errors.old == nil and GoldForeverDB.addon == thisVersion, "an older version's errors are cleared")
-assert(GoldForeverDB.schema == 99, "a newer schema is never lowered")
-GoldForeverDB.schema = 1
 assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"] and not GoldForeverDB.events["2026-09-01"],
   "days not yet exported are kept, within 30 days")
 GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
@@ -2913,8 +2909,38 @@ do
 end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.
+local left = recorded()
+-- A newer version wrote the file: a reload and a session leave it as it was, and the player is told once.
 do
-  local left = recorded()
+  local Dump = dofile(dir .. "/../tests/savedump.lua")
+  GoldForeverDB.schema = 99
+  local before = Dump.save(GoldForeverDB)
+  local chat, failed, off = print, {}, nil
+  print = function(...)
+    local line = table.concat({ ... }, " ")
+    if line:find("failed:", 1, true) then failed[#failed + 1] = line end
+    if line:find("off this session:", 1, true) then off = line end
+    chat(...)
+  end
+  for k in pairs(frames) do frames[k] = nil end
+  local ns3 = {}
+  for _, f in ipairs(tocFiles()) do
+    assert(loadfile(dir .. "/" .. f))("GoldForever", ns3)
+  end
+  clock = clock + 5; now = now + 5
+  fire("ADDON_LOADED", "GoldForever") fire("PLAYER_LOGIN") fire("PLAYER_ENTERING_WORLD", false, true)
+  slots = { { kind = 2, sources = { "Creature-0-4620-0-12-1922-000K", 10 } } }
+  fire("LOOT_READY") money = money + 10; fire("PLAYER_MONEY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+  SlashCmdList.GOLDFOREVER("check")
+  ReloadUI(); fire("PLAYER_LOGOUT")
+  print = chat
+  assert(off and off:find("newer version", 1, true), "/gf says why the addon is off: " .. tostring(off))
+  assert(Dump.save(GoldForeverDB) == before, "a newer save is left as it was")
+  assert(#failed == 1 and failed[1]:find("Store failed: this file was written by a newer version", 1, true),
+    "the player is told once:\n" .. table.concat(failed, "\n"))
+  GoldForeverDB.schema = 1
+end
+do
   io.write("ERRORS " .. #left .. "\n", table.concat(left, "\n"), "\n")
   exit(#left == 0 and 0 or 1)
 end
