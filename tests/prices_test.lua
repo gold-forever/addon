@@ -1,5 +1,6 @@
--- Prices.lua: the pool's prices the companion writes (GoldForever_Data, contract T01) become one
--- tooltip line for the player's market; anything absent or malformed gives no line and no error.
+-- Prices.lua: the pool's prices the companion writes (GoldForever_Data, contract T01) become the
+-- tooltip's rows for the player's market, one price a row; anything absent or malformed gives no rows
+-- and no error.
 
 local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
@@ -22,19 +23,32 @@ local function data(entry, market)
 	return { v = 1, at = NOW, markets = { [market or MARKET] = { [2589] = entry } } }
 end
 local good = { 1234, 1100, 3, NOW - 3 * 3600 }
+-- The tooltip's rows for an item (Prices.rows), one price a row, as "Label value / Label value"; and
+-- whether they are stale.
+local function line(...)
+	local rows, stale = P.rows(...)
+	if not rows then
+		return nil
+	end
+	local out = {}
+	for i, r in ipairs(rows) do
+		out[i] = r[1] .. " " .. r[2]
+	end
+	return table.concat(out, " / "), stale
+end
 
-eq(P.line(data(good), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "the item's line")
-eq(P.line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "one player")
+eq(line(data(good), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "the item's line")
+eq(line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "one player")
 
-eq(P.line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c", "a fractional count is not an error")
+eq(line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "a fractional count is not an error")
 
 -- The typical price (the median of the item's daily values over the 7 days before, a fifth field) and the
 -- value against it, beside the value; nothing extra without it.
-eq(P.line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Market 12s 34c · typical 11s 0c (+12%) · min 11s 0c", "up on the typical price")
-eq(P.line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Market 10s 0c · typical 12s 50c (-20%) · min 9s 0c", "down on it")
-eq(P.line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Market 10s 0c · typical 10s 4c (steady) · min 9s 0c", "within 1%")
-eq(P.line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "an unusable typical price shows nothing extra")
-eq(P.line(data({ 1000, 900, 1, NOW, 1250 }, MARKET), { MARKET }, 2589, NOW, "Neutral AH"), "Neutral AH 10s 0c · typical 12s 50c (-20%) · min 9s 0c", "the neutral AH's line too")
+eq(line(data({ 1234, 1100, 1, NOW, 1100 }), { MARKET }, 2589, NOW), "Market 12s 34c / Typical 11s 0c (+12%) / Min 11s 0c", "up on the typical price")
+eq(line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Market 10s 0c / Typical 12s 50c (-20%) / Min 9s 0c", "down on it")
+eq(line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Market 10s 0c / Typical 10s 4c (steady) / Min 9s 0c", "within 1%")
+eq(line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Market 10s 0c / Min 9s 0c", "an unusable typical price shows nothing extra")
+eq(line(data({ 1000, 900, 1, NOW, 1250 }, MARKET), { MARKET }, 2589, NOW, "Neutral AH"), "Neutral AH 10s 0c / Typical 12s 50c (-20%) / Min 9s 0c", "the neutral AH's line too")
 -- The Sell tab's trend, named as the site names the price.
 eq(P.trendText(8), " · +8% vs typical", "the Sell tab's trend")
 eq(P.trendText(0), " · steady vs typical", "steady")
@@ -48,33 +62,33 @@ eq(table.concat({ P.pick(1000, 100, nil, nil) }, " "), "1000 pool", "no own scan
 -- Sell measures against the typical price where there is one.
 eq(table.concat({ P.sellBase(128300, "pool", 90000) }, " "), "90000 typical price", "the typical price")
 eq(table.concat({ P.sellBase(128300, "pool", nil) }, " "), "128300 pool", "else the value")
-eq(P.line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Market 10s 0c · min 9s 0c", "nor a zero one")
+eq(line(data({ 1000, 900, 1, NOW, 0 }), { MARKET }, 2589, NOW), "Market 10s 0c / Min 9s 0c", "nor a zero one")
 eq(P.trend(nil, 1000), nil, "no value, no trend")
 
 -- Absent: no table, no market, no item.
-eq(P.line(nil, { MARKET }, 2589, NOW), nil, "no data table")
-eq(P.line(data(good, "EU-Other-alliance"), { MARKET }, 2589, NOW), nil, "another market only")
-eq(P.line(data(good), { MARKET }, 2590, NOW), nil, "an item the pool has no price for")
-eq(P.line(data(good), nil, 2589, NOW), nil, "no market known")
+eq(line(nil, { MARKET }, 2589, NOW), nil, "no data table")
+eq(line(data(good, "EU-Other-alliance"), { MARKET }, 2589, NOW), nil, "another market only")
+eq(line(data(good), { MARKET }, 2590, NOW), nil, "an item the pool has no price for")
+eq(line(data(good), nil, 2589, NOW), nil, "no market known")
 
 -- Malformed: every level type-checked.
-eq(P.line("GoldForever_Prices", { MARKET }, 2589, NOW), nil, "the global is not a table")
-eq(P.line(5, { MARKET }, 2589, NOW), nil, "the global a number")
-eq(P.line({ v = 2, markets = { [MARKET] = { [2589] = good } } }, { MARKET }, 2589, NOW), nil, "a version this addon does not read")
-eq(P.line({ v = 1, markets = "x" }, { MARKET }, 2589, NOW), nil, "markets not a table")
-eq(P.line({ v = 1, markets = { [MARKET] = 7 } }, { MARKET }, 2589, NOW), nil, "a market not a table")
-eq(P.line(data("1234,1100"), { MARKET }, 2589, NOW), nil, "an entry not a table")
-eq(P.line(data(1234), { MARKET }, 2589, NOW), nil, "an entry a number")
-eq(P.line(data({ "1234", 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value a string")
-eq(P.line(data({ 1234, nil, 3, NOW }), { MARKET }, 2589, NOW), nil, "no minimum buyout")
-eq(P.line(data({ 1234, 1100, true, NOW }), { MARKET }, 2589, NOW), nil, "players not a number")
-eq(P.line(data({ 1234, 1100, 3, {} }), { MARKET }, 2589, NOW), nil, "scan time not a number")
-eq(P.line(data({ 0 / 0, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value NaN")
-eq(P.line(data({ math.huge, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value infinite")
-eq(P.line(data({ 1e15, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "a value above a million gold")
-eq(P.line(data({ 1234, 1e11, 3, NOW }), { MARKET }, 2589, NOW), nil, "a min above a million gold")
-eq(P.line(data({ ns.Encode.MAX_COPPER, 1100, 3, NOW }), { MARKET }, 2589, NOW) ~= nil, true, "a million gold itself is a price")
-eq(P.line(data({ -5, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "a negative value")
+eq(line("GoldForever_Prices", { MARKET }, 2589, NOW), nil, "the global is not a table")
+eq(line(5, { MARKET }, 2589, NOW), nil, "the global a number")
+eq(line({ v = 2, markets = { [MARKET] = { [2589] = good } } }, { MARKET }, 2589, NOW), nil, "a version this addon does not read")
+eq(line({ v = 1, markets = "x" }, { MARKET }, 2589, NOW), nil, "markets not a table")
+eq(line({ v = 1, markets = { [MARKET] = 7 } }, { MARKET }, 2589, NOW), nil, "a market not a table")
+eq(line(data("1234,1100"), { MARKET }, 2589, NOW), nil, "an entry not a table")
+eq(line(data(1234), { MARKET }, 2589, NOW), nil, "an entry a number")
+eq(line(data({ "1234", 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value a string")
+eq(line(data({ 1234, nil, 3, NOW }), { MARKET }, 2589, NOW), nil, "no minimum buyout")
+eq(line(data({ 1234, 1100, true, NOW }), { MARKET }, 2589, NOW), nil, "players not a number")
+eq(line(data({ 1234, 1100, 3, {} }), { MARKET }, 2589, NOW), nil, "scan time not a number")
+eq(line(data({ 0 / 0, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value NaN")
+eq(line(data({ math.huge, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "value infinite")
+eq(line(data({ 1e15, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "a value above a million gold")
+eq(line(data({ 1234, 1e11, 3, NOW }), { MARKET }, 2589, NOW), nil, "a min above a million gold")
+eq(line(data({ ns.Encode.MAX_COPPER, 1100, 3, NOW }), { MARKET }, 2589, NOW) ~= nil, true, "a million gold itself is a price")
+eq(line(data({ -5, 1100, 3, NOW }), { MARKET }, 2589, NOW), nil, "a negative value")
 
 -- The server's market key (backend Markets.kt key() for Forever) from the addon's own market string.
 local FOREVER, RETAIL = 16001, 120105
@@ -169,10 +183,10 @@ local several = { v = 1, at = NOW, markets = {
 	["forever-EU-normal-horde"] = { [2589] = { 200, 190, 4, NOW } },
 	["forever-NA-pvp-horde"] = { [2589] = { 300, 290, 6, NOW } },
 } }
-local function mine(market) return P.line(several, P.markets(market, FOREVER), 2589, NOW) end
-eq(mine("EU-Some PvE Realm-horde"), "Market 2s 0c · min 1s 90c", "Horde in EU")
-eq(mine("EU-Some PvE Realm-alliance"), "Market 1s 0c · min 90c", "Alliance in EU")
-eq(mine("US-Grim PvP-horde"), "Market 3s 0c · min 2s 90c", "Horde on an NA PvP realm")
+local function mine(market) return line(several, P.markets(market, FOREVER), 2589, NOW) end
+eq(mine("EU-Some PvE Realm-horde"), "Market 2s 0c / Min 1s 90c", "Horde in EU")
+eq(mine("EU-Some PvE Realm-alliance"), "Market 1s 0c / Min 90c", "Alliance in EU")
+eq(mine("US-Grim PvP-horde"), "Market 3s 0c / Min 2s 90c", "Horde on an NA PvP realm")
 eq(mine("US-Grim PvP-alliance"), nil, "Alliance in NA: not in the file")
 
 -- The server's keys to read, in order: Forever its one market, retail the realm group's then the region's
@@ -206,20 +220,20 @@ local retail = { v = 1, at = NOW, markets = {
 	["retail-NA-Area52"] = { [2] = { 300, 290, 6, NOW } },
 } }
 local group = P.markets("EU-ArgentDawn-horde", RETAIL)
-eq(P.line(retail, group, 1, NOW), "Market 1s 0c · min 90c", "the group's price before the commodity's")
-eq(P.line(retail, group, 2, NOW), "Market 2s 0c · min 1s 90c", "the region's commodity price")
-eq(P.line(retail, group, 3, NOW), nil, "neither has the item")
-eq(P.line(retail, P.markets("EU-ArgentDawn-horde", FOREVER), 1, NOW), nil, "Forever never reads retail's markets")
+eq(line(retail, group, 1, NOW), "Market 1s 0c / Min 90c", "the group's price before the commodity's")
+eq(line(retail, group, 2, NOW), "Market 2s 0c / Min 1s 90c", "the region's commodity price")
+eq(line(retail, group, 3, NOW), nil, "neither has the item")
+eq(line(retail, P.markets("EU-ArgentDawn-horde", FOREVER), 1, NOW), nil, "Forever never reads retail's markets")
 retail.markets["retail-EU-ArgentDawn"][1] = { "x" }
-eq(P.line(retail, group, 1, NOW), "Market 5s 0c · min 4s 90c", "a malformed group entry falls through to the commodity's")
+eq(line(retail, group, 1, NOW), "Market 5s 0c / Min 4s 90c", "a malformed group entry falls through to the commodity's")
 
 -- Stale: a price scanned more than three days ago is greyed (the second value).
 local DAY = 86400
-local function stale(scannedAt) return select(2, P.line(data({ 1234, 1100, 3, scannedAt }), { MARKET }, 2589, NOW)) end
+local function stale(scannedAt) return select(2, line(data({ 1234, 1100, 3, scannedAt }), { MARKET }, 2589, NOW)) end
 eq(stale(NOW - 3 * DAY), false, "three days old is not stale yet")
 eq(stale(NOW - 3 * DAY - 1), true, "older than three days is stale")
 eq(stale(NOW), false, "a fresh price")
-eq(P.line(data({ 1234, 1100, 3, NOW - 4 * DAY }), { MARKET }, 2589, NOW), "Market 12s 34c · min 11s 0c · scanned 4d ago", "a stale line keeps its words")
+eq(line(data({ 1234, 1100, 3, NOW - 4 * DAY }), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c / Scanned 4d ago", "a stale line keeps its words")
 
 -- The player's own scans when the file lacks the item, labelled as theirs.
 eq(P.ownLine(1234, 1100, NOW - 2 * 3600, NOW), "Your scan 12s 34c · min 11s 0c", "the player's own scan")
@@ -272,7 +286,7 @@ eq(#st.missing, 1, "a market of this character's the file lacks")
 eq(st.missing[1], "forever-EU-normal-neutral", "named")
 
 -- A line's label: "Pool" unless named (the neutral auction house's line).
-eq((P.line({ v = 1, at = NOW, markets = { m = { [5] = good } } }, { "m" }, 5, NOW, "Neutral AH") or ""):sub(1, 11), "Neutral AH ", "a named line")
+eq((line({ v = 1, at = NOW, markets = { m = { [5] = good } } }, { "m" }, 5, NOW, "Neutral AH") or ""):sub(1, 11), "Neutral AH ", "a named line")
 
 -- The stale-file warning at login: over a day old, at most once a day; nothing without a file.
 eq(P.staleWarning(nil, NOW, nil), nil, "no file, no warning")
@@ -310,12 +324,12 @@ eq(P.connected({ v = 2, at = NOW }, NOW), false, "a file this addon cannot read"
 
 -- A file this addon was not written for (DataFormat.lua): an older version shows no prices either, and
 -- says so; a field the addon does not know, and an item figure past the fifth, are ignored.
-eq(P.line({ v = 0, at = NOW, markets = { [MARKET] = { [2589] = good } } }, { MARKET }, 2589, NOW), nil, "an older version")
+eq(line({ v = 0, at = NOW, markets = { [MARKET] = { [2589] = good } } }, { MARKET }, 2589, NOW), nil, "an older version")
 eq(summary({ v = 0, at = NOW }, nil), "the prices file is version 0; this addon reads version 1. Update the addon.", "an older version, said")
 local known = data({ 1234, 1100, 3, NOW - 3 * 3600, 1100 })
 local more = data({ 1234, 1100, 3, NOW - 3 * 3600, 1100, 99 })
 more.future = { anything = true }
 more.markets[MARKET].future = "x"
-eq(P.line(more, { MARKET }, 2589, NOW), P.line(known, { MARKET }, 2589, NOW), "an unknown field and a sixth figure change nothing")
+eq(line(more, { MARKET }, 2589, NOW), line(known, { MARKET }, 2589, NOW), "an unknown field and a sixth figure change nothing")
 eq(P.status(more, { MARKET }, NOW).state, "ok", "and the file is read")
 return checks()

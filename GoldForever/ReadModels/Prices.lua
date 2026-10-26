@@ -228,14 +228,6 @@ function Prices.trendText(pct)
 	return " · " .. signed(pct) .. " vs typical"
 end
 
--- " · typical 11s 0c (+12%)" for the tooltip's line, or "" without a typical price.
-local function typicalText(value, week)
-	local pct = Prices.trend(value, week)
-	if not pct then
-		return ""
-	end
-	return " · typical " .. ns.price.coins(week) .. " (" .. signed(pct) .. ")"
-end
 
 -- Whether data is a prices file this addon reads.
 function Prices.loaded(data)
@@ -251,21 +243,30 @@ local function scanned(scannedAt, now)
 	return "scanned " .. ago(scannedAt, now), now - scannedAt > STALE_SECONDS
 end
 
--- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The line and whether it
--- is stale; nil without a valid price.
-function Prices.line(data, markets, id, now, label)
+-- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The tooltip's rows,
+-- one price a row as { label, value } (addon#20: one long line was hard to read), and whether they are
+-- stale; nil without a valid price. The value, the typical price with the value against it, the cheapest,
+-- and the age only once it is old.
+function Prices.rows(data, markets, id, now, label)
 	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil
 	end
-	local value, minBuyout, players, scannedAt, week = entry(data, markets, id)
+	local value, minBuyout, _, scannedAt, week = entry(data, markets, id)
 	if not value then
 		return nil
 	end
-	-- Short (manual test run 001): the value, the typical price, the cheapest; the age only once it is old.
 	local coins = ns.price.coins
-	local age, stale = scanned(scannedAt, now)
-	return string.format("%s %s%s · min %s%s", label or "Market", coins(value), typicalText(value, week),
-		coins(minBuyout), stale and (" · " .. age) or ""), stale
+	local rows = { { label or "Market", coins(value) } }
+	local pct = Prices.trend(value, week)
+	if pct then
+		rows[#rows + 1] = { "Typical", coins(week) .. " (" .. signed(pct) .. ")" }
+	end
+	rows[#rows + 1] = { "Min", coins(minBuyout) }
+	local stale = now - scannedAt > STALE_SECONDS
+	if stale then
+		rows[#rows + 1] = { "Scanned", ago(scannedAt, now) }
+	end
+	return rows, stale
 end
 
 -- The player's own latest scan (the appraiser's prices), for an item the file lacks.

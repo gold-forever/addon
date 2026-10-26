@@ -156,7 +156,9 @@ UIParent = widget()
 Minimap = widget()
 function GetCursorPosition() return 0, 0 end
 function strsplit(sep, s) local out = {} for part in (s .. sep):gmatch("([^" .. sep .. "]*)" .. sep) do out[#out + 1] = part end return unpack(out) end
-GameTooltip = widget({ lines = {}, shades = {} }); function GameTooltip:AddLine(t, r) table.insert(self.lines, t); self.shades[t] = r end
+GameTooltip = widget({ lines = {}, shades = {}, doubles = {} }); function GameTooltip:AddLine(t, r) table.insert(self.lines, t); self.shades[t] = r end
+-- A double line, label on the left and value on the right, kept as "label → value".
+function GameTooltip:AddDoubleLine(l, r, lr) local t = l .. " → " .. r; table.insert(self.lines, t); self.shades[t] = lr; self.doubles[t] = true end
 -- Tickers run only when the session says so (tick), each its own handle.
 C_Timer = { After = function(s, fn) timers[#timers+1] = { at = clock + s, fn = fn, n = #timers } end,
   NewTicker = function(s, fn) local t = { every = s, fn = fn, Cancel = function(self) self.cancelled = true end }; liveTickers[#liveTickers + 1] = t; return t end }
@@ -755,7 +757,8 @@ fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin — 6s 87c")
 GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
-seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor 15s 85c / Disenchant ≈ 53s 66c · |cff56c98fbetter than selling|r", "|cffe0ac45Gold Forever|r Vendor 15s 85c") -- no disenchant value on retail: the table is the classic one
+-- No vendor value: the game's own Sell Price line shows it (addon#20).
+seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Disenchant |cff56c98f(better than selling)|r → ≈ 53s 66c", "") -- no disenchant value on retail: the table is the classic one
 bagsFull = true
 -- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
 -- Blizzard's own call: the first press says what, the second sells, once.
@@ -1929,11 +1932,22 @@ seen("RARE ROWS ", tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB
 seen("APPRAISER\n", tostring(ns.test.sessionText and ns.test.sessionText()), "Loot something to start a session.")
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
 seen("TOOLTIP ", tostring(GameTooltip.lines[1]), "looted 4× · ~4s 50c a loot", "looted 4× · ~2s 62c a loot")
--- The pool's prices from GoldForever_Data (contract T01): one line for the player's own market.
+-- The pool's prices from GoldForever_Data (contract T01): one price a double line for the player's own
+-- market (addon#20), as "Market → 12s 34c / Min → 11s 0c", and the first line's shade; another label's line.
+local POOL_ROWS = { Typical = true, Min = true, Scanned = true }
 local function poolLine(id, label)
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id }) end
-  for _, l in ipairs(GameTooltip.lines) do if l:find(label or "Market ", 1, true) then return l, GameTooltip.shades[l] end end
+  local lines = GameTooltip.lines
+  for k, l in ipairs(lines) do
+    if l:find(label or "Market ", 1, true) then
+      local rows = { l }
+      while GameTooltip.doubles[l] and lines[k + #rows] and GameTooltip.doubles[lines[k + #rows]] and POOL_ROWS[lines[k + #rows]:match("^(%a+) →")] do
+        rows[#rows + 1] = lines[k + #rows]
+      end
+      return table.concat(rows, " / "), GameTooltip.shades[l]
+    end
+  end
 end
 assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
 -- Held: how many each character holds, from the saved bags, bank and mail; Settings → Modules switches it.
@@ -1959,9 +1973,9 @@ assert(#said == 1 and said[1]:find("no prices file loaded", 1, true), "/gf price
 local POOL_MINE, POOL_OTHER = "forever-EU-normal-" .. side, "forever-EU-normal-" .. otherSide
 GoldForever_Prices = { v = 1, at = now, markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
 local pool = poolLine(2589)
-seen("POOL ", tostring(pool), "Market 12s 34c · min 11s 0c", "nil")
+seen("POOL ", tostring(pool), "Market → 12s 34c / Min → 11s 0c", "nil")
 if INTERFACE < 110000 then
-  assert(pool and pool:find("Market 12s 34c · min 11s 0c", 1, true), "the pool line")
+  assert(pool and pool:find("Market → 12s 34c / Min → 11s 0c", 1, true), "the pool line")
   -- A reagent with no own listing costs the pool's minimum, so a craft from it shows its profit.
   assert(ns.price.cheapest(2590) == nil and ns.price.buy(2590) == nil, "no price of 2590 anywhere")
   GoldForever_Prices.markets[POOL_MINE][2590] = { 1500, 1400, 2, now }
@@ -1974,8 +1988,8 @@ else
   -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.
   GoldForever_Prices.markets = { ["retail-EU-AnotherRealm"] = { [2589] = { 100, 90, 2, now } },
     ["retail-EU"] = { [2589] = { 500, 490, 9, now }, [2590] = { 200, 190, 4, now } } }
-  assert((poolLine(2589) or ""):find("Market 1s 0c · min 90c", 1, true), "retail: the group's price first")
-  assert((poolLine(2590) or ""):find("Market 2s 0c · min 1s 90c", 1, true), "retail: the region's commodity price")
+  assert((poolLine(2589) or ""):find("Market → 1s 0c / Min → 90c", 1, true), "retail: the group's price first")
+  assert((poolLine(2590) or ""):find("Market → 2s 0c / Min → 1s 90c", 1, true), "retail: the region's commodity price")
   assert(poolLine(2591) == nil, "retail: neither market has it")
   GoldForever_Prices.markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now } } }
 end
@@ -1985,7 +1999,7 @@ if INTERFACE < 110000 then
   e[5] = 1100
   local at = e[4]
   e[4] = now + 86400 -- newer than the own scan, which would win by far otherwise (Prices.pick)
-  assert((poolLine(2589) or ""):find("12s 34c · typical 11s 0c (+12%)", 1, true), "the pool line with its typical price: " .. tostring(poolLine(2589)))
+  assert((poolLine(2589) or ""):find("Market → 12s 34c / Typical → 11s 0c (+12%) / Min → 11s 0c", 1, true), "the pool line with its typical price: " .. tostring(poolLine(2589)))
   assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
   e[5], e[4] = nil, at
 end
@@ -2003,7 +2017,7 @@ if INTERFACE < 110000 then
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   local neutralAt, poolAt
   for k, l in ipairs(GameTooltip.lines) do
-    if l:find("Neutral AH 50s 0c", 1, true) then neutralAt = k end
+    if l:find("Neutral AH → 50s 0c", 1, true) then neutralAt = k end
     if l:find("Market ", 1, true) then poolAt = k end
   end
   assert(neutralAt and poolAt and neutralAt < poolAt, "the neutral line before the faction's in Tanaris: " .. table.concat(GameTooltip.lines, " | "))
@@ -2025,7 +2039,7 @@ if INTERFACE < 110000 then
   assert(freshShade == 1, "a fresh price is white")
   GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400 - 1
   local old, oldShade = poolLine(2589)
-  assert(old:find("scanned 3d ago", 1, true) and oldShade < 1, "a price older than three days is greyed: " .. tostring(oldShade))
+  assert(old:find("Scanned → 3d ago", 1, true) and oldShade < 1, "a price older than three days is greyed: " .. tostring(oldShade))
   GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400
   assert(select(2, poolLine(2589)) == 1, "three days old is not greyed yet")
   -- One line names the addon; the own scan has the appraiser's line, never a second one (manual test run
@@ -2037,6 +2051,10 @@ if INTERFACE < 110000 then
     if l:find("Gold Forever", 1, true) then named = named + 1 end
     if l:find("Your scan", 1, true) then scans = scans + 1 end
   end
+  assert(not table.concat(GameTooltip.lines, " | "):lower():find("vendor", 1, true), "no vendor value beside the own scan's: " .. table.concat(GameTooltip.lines, " | "))
+  local own
+  for _, l in ipairs(GameTooltip.lines) do if l:find("Your scan", 1, true) then own = l end end
+  assert(own and GameTooltip.doubles[own] and own:find("Your scan → ", 1, true), "the own scan's price a double line: " .. tostring(own))
   assert(named <= 1 and scans <= 1, "one line named, one own-scan line: " .. table.concat(GameTooltip.lines, " | "))
   -- /gf prices with a file: its age, each market's item count, this character's marked.
   said = {}
@@ -2064,11 +2082,11 @@ if INTERFACE < 110000 then
   local me, client = ns.me(), ns.db().client
   local faction, region = me.faction, client.region
   me.faction = "Alliance"
-  assert((poolLine(2589) or ""):find("Market 1s 0c · min 90c", 1, true), "the Alliance character reads its market")
+  assert((poolLine(2589) or ""):find("Market → 1s 0c / Min → 90c", 1, true), "the Alliance character reads its market")
   me.faction = "Horde"
-  assert((poolLine(2589) or ""):find("Market 2s 0c · min 1s 90c", 1, true), "a Horde character reads its market")
+  assert((poolLine(2589) or ""):find("Market → 2s 0c / Min → 1s 90c", 1, true), "a Horde character reads its market")
   client.region = "US"
-  assert((poolLine(2589) or ""):find("Market 3s 0c · min 2s 90c", 1, true), "a Horde character in NA reads NA's")
+  assert((poolLine(2589) or ""):find("Market → 3s 0c / Min → 2s 90c", 1, true), "a Horde character in NA reads NA's")
   me.faction = "Alliance"
   assert(poolLine(2589) == nil, "an Alliance character in NA has no market in the file")
   me.faction, client.region = faction, region
