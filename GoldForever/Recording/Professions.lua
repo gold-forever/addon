@@ -250,7 +250,7 @@ local function checkSkills()
 				-- The loot window of a gather opens a moment after the skill rises.
 				ns.after(1, "skillup", function()
 					local src = ns.lootAt and math.abs(GetTime() - ns.lootAt) < 5 and ns.lootSource or nil
-					ns.append("skill", Encode.row(t, me.ref, line, s.skill, s.max, spell, src, map))
+					ns.record("skill", { t = t, char = me.ref, line = line, skill = s.skill, max = s.max, spell = spell, src = src, map = map })
 				end)
 			end
 		end
