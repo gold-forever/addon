@@ -17,6 +17,10 @@ ReadModels\Scans.lua
 Store\Export.lua
 Kernel\Realms.lua
 Kernel\Modules.lua
+Kernel\Errors.lua
+Kernel\Events.lua
+Kernel\Chat.lua
+Kernel\Commands.lua
 Kernel\Core.lua
 Store\Schema.lua
 Store\Migrations.lua

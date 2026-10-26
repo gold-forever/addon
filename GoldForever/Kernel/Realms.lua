@@ -68,3 +68,11 @@ function Realms.itemApis()
 	local instant = C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
 	return instant, C_Item and C_Item.GetItemMaxStackSizeByID
 end
+
+-- Market of the auction house or guild bank the player is at: region, realm (until the ruleset
+-- is known, checklist #8) and side. On retail the realm is the connected group's key (Realms.marketRealm).
+function ns.market(side)
+	local realm = Realms.marketRealm(ns.db().client.interface, ns.me() and ns.me().realm,
+		GetNormalizedRealmName and GetNormalizedRealmName(), Realms.connected())
+	return (ns.db().client.region or "?") .. "-" .. (realm or "?") .. "-" .. side
+end
