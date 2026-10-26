@@ -9,7 +9,17 @@ const path = require('path')
 const { lua, lauxlib, lualib, to_luastring } = require('fengari')
 
 const addonDir = path.join(__dirname, '..', 'GoldForever')
-const addonFiles = fs.readdirSync(addonDir).filter((f) => f.endsWith('.lua'))
+// The addon's own files, in their layer folders (not Libs/): keyed by file name, with the TOC's path beside it.
+const addonPaths = {}
+for (const layer of fs.readdirSync(addonDir, { withFileTypes: true })) {
+  if (!layer.isDirectory() || layer.name === 'Libs') continue
+  for (const f of fs.readdirSync(path.join(addonDir, layer.name)).filter((f) => f.endsWith('.lua'))) {
+    if (addonPaths[f]) throw new Error(`${f} is in two folders`)
+    addonPaths[f] = `${layer.name}\\${f}`
+  }
+}
+const addonFiles = Object.keys(addonPaths)
+const source = (name) => fs.readFileSync(path.join(addonDir, ...addonPaths[name].split('\\')), 'utf8')
 const tests = fs.readdirSync(__dirname).filter((f) => f.endsWith('_test.lua'))
 
 function state() {
@@ -17,10 +27,17 @@ function state() {
   lualib.luaL_openlibs(L)
   lua.lua_newtable(L)
   for (const name of addonFiles) {
-    lua.lua_pushstring(L, to_luastring(fs.readFileSync(path.join(addonDir, name), 'utf8')))
+    lua.lua_pushstring(L, to_luastring(source(name)))
     lua.lua_setfield(L, -2, to_luastring(name))
   }
   lua.lua_setglobal(L, to_luastring('SOURCES'))
+  // Each file's path as the TOCs list it, as PATHS[name].
+  lua.lua_newtable(L)
+  for (const name of addonFiles) {
+    lua.lua_pushstring(L, to_luastring(addonPaths[name]))
+    lua.lua_setfield(L, -2, to_luastring(name))
+  }
+  lua.lua_setglobal(L, to_luastring('PATHS'))
   // The three TOCs, as TOCS[name], and whether each file a TOC lists is there (FILES[path], for toc_test.lua).
   lua.lua_newtable(L)
   for (const name of fs.readdirSync(addonDir).filter((f) => f.endsWith('.toc'))) {
@@ -60,8 +77,7 @@ function state() {
 let failed = 0
 for (const name of addonFiles) {
   const L = state()
-  const source = fs.readFileSync(path.join(addonDir, name), 'utf8')
-  if (lauxlib.luaL_loadbuffer(L, to_luastring(source), null, to_luastring('@' + name)) !== lua.LUA_OK) {
+  if (lauxlib.luaL_loadbuffer(L, to_luastring(source(name)), null, to_luastring('@' + name)) !== lua.LUA_OK) {
     console.error(`✗ ${name} does not compile: ${lua.lua_tojsstring(L, -1)}`)
     failed++
   } else {
@@ -116,7 +132,7 @@ const NEWER = [
   [/&|\||<<|>>|~(?!=)/, 'a bitwise operator'],
 ]
 for (const name of addonFiles) {
-  const lines = code(fs.readFileSync(path.join(addonDir, name), 'utf8')).split('\n')
+  const lines = code(source(name)).split('\n')
   for (const [pattern, what] of NEWER) {
     const at = lines.findIndex((l) => pattern.test(l))
     if (at >= 0) {

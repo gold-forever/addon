@@ -34,6 +34,6 @@ for _, file in ipairs(first) do
 	listed[file] = true
 end
 for name in pairs(SOURCES) do
-	eq(listed[name], true, name .. " is in the TOCs")
+	eq(listed[PATHS[name]], true, name .. " is in the TOCs")
 end
 return checks()

@@ -1999,7 +1999,7 @@ assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
   TooltipDataProcessor = nil
-  assert(loadfile(dir .. "/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, commands = {}, on = function() end })
+  assert(loadfile(dir .. "/ReadModels/Prices.lua"))("GoldForever", { Encode = ns.Encode, Views = ns.Views, Realms = ns.Realms, commands = {}, on = function() end })
   TooltipDataProcessor = saved
   assert(#itemTooltipHooks == before, "nothing registered without TooltipDataProcessor")
 end

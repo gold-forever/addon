@@ -7,8 +7,8 @@ dofile(dir .. "/Libs/LibStub/LibStub.lua")
 dofile(dir .. "/Libs/LibDeflate/LibDeflate.lua")
 local LibDeflate = LibStub:GetLibrary("LibDeflate")
 local ns = {}
-assert(loadfile(dir .. "/Encode.lua"))("GoldForever", ns)
-assert(loadfile(dir .. "/Export.lua"))("GoldForever", ns)
+assert(loadfile(dir .. "/Store/Encode.lua"))("GoldForever", ns)
+assert(loadfile(dir .. "/Store/Export.lua"))("GoldForever", ns)
 local X = ns.Export
 
 dofile(savePath)

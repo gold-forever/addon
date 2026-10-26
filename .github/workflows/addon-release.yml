@@ -39,7 +39,7 @@ jobs:
           HAS_WAGO_TOKEN: ${{ secrets.WAGO_API_TOKEN != '' }}
         run: |
           version="${GITHUB_REF_NAME#addon-v}"
-          # The version is in the three TOCs and in Core.lua: each must say the tag's.
+          # The version is in the three TOCs and in Kernel/Core.lua: each must say the tag's.
           for toc in GoldForever/GoldForever.toc GoldForever/GoldForever_Mainline.toc GoldForever/GoldForever_Forever.toc; do
             toc_version=$(sed -n 's/^## Version: *//p' "$toc" | tr -d '\r')
             if [[ "$version" != "$toc_version" ]]; then
@@ -47,7 +47,7 @@ jobs:
               exit 1
             fi
           done
-          core_version=$(sed -n 's/^local VERSION = "\(.*\)"/\1/p' GoldForever/Core.lua | tr -d '\r')
+          core_version=$(sed -n 's/^local VERSION = "\(.*\)"/\1/p' GoldForever/Kernel/Core.lua | tr -d '\r')
           if [[ "$version" != "$core_version" ]]; then
             echo "::error::the tag says $version but Core.lua says $core_version"
             exit 1
