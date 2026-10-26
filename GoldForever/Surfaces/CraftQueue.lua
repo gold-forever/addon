@@ -204,7 +204,7 @@ ns.listen("queueChanged", "craft queue", queueChanged)
 -- to a vendor that has the item"), as many as are still to buy and the money allows, in stacks the
 -- merchant sells. A chat line says what was bought.
 local function buyFromMerchant()
-	if InCombatLockdown and InCombatLockdown() then
+	if ns.inCombat() then
 		return
 	end
 	local need = {}

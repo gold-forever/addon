@@ -1405,6 +1405,12 @@ do
     GetMerchantItemMaxStack = function() return 200 end
     local mf = C_MerchantFrame
     C_MerchantFrame = nil
+    -- Never in combat.
+    InCombatLockdown = function() return true end
+    fire("MERCHANT_SHOW")
+    wait(1)
+    InCombatLockdown = nil
+    assert(#buys == 0, "nothing bought in combat: " .. table.concat(buys, ","))
     fire("MERCHANT_SHOW")
     wait(1)
     assert(#buys == 1 and buys[1]:find("^1x%d+$"), "bought at the merchant: " .. table.concat(buys, ","))
