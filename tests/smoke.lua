@@ -1016,6 +1016,29 @@ do
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
   seen("AH POST ", tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit), "normal 100")
+  -- The Sell list's price column is the typical price, and named so: the tooltip's "Market" is another
+  -- number (addon#21). Without a typical price in the pool, nothing in it.
+  do
+    local tbl = AP.panel().post.table
+    local col
+    for i, c in ipairs(tbl.columns) do if c.title == "Typical" then col = i end end
+    assert(col and tbl.heads[col].text.text == "TYPICAL", "the Sell list's TYPICAL column")
+    for _, c in ipairs(tbl.columns) do assert(c.title ~= "Market", "no Market column on the Sell list") end
+    local cell = tbl.columns[col].text
+    assert(cell(chosen) == "—", "no typical price without the pool's: " .. tostring(cell(chosen)))
+    local keep = GoldForever_Prices
+    -- The pool's entry, scanned after the own scan: value 90s, typical 50s.
+    GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = { [2589] = { 9000, 8000, 3, now + 86400, 5000 } } } }
+    AP.tab("scan")
+    AP.tab("post")
+    local _, typical = AP.state()
+    assert(cell(typical) == ns.Money.auction(5000), "the column shows the typical price, not the market value: " .. tostring(cell(typical)))
+    local facts = AP.panel().post.facts.text
+    assert(facts:find("typical " .. ns.Money.auction(5000), 1, true) and not facts:find("market", 1, true), "the details name it the typical price: " .. facts)
+    GoldForever_Prices = keep
+    AP.tab("scan")
+    AP.tab("post")
+  end
   -- A bag item's tooltip at the auction house says what Post would ask.
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end

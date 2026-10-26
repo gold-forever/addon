@@ -90,6 +90,7 @@ local function price(r, s)
 	local value, valueFrom, trend, week = ns.Prices.value(r.id)
 	local market, from = ns.Prices.sellBase(value, valueFrom, week)
 	r.market, r.marketFrom, r.trend, r.anyway = market, from, trend, nil
+	r.typical = from == "typical price" and market or nil
 	local l = ah.live[r.key]
 	if l then
 		r.cheapest, r.cheapestFrom = l.cheapest, "live"
@@ -257,7 +258,8 @@ local function buildPost(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, text = function(r) return r.name .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.count .. "|r" end,
 			color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
-		{ key = "market", title = "Market", width = 84, align = "RIGHT", text = function(r) return r.market and money(r.market) or "—" end, sort = function(r) return r.market or 0 end },
+		-- The typical price, what selling is priced against; the tooltip's "Market" is the day's value (addon#21).
+		{ key = "typical", title = "Typical", width = 84, align = "RIGHT", text = function(r) return r.typical and money(r.typical) or "—" end, sort = function(r) return r.typical or 0 end },
 		{ key = "post", title = "Post at", width = 92, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "—" end,
 			sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
@@ -296,6 +298,7 @@ local function buildPost(page)
 	reason:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
 	reason:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
 	local facts = UI.Text(detail, "", { size = "xs", tone = "muted", wrap = true })
+	page.facts = facts
 	facts:SetPoint("TOPLEFT", reason, "BOTTOMLEFT", 0, -6)
 	facts:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
 	-- The cheapest listings, the player's own marked, from the last search.
@@ -379,8 +382,10 @@ local function buildPost(page)
 			local tone = r.trend >= 1 and Theme.color.success or r.trend <= -1 and Theme.color.danger or Theme.color.textFaint
 			trend = Theme.escape(tone) .. (string.gsub(ns.Prices.trendText(r.trend), "^ · ", " ")) .. "|r"
 		end
-		facts:SetText(string.format("Cheapest other %s · market %s%s%s · floor %s · normal %s", cheapest,
-			r.market and money(r.market) or "—", r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or "", trend,
+		-- The price Sell measures against, named for what it is: the typical price, or the market value and its source.
+		local base = r.typical and ("typical " .. money(r.typical))
+			or ("market " .. (r.market and money(r.market) or "—") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
+		facts:SetText(string.format("Cheapest other %s · %s%s · floor %s · normal %s", cheapest, base, trend,
 			sug and money(sug.floor) or "—", sug and money(sug.normal) or "—"))
 		local l = ah.live[r.key]
 		for i, line in ipairs(listed) do
