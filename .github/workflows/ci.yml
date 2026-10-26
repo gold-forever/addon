@@ -15,7 +15,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
       - name: luajit, for the smoke runs
         run: sudo apt-get install -y -qq luajit >/dev/null
       # The unit tests on fengari, then the whole addon on a stand-in game API (tests/run.js): the session
