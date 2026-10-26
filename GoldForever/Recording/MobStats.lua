@@ -127,11 +127,15 @@ local function buildMobs()
 	end
 	guarded()
 end
-ns.on("PLAYER_ENTERING_WORLD", "mob counts", function()
-	if not mobs then
-		ns.after(20, "mob counts", buildMobs)
-	end
-end)
+-- Counts that failed to build are built again at the next loading screen.
+ns.module("MobStats", {
+	requires = { "Store" },
+	world = function()
+		if not mobs then
+			ns.after(20, "mob counts", buildMobs)
+		end
+	end,
+})
 
 -- Every NPC looted, for the in-game pages: { [npc] = { loots, coin, items = { [id] = { dropped, units } } } }
 -- and what one unit of an item is worth; nil while the counts are built, and `whenBuilt` is called once

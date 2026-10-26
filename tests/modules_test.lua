@@ -97,7 +97,6 @@ local KNOWN = {
 	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",
 	["Looks.lua PLAYER_LOGIN"] = "the UI kit, not a collector: applying the look moves with the UI kit",
 	["Minimap.lua PLAYER_LOGIN"] = "a window, not a collector: it moves with the surfaces",
-	["MobStats.lua PLAYER_ENTERING_WORLD"] = "counts that failed to build are built again at the next loading screen",
 	["Prices.lua PLAYER_ENTERING_WORLD"] = "the stale-prices warning needs isInitialLogin, so a reload does not repeat it",
 	["Session.lua PLAYER_ENTERING_WORLD"] = "XP is read again after every loading screen; restoring needs isInitialLogin and isReloadingUi",
 }
