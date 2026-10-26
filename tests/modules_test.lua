@@ -28,6 +28,10 @@ local function step(what)
 		ran[#ran + 1] = what
 	end
 end
+-- The Store (Core.lua) is a module too: one that requires it starts with the save loaded.
+ns.module("Reader", { requires = { "Store" }, init = function()
+	ran[#ran + 1] = GoldForeverDB and "init Reader with the save" or "init Reader without the save"
+end })
 ns.module("Late", { requires = { "Early" }, init = step("init Late"), enable = step("enable Late") })
 ns.module("Early", { init = step("init Early"), enable = step("enable Early") })
 ns.module("Early", { init = step("init Early again") })
@@ -41,9 +45,9 @@ ns.module("Free", { enable = step("enable Free") })
 
 eq(#ran, 0, "nothing starts while the files load")
 handler(nil, "ADDON_LOADED", "GoldForever")
-eq(table.concat(ran, ", "), "init Early, init Late", "each init once the addon has loaded, after the modules it requires")
+eq(table.concat(ran, ", "), "init Reader with the save, init Early, init Late", "each init once the addon has loaded, after the modules it requires")
 handler(nil, "PLAYER_LOGIN")
-eq(table.concat(ran, ", "), "init Early, init Late, enable Early, enable Late, enable Free", "each enable once the player has logged in, in the same order")
+eq(table.concat(ran, ", "), "init Reader with the save, init Early, init Late, enable Early, enable Late, enable Free", "each enable once the player has logged in, in the same order")
 
 local errors = GoldForeverDB.errors
 eq(errors.Early and errors.Early.msg, "module declared twice", "a module declared twice is recorded, the first kept")
@@ -53,7 +57,7 @@ eq(errors.Lonely and errors.Lonely.msg, "requires Nowhere, which no module decla
 eq(errors.Ping and errors.Ping.msg, "requires Pong, which requires it in turn", "a cycle is recorded")
 eq(errors.Pong and errors.Pong.msg, "requires Ping, which requires it in turn", "each module in a cycle")
 eq(errors.Echo and errors.Echo.msg, "requires Ping, which cannot start", "a module that requires one in a cycle does not start")
-eq(errors.Late or errors.Free, nil, "the modules that start record no error")
+eq(errors.Store or errors.Reader or errors.Late or errors.Free, nil, "the modules that start record no error")
 
 -- Modules set themselves up through ns.module: these files still do on PLAYER_LOGIN or
 -- PLAYER_ENTERING_WORLD; the list only shrinks. A file that moves leaves it, and a new one fails here.

@@ -647,13 +647,19 @@ end
 
 -- Wiring -----------------------------------------------------------------------------------------
 
+-- The Store: the saved table, loaded and upgraded before any module that requires it starts.
+ns.module("Store", {
+	init = function()
+		init()
+		prune()
+		ns.emit("ready")
+	end,
+})
+
 ns.on("ADDON_LOADED", "core", function(name)
 	if name ~= addonName then
 		return
 	end
-	init()
-	prune()
-	ns.emit("ready")
 	ns.startModules("init")
 end)
 
