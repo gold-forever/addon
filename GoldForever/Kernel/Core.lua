@@ -11,10 +11,15 @@ local addonName, ns = ...
 local VERSION = "0.16.1"
 ns.VERSION = VERSION
 
+-- The client this is, the one place a file asks: retail or WoW: Forever (Realms.lua knows the numbers).
+local interface = select(4, GetBuildInfo())
+ns.retail = ns.Realms.isRetail(interface)
+ns.forever = ns.Realms.isForever(interface)
+
 -- A retail client keeps a lean save (owner's answer, 2026-10-24): the catalogue exists to keep
 -- WoW: Forever's knowledge, which retail's does not need, so tooltip text, the achievement catalogue
 -- and map art are neither recorded there nor kept. Forever keeps everything.
-ns.lean = (select(4, GetBuildInfo()) or 0) >= 110000
+ns.lean = ns.retail
 
 local reloading = false -- set by the ReloadUI hook just before the UI unloads
 
