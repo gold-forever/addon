@@ -260,11 +260,12 @@ local function readMapArt(manual)
 	step()
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "map art", function(isInitialLogin, isReloadingUi)
-	if isInitialLogin or isReloadingUi then
+ns.module("Knowledge", {
+	requires = { "Store" },
+	enable = function()
 		ns.after(10, "map art", readMapArt)
-	end
-end)
+	end,
+})
 
 ns.commands.maps = function()
 	readMapArt(true)

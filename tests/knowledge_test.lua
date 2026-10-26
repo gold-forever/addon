@@ -49,6 +49,7 @@ local ns = {
 		handlers[event] = handlers[event] or {}
 		table.insert(handlers[event], fn)
 	end,
+	module = function() end,
 }
 function ns.secret(v)
 	return issecretvalue ~= nil and issecretvalue(v) or false
