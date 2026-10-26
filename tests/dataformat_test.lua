@@ -8,9 +8,10 @@ eq(D.VERSION, 1, "formatVersion")
 eq(D.ADDON, "GoldForever_Data", "addonName")
 eq(D.GLOBAL, "GoldForever_Prices", "dataGlobal")
 
--- format.go's field constants, fieldVersion to fieldMarkets.
+-- format.go's field constants, fieldVersion to fieldUnits.
 local GO = { version = "v", at = "at", shared = "shared", lists = "lists", profiles = "profiles", id = "id",
-	edited = "edited", string = "string", dings = "dings", webhook = "webhook", characters = "characters", markets = "markets" }
+	edited = "edited", string = "string", dings = "dings", webhook = "webhook", characters = "characters", markets = "markets",
+	units = "units" }
 local function sorted(t, values)
 	local out = {}
 	for k, v in pairs(t) do
@@ -27,6 +28,7 @@ local TABLES = {
 	shared = "at lists profiles",
 	entry = "edited id string",
 	dings = "at characters webhook",
+	item = "units",
 }
 eq(sorted(D.tables), sorted(TABLES), "the tables")
 for name, fields in pairs(TABLES) do

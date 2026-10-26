@@ -52,6 +52,20 @@ eq(line(data({ 1000, 900, 1, NOW, 1250 }), { MARKET }, 2589, NOW), "Market 10s 0
 eq(line(data({ 1000, 900, 1, NOW, 1004 }), { MARKET }, 2589, NOW), "Market 10s 0c / Typical 10s 4c (steady) / Min 9s 0c", "within 1%")
 eq(line(data({ 1000, 900, 1, NOW, "x" }), { MARKET }, 2589, NOW), "Market 10s 0c / Min 9s 0c", "an unusable typical price shows nothing extra")
 eq(line(data({ 1000, 900, 1, NOW, 1250 }, MARKET), { MARKET }, 2589, NOW, "Neutral AH"), "Neutral AH 10s 0c / Typical 12s 50c (-20%) / Min 9s 0c", "the neutral AH's line too")
+-- A thin price (the file's units, there only when few are on sale) says so on the Market row, as the site does.
+local function thin(units, week)
+	local e = { 1234, 1100, 1, NOW, week }
+	e.units = units
+	return data(e)
+end
+eq(line(thin(2), { MARKET }, 2589, NOW), "Market 12s 34c (from 2 listings) / Min 11s 0c", "a thin price")
+eq(line(thin(1), { MARKET }, 2589, NOW), "Market 12s 34c (from 1 listing) / Min 11s 0c", "one listing")
+eq(line(thin(2, 1100), { MARKET }, 2589, NOW), "Market 12s 34c (from 2 listings) / Typical 11s 0c (+12%) / Min 11s 0c", "beside a typical price")
+eq(line(thin(nil, 1100), { MARKET }, 2589, NOW), "Market 12s 34c / Typical 11s 0c (+12%) / Min 11s 0c", "no units, nothing extra")
+eq(line(thin("x"), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "unusable units, nothing extra")
+eq(line(thin(0), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "nor none")
+eq(line(thin(0.5), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "nor under one")
+eq(line(thin(2.5), { MARKET }, 2589, NOW), "Market 12s 34c (from 2 listings) / Min 11s 0c", "a fractional count is not an error")
 -- The Sell tab's trend, named as the site names the price.
 eq(P.trendText(8), " · +8% vs typical", "the Sell tab's trend")
 eq(P.trendText(0), " · steady vs typical", "steady")

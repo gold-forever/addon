@@ -28,18 +28,31 @@ local function field(t, key)
 	return type(value) == "table" and value or nil
 end
 
--- The first market's valid entry for the item: value, minimum buyout, players, scan time.
+local function positive(x)
+	return amount(x) and x > 0 and x or nil
+end
+
+-- The first market's valid entry for the item: value, minimum buyout, players, scan time, week, units.
 -- An item's entry: { market value, min buyout, players, scanned at[, week: the typical price, the median of
--- its daily values over the 7 full days before the scan's day, absent with fewer than 3 or in a reset] }.
--- A file without the fifth, or with it unusable, shows no typical price and no trend.
+-- its daily values over the 7 full days before the scan's day, absent with fewer than 3 or in a reset]
+-- [, units = the units on sale, only for a thin price] }. A file without the fifth, or with it unusable,
+-- shows no typical price and no trend; without units, or with them unusable, the price is not called thin.
 local function entry(data, markets, id)
 	for _, market in ipairs(markets) do
 		local e = field(field(field(data, F.markets), market), id)
 		if e and amount(e[ITEM.value]) and amount(e[ITEM.minBuyout]) and amount(e[ITEM.players]) and amount(e[ITEM.scannedAt]) then
-			local week = e[ITEM.week]
-			return e[ITEM.value], e[ITEM.minBuyout], e[ITEM.players], e[ITEM.scannedAt], (amount(week) and week > 0) and week or nil
+			return e[ITEM.value], e[ITEM.minBuyout], e[ITEM.players], e[ITEM.scannedAt], positive(e[ITEM.week]), positive(e[F.units])
 		end
 	end
+end
+
+-- " (from 2 listings)" beside a thin price's value, as the site says it; "" otherwise.
+local function thin(units)
+	units = units and math.floor(units)
+	if not units or units < 1 then
+		return ""
+	end
+	return string.format(" (from %d %s)", units, units == 1 and "listing" or "listings")
 end
 
 -- The market value against the week before, in whole percent; nil without both.
@@ -93,18 +106,18 @@ end
 
 -- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The tooltip's rows,
 -- one price a row as { label, value } (addon#20: one long line was hard to read), and whether they are
--- stale; nil without a valid price. The value, the typical price with the value against it, the cheapest,
--- and the age only once it is old.
+-- stale; nil without a valid price. The value (with its units when thin), the typical price with the value
+-- against it, the cheapest, and the age only once it is old.
 function Prices.rows(data, markets, id, now, label)
 	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil
 	end
-	local value, minBuyout, _, scannedAt, week = entry(data, markets, id)
+	local value, minBuyout, _, scannedAt, week, units = entry(data, markets, id)
 	if not value then
 		return nil
 	end
 	local coins = ns.price.coins
-	local rows = { { label or "Market", coins(value) } }
+	local rows = { { label or "Market", coins(value) .. thin(units) } }
 	local pct = Prices.trend(value, week)
 	if pct then
 		rows[#rows + 1] = { "Typical", coins(week) .. " (" .. signed(pct) .. ")" }

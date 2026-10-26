@@ -2039,6 +2039,10 @@ else
   assert((poolLine(2589) or ""):find("Market → 1s 0c / Min → 90c", 1, true), "retail: the group's price first")
   assert((poolLine(2590) or ""):find("Market → 2s 0c / Min → 1s 90c", 1, true), "retail: the region's commodity price")
   assert(poolLine(2591) == nil, "retail: neither market has it")
+  -- A thin price says so on its Market line, a normal one says nothing extra.
+  GoldForever_Prices.markets["retail-EU"][2590].units = 2
+  assert((poolLine(2590) or ""):find("Market → 2s 0c (from 2 listings) / Min → 1s 90c", 1, true), "retail: a thin price: " .. tostring(poolLine(2590)))
+  assert(not (poolLine(2589) or ""):find("listing", 1, true), "retail: a normal price says nothing extra")
   GoldForever_Prices.markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 -- The typical price and the trend on it, when the companion's file carries the median of the 7 days before.
@@ -2050,6 +2054,11 @@ if INTERFACE < 110000 then
   assert((poolLine(2589) or ""):find("Market → 12s 34c / Typical → 11s 0c (+12%) / Min → 11s 0c", 1, true), "the pool line with its typical price: " .. tostring(poolLine(2589)))
   assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
   e[5], e[4] = nil, at
+  -- A thin price says so on its Market line, a normal one says nothing extra.
+  GoldForever_Prices.markets[POOL_MINE][2590] = { 1500, 1400, 2, now, units = 2 }
+  assert((poolLine(2590) or ""):find("Market → 15s 0c (from 2 listings) / Min → 14s 0c", 1, true), "a thin price: " .. tostring(poolLine(2590)))
+  assert((poolLine(2589) or ""):find("Market → 12s 34c / Min → 11s 0c", 1, true), "a normal price says nothing extra: " .. tostring(poolLine(2589)))
+  GoldForever_Prices.markets[POOL_MINE][2590] = nil
 end
 assert(poolLine(2590) == nil, "no pool line for an item without a price")
 -- In a zone with a neutral auction house (Tanaris here, reached through a loading screen), the neutral

@@ -39,10 +39,12 @@ local F = {
 	webhook = "webhook",
 	characters = "characters",
 	markets = "markets",
+	units = "units",
 }
 DataFormat.field = F
 
--- An item's figures in markets[<market key>][<item id>], by place: integers, week optional.
+-- An item's figures in markets[<market key>][<item id>], by place: integers, week optional. Beside them,
+-- keyed so that it never takes week's place, the item's fields (tables.item).
 DataFormat.item = { value = 1, minBuyout = 2, players = 3, scannedAt = 4, week = 5 }
 
 -- Each table and its fields' types. Times are epoch seconds; every number is an integer; keys and strings
@@ -69,5 +71,8 @@ DataFormat.tables = {
 		[F.at] = "integer: when it last changed",
 		[F.webhook] = "boolean: whether a level-up webhook is connected",
 		[F.characters] = "{ [guid] = boolean }",
+	},
+	item = {
+		[F.units] = "integer, optional: the units on sale, there only for a thin price",
 	},
 }
