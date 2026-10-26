@@ -60,29 +60,35 @@ eq(errors.Echo and errors.Echo.msg, "requires Ping, which cannot start", "a modu
 eq(errors.Store or errors.Reader or errors.Late or errors.Free, nil, "the modules that start record no error")
 
 -- Modules set themselves up through ns.module: these files still subscribe to PLAYER_LOGIN or
--- PLAYER_ENTERING_WORLD, each line a file and the event; the list only shrinks. A file that moves leaves
--- it, and a new one fails here. (A file may keep PLAYER_ENTERING_WORLD for what changes with the zone.)
+-- PLAYER_ENTERING_WORLD, each line a file and the event with why it stays; the list only shrinks. A file
+-- that moves leaves it, and a new one fails here.
 local KNOWN = {
-	"Achievements.lua PLAYER_ENTERING_WORLD",
-	"Character.lua PLAYER_ENTERING_WORLD",
-	"Core.lua PLAYER_ENTERING_WORLD",
-	"Core.lua PLAYER_LOGIN",
-	"CraftQueue.lua PLAYER_ENTERING_WORLD",
-	"FirstRun.lua PLAYER_ENTERING_WORLD",
-	"Inventory.lua PLAYER_ENTERING_WORLD",
-	"Knowledge.lua PLAYER_ENTERING_WORLD",
-	"Ledger.lua PLAYER_ENTERING_WORLD",
-	"Legacy.lua PLAYER_ENTERING_WORLD",
-	"Levelling.lua PLAYER_ENTERING_WORLD",
-	"Lists.lua PLAYER_LOGIN",
-	"Looks.lua PLAYER_LOGIN",
-	"Loot.lua PLAYER_ENTERING_WORLD",
-	"Market.lua PLAYER_ENTERING_WORLD",
-	"Minimap.lua PLAYER_LOGIN",
-	"MobStats.lua PLAYER_ENTERING_WORLD",
-	"Prices.lua PLAYER_ENTERING_WORLD",
-	"Session.lua PLAYER_ENTERING_WORLD",
+	["Achievements.lua PLAYER_ENTERING_WORLD"] = "achievements and statistics are read again after every loading screen",
+	["Character.lua PLAYER_ENTERING_WORLD"] = "currencies, reputation and gear are read again after every loading screen",
+	["Core.lua PLAYER_ENTERING_WORLD"] = "the login or resume row needs isInitialLogin and isReloadingUi, which an enable is not given",
+	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable and records the character",
+	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
+	["FirstRun.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: the first-run card is offered again after every loading screen",
+	["Inventory.lua PLAYER_ENTERING_WORLD"] = "the bags are read again after every loading screen",
+	["Knowledge.lua PLAYER_ENTERING_WORLD"] = "the map is seen on every zone change; the API and game rules are read again after every loading screen",
+	["Ledger.lua PLAYER_ENTERING_WORLD"] = "the money a change is measured from is taken again after every loading screen",
+	["Legacy.lua PLAYER_ENTERING_WORLD"] = "the Legacy perks are read again after every loading screen",
+	["Levelling.lua PLAYER_ENTERING_WORLD"] = "the login row needs isInitialLogin; XP and the zone are read again after every loading screen",
+	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",
+	["Looks.lua PLAYER_LOGIN"] = "the UI kit, not a collector: applying the look moves with the UI kit",
+	["Loot.lua PLAYER_ENTERING_WORLD"] = "the money a coin loot is measured from is taken again after every loading screen",
+	["Market.lua PLAYER_ENTERING_WORLD"] = "whether the zone is neutral changes with the zone",
+	["Minimap.lua PLAYER_LOGIN"] = "a window, not a collector: it moves with the surfaces",
+	["MobStats.lua PLAYER_ENTERING_WORLD"] = "counts that failed to build are built again at the next loading screen",
+	["Prices.lua PLAYER_ENTERING_WORLD"] = "the stale-prices warning needs isInitialLogin, so a reload does not repeat it",
+	["Session.lua PLAYER_ENTERING_WORLD"] = "XP is read again after every loading screen; restoring needs isInitialLogin and isReloadingUi",
 }
+local known = {}
+for entry, why in pairs(KNOWN) do
+	known[#known + 1] = entry
+	eq(why ~= "", true, entry .. " says why it stays")
+end
+table.sort(known)
 local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_LOGIN" }
 local subscribed = {}
 for file, source in pairs(SOURCES) do
@@ -93,5 +99,5 @@ for file, source in pairs(SOURCES) do
 	end
 end
 table.sort(subscribed)
-eq(table.concat(subscribed, ", "), table.concat(KNOWN, ", "), "the files that subscribe to PLAYER_LOGIN or PLAYER_ENTERING_WORLD")
+eq(table.concat(subscribed, ", "), table.concat(known, ", "), "the files that subscribe to PLAYER_LOGIN or PLAYER_ENTERING_WORLD")
 return checks()

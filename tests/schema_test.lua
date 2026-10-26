@@ -52,12 +52,18 @@ eq(GoldForeverDB.errors.record.msg, "trial has no column cost in the schema", "a
 eq(GoldForeverDB.errors.record.n, 2, "each refused row counts")
 eq(#said, 1, "the player is told once, as for any failing collector")
 
--- Rows reach the save through ns.record: these files still append their own (ns.append, Encode.append);
--- the list only shrinks. A file that switches leaves it, and a new one fails here.
+-- Rows reach the save through ns.record: these files still append their own (ns.append, Encode.append),
+-- each with why it stays; the list only shrinks. A file that switches leaves it, and a new one fails here.
 local KNOWN = {
-	"Auctions.lua",
-	"Core.lua",
+	["Auctions.lua"] = "a tool, not a collector: posts, buys, cancels and sales move with the tools",
+	["Core.lua"] = "it defines ns.append, the Store's write ns.record calls, until the Store's half of Core moves to Store/",
 }
+local known = {}
+for file, why in pairs(KNOWN) do
+	known[#known + 1] = file
+	eq(why ~= "", true, file .. " says why it stays")
+end
+table.sort(known)
 
 local function appendsItself(source)
 	if nsNames(source).append then
@@ -77,7 +83,7 @@ for file, source in pairs(SOURCES) do
 	end
 end
 table.sort(appending)
-eq(table.concat(appending, ", "), table.concat(KNOWN, ", "), "the files that append rows to the save themselves")
+eq(table.concat(appending, ", "), table.concat(known, ", "), "the files that append rows to the save themselves")
 
 -- The scan sees either append called, and not one in a comment or ns.record.
 eq(appendsItself('ns.append("loot", row)'), true, "ns.append called")
