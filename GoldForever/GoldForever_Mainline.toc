@@ -22,6 +22,7 @@ Kernel\Realms.lua
 Kernel\Modules.lua
 Kernel\Errors.lua
 Kernel\Events.lua
+Kernel\Combat.lua
 Kernel\Chat.lua
 Kernel\Commands.lua
 Store\Save.lua
