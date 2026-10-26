@@ -17,11 +17,6 @@ ns.VERSION = VERSION
 -- and map art are neither recorded there nor kept. Forever keeps everything.
 ns.lean = (select(4, GetBuildInfo()) or 0) >= 110000
 
--- Column dictionary; each collector adds its own entries when its file loads.
-ns.FIELDS = {
-	sys = "t,char,kind",
-}
-
 local db -- GoldForeverDB, once loaded
 local me -- this character's entry in db.characters
 local reloading = false -- set by the ReloadUI hook just before the UI unloads
