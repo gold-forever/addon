@@ -49,7 +49,7 @@ local MESSAGE_WAIT = 2 -- seconds
 local crafting = {} -- casts done, oldest first: { t, spell, output, line, map, start, me }
 
 local function writeCraft(c, qty)
-	ns.append("craft", Encode.row(c.t, c.me.ref, c.spell, c.output, qty, c.line and ns.skill(c.line), c.map))
+	ns.record("craft", { t = c.t, char = c.me.ref, recipe = c.spell, item = c.output, qty = qty, skill = c.line and ns.skill(c.line), map = c.map })
 end
 
 ns.on("UNIT_SPELLCAST_SUCCEEDED", "craft", function(unit, cast, spell)
@@ -173,7 +173,7 @@ ns.on("PLAYER_MONEY", "money", function()
 	end
 	local now = GetMoney()
 	if money and now ~= money then
-		ns.append("money", Encode.row(ns.now(), me.ref, now - money, context()))
+		ns.record("money", { t = ns.now(), char = me.ref, delta = now - money, ctx = context() })
 	end
 	money = now
 end)
@@ -220,7 +220,7 @@ local function quest(id, kind, xp, reward)
 	if not me or not id then
 		return
 	end
-	ns.append("quest", Encode.row(ns.now(), me.ref, id, kind, xp, reward, C_Map.GetBestMapForUnit("player")))
+	ns.record("quest", { t = ns.now(), char = me.ref, quest = id, kind = kind, xp = xp, money = reward, map = C_Map.GetBestMapForUnit("player") })
 	questName(id)
 end
 
@@ -276,7 +276,7 @@ local function flight(slot)
 	local bySlot, from = taxiNodes()
 	local to = bySlot[slot] or Encode.name(TaxiNodeName(slot))
 	local cost = TaxiNodeCost(slot) or 0
-	ns.append("flight", Encode.row(ns.now(), me.ref, from, to, cost, C_Map.GetBestMapForUnit("player")))
+	ns.record("flight", { t = ns.now(), char = me.ref, from = from, to = to, cost = cost, map = C_Map.GetBestMapForUnit("player") })
 	local total = me.flights or { n = 0, cost = 0 }
 	me.flights = total
 	total.n = total.n + 1
