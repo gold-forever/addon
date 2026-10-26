@@ -93,6 +93,11 @@ function UI.layout.group(n)
 	return ns.Money.group(n)
 end
 
+-- Money's coin colours (Kernel/Money.lua) are the theme's, as the look has them.
+ns.Money.paint(function(token)
+	return ns.Theme.escape(ns.Theme.color[token])
+end)
+
 function UI.layout.money(copper, precision)
 	return ns.Money.format(copper, "colour", precision)
 end

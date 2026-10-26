@@ -7,6 +7,7 @@
 --             drops silver and copper above a gold, "silver" the copper ("8g 69s");
 --   "cell"    as "colour" for a table cell: a faint dash for nothing, gold and silver unless told;
 --   "icons"   with the client's coin icons, from a gold up gold and silver only (the tooltips), else plain.
+-- The colours are the UI kit's (Money.paint), as the look has them.
 
 local _, ns = ...
 
@@ -15,6 +16,11 @@ ns.Money = Money
 
 -- Retail has the function under C_CurrencyInfo (manual test run 001: the tooltips showed plain text).
 local coinTexture = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
+
+local tint -- a colour token ("gold", "textFaint") -> its escape for text, from the UI kit
+function Money.paint(fn)
+	tint = fn
+end
 
 -- A whole number in groups of three, with the client's separator ("3,000,000").
 function Money.group(n)
@@ -43,29 +49,28 @@ local function plain(copper)
 end
 
 local function colour(copper, precision)
-	local Theme = ns.Theme
 	copper = math.floor((copper or 0) + 0.5)
 	local sign = copper < 0 and "-" or ""
 	copper = math.abs(copper)
 	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
-	local function coin(n, unit, hex)
-		return Theme.escape(hex) .. n .. unit .. "|r"
+	local function coin(n, unit, token)
+		return tint(token) .. n .. unit .. "|r"
 	end
 	local parts = {}
 	if g > 0 then
-		parts[#parts + 1] = coin(Money.group(g), "g", Theme.color.gold)
+		parts[#parts + 1] = coin(Money.group(g), "g", "gold")
 	end
 	-- "silver": gold and silver, as auction prices are set (8g 69s); copper only under a gold, and only
 	-- when there is some (7s, not 7s 0c).
 	if precision == "silver" and (g > 0 or (s > 0 and c == 0)) then
 		if s > 0 then
-			parts[#parts + 1] = coin(s, "s", Theme.color.silver)
+			parts[#parts + 1] = coin(s, "s", "silver")
 		end
 	elseif precision ~= "gold" or g == 0 then
 		if s > 0 or g > 0 then
-			parts[#parts + 1] = coin(s, "s", Theme.color.silver)
+			parts[#parts + 1] = coin(s, "s", "silver")
 		end
-		parts[#parts + 1] = coin(c, "c", Theme.color.copper)
+		parts[#parts + 1] = coin(c, "c", "copper")
 	end
 	return sign .. table.concat(parts, " ")
 end
@@ -74,8 +79,7 @@ end
 -- silver unless told otherwise (manual test run 001: "17g 70s 0c" in Auction sales, "1,425g 0s 0c").
 local function cell(copper, precision)
 	if math.floor(math.abs(copper or 0) + 0.5) == 0 then
-		local Theme = ns.Theme
-		return Theme.escape(Theme.color.textFaint) .. "—|r"
+		return tint("textFaint") .. "—|r"
 	end
 	return colour(copper, precision or "silver")
 end
