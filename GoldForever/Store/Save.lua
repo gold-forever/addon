@@ -77,6 +77,14 @@ local function region()
 	return id and (REGIONS[id] or tostring(id)) or nil
 end
 
+-- A call the client stopped for running too long (Errors.lua), counted under db.stopped[name].
+local function countStopped(name)
+	db.stopped = db.stopped or {}
+	local e = db.stopped[name] or { n = 0 }
+	e.n, e.t = e.n + 1, GetServerTime and GetServerTime() or 0
+	db.stopped[name] = e
+end
+
 -- Creates or upgrades the saved table: its migrations first (Migrations.lua), then only missing parts are
 -- added. A save that cannot be upgraded, or one from a newer version, is left as it is and not loaded.
 local function init()
@@ -128,7 +136,7 @@ local function init()
 	end
 	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
 	db.errors = db.errors or {}
-	ns.recordErrorsIn(db.errors)
+	ns.recordErrorsIn(db.errors, countStopped)
 
 	local version, build, _, interface = GetBuildInfo()
 	db.client = {

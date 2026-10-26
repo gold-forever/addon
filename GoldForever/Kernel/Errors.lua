@@ -3,7 +3,7 @@
 
 local _, ns = ...
 
-local errors = {} -- collector -> { n, msg, t, stack }; becomes db.errors once the save is loaded
+local errors = {} -- collector -> { n, msg, t, stack }; becomes the save's once it is loaded
 local told = {} -- collectors already reported in chat this session
 
 -- `stack`, where known, is where the error came from, trimmed so the file stays small.
@@ -23,17 +23,14 @@ end
 
 -- The outermost call in flight and the frame it began in. The client stops a script that runs too long
 -- without an error the addon can catch ("has exceeded its execution time limit", no stack): that call
--- never returns, so the next one, in a later frame, finds it still marked and records it under
--- db.stopped[name] (manual test run 001: 112 of them in a delve, no name). /gf check lists them.
+-- never returns, so the next one, in a later frame, finds it still marked and counts it in
+-- the save (manual test run 001: 112 of them in a delve, no name). /gf check lists them.
 local running, runningAt, depth = nil, nil, 0
+local countStopped -- the Store's count of a stopped call, once the save is loaded
 local function stoppedBefore(now)
 	if depth > 0 and runningAt ~= now then
-		local db = ns.db()
-		if db then
-			db.stopped = db.stopped or {}
-			local e = db.stopped[running] or { n = 0 }
-			e.n, e.t = e.n + 1, GetServerTime and GetServerTime() or 0
-			db.stopped[running] = e
+		if countStopped then
+			countStopped(running)
 		end
 		depth = 0
 	end
@@ -97,12 +94,14 @@ function ns.frameSpent(started, done, fallback, ms)
 	return done >= fallback
 end
 
--- From the save's loading on (Core.lua), errors are recorded in it, those from before with them.
-function ns.recordErrorsIn(saved)
+-- From the save's loading on (Store/Save.lua), errors are recorded in it, those from before with them, and
+-- each stopped call is counted by `stopped(name)`.
+function ns.recordErrorsIn(saved, stopped)
 	for name, e in pairs(errors) do
 		saved[name] = e
 	end
 	errors = saved
+	countStopped = stopped
 end
 
 function ns.after(seconds, name, fn)

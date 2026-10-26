@@ -1,5 +1,5 @@
--- Gold Forever: this character's entry in the save (db.characters), kept current during play, the sys
--- stream's login, resume, reload and logout rows, and /gf check's report of the client and the save.
+-- Gold Forever: this character's entry in the save (db.characters), kept current during play, its market,
+-- the sys stream's login, resume, reload and logout rows, and /gf check's report of the client and the save.
 
 local _, ns = ...
 local Encode = ns.Encode
@@ -8,6 +8,15 @@ local me -- this character's entry in db.characters
 
 function ns.me()
 	return me
+end
+
+-- Market of the auction house or guild bank the player is at: region, realm (until the ruleset
+-- is known, checklist #8) and side. On retail the realm is the connected group's key (Realms.marketRealm).
+function ns.market(side)
+	local client = ns.db().client
+	local realm = ns.Realms.marketRealm(client.interface, me and me.realm,
+		GetNormalizedRealmName and GetNormalizedRealmName(), ns.Realms.connected())
+	return (client.region or "?") .. "-" .. (realm or "?") .. "-" .. side
 end
 
 -- Characters -------------------------------------------------------------------------------------
