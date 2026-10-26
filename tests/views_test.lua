@@ -1,7 +1,9 @@
 -- Views.lua: characters and rested XP, the ledger by source, and levelling, from saved rows.
 
 local ns = {}
-assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
+for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do
+	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
+end
 local V = ns.Views
 
 -- Rows: each saved day's chunks, by the declared columns, empty ones nil, in time order.

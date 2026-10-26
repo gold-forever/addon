@@ -17,7 +17,9 @@ local save = {
 }
 local ns = { db = function() return save end, me = function() return me end }
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
-assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
+for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do
+	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
+end
 assert(load(SOURCES["LedgerView.lua"], "@LedgerView.lua"))("GoldForever", ns)
 local L = ns.LedgerView
 

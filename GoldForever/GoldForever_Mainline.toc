@@ -43,6 +43,9 @@ Surfaces\HubWindow.lua
 ReadModels\ExportView.lua
 Surfaces\ExportFrame.lua
 ReadModels\Views.lua
+ReadModels\ViewsMoney.lua
+ReadModels\ViewsSession.lua
+ReadModels\ViewsItems.lua
 ReadModels\SaveView.lua
 Recording\Catalogue.lua
 ReadModels\Pricing.lua

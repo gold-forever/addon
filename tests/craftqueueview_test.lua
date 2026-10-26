@@ -17,7 +17,9 @@ local ns = {
 	market = function(side) return "EU-Realm-" .. side end,
 }
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
-assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
+for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do
+	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
+end
 assert(load(SOURCES["CraftQueueView.lua"], "@CraftQueueView.lua"))("GoldForever", ns)
 local V = ns.CraftQueueView
 

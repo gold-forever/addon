@@ -6,7 +6,9 @@ local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
-assert(load(SOURCES["Views.lua"], "@Views.lua"))("GoldForever", ns)
+for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do
+	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
+end
 ns.commands = {}
 ns.on = function() end
 local modules = {} -- name -> what the file declared with ns.module
