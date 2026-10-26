@@ -300,14 +300,23 @@ key:SetScript("OnClick", function()
 	end
 end)
 
-ns.on("AUCTION_HOUSE_SHOW", "auction panel", function()
+local function opened()
 	-- Ask the client whether its auction house takes copper (Forever's source leaves it to the client).
 	Post.copper = C_AuctionHouse and C_AuctionHouse.SupportsCopperValues and C_AuctionHouse.SupportsCopperValues() or false
 	if settings().hidden then
 		return
 	end
 	show()
-end)
+end
+ns.on("AUCTION_HOUSE_SHOW", "auction panel", opened)
+-- Started after the auction house opened (loaded on demand there): it opens at once.
+ns.module("AuctionPanel", {
+	enable = function()
+		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+			opened()
+		end
+	end,
+})
 ns.on("AUCTION_HOUSE_CLOSED", "auction panel", hide)
 -- A panel that shows is drawn again in the look now set.
 panels:onLook("auction panel", function(redrawn)
