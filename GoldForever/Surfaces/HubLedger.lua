@@ -6,8 +6,8 @@ local Theme, UI, Encode, Views = ns.Theme, ns.UI, ns.Encode, ns.Views
 local Kit = ns.HubKit
 local settings, sortOf, header, classColor, itemName, itemQuality = Kit.settings, Kit.sortOf, Kit.header, Kit.classColor, Kit.itemName, Kit.itemQuality
 
--- The days the save keeps, which the Ledger's tabs cover.
-local LEDGER_DAYS = 14
+local LedgerView = ns.LedgerView
+local LEDGER_DAYS = LedgerView.DAYS
 
 -- Ledger ----------------------------------------------------------------------------------------------------
 
@@ -49,10 +49,8 @@ local function buildLedger(page)
 		-- Shared with Auction sales: whichever tab chose last.
 		local whose = settings().ledger or "me"
 		tabs:Select(whose)
-		local db, me, now = ns.db(), ns.me(), ns.now()
-		local ref = whose == "me" and me and me.ref or nil
-		local from = now - LEDGER_DAYS * 86400
-		local ledger = Views.ledger(Views.rows(db, "money", ref, from), Views.rows(db, "flight"), ref, from, Encode.day)
+		local now = ns.now()
+		local ledger = LedgerView.money(whose, now)
 		gained:Set(UI.layout.money(ledger.gained, "gold"), "last " .. LEDGER_DAYS .. " days")
 		spent:Set(UI.layout.money(ledger.spent, "gold"), "last " .. LEDGER_DAYS .. " days")
 		net:Set(UI.layout.money(ledger.net, "gold"), ledger.net >= 0 and "ahead" or "behind")
@@ -94,7 +92,7 @@ local function buildCharacters(page)
 	tbl:SetPoint("TOPLEFT", gold, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local rows, best = Views.characters(ns.db().characters, ns.now(), UnitGUID and UnitGUID("player"))
+		local rows, best = LedgerView.characters(ns.now(), UnitGUID and UnitGUID("player"))
 		local money = 0
 		for _, r in ipairs(rows) do
 			money = money + r.money
@@ -121,8 +119,8 @@ local function buildInventory(page)
 		{ value = "gear", label = "Equipped" } }
 	local function chars()
 		local out = { { value = "all", label = "All characters" } }
-		for guid, c in pairs(ns.db().characters or {}) do
-			out[#out + 1] = { value = guid, label = c.name or "?" }
+		for _, c in ipairs(LedgerView.characterNames()) do
+			out[#out + 1] = { value = c.guid, label = c.name }
 		end
 		return out
 	end
@@ -201,7 +199,7 @@ local function buildInventory(page)
 	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local rows, totals = Views.inventory(ns.db().characters, Encode.parseItems, function(id)
+		local rows, totals = LedgerView.inventory(function(id)
 			return ns.price.worth(id)
 		end, itemQuality, itemName, filter, function(id)
 			return ns.price.vendor(id)
@@ -249,14 +247,10 @@ local function buildSales(page)
 		-- Shared with Money: whichever tab chose last.
 		local whose = settings().ledger or "me"
 		tabs:Select(whose)
-		local db, me, now = ns.db(), ns.me(), ns.now()
-		for _, c in pairs(db.characters or {}) do
-			if c.ref then
-				names[tonumber(c.ref) or c.ref] = c.name
-			end
+		local sales, refs = LedgerView.sales(whose, ns.now())
+		for ref, name in pairs(refs) do
+			names[ref] = name
 		end
-		local ref = whose == "me" and me and me.ref or nil
-		local sales = Views.sales(Views.rows(db, "sale", ref, now - LEDGER_DAYS * 86400), ref, now - LEDGER_DAYS * 86400)
 		cards[1]:Set(tostring(sales.count), sales.count == 1 and "sale" or "sales")
 		cards[2]:Set(UI.layout.money(sales.gross, "gold"), "last " .. LEDGER_DAYS .. " days")
 		cards[3]:Set(UI.layout.money(sales.net, "gold"), UI.layout.money(sales.cut, "gold") .. " to the auction house")

@@ -83,6 +83,7 @@ Surfaces\FirstRun.lua
 Tools\MailHelper.lua
 ReadModels\HomeView.lua
 Surfaces\HubHome.lua
+ReadModels\LedgerView.lua
 Surfaces\HubLedger.lua
 ReadModels\SessionView.lua
 Surfaces\HubSession.lua
