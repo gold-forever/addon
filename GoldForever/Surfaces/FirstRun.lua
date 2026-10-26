@@ -40,11 +40,6 @@ function FirstRun.apply(id, s)
 	return true
 end
 
--- Whether this install is new: nothing in the save from an earlier session.
-function FirstRun.isNew(db)
-	return next(db.characters or {}) == nil
-end
-
 if not CreateFrame then
 	return -- the tests load the rules above alone
 end
@@ -286,7 +281,7 @@ end
 ns.listen("ready", "first run", function()
 	local s = ns.settings("firstRun")
 	if s.due == nil then
-		s.due = FirstRun.isNew(ns.db())
+		s.due = ns.SaveView.isNew()
 	end
 end)
 ns.on("PLAYER_ENTERING_WORLD", "first run", function()

@@ -1,4 +1,4 @@
--- FirstRun.lua: the presets over Settings → Modules, and who sees the card.
+-- FirstRun.lua: the presets over Settings → Modules (who sees the card: saveview_test.lua).
 
 local ns = {}
 assert(load(SOURCES["FirstRun.lua"], "@FirstRun.lua"))("GoldForever", ns)
@@ -28,9 +28,5 @@ F.apply("everything", s)
 eq(s.appraiser.shown and s.advisor.shown and s.crafting.strip and not s.auction.hidden and s.prices.tooltip, true, "everything on")
 
 eq(F.apply("nonsense", tables()), false, "an unknown preset changes nothing")
-
-eq(F.isNew({ characters = {} }), true, "no characters: a new install")
-eq(F.isNew({}), true, "no table either")
-eq(F.isNew({ characters = { ["Player-1"] = {} } }), false, "a save with characters is not new")
 
 return checks()
