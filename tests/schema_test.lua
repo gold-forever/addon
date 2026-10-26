@@ -57,7 +57,6 @@ eq(#said, 1, "the player is told once, as for any failing collector")
 local KNOWN = {
 	"Auctions.lua",
 	"Core.lua",
-	"Rares.lua",
 }
 
 local function appendsItself(source)

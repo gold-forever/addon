@@ -46,7 +46,7 @@ local function record(npc, how)
 	local me = ns.me()
 	if me then
 		local map, x, y = where()
-		ns.append("rare", Encode.row(ns.now(), me.ref, npc, map, x, y, how))
+		ns.record("rare", { t = ns.now(), char = me.ref, npc = npc, map = map, x = x, y = y, how = how })
 	end
 end
 
