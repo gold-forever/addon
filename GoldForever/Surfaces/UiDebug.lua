@@ -1,7 +1,7 @@
 -- Gold Forever: "/gf uidebug", a report of the auction panel's widgets for a bug report.
 
 local _, ns = ...
-local Theme = ns.Theme
+local Theme, SaveView = ns.Theme, ns.SaveView
 local ah = ns.ah
 
 -- "/gf uidebug": what the client says of the widgets seen without their text (manual test run 001: Buy's
@@ -82,7 +82,7 @@ local function describe(label, w, out)
 end
 ns.commands.uidebug = function()
 	local out, n = {}, 0
-	out[#out + 1] = string.format("Gold Forever %s, %s, interface %s", tostring(ns.db() and ns.db().addon), date and date("%Y-%m-%d %H:%M:%S") or "", tostring(select(4, GetBuildInfo())))
+	out[#out + 1] = string.format("Gold Forever %s, %s, interface %s", tostring(SaveView.addon()), date and date("%Y-%m-%d %H:%M:%S") or "", tostring(select(4, GetBuildInfo())))
 	for key, p in pairs(ah.panels) do
 		n = n + 1
 		out[#out + 1] = string.format("panel %s: shown %s, tab %s, the one in use %s, strata %s level %s", key, tostring(p:IsShown()), tostring(p.tab), tostring(p == ah.panel), tostring(p:GetFrameStrata()), tostring(p:GetFrameLevel()))

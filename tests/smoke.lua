@@ -1655,8 +1655,15 @@ do
   end
   -- The widget report runs on what the client has.
   ns.AuctionPanel.tab("post")
+  local showCopy, report = ns.showCopy, nil
+  ns.showCopy = function(title, text)
+    report = text
+    return showCopy(title, text)
+  end
   SlashCmdList.GOLDFOREVER("uidebug")
+  ns.showCopy = showCopy
   assert(not GoldForeverDB.errors["/gf uidebug"], "uidebug: " .. tostring(GoldForeverDB.errors["/gf uidebug"] and GoldForeverDB.errors["/gf uidebug"].msg))
+  assert(report and report:find("Gold Forever " .. GoldForeverDB.addon .. ", ", 1, true) == 1, "uidebug names the addon version: " .. tostring(report and report:match("^[^\n]*")))
   ns.AuctionPanel.tab("shop")
   -- A browse result carries a price, as Blizzard's list hands it; one Blizzard refuses falls back to its
   -- search bar.
