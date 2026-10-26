@@ -127,14 +127,15 @@ soon()
 eq(runs, 4, "in combat too: throttling is not combat safety")
 fire("PLAYER_REGEN_ENABLED")
 
--- One place for it: no file outside Kernel/ waits for the fight's end or asks the client about combat.
+-- One place for it: no file outside Kernel/ waits for the fight's end, asks the client about combat, or
+-- times its own frames (debugprofilestop) instead of ns.frameStart and ns.frameSpent.
 local function combatHandling(source)
 	local found = {}
 	local n = 0
 	for line in (source .. "\n"):gmatch("([^\n]*)\n") do
 		n = n + 1
 		local code = line:gsub("%-%-.*$", "")
-		if code:find("PLAYER_REGEN_ENABLED", 1, true) or code:find("InCombatLockdown", 1, true) then
+		if code:find("PLAYER_REGEN_ENABLED", 1, true) or code:find("InCombatLockdown", 1, true) or code:find("debugprofilestop", 1, true) then
 			found[#found + 1] = "line " .. n
 		end
 	end
@@ -144,10 +145,11 @@ local files = 0
 for file, source in pairs(SOURCES) do
 	if not PATHS[file]:find("^Kernel\\") then
 		files = files + 1
-		eq(combatHandling(source), "", file .. " leaves combat to the kernel")
+		eq(combatHandling(source), "", file .. " leaves combat and the frame budget to the kernel")
 	end
 end
 eq(files > 0, true, "the files outside Kernel/ are read")
 eq(combatHandling('ns.on("PLAYER_REGEN_ENABLED", "x", f)\nif InCombatLockdown() then end'), "line 1, line 2", "both are found")
-eq(combatHandling("-- PLAYER_REGEN_ENABLED and InCombatLockdown"), "", "not in a comment")
+eq(combatHandling("local t = debugprofilestop()"), "line 1", "a frame timed")
+eq(combatHandling("-- PLAYER_REGEN_ENABLED, InCombatLockdown and debugprofilestop"), "", "not in a comment")
 return checks()
