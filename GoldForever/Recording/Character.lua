@@ -107,9 +107,13 @@ local function readAll()
 	ns.safely("gear", readGear)
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "character", function()
-	ns.after(4, "character", readAll)
-end)
+-- Currencies, reputation and gear are read again after every loading screen.
+ns.module("Character", {
+	requires = { "Store" },
+	world = function()
+		ns.after(4, "character", readAll)
+	end,
+})
 ns.on("CURRENCY_DISPLAY_UPDATE", "currencies", ns.throttle("currencies", 10, readCurrencies))
 ns.on("UPDATE_FACTION", "reputation", ns.throttle("reputation", 10, readReputation))
 ns.on("PLAYER_EQUIPMENT_CHANGED", "gear", ns.throttle("gear", 5, readGear))
