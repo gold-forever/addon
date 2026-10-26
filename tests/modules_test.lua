@@ -64,7 +64,6 @@ eq(errors.Store or errors.Reader or errors.Late or errors.Free, nil, "the module
 -- it, and a new one fails here. (A file may keep PLAYER_ENTERING_WORLD for what changes with the zone.)
 local KNOWN = {
 	"Achievements.lua PLAYER_ENTERING_WORLD",
-	"Catalogue.lua PLAYER_ENTERING_WORLD",
 	"Character.lua PLAYER_ENTERING_WORLD",
 	"Core.lua PLAYER_ENTERING_WORLD",
 	"Core.lua PLAYER_LOGIN",

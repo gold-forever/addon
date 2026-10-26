@@ -113,21 +113,22 @@ end
 
 -- Fills in tooltips (and the new columns) for items catalogued before 0.4.0, through the queue,
 -- once a session.
-local backfilled = false
-ns.on("PLAYER_ENTERING_WORLD", "catalogue", function()
-	if backfilled or ns.lean then
-		return
-	end
-	backfilled = true
-	ns.after(5, "catalogue", function()
-		local catalogue = ns.db().catalogue
-		for id in pairs(catalogue.items) do
-			if not catalogue.tooltips[id] then
-				ns.catalogueItem(id)
-			end
+ns.module("Catalogue", {
+	requires = { "Store" },
+	enable = function()
+		if ns.lean then
+			return
 		end
-	end)
-end)
+		ns.after(5, "catalogue", function()
+			local catalogue = ns.db().catalogue
+			for id in pairs(catalogue.items) do
+				if not catalogue.tooltips[id] then
+					ns.catalogueItem(id)
+				end
+			end
+		end)
+	end,
+})
 
 -- One column of an entry's row, by its name in ns.FIELDS (kind "item" reads catalogue.items, "npc"
 -- catalogue.npcs); nil when there is no row or the column is empty.

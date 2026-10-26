@@ -27,6 +27,7 @@ local function session(db, lean)
 			return fn(...)
 		end,
 		on = function() end,
+		module = function() end,
 	}
 	assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
