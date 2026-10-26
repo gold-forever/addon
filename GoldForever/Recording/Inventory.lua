@@ -116,9 +116,13 @@ ns.on("MAIL_INBOX_UPDATE", "mail", ns.throttle("mail", 2, readMail))
 local bagsSoon = ns.throttle("bags", 10, readBags)
 local bankSoon = ns.throttle("bank", 2, readBank)
 
-ns.on("PLAYER_ENTERING_WORLD", "bags", function()
-	ns.after(3, "bags", readBags)
-end)
+-- The bags are read again after every loading screen.
+ns.module("Inventory", {
+	requires = { "Store" },
+	world = function()
+		ns.after(3, "bags", readBags)
+	end,
+})
 ns.on("BAG_UPDATE_DELAYED", "bags", function()
 	bagsSoon()
 	if bankOpen then

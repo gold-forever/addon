@@ -95,7 +95,6 @@ local KNOWN = {
 	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable and records the character",
 	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
 	["FirstRun.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: the first-run card is offered again after every loading screen",
-	["Inventory.lua PLAYER_ENTERING_WORLD"] = "the bags are read again after every loading screen",
 	["Knowledge.lua PLAYER_ENTERING_WORLD"] = "the map is seen on every zone change; the API and game rules are read again after every loading screen",
 	["Ledger.lua PLAYER_ENTERING_WORLD"] = "the money a change is measured from is taken again after every loading screen",
 	["Legacy.lua PLAYER_ENTERING_WORLD"] = "the Legacy perks are read again after every loading screen",
