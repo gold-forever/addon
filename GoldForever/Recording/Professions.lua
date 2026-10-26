@@ -268,9 +268,14 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "skillup", function(unit, _, spell)
 end, "player")
 ns.on("SKILL_LINES_CHANGED", "skillup", checkSkills)
 ns.on("CHAT_MSG_SKILL", "skillup", checkSkills)
-ns.on("PLAYER_LOGIN", "skillup", checkSkills)
 
-ns.on("PLAYER_LOGIN", "skills", readSkills)
+ns.module("Professions", {
+	requires = { "Store" },
+	enable = function()
+		ns.safely("skillup", checkSkills)
+		ns.safely("skills", readSkills)
+	end,
+})
 ns.on("SKILL_LINES_CHANGED", "skills", ns.throttle("skills", 2, readSkills))
 ns.on("TRADE_SKILL_SHOW", "recipes", recipesSoon)
 ns.on("TRADE_SKILL_LIST_UPDATE", "recipes", recipesSoon)

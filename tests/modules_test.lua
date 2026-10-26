@@ -83,7 +83,6 @@ local KNOWN = {
 	"Minimap.lua PLAYER_LOGIN",
 	"MobStats.lua PLAYER_ENTERING_WORLD",
 	"Prices.lua PLAYER_ENTERING_WORLD",
-	"Professions.lua PLAYER_LOGIN",
 	"Session.lua PLAYER_ENTERING_WORLD",
 }
 local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_LOGIN" }
