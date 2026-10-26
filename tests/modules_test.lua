@@ -59,36 +59,43 @@ eq(errors.Pong and errors.Pong.msg, "requires Ping, which requires it in turn", 
 eq(errors.Echo and errors.Echo.msg, "requires Ping, which cannot start", "a module that requires one in a cycle does not start")
 eq(errors.Store or errors.Reader or errors.Late or errors.Free, nil, "the modules that start record no error")
 
--- Modules set themselves up through ns.module: these files still do on PLAYER_LOGIN or
--- PLAYER_ENTERING_WORLD; the list only shrinks. A file that moves leaves it, and a new one fails here.
+-- Modules set themselves up through ns.module: these files still subscribe to PLAYER_LOGIN or
+-- PLAYER_ENTERING_WORLD, each line a file and the event; the list only shrinks. A file that moves leaves
+-- it, and a new one fails here. (A file may keep PLAYER_ENTERING_WORLD for what changes with the zone.)
 local KNOWN = {
-	"Achievements.lua",
-	"Catalogue.lua",
-	"Character.lua",
-	"Core.lua",
-	"CraftQueue.lua",
-	"FirstRun.lua",
-	"Inventory.lua",
-	"Knowledge.lua",
-	"Ledger.lua",
-	"Legacy.lua",
-	"Levelling.lua",
-	"Lists.lua",
-	"Looks.lua",
-	"Loot.lua",
-	"Market.lua",
-	"Minimap.lua",
-	"MobStats.lua",
-	"Prices.lua",
-	"Professions.lua",
-	"Session.lua",
+	"Achievements.lua PLAYER_ENTERING_WORLD",
+	"Catalogue.lua PLAYER_ENTERING_WORLD",
+	"Character.lua PLAYER_ENTERING_WORLD",
+	"Core.lua PLAYER_ENTERING_WORLD",
+	"Core.lua PLAYER_LOGIN",
+	"CraftQueue.lua PLAYER_ENTERING_WORLD",
+	"FirstRun.lua PLAYER_ENTERING_WORLD",
+	"Inventory.lua PLAYER_ENTERING_WORLD",
+	"Knowledge.lua PLAYER_ENTERING_WORLD",
+	"Ledger.lua PLAYER_ENTERING_WORLD",
+	"Legacy.lua PLAYER_ENTERING_WORLD",
+	"Levelling.lua PLAYER_ENTERING_WORLD",
+	"Lists.lua PLAYER_LOGIN",
+	"Looks.lua PLAYER_LOGIN",
+	"Loot.lua PLAYER_ENTERING_WORLD",
+	"Loot.lua PLAYER_LOGIN",
+	"Market.lua PLAYER_ENTERING_WORLD",
+	"Market.lua PLAYER_LOGIN",
+	"Minimap.lua PLAYER_LOGIN",
+	"MobStats.lua PLAYER_ENTERING_WORLD",
+	"Prices.lua PLAYER_ENTERING_WORLD",
+	"Professions.lua PLAYER_LOGIN",
+	"Session.lua PLAYER_ENTERING_WORLD",
 }
-local onLogin = {}
+local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_LOGIN" }
+local subscribed = {}
 for file, source in pairs(SOURCES) do
-	if source:find('"PLAYER_LOGIN"', 1, true) or source:find('"PLAYER_ENTERING_WORLD"', 1, true) then
-		onLogin[#onLogin + 1] = file
+	for _, event in ipairs(EVENTS) do
+		if source:find('"' .. event .. '"', 1, true) then
+			subscribed[#subscribed + 1] = file .. " " .. event
+		end
 	end
 end
-table.sort(onLogin)
-eq(table.concat(onLogin, ", "), table.concat(KNOWN, ", "), "the files that set themselves up on PLAYER_LOGIN or PLAYER_ENTERING_WORLD")
+table.sort(subscribed)
+eq(table.concat(subscribed, ", "), table.concat(KNOWN, ", "), "the files that subscribe to PLAYER_LOGIN or PLAYER_ENTERING_WORLD")
 return checks()
