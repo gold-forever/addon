@@ -96,7 +96,6 @@ local KNOWN = {
 	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
 	["FirstRun.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: the first-run card is offered again after every loading screen",
 	["Knowledge.lua PLAYER_ENTERING_WORLD"] = "the map is seen on every zone change; the API and game rules are read again after every loading screen",
-	["Ledger.lua PLAYER_ENTERING_WORLD"] = "the money a change is measured from is taken again after every loading screen",
 	["Legacy.lua PLAYER_ENTERING_WORLD"] = "the Legacy perks are read again after every loading screen",
 	["Levelling.lua PLAYER_ENTERING_WORLD"] = "the login row needs isInitialLogin; XP and the zone are read again after every loading screen",
 	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",

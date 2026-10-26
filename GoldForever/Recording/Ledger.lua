@@ -162,9 +162,13 @@ local function context()
 	return table.concat(names, "+") -- "+" keeps several windows in one column
 end
 
-ns.on("PLAYER_ENTERING_WORLD", "money", function()
-	money = GetMoney()
-end)
+-- The money a change is measured from is taken again after every loading screen.
+ns.module("Ledger", {
+	requires = { "Store" },
+	world = function()
+		money = GetMoney()
+	end,
+})
 
 ns.on("PLAYER_MONEY", "money", function()
 	local me = ns.me()
