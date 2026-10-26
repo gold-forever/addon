@@ -17,7 +17,7 @@ local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
-for _, file in ipairs({ "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Core.lua" }) do
+for _, file in ipairs({ "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
@@ -59,7 +59,6 @@ eq(#said, 1, "the player is told once, as for any failing collector")
 -- each with why it stays; the list only shrinks. A file that switches leaves it, and a new one fails here.
 local KNOWN = {
 	["Auctions.lua"] = "a tool, not a collector: posts, buys, cancels and sales move with the tools",
-	["Core.lua"] = "it defines ns.append, the Store's write ns.record calls, until the Store's half of Core moves to Store/",
 }
 local known = {}
 for file, why in pairs(KNOWN) do

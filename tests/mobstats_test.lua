@@ -35,7 +35,7 @@ local function wait(seconds)
 end
 
 local ns = {}
-for _, file in ipairs({ "Encode.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
+for _, file in ipairs({ "Encode.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
 -- What MobStats reads from files it is not tested with: the price of an item and the loot listeners.

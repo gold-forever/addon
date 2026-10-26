@@ -24,6 +24,8 @@ Kernel\Errors.lua
 Kernel\Events.lua
 Kernel\Chat.lua
 Kernel\Commands.lua
+Store\Save.lua
+Store\Characters.lua
 Kernel\Core.lua
 Store\Schema.lua
 Store\Migrations.lua

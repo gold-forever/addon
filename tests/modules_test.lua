@@ -20,7 +20,7 @@ local ns = {}
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
-for _, file in ipairs({ "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Core.lua" }) do
+for _, file in ipairs({ "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
@@ -37,7 +37,7 @@ local function step(what)
 		ran[#ran + 1] = what
 	end
 end
--- The Store (Core.lua) is a module too: one that requires it starts with the save loaded.
+-- The Store (Store/Save.lua) is a module too: one that requires it starts with the save loaded.
 ns.module("Reader", { requires = { "Store" }, init = function()
 	ran[#ran + 1] = GoldForeverDB and "init Reader with the save" or "init Reader without the save"
 end })
@@ -89,8 +89,10 @@ eq(table.concat(worlds, ", "), "Early false true, Late false true, Shaky", "and 
 -- PLAYER_ENTERING_WORLD, each line a file and the event with why it stays; the list only shrinks. A file
 -- that moves leaves it, and a new one fails here.
 local KNOWN = {
-	["Core.lua PLAYER_ENTERING_WORLD"] = "the kernel itself: it runs every module's world and records the login or resume row",
-	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable and records the character",
+	["Characters.lua PLAYER_ENTERING_WORLD"] = "the Store's character entry, moved from Core.lua: it records the login or resume row before any module's world",
+	["Characters.lua PLAYER_LOGIN"] = "the Store's character entry, moved from Core.lua: it records the character before any module's enable",
+	["Core.lua PLAYER_ENTERING_WORLD"] = "the kernel itself: it runs every module's world",
+	["Core.lua PLAYER_LOGIN"] = "the kernel itself: it runs every module's enable",
 	["CraftQueue.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: it moves with the surfaces",
 	["FirstRun.lua PLAYER_ENTERING_WORLD"] = "a window, not a collector: the first-run card is offered again after every loading screen",
 	["Lists.lua PLAYER_LOGIN"] = "a tool, not a collector: merging the site's lists moves with the tools",
