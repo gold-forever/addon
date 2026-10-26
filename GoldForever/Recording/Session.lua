@@ -122,14 +122,14 @@ end
 
 ns.on("PLAYER_REGEN_DISABLED", "session fights", function()
 	closeFight() -- a new pull before the last fight's loot was in
-	fight = { xpKills = 0, corpses = {} }
-end)
-ns.on("PLAYER_REGEN_ENABLED", "session fights", function()
-	local f = fight
-	C_Timer.After(FIGHT_GRACE, function()
-		if fight == f then
-			ns.safely("session fights", closeFight)
-		end
+	local f = { xpKills = 0, corpses = {} }
+	fight = f
+	ns.afterCombat("session fights", function()
+		ns.after(FIGHT_GRACE, "session fights", function()
+			if fight == f then
+				closeFight()
+			end
+		end)
 	end)
 end)
 
