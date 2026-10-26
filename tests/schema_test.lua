@@ -57,7 +57,6 @@ eq(#said, 1, "the player is told once, as for any failing collector")
 local KNOWN = {
 	"Auctions.lua",
 	"Core.lua",
-	"Levelling.lua",
 	"Loot.lua",
 	"Professions.lua",
 	"Rares.lua",

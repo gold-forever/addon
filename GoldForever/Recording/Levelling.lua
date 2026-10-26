@@ -52,7 +52,7 @@ end
 local function write(p, played, levelPlayed)
 	local me = ns.me()
 	if me then
-		ns.append("level", Encode.row(p.t, me.ref, p.kind, p.level, played, levelPlayed, p.money, p.map, p.x, p.y))
+		ns.record("level", { t = p.t, char = me.ref, kind = p.kind, level = p.level, played = played, levelPlayed = levelPlayed, money = p.money, map = p.map, x = p.x, y = p.y })
 	end
 end
 
@@ -167,7 +167,7 @@ local function xpChanged()
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
 		local kind = kindAt(at, fighting)
-		ns.append("xp", Encode.row(row.t, me.ref, row.xp, kind, row.rested > 0 and row.rested or nil, row.instance, row.map, row.level, row.x, row.y))
+		ns.record("xp", { t = row.t, char = me.ref, xp = row.xp, kind = kind, rested = row.rested > 0 and row.rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y })
 		for _, listener in ipairs(ns.xpListeners) do
 			ns.safely("xp listener", listener, row.xp, kind)
 		end
@@ -195,7 +195,7 @@ ns.on("ENCOUNTER_END", "boss", function(encounter, name, difficulty, size, succe
 	if success == 1 then
 		bossAt = GetTime()
 	end
-	ns.append("boss", Encode.row(ns.now(), me.ref, encounter, Encode.name(name or "?"), difficulty, size, success == 1, map(), instanceId()))
+	ns.record("boss", { t = ns.now(), char = me.ref, encounter = encounter, name = Encode.name(name or "?"), difficulty = difficulty, size = size, success = success == 1, map = map(), instanceId = instanceId() })
 end)
 
 -- "Discovered Razor Hill: 55 experience gained", as a pattern from the client's own text.
@@ -234,7 +234,7 @@ local function zoneChanged()
 		return
 	end
 	lastZone = here
-	ns.append("zone", Encode.row(ns.now(), me.ref, m, instance(), id))
+	ns.record("zone", { t = ns.now(), char = me.ref, map = m, instance = instance(), instanceId = id })
 end
 
 for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
