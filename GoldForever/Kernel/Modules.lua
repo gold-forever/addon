@@ -17,6 +17,17 @@ local order -- the modules in the order they start, made again when one is decla
 local STEPS = { "init", "enable" }
 local reached = {} -- step -> true once the kernel has run it
 
+-- Why the addon stands down for the session (the Store's, when the save cannot be loaded), so nothing is
+-- recorded into a save it cannot read and the player is told once: no module starts, no handler or
+-- command runs.
+local stopped
+function ns.stop(why)
+	stopped = why
+end
+function ns.stopped()
+	return stopped
+end
+
 function ns.module(name, def)
 	if modules[name] then
 		ns.fail(name, "module declared twice")

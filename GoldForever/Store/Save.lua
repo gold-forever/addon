@@ -6,16 +6,9 @@ local _, ns = ...
 local Encode = ns.Encode
 
 local db -- GoldForeverDB, once loaded
--- Why the save could not be loaded (Migrations.lua): the addon then stands down for the session, so nothing
--- is recorded into a save it cannot read and the player is told once.
-local stopped
 
 function ns.db()
 	return db
-end
-
-function ns.stopped()
-	return stopped
 end
 
 -- Each feature's settings section and its defaults, in one place (db.settings[section]).
@@ -90,7 +83,7 @@ end
 local function init()
 	local upgraded, why = ns.upgrade(GoldForeverDB or {}, ns.SCHEMA, ns.MIGRATIONS, GetServerTime())
 	if not upgraded then
-		stopped = why
+		ns.stop(why)
 		error(why, 0)
 	end
 	GoldForeverDB = upgraded
