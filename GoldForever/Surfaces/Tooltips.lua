@@ -1,5 +1,5 @@
--- Gold Forever: tooltips. An item's gets what the own scan, a vendor and disenchanting give for it; a
--- mob's what the characters have looted from it (MobStats.lua).
+-- Gold Forever: tooltips. An item's gets what the own scan, a vendor and disenchanting give for it, and
+-- the pool's prices (Prices.lua); a mob's what the characters have looted from it (MobStats.lua).
 
 local _, ns = ...
 local Encode = ns.Encode
@@ -114,5 +114,39 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("appraiser tooltip", itemTooltip, tooltip, data)
+	end)
+end
+
+-- The pool's prices from the companion's file (ReadModels/Prices.lua), under the own scan's line.
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function poolTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
+			return
+		end
+		-- Settings → Modules can switch the line off.
+		if ns.settings("prices").tooltip == false then
+			return
+		end
+		local Prices = ns.Prices -- loaded after this file
+		local now = GetServerTime()
+		-- In a zone with a neutral auction house, its market's line first (design 009 decision 9).
+		local neutral = Prices.neutralMarkets()
+		if neutral then
+			local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
+			if nline then
+				local shade = nstale and STALE_SHADE or 1
+				tooltip:AddLine(ns.tipPrefix(tooltip) .. nline, shade, shade, shade)
+			end
+		end
+		local line, stale = Prices.line(GoldForever_Prices, Prices.mine(), data.id, now)
+		if line then
+			local shade = stale and STALE_SHADE or 1
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, shade, shade, shade)
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("pool tooltip", poolTooltip, tooltip, data)
 	end)
 end

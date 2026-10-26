@@ -1,8 +1,8 @@
--- Gold Forever: the pool's prices in item tooltips. The companion writes GoldForever_Prices into a
--- separate addon, GoldForever_Data (an optional dependency), from the server's pooled, screened
--- figures; the tooltip shows the player's own market's line under the appraiser's (on retail the
--- connected realm group's, else the region's commodity price). The file comes
--- from outside the addon, so every field is checked and anything unexpected shows nothing.
+-- Gold Forever: the pool's prices. The companion writes GoldForever_Prices into a separate addon,
+-- GoldForever_Data (an optional dependency), from the server's pooled, screened figures; this reads the
+-- player's own market's prices from it (on retail the connected realm group's, else the region's
+-- commodity price), which the item tooltip shows (Tooltips.lua). The file comes from outside the addon,
+-- so every field is checked and anything unexpected shows nothing.
 
 local _, ns = ...
 ns = ns or {}
@@ -14,7 +14,6 @@ ns.Prices = Prices
 local VERSION = ns.DataFormat.VERSION
 local F, ITEM = ns.DataFormat.field, ns.DataFormat.item
 local STALE_SECONDS = 3 * 86400 -- a price scanned longer ago than this is greyed
-local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
 local REGIONS = { US = "NA", NA = "NA", EU = "EU", KR = "KR", TW = "TW", CN = "CN" }
 -- GetCurrentRegion's ids, which the addon writes when GetCurrentRegionName answers "".
 local REGION_IDS = { ["1"] = "NA", ["2"] = "KR", ["3"] = "EU", ["4"] = "TW", ["5"] = "CN" }
@@ -380,38 +379,6 @@ function Prices.cheapest(id)
 		end
 	end
 	return own
-end
-
-if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
-	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
-	local function poolTooltip(tooltip, data)
-		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
-			return
-		end
-		-- Settings → Modules can switch the line off.
-		if ns.settings("prices").tooltip == false then
-			return
-		end
-		local now = GetServerTime()
-		-- In a zone with a neutral auction house, its market's line first (design 009 decision 9).
-		local neutral = Prices.neutralMarkets()
-		if neutral then
-			local nline, nstale = Prices.line(GoldForever_Prices, neutral, data.id, now, "Neutral AH")
-			if nline then
-				local shade = nstale and STALE_SHADE or 1
-				tooltip:AddLine(ns.tipPrefix(tooltip) .. nline, shade, shade, shade)
-			end
-		end
-		-- The own scan has its own line (Tooltips.lua): only the pool's here.
-		local line, stale = Prices.line(GoldForever_Prices, mine(), data.id, now)
-		if line then
-			local shade = stale and STALE_SHADE or 1
-			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, shade, shade, shade)
-		end
-	end
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("pool tooltip", poolTooltip, tooltip, data)
-	end)
 end
 
 -- The companion's file as the hub's Companion page shows it: state "missing", "version", "broken" or
