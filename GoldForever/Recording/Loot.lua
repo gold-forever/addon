@@ -231,7 +231,7 @@ local function finish(w)
 			ns.catalogueItem(key)
 		end
 		local src = w.sources[guid].src or sourceOf(guid)
-		ns.append("loot", Encode.row(w.t, me.ref, w.map, w.x, w.y, src, first, shares[guid] or 0, Encode.items(items), w.fish))
+		ns.record("loot", { t = w.t, char = me.ref, map = w.map, x = w.x, y = w.y, src = src, first = first, coin = shares[guid] or 0, items = Encode.items(items), fish = w.fish })
 		-- guid and first stay in memory, for the session HUD's kill count; the row saved is the one above.
 		rows[#rows + 1] = { src = src, coin = shares[guid] or 0, items = items, guid = guid, first = first }
 	end
@@ -294,7 +294,7 @@ local function sample()
 		return
 	end
 	last = here
-	ns.append("pos", Encode.row(ns.now(), me.ref, map, x, y))
+	ns.record("pos", { t = ns.now(), char = me.ref, map = map, x = x, y = y })
 end
 
 ns.module("Loot", {
