@@ -87,4 +87,29 @@ eq(table.concat(appending, ", "), table.concat(KNOWN, ", "), "the files that app
 eq(appendsItself('ns.append("loot", row)'), true, "ns.append called")
 eq(appendsItself("Encode.append(bucket, row)"), true, "Encode.append called")
 eq(appendsItself('ns.record("loot", row) -- not ns.append(…) nor Encode.append(…)'), false, "ns.record, and appends in a comment")
+-- Every stream and its columns are declared in Store/Schema.lua: a file elsewhere that adds to ns.FIELDS
+-- fails here.
+local function declaresFields(source)
+	for line in source:gmatch("[^\n]+") do
+		local code = line:gsub("%-%-.*$", "")
+		if code:find("ns%.FIELDS%.[%w_]+%s*=[^=]") or code:find("ns%.FIELDS%s*%b[]%s*=[^=]") or code:find("ns%.FIELDS%s*=[^=]") then
+			return true
+		end
+	end
+	return false
+end
+local declaring = {}
+for file, source in pairs(SOURCES) do
+	if not PATHS[file]:find("^Store\\") and declaresFields(source) then
+		declaring[#declaring + 1] = file
+	end
+end
+table.sort(declaring)
+eq(table.concat(declaring, ", "), "", "the files outside Store/ that add to ns.FIELDS")
+
+-- The scan sees a declaration, and not a read, a comparison or one in a comment.
+eq(declaresFields('ns.FIELDS.loot = "t,char"'), true, "a column list declared")
+eq(declaresFields('ns.FIELDS["loot"] = "t,char"'), true, "declared by a quoted key")
+eq(declaresFields('local cols = Encode.columns(ns.FIELDS.item) if ns.FIELDS.x == y then end -- ns.FIELDS.z = "a"'), false,
+	"a read, a comparison and a comment")
 return checks()
