@@ -17,6 +17,7 @@ ns.module = function(name, def) modules[name] = def end
 assert(load(SOURCES["Pricing.lua"], "@Pricing.lua"))("GoldForever", ns)
 assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Prices.lua"], "@Prices.lua"))("GoldForever", ns)
+assert(load(SOURCES["PricesMarkets.lua"], "@PricesMarkets.lua"))("GoldForever", ns)
 local P = ns.Prices
 
 local MARKET = "EU-Classic Beta PvE 2-alliance"

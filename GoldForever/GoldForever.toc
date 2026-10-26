@@ -69,6 +69,7 @@ Recording\MobStats.lua
 Surfaces\Tooltips.lua
 ReadModels\DataFormat.lua
 ReadModels\Prices.lua
+ReadModels\PricesMarkets.lua
 ReadModels\Advisor.lua
 Recording\Rares.lua
 Tools\CraftPlanner.lua
