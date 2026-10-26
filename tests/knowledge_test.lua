@@ -101,6 +101,7 @@ function UnitCreatureType()
 end
 
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["Combat.lua"], "@Combat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
 
 local function target(t)
@@ -141,7 +142,8 @@ eq(catalogue.npcs[237400], "Bramblehide,80,83,normal,Beast", "a saved \"Unknown\
 function issecretvalue(v)
 	return rawequal(v, SECRET)
 end
--- A secret name on a readable GUID: the row is written without a name, and no error.
+-- A secret name on a readable GUID, in a fight: the row is written without a name, and no error.
+fire("PLAYER_REGEN_DISABLED")
 target({ guid = "Creature-0-4620-0-12-5000-000A", name = SECRET, level = 70, kind = SECRET, classification = SECRET })
 eq(catalogue.npcs[5000], ",70,70,,", "a secret name, type and classification are not written")
 -- A secret GUID: nothing to key the row by; nothing written, no error.
@@ -151,6 +153,7 @@ unit = { guid = "Creature-0-4620-0-12-5000-000A", name = "Ashfang Prowler", leve
 fire("PLAYER_REGEN_ENABLED")
 eq(catalogue.npcs[5000], "Ashfang Prowler,70,70,normal,Beast", "a readable name out of combat fills the row")
 -- A unit met with a secret GUID is looked at again out of combat.
+fire("PLAYER_REGEN_DISABLED")
 unit = { guid = SECRET, name = SECRET, level = 72 }
 fire("PLAYER_TARGET_CHANGED")
 eq(catalogue.npcs[5001], nil, "nothing recorded for a secret GUID")

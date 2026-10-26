@@ -32,6 +32,13 @@ end
 -- Units met while their identity was secret (in combat on newer clients): looked at again out of
 -- combat, when the client shows them.
 local missed = false
+local seeAgain
+local function miss()
+	missed = true
+	if ns.inCombat() then
+		ns.afterCombat("npcs", seeAgain)
+	end
+end
 
 local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
@@ -39,7 +46,9 @@ local function seeUnit(unit)
 	end
 	local id = Encode.npcId(ns.readable(UnitGUID(unit)))
 	if not id then
-		missed = missed or ns.secret(UnitGUID(unit))
+		if ns.secret(UnitGUID(unit)) then
+			miss()
+		end
 		return
 	end
 	local npcs = ns.db().catalogue.npcs
@@ -47,7 +56,7 @@ local function seeUnit(unit)
 	local named = stored and realName(stored[1]) and stored[1] -- already encoded
 	local name = realName(UnitName(unit))
 	if not name then
-		missed = true
+		miss()
 	end
 	local level = ns.readable(UnitLevel(unit))
 	if type(level) ~= "number" or level <= 0 then
@@ -93,7 +102,7 @@ end
 
 -- Out of combat, and at a corpse's loot window, the units around are looked at again when one was
 -- met unreadable: what combat hid is shown now.
-local function seeAgain()
+function seeAgain()
 	if not missed then
 		return
 	end
@@ -105,7 +114,6 @@ local function seeAgain()
 		seeUnit("nameplate" .. i)
 	end
 end
-ns.on("PLAYER_REGEN_ENABLED", "npcs", seeAgain)
 ns.on("LOOT_READY", "npcs", seeAgain)
 
 -- Objects: a gathering or opening cast names its target; the loot window that follows gives the

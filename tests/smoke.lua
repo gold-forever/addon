@@ -855,6 +855,7 @@ do
   local guid, name = UnitGUID, UnitName
   UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-61234-0000ABD1" end return guid(u) end
   UnitName = function(u) if u == "nameplate3" then return SECRET end return name(u) end
+  fireNow("PLAYER_REGEN_DISABLED")
   fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
   local row = GoldForeverDB.catalogue.npcs[61234]
   assert(row and row:find("^,"), "a secret name is not written: " .. tostring(row))
