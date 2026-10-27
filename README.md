@@ -103,16 +103,19 @@ there and then.
 
 ## Developing
 
-Clone, then link the `GoldForever` folder into the game's AddOns folder, so a `git pull` updates it:
+Clone, then link both addon folders into the game's AddOns folder, so a `git pull` updates them.
+`GoldForever_Auctions` is the auction house panel, which `GoldForever` loads when the auction house opens:
+without it the game answers `MISSING` there.
 
 ```sh
 # Linux (Wine, Lutris, Steam) or macOS: adjust the path to your install and flavour folder
-ln -s "$PWD/GoldForever" "<WoW>/_forever_/Interface/AddOns/GoldForever"
+for a in GoldForever GoldForever_Auctions; do ln -s "$PWD/$a" "<WoW>/_forever_/Interface/AddOns/$a"; done
 ```
 
 ```bat
-:: Windows (run as administrator)
+:: Windows (run as administrator; _retail_ for retail)
 mklink /D "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\GoldForever" "%CD%\GoldForever"
+mklink /D "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\GoldForever_Auctions" "%CD%\GoldForever_Auctions"
 ```
 
 **Tests:**
