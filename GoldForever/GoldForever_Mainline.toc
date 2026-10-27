@@ -98,6 +98,7 @@ ReadModels\CraftQueueView.lua
 Surfaces\CraftQueue.lua
 Surfaces\FirstRun.lua
 Tools\MailHelper.lua
+Surfaces\MailPanel.lua
 ReadModels\HomeView.lua
 Surfaces\HubHome.lua
 ReadModels\LedgerView.lua
