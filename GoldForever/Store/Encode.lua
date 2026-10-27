@@ -32,6 +32,24 @@ function Encode.row(...)
 	return table.concat(out, ",")
 end
 
+-- A retail scan's row for one item ("item,class,subclass,stack"), so the server can tell a commodity
+-- from gear before the catalogue has loaded it (half a scan's items, on the first real one). instant
+-- is GetItemInfoInstant, client data that needs no server query; stack is GetItemMaxStackSizeByID,
+-- written only when it answers. Either may be missing.
+function Encode.itemRow(id, instant, stack)
+	local class, subclass
+	if instant then
+		local _, _, _, _, _, c, s = instant(id)
+		class, subclass = c, s
+	end
+	local size
+	if stack then
+		local ok, value = pcall(stack, id)
+		size = ok and value or nil
+	end
+	return Encode.row(id, class, subclass, size)
+end
+
 -- Rows in each stream's last chunk, kept in memory so an append does not count them again: stream ->
 -- { chunk, n }, trusted only while that chunk is still the stream's last.
 local lastRows = setmetatable({}, { __mode = "k" })

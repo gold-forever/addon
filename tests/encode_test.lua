@@ -182,4 +182,26 @@ eq(E.chatLine("Rare: |cffff0000Bad|r (30) near 52.3, 34.1"), "[Gold Forever] Rar
 eq(E.chatLine("a\nb"), "[Gold Forever] a b", "one line")
 eq(#E.chatLine(string.rep("x", 400)), 255, "within chat's limit")
 
+-- What a retail scan records per item, so the server can tell commodities (region-wide) from gear
+-- (per connected realm) even for items the catalogue has not loaded yet: class and subclass are
+-- client data (GetItemInfoInstant needs no server query), the stack size only when the client has it.
+local instant = function(id)
+	if id == 2589 then
+		return 2589, "Tradeskill", "Cloth", "", 132889, 7, 5
+	end
+	if id == 19019 then
+		return 19019, "Weapon", "Swords", "INVTYPE_WEAPONMAINHAND", 135349, 2, 7
+	end
+end
+local stack = function(id)
+	return id == 2589 and 1000 or nil
+end
+eq(E.itemRow(2589, instant, stack), "2589,7,5,1000", "a commodity: class, subclass and stack")
+eq(E.itemRow(19019, instant, stack), "19019,2,7,", "gear with no stack known: the column stays empty")
+eq(E.itemRow(424242, instant, stack), "424242,,,", "an item the client does not know")
+eq(E.itemRow(2589, nil, nil), "2589,,,", "a client without the item APIs")
+eq(E.itemRow(2589, instant, function()
+	error("not loaded")
+end), "2589,7,5,", "a stack call that fails is not fatal")
+
 return checks()

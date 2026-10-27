@@ -27,7 +27,7 @@ ns.FIELDS = {
 	-- the band is its answer less one; anything else is left empty. A scan written this way says so with
 	-- `bands = 0` (the band numbering starts at 0); scans before it wrote the raw 1–4.
 	scan = "item,unit,qty,auctions,left",
-	-- Retail only: each distinct item a scan names, for telling commodities from gear (Realms.itemRow).
+	-- Retail only: each distinct item a scan names, for telling commodities from gear (Encode.itemRow).
 	scanItem = "item,class,subclass,stack",
 	-- qty is appended to design 002's columns: buy is the price of one purchase of qty items.
 	vendor = "buy,limited,t,qty",

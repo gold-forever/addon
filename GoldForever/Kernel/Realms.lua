@@ -45,25 +45,7 @@ function Realms.connected()
 	return GetAutoCompleteRealms and GetAutoCompleteRealms() or nil
 end
 
--- A retail scan's row for one item ("item,class,subclass,stack"), so the server can tell a commodity
--- from gear before the catalogue has loaded it (half a scan's items, on the first real one). instant
--- is GetItemInfoInstant, client data that needs no server query; stack is GetItemMaxStackSizeByID,
--- written only when it answers. Either may be missing.
-function Realms.itemRow(id, instant, stack)
-	local class, subclass
-	if instant then
-		local _, _, _, _, _, c, s = instant(id)
-		class, subclass = c, s
-	end
-	local size
-	if stack then
-		local ok, value = pcall(stack, id)
-		size = ok and value or nil
-	end
-	return ns.Encode.row(id, class, subclass, size)
-end
-
--- The client's item functions, for itemRow.
+-- The client's item functions, for Encode.itemRow.
 function Realms.itemApis()
 	local instant = C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
 	return instant, C_Item and C_Item.GetItemMaxStackSizeByID

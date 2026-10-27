@@ -39,7 +39,6 @@ end
 -- These files still read a name only a layer above sets, each with why it stays; the list only shrinks
 -- (addon#40). None is a call a message would replace: each is a query of a helper that sits above its reader.
 local KNOWN = {
-	["Realms.lua ns.Encode"] = "the Store's row encoding, for the item rows of Realms.itemRow",
 	["Advisor.lua ns.makeWindow"] = "the loot advisor's window, which sits with its read model",
 	["Advisor.lua ns.applyLook"] = "the loot advisor's window, which sits with its read model",
 	["Advisor.lua ns.UI"] = "the loot advisor's window, which sits with its read model",

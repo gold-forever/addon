@@ -248,7 +248,7 @@ local function read()
 					b.auctions = b.auctions + 1
 				end
 				if s.items and not s.items[itemID] then
-					s.items[itemID] = ns.Realms.itemRow(itemID, instant, stack)
+					s.items[itemID] = Encode.itemRow(itemID, instant, stack)
 				end
 			end
 			done = done + 1
