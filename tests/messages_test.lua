@@ -36,11 +36,9 @@ for _, file in ipairs(CONTRACTS) do
 	end
 end
 
--- These files still read a name only a layer above sets, each with why it stays; the list only shrinks
--- (addon#40). None is a call a message would replace: each is a query of a helper that sits above its reader.
-local KNOWN = {
-	["AuctionWaits.lua ns.Theme"] = "the auction panel's sizes, which sit with its waits",
-}
+-- The files that still read a name only a layer above sets, each with why it stays: none since addon#40;
+-- the list only shrinks.
+local KNOWN = {}
 local known = {}
 for entry, why in pairs(KNOWN) do
 	known[#known + 1] = entry

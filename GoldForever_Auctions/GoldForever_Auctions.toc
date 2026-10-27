@@ -9,7 +9,7 @@
 ## Dependencies: GoldForever
 
 Kernel\Namespace.lua
-Tools\AuctionWaits.lua
+Surfaces\AuctionWaits.lua
 Tools\AuctionBlizzard.lua
 Tools\AuctionBooks.lua
 Surfaces\AuctionScanTab.lua
