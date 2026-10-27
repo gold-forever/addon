@@ -1,6 +1,7 @@
--- Gold Forever: tooltips. An item's gets what the own scan and disenchanting give for it, and the pool's
--- prices (Prices.lua), one price a line with its label on the left; no vendor value, as the game's own Sell
--- Price line shows it (addon#20). A mob's gets what the characters have looted from it (MobStats.lua).
+-- Gold Forever: tooltips. An item's gets how many each character holds (HeldView.lua), what the own scan
+-- and disenchanting give for it, and the pool's prices (Prices.lua), one price a line with its label on
+-- the left; no vendor value, as the game's own Sell Price line shows it (addon#20). A mob's gets what the
+-- characters have looted from it (MobStats.lua).
 
 local _, ns = ...
 local Encode = ns.Encode
@@ -84,6 +85,26 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 end
 
 -- Item tooltips ----------------------------------------------------------------------------------------------
+
+-- "Held": how many every character holds (HeldView.lua), first of the addon's item lines.
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
+	local function heldTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not SaveView.loaded() then
+			return
+		end
+		if ns.settings("prices").held == false then
+			return
+		end
+		local line = ns.HeldView.line(data.id)
+		if line then
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("held tooltip", heldTooltip, tooltip, data)
+	end)
+end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.

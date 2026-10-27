@@ -48,6 +48,7 @@ ReadModels\ViewsMoney.lua
 ReadModels\ViewsSession.lua
 ReadModels\ViewsItems.lua
 ReadModels\SaveView.lua
+ReadModels\HeldView.lua
 Recording\Catalogue.lua
 ReadModels\Pricing.lua
 Recording\Loot.lua
