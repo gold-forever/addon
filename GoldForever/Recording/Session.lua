@@ -99,17 +99,17 @@ end
 -- Kills without the combat log (forbidden on Forever): a fight opens when combat starts and closes a
 -- few seconds after it ends, once its loot is in; its kills are the larger of its kill-XP gains and the
 -- creature corpses looted for the first time, so a grey mob counts too; a corpse looted after its
--- fight closed matches the kill XP already counted rather than counting again (Views.creditKills).
+-- fight closed matches the kill XP already counted rather than counting again (Kills.lua).
 local FIGHT_GRACE = 8 -- seconds after combat for the kill XP (classified 3 s late) and the loot
 local fight -- { xpKills, corpses = { guid } } while one is open
 local corpsesSeen = {} -- corpse GUIDs already counted
-local uncorpsed = {} -- times of kills credited by XP whose corpse is not looted yet (Views.creditKills)
+local uncorpsed = {} -- times of kills credited by XP whose corpse is not looted yet (Kills.lua)
 
 local function closeFight()
 	local f = fight
 	fight = nil
 	if f and not idle() then
-		session.kills = session.kills + ns.Views.creditKills(uncorpsed, f.xpKills, f.corpses, corpsesSeen, GetTime())
+		session.kills = session.kills + ns.Kills.credit(uncorpsed, f.xpKills, f.corpses, corpsesSeen, GetTime())
 	end
 end
 
@@ -139,7 +139,7 @@ table.insert(ns.xpListeners, function(gained, kind)
 			fight.xpKills = fight.xpKills + 1
 		else
 			-- a kill outside any fight (a pet's, a DoT's after combat)
-			s.kills = s.kills + ns.Views.creditKills(uncorpsed, 1, nil, corpsesSeen, GetTime())
+			s.kills = s.kills + ns.Kills.credit(uncorpsed, 1, nil, corpsesSeen, GetTime())
 		end
 	end
 end)
@@ -214,7 +214,7 @@ table.insert(ns.lootListeners, function(coin, taken, rows)
 			table.insert(fight.corpses, guid)
 		end
 	elseif #corpses > 0 then
-		session.kills = session.kills + ns.Views.creditKills(uncorpsed, 0, corpses, corpsesSeen, GetTime())
+		session.kills = session.kills + ns.Kills.credit(uncorpsed, 0, corpses, corpsesSeen, GetTime())
 	end
 	session.coin = session.coin + coin
 	for key, n in pairs(taken) do

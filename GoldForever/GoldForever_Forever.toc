@@ -65,6 +65,7 @@ Recording\Legacy.lua
 Recording\Achievements.lua
 Recording\Disenchant.lua
 Recording\Crafting.lua
+Recording\Kills.lua
 Recording\Session.lua
 ReadModels\SessionSummary.lua
 Surfaces\Hud.lua

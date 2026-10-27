@@ -39,7 +39,6 @@ end
 -- These files still read a name only a layer above sets, each with why it stays; the list only shrinks
 -- (addon#40). None is a call a message would replace: each is a query of a helper that sits above its reader.
 local KNOWN = {
-	["Session.lua ns.Views"] = "the read model's kill credit, for the session's kills",
 	["MailHelper.lua ns.Theme"] = "the mail helper's panel, which sits with its tool",
 	["MailHelper.lua ns.UI"] = "the mail helper's panel, which sits with its tool",
 	["AuctionWaits.lua ns.Theme"] = "the auction panel's sizes, which sit with its waits",
