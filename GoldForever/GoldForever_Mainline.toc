@@ -16,7 +16,7 @@ Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
 Store\Encode.lua
 Kernel\Money.lua
-ReadModels\Scans.lua
+Store\Scans.lua
 Store\Export.lua
 Kernel\Realms.lua
 Kernel\Modules.lua
