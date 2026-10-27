@@ -11,8 +11,10 @@ ns.SCHEMA = 1
 -- the order the TOCs load them.
 ns.FIELDS = {
 	sys = "t,char,kind",
-	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns.
-	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc",
+	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns. Retail appends tier, an
+	-- item's crafting-quality tier (1–5), empty and left off the row's end for an untiered item; Forever
+	-- has no tiers and declares no column.
+	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc" .. (ns.retail and ",tier" or ""),
 	-- Loot.lua. fish is appended to design 002's columns: set when the loot is a fishing catch.
 	loot = "t,char,map,x,y,src,first,coin,items,fish",
 	pos = "t,char,map,x,y",

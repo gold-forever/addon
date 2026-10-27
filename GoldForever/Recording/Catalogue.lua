@@ -36,14 +36,36 @@ end
 -- For a lean (retail) save, which keeps none: an item's tooltip text read when asked.
 ns.itemTooltipText = tooltip
 
+-- A retail item's crafting-quality tier: the client's answer, else the quality markup in its link. Asked only
+-- where the schema declares the column; even there the call may be missing or fail (owner: "it has to not
+-- fail on Forever as well"), so it is looked up and protected, and anything that is not a tier is none.
+local TIERED = Encode.columns(ns.FIELDS.item).tier ~= nil
+local TIER_MARKUP = "Professions%-ChatIcon%-Quality%-.-Tier(%d)"
+local function tier(id, link)
+	if not TIERED then
+		return nil
+	end
+	local quality = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+	if quality then
+		local ok, value = pcall(quality, id)
+		if ok and type(value) == "number" and value >= 1 then
+			return value
+		end
+	end
+	return type(link) == "string" and tonumber(string.match(link, TIER_MARKUP)) or nil
+end
+
 local function write(id)
-	local name, _, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind = GetItemInfo(id)
+	local name, link, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind = GetItemInfo(id)
 	if not name then
 		return false
 	end
 	local catalogue = ns.db().catalogue
-	catalogue.items[id] = Encode.row(Encode.name(name), quality, ilvl, class, subclass, stack, sell, bind, icon,
-		minLevel, equipLoc ~= "" and equipLoc or nil)
+	local row = Encode.row(Encode.name(name), quality, ilvl, class, subclass, stack, sell, bind, icon, minLevel,
+		equipLoc ~= "" and equipLoc or nil)
+	-- Without a tier the row ends at equipLoc, as every row did before the column.
+	local itemTier = tier(id, link)
+	catalogue.items[id] = itemTier and (row .. "," .. itemTier) or row
 	if not ns.lean then
 		catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
 	end

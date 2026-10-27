@@ -252,6 +252,10 @@ C_Item = { GetItemInfo = function(id) return "Item, " .. id, nil, 1, 10, 1, "", 
 C_TradeSkillUI = { GetAllRecipeIDs = function() return { 2963, 3915 } end, GetRecipeInfo = function(id) return { learned = id == 2963, name = "Bolt of Linen" } end,
   GetBaseProfessionInfo = function() return { professionID = 197, professionName = "Tailoring", skillLevel = 75, maxSkillLevel = 150 } end,
   GetRecipeSchematic = function() return { outputItemID = 2996, quantityMin = 1, quantityMax = 1, reagentSlotSchematics = { { reagentType = 1, quantityRequired = 2, reagents = { { itemID = 2589 } } } } } end }
+-- Retail answers Linen's crafting-quality tier; Forever's client has no such call.
+if FLAVOUR == "retail" then
+  C_TradeSkillUI.GetItemReagentQualityByItemInfo = function(id) return id == 2589 and 2 or nil end
+end
 function GetProfessions() return 1, 2, nil, 4, nil end
 function GetProfessionInfo(i) if i == 2 then return "Enchanting", 0, 101, 150, 0, 0, 333 end return i == 1 and "Tailoring" or "Fishing", 0, i == 1 and tailoring or 75, 150, 0, 0, i == 1 and 197 or 356 end
 local slots = {

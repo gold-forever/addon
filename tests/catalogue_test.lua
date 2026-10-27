@@ -2,9 +2,10 @@
 -- while the queue is draining; on the owner's first retail scan (2026-10-22) exactly half never did.
 
 local asked = {} -- item ID -> how often its info was asked for
+local links = {} -- item ID -> the link GetItemInfo answers (none by default)
 GetItemInfo = function(id)
 	asked[id] = (asked[id] or 0) + 1
-	return "Item " .. id, nil, 1, 1, 1, nil, nil, 20, "", 1, 1, 7, 5, 0
+	return "Item " .. id, links[id], 1, 1, 1, nil, nil, 20, "", 1, 1, 7, 5, 0
 end
 C_TooltipInfo = {
 	GetItemByID = function(id)
@@ -17,6 +18,7 @@ local function session(db, lean)
 	local scheduled = {}
 	local ns = {
 		lean = lean,
+		retail = lean,
 		db = function()
 			return db
 		end,
@@ -129,5 +131,52 @@ eq(C.quality(8), 3, "the quality of a row without a name")
 eq(C.quality(9), nil, "a row too short for the column")
 eq(C.name("item", 10), nil, "an item not catalogued")
 eq(C.name("object", 1), nil, "a kind the save has no section for")
+
+-- A retail item's crafting-quality tier, after equipLoc: from C_TradeSkillUI, or from the quality markup in
+-- its link when the API answers nothing. Without either (Forever) the row ends at equipLoc, as before.
+local ROW = "Item %d,1,1,7,5,20,1,0,1,1,"
+local TIER2 = "|cff1eff00|Hitem:%d::::::::80|h[Item %d |A:Professions-ChatIcon-Quality-Tier2:17:15::1|a]|h|r"
+local PLAIN = "|cff1eff00|Hitem:%d::::::::80|h[Item %d]|h|r"
+local function catalogued(id, api, link)
+	C_TradeSkillUI = api
+	links[id] = link and string.format(link, id, id)
+	local tierDb = { catalogue = { items = {}, tooltips = {} } }
+	local tierNs, tierTick = session(tierDb, true)
+	tierNs.catalogueItem(id)
+	while tierTick() do
+	end
+	C_TradeSkillUI = nil
+	return tierDb.catalogue.items[id]
+end
+local answers = { [300001] = 3, [300004] = 1 }
+local retail = { GetItemReagentQualityByItemInfo = function(id) return answers[id] end }
+local failing = { GetItemReagentQualityByItemInfo = function() error("no such item") end }
+
+eq(catalogued(300001, retail, PLAIN), string.format(ROW, 300001) .. ",3", "retail: the API's tier after equipLoc")
+eq(catalogued(300002, retail, PLAIN), string.format(ROW, 300002), "retail: an untiered item has no tier column")
+eq(catalogued(300003, retail, TIER2), string.format(ROW, 300003) .. ",2", "retail: the link's markup when the API answers nil")
+eq(catalogued(300004, retail, TIER2), string.format(ROW, 300004) .. ",1", "the API's answer before the link's")
+eq(catalogued(300005, nil, nil), string.format(ROW, 300005), "Forever: no C_TradeSkillUI and no link, no tier")
+eq(catalogued(300006, {}, PLAIN), string.format(ROW, 300006), "Forever: C_TradeSkillUI without the call, no tier")
+eq(catalogued(300007, nil, TIER2), string.format(ROW, 300007) .. ",2", "no API: the link's markup still counts")
+eq(catalogued(300008, failing, PLAIN), string.format(ROW, 300008), "an API that errors: no error, no tier")
+eq(catalogued(300009, failing, TIER2), string.format(ROW, 300009) .. ",2", "an API that errors: the link's markup")
+eq(catalogued(300010, { GetItemReagentQualityByItemInfo = function() return "x" end }, PLAIN), string.format(ROW, 300010),
+	"an answer that is not a tier is none")
+eq(ns.FIELDS.item:match(",([^,]*)$"), "tier", "retail: the schema's item columns end with tier")
+
+-- Forever: no tier column declared, and none written even where the client would answer one.
+C_TradeSkillUI = retail
+links[300011] = string.format(TIER2, 300011, 300011)
+local foreverDb = { catalogue = { items = {}, tooltips = {} } }
+ns, tick = session(foreverDb, false)
+ns.catalogueItem(300001)
+ns.catalogueItem(300011)
+while tick() do
+end
+C_TradeSkillUI = nil
+eq(ns.FIELDS.item:match(",([^,]*)$"), "equipLoc", "Forever: the schema's item columns end with equipLoc")
+eq(foreverDb.catalogue.items[300001], string.format(ROW, 300001), "Forever: no tier from the API")
+eq(foreverDb.catalogue.items[300011], string.format(ROW, 300011), "Forever: no tier from the link")
 
 return checks()
