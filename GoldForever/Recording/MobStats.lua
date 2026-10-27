@@ -3,7 +3,6 @@
 
 local _, ns = ...
 local Encode = ns.Encode
-local worth = ns.price.worth
 
 local mobs -- npc ID -> { loots, coin, items = { [id] = { dropped, units } } }; built once, then kept up per loot
 
@@ -137,9 +136,9 @@ ns.module("MobStats", {
 	end,
 })
 
--- Every NPC looted, for the in-game pages: { [npc] = { loots, coin, items = { [id] = { dropped, units } } } }
--- and what one unit of an item is worth; nil while the counts are built, and `whenBuilt` is called once
--- they are.
+-- Every NPC looted, for the in-game pages: { [npc] = { loots, coin, items = { [id] = { dropped, units } } } };
+-- nil while the counts are built, and `whenBuilt` is called once they are. The pages value them with the
+-- read models' prices (ns.price.worth).
 function ns.mobStats(whenBuilt)
 	if not mobs then
 		if whenBuilt then
@@ -147,5 +146,5 @@ function ns.mobStats(whenBuilt)
 		end
 		buildMobs()
 	end
-	return mobs, worth
+	return mobs
 end

@@ -8,7 +8,7 @@ local RaresView = {}
 ns.RaresView = RaresView
 
 -- Views.rares' rows, each with `value`: what a loot of the rare is worth from the mobs' loot counts
--- (ns.mobStats' mobs and worth), nil while they are counted or for a rare never looted.
+-- (ns.mobStats' mobs, at `worth`), nil while they are counted or for a rare never looted.
 function RaresView.rows(mobs, worth)
 	local rows = Views.rares(Views.rows(ns.db(), "rare"))
 	for _, r in ipairs(rows) do

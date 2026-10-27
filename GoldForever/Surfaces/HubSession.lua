@@ -197,7 +197,8 @@ local function buildMobs(page)
 	tbl:SetPoint("TOPLEFT", lede, "BOTTOMLEFT", 0, -12)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
-		local mobs, worth = ns.mobStats(function()
+		local worth = ns.price.worth
+		local mobs = ns.mobStats(function()
 			if page:IsShown() then
 				page:Refresh()
 			end

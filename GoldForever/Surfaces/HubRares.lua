@@ -37,13 +37,13 @@ local function buildRares(page)
 			tbl:SetRows({})
 			return -- no rare listed, so no mob's loot to count
 		end
-		local mobs, worth = ns.mobStats(function()
+		local mobs = ns.mobStats(function()
 			if page:IsShown() then
 				page:Refresh()
 			end
 		end)
 		local rows = {}
-		for _, r in ipairs(ns.RaresView.rows(mobs, worth)) do
+		for _, r in ipairs(ns.RaresView.rows(mobs, ns.price.worth)) do
 			rows[#rows + 1] = {
 				name = Kit.npcName(r.npc),
 				seen = r.seen,
