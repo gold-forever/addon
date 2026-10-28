@@ -3076,6 +3076,67 @@ do
   Session.stop()
   assert(stops() == before + 1, "Stop with the toggle on records session_stop")
 end
+-- Kills close together (addon#50): the client tells each kill's XP as it comes, then raises the XP bar
+-- once for both, so one XP update holds two kills. Each kill is its own row.
+do
+  local function xpRows()
+    local out = {}
+    for _, chunk in ipairs((GoldForeverDB.events[ns2.Encode.day(GetServerTime())] or {}).xp or {}) do
+      for row in chunk:gmatch("[^;]+") do out[#out + 1] = row:match("^[^,]*,[^,]*,([^,]*,[^,]*,[^,]*)") end
+    end
+    return out
+  end
+  local function newRows(before)
+    local all = xpRows()
+    return table.concat(all, " ", before + 1, #all)
+  end
+  local bar, rested = { xpcur, xpmax }, GetXPExhaustion
+  xpmax = 49000; fire("PLAYER_XP_UPDATE")
+  wait(10)
+  fighting = true
+  local before = #xpRows()
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 120 experience.")
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Worker dies, you gain 130 experience.")
+  xpcur = xpcur + 250; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  seen("TWO KILLS IN ONE UPDATE ", newRows(before), "120,kill, 130,kill,")
+  -- With rested XP: each kill's share of the rested XP spent.
+  before = #xpRows()
+  GetXPExhaustion = function() return 2000 end; fire("UPDATE_EXHAUSTION")
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 240 experience. (+120 exp Rested bonus)")
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 240 experience. (+120 exp Rested bonus)")
+  GetXPExhaustion = function() return 1760 end
+  xpcur = xpcur + 480; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  seen("TWO RESTED KILLS IN ONE UPDATE ", newRows(before), "240,kill,120 240,kill,120")
+  -- A kill alone: one row, as before.
+  before = #xpRows()
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 120 experience.")
+  xpcur = xpcur + 120; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  seen("ONE KILL ", newRows(before), "120,kill,")
+  -- XP told that does not fit the gain: one row for the gain, as before.
+  before = #xpRows()
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 120 experience.")
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Worker dies, you gain 130 experience.")
+  xpcur = xpcur + 200; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  seen("KILLS NOT FITTING THE GAIN ", newRows(before), "200,kill,")
+  -- Messages the client keeps secret: still one kill each, the XP shared between them.
+  local SECRET = secretValue()
+  function issecretvalue(v) return rawequal(v, SECRET) end
+  before = #xpRows()
+  fire("CHAT_MSG_COMBAT_XP_GAIN", SECRET)
+  fire("CHAT_MSG_COMBAT_XP_GAIN", SECRET)
+  xpcur = xpcur + 251; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  issecretvalue = nil
+  seen("TWO SECRET KILLS IN ONE UPDATE ", newRows(before), "125,kill, 126,kill,")
+  fighting = false
+  wait(10)
+  xpcur, xpmax, GetXPExhaustion = bar[1], bar[2], rested
+  fire("PLAYER_XP_UPDATE")
+end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.
 local left = recorded()

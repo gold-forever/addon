@@ -148,9 +148,54 @@ local function kindAt(at, fighting)
 	return "other"
 end
 
+-- The kills the client told of since the last reading ("Kobold dies, you gain 120 experience."), each
+-- its XP, or false where the client kept the message secret. It tells each kill as it comes and raises
+-- the XP bar once for kills close together, so one reading can hold several.
+local kills = {}
+local KILLED = Encode.pattern(COMBATLOG_XPGAIN_FIRSTPERSON or "%s dies, you gain %d experience.")
+
+ns.on("CHAT_MSG_COMBAT_XP_GAIN", "xp", function(message)
+	if ns.secret(message) then
+		kills[#kills + 1] = false
+		return
+	end
+	local _, xp = string.match(message or "", KILLED)
+	if xp then
+		kills[#kills + 1] = tonumber(xp)
+	end
+end)
+
+-- A gain split into the kills told: each its own XP, those kept secret sharing what is left evenly. One
+-- share for the whole gain when there were fewer than two, or the XP told does not fit the gain.
+local function shares(gained, told)
+	if #told < 2 then
+		return { gained }
+	end
+	local known, secret = 0, 0
+	for _, xp in ipairs(told) do
+		if xp then
+			known = known + xp
+		else
+			secret = secret + 1
+		end
+	end
+	local left = gained - known
+	if left < 0 or (secret == 0 and left > 0) or (secret > 0 and left < secret) then
+		return { gained }
+	end
+	local out, sum = {}, 0
+	for i, xp in ipairs(told) do
+		out[i] = xp or math.floor(left / secret)
+		sum = sum + out[i]
+	end
+	-- What an even split leaves over goes to the last kill.
+	out[#out] = out[#out] + gained - sum
+	return out
+end
+
 local function xpChanged()
-	local me, now, before = ns.me(), read(), seen
-	seen = now
+	local me, now, before, told = ns.me(), read(), seen, kills
+	seen, kills = now, {}
 	if not me or not before or now.max == 0 then
 		return
 	end
@@ -160,14 +205,21 @@ local function xpChanged()
 		return
 	end
 	local at, fighting = GetTime(), UnitAffectingCombat("player")
-	local row = { t = ns.now(), xp = gained, rested = math.max(0, before.rested - now.rested), instance = instance(), level = UnitLevel("player") }
+	local row = { t = ns.now(), rested = math.max(0, before.rested - now.rested), instance = instance(), level = UnitLevel("player") }
 	row.map, row.x, row.y = ns.position() -- where it was earned (no coordinates in instances)
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
 		local kind = kindAt(at, fighting)
-		ns.record("xp", { t = row.t, char = me.ref, xp = row.xp, kind = kind, rested = row.rested > 0 and row.rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y })
-		for _, listener in ipairs(ns.xpListeners) do
-			ns.safely("xp listener", listener, row.xp, kind)
+		local split = kind == "kill" and shares(gained, told) or { gained }
+		local restedLeft = row.rested
+		for i, xp in ipairs(split) do
+			-- The rested XP spent, shared in proportion to each kill's XP.
+			local rested = i == #split and restedLeft or math.floor(row.rested * xp / gained)
+			restedLeft = restedLeft - rested
+			ns.record("xp", { t = row.t, char = me.ref, xp = xp, kind = kind, rested = rested > 0 and rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y })
+			for _, listener in ipairs(ns.xpListeners) do
+				ns.safely("xp listener", listener, xp, kind)
+			end
 		end
 	end)
 end
@@ -239,7 +291,7 @@ ns.module("Levelling", {
 			loggedIn()
 		end
 		ns.safely("xp", function()
-			seen = read()
+			seen, kills = read(), {}
 		end)
 		ns.safely("zone", zoneChanged)
 	end,
