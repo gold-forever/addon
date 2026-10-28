@@ -90,4 +90,24 @@ eq(table.concat(savedFields("local c = ns.db().client"), ", "), "ns.db at line 1
 eq(table.concat(savedFields("\nlocal realm = ns.me() and ns.me().realm"), ", "), "ns.me at line 2", "ns.me() read")
 eq(table.concat(savedFields("GoldForeverDB.errors = {}"), ", "), "GoldForeverDB at line 1", "the saved table by its global")
 eq(table.concat(savedFields('-- ns.db().errors and GoldForeverDB\nprint("ns.db() GoldForeverDB")'), ", "), "", "comments and strings are neither")
+-- /gf check: the popup gets the text of its chat lines, without the chat's colours and coin icons, so a
+-- copy pastes as plain text.
+do
+	local said, popup = {}, nil
+	function print(line) said[#said + 1] = line end
+	ns.listen("checked", "test", function(text) popup = text end)
+	ns.commands.check()
+	function print() end
+	local lines = {}
+	for line in (popup or ""):gmatch("[^\n]+") do
+		lines[#lines + 1] = line
+	end
+	eq(#lines, #said, "the popup has a line for each chat line")
+	eq(lines[1], "Gold Forever " .. ns.VERSION .. " · schema " .. ns.SCHEMA .. " · " .. GoldForeverDB.client.build, "its first line, plain")
+	eq((popup or "|"):find("|", 1, true), nil, "no colour or icon escapes")
+	eq((popup or ""):find("long stopped by the client for running too long", 1, true) ~= nil, true, "the stopped call, plain")
+end
+eq(ns.plainText("|cffe0ac45Gold Forever|r: 1|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t 23|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"),
+	"Gold Forever: 1g 23s", "coin icons read as g, s and c")
+eq(ns.plainText("5|A:coin-copper:0:0|a"), "5c", "coin atlases too")
 return checks()

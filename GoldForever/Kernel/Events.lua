@@ -32,6 +32,7 @@ end)
 --   "itemChosen"   an item clicked in the hub's Inventory, with its id: the auction panel chooses it in Post;
 --   "mailBatch"    the mail helper's batch started or ended, with what the panel beside the mailbox says
 --                  (MailHelper.lua);
+--   "checked"      /gf check ran, with its lines as plain text (Characters.lua): a box shows them to copy;
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
 --                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).
 -- Each listener runs on its own, in the order they listened, so one that fails leaves the rest running.

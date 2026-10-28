@@ -186,6 +186,11 @@ function ns.showCopy(title, text)
 	copy.box:HighlightText()
 end
 
+-- /gf check's lines, to paste into a bug report instead of a screenshot.
+ns.listen("checked", "check", function(text)
+	ns.showCopy("Gold Forever: check", text)
+end)
+
 -- For the smoke test.
 function ns.exportFrame()
 	return frame

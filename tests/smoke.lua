@@ -671,10 +671,21 @@ do
   local me, said, saved = ns.me(), {}, print
   local cost = me.flights.cost
   me.flights.cost = 12345
+  -- And in a box to copy from, the same lines as plain text.
+  local showCopy, title, copied = ns.showCopy, nil, nil
+  ns.showCopy = function(t, text)
+    title, copied = t, text
+    return showCopy(t, text)
+  end
   function print(...) said[#said + 1] = table.concat({...}, " ") end
   SlashCmdList.GOLDFOREVER("check")
   print = saved
+  ns.showCopy = showCopy
   me.flights.cost = cost
+  assert(not GoldForeverDB.errors["/gf check"] and not GoldForeverDB.errors["check"], "/gf check runs without a failure")
+  local plain = {}
+  for i, l in ipairs(said) do plain[i] = ns.plainText(l) end
+  assert(title == "Gold Forever: check" and copied == table.concat(plain, "\n"), "the copy box gets the chat lines: " .. tostring(copied))
   local line
   for _, l in ipairs(said) do if l:find("paid flights", 1, true) then line = l end end
   assert(line and line:find(ns.price.coins(12345), 1, true) and not line:find("12345c", 1, true), "flights line: " .. tostring(line))

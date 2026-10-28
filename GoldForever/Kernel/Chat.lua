@@ -9,6 +9,17 @@ function ns.say(text)
 	print(ns.PREFIX .. ": " .. text)
 end
 
+-- A chat line as plain text, for a box the player copies from: no colours, coin icons as g, s and c, no
+-- other icons.
+local COINS = { gold = "g", silver = "s", copper = "c" }
+function ns.plainText(text)
+	text = string.gsub(string.gsub(text, "|c%x%x%x%x%x%x%x%x", ""), "|r", "")
+	return (string.gsub(text, "|[TA]([^|]*)|[ta]", function(icon)
+		icon = string.lower(icon)
+		return COINS[string.match(icon, "(%a+)icon") or string.match(icon, "coin%-(%a+)")] or ""
+	end))
+end
+
 -- A message mid-screen with the raid-warning sound, and in chat: big drops, quest starters, rares.
 function ns.alert(text)
 	if RaidNotice_AddMessage and RaidWarningFrame then

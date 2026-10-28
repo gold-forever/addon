@@ -138,7 +138,7 @@ local function diagnose()
 	return db.diag
 end
 
-local function printCheck()
+local function checkLines(out)
 	local db = ns.db()
 	local diag = diagnose()
 	local names = {}
@@ -148,14 +148,14 @@ local function printCheck()
 		end
 	end
 	table.sort(names)
-	print(ns.PREFIX .. " " .. ns.VERSION .. " · schema " .. ns.SCHEMA .. " · " .. db.client.build)
+	table.insert(out, ns.PREFIX .. " " .. ns.VERSION .. " · schema " .. ns.SCHEMA .. " · " .. db.client.build)
 	for _, name in ipairs(names) do
-		print(string.format("  %s %s", diag[name] and "|cff56c98fyes|r" or "|cffe8615ano|r", name))
+		table.insert(out, string.format("  %s %s", diag[name] and "|cff56c98fyes|r" or "|cffe8615ano|r", name))
 	end
 	if diag.missingEvents then
-		print("  unknown events: " .. diag.missingEvents)
+		table.insert(out, "  unknown events: " .. diag.missingEvents)
 	end
-	print("  realm: " .. tostring(me and me.realm) .. " · region: " .. tostring(db.client.region))
+	table.insert(out, "  realm: " .. tostring(me and me.realm) .. " · region: " .. tostring(db.client.region))
 end
 
 local function count(stream)
@@ -174,10 +174,10 @@ local function size(t)
 	return n
 end
 
-local function printStatus()
+local function statusLines(out)
 	local db = ns.db()
 	local today = db.events[Encode.day(GetServerTime())] or {}
-	print(string.format(
+	table.insert(out, string.format(
 		ns.PREFIX .. ": %d characters · today %d loot, %d positions, %d sys · %d scans · catalogue %d items, %d recipes, %d vendor",
 		size(db.characters),
 		count(today.loot),
@@ -188,18 +188,18 @@ local function printStatus()
 		size(db.catalogue.recipes),
 		size(db.catalogue.vendor)
 	))
-	print(string.format("  today %d crafts, %d skill-ups, %d quests, %d money changes, %d flights",
+	table.insert(out, string.format("  today %d crafts, %d skill-ups, %d quests, %d money changes, %d flights",
 		count(today.craft), count(today.skill), count(today.quest), count(today.money), count(today.flight)))
 	if me and me.flights then
-		print(string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
+		table.insert(out, string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
 	end
 	for name, e in pairs(db.errors) do
-		print(string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
+		table.insert(out, string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
 	end
 	for name, e in pairs(db.stopped or {}) do
-		print(string.format("  |cffe8615a%s|r stopped by the client for running too long %d×", name, e.n))
+		table.insert(out, string.format("  |cffe8615a%s|r stopped by the client for running too long %d×", name, e.n))
 	end
-	print("  The file is written at logout and /reload.")
+	table.insert(out, "  The file is written at logout and /reload.")
 end
 
 -- Wiring -----------------------------------------------------------------------------------------
@@ -248,8 +248,15 @@ ns.on("PLAYER_LOGOUT", "core", function()
 	db.writtenAt = GetServerTime()
 end)
 
--- For bug reports: what the client offers, then what the addon has stored and any failures.
+-- For bug reports: what the client offers, then what the addon has stored and any failures. In chat, and
+-- as plain text to copy ("checked": the copy box shows it).
 ns.commands.check = function()
-	printCheck()
-	printStatus()
+	local out = {}
+	checkLines(out)
+	statusLines(out)
+	for i, line in ipairs(out) do
+		print(line)
+		out[i] = ns.plainText(line)
+	end
+	ns.emit("checked", table.concat(out, "\n"))
 end
