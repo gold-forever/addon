@@ -78,6 +78,7 @@ for n, guid in ipairs(guids) do
   db.characters[guid] = {
     name = "Bigsave" .. string.char(96 + n), realm = "Shadowsong", region = "EU", faction = "Horde", race = "Troll",
     class = "SHAMAN", level = 70 + 5 * n, money = rand(500000000), seen = NOW - 3600, ref = n,
+    guild = "Shadow Traders", -- as schema 1 kept it: the name alone
     bags = { total = 184, used = 160, items = stacks(160), t = NOW - 3600 },
     bank = { total = 588, used = 400, items = stacks(400), t = NOW - 3600 },
     mail = { items = "", used = 0, total = 0, money = 0, cod = 0, t = NOW - 3600 },

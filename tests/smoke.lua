@@ -199,7 +199,8 @@ function UnitClass() return "Priest", "PRIEST" end
 function UnitName() return "Testchar", "Testguild" end
 function UnitLevel(u) return u == "player" and 30 or (u == "npc" and 25 or 12) end
 function GetRealmName() return "Classic Beta PvE 2" end
-function GetGuildInfo() return "Vault" end
+function GetGuildInfo() return "Vault", "Officer", 1 end
+function IsInGuild() return true end
 function GetMoney() return money end
 function UnitExists(u) return u == "npc" or u == "target" end
 function UnitIsPlayer(u) return false end
@@ -750,6 +751,45 @@ for _, f in ipairs(tocFiles()) do
       assert(ns[name] ~= nil or NS_OPTIONAL[name], "ns." .. name .. " read at " .. f .. ":" .. line .. " is not set after login")
     end
   end
+end
+-- This character's guild, read at login: its name, the rank's name and index, and when seen.
+do
+  local g = ns.me().guild
+  assert(g and g.name == "Vault" and g.rank == "Officer" and g.rankIndex == 1 and g.seen == now and not g.none,
+    "the guild at login: " .. tostring(g and g.name) .. " " .. tostring(g and g.rank))
+  local kept = GetGuildInfo
+  -- The client knows the character is in a guild before it can name it: unknown until it says.
+  ns.me().guild = nil
+  GetGuildInfo = function() return nil end
+  fire("PLAYER_GUILD_UPDATE", "player")
+  assert(ns.me().guild == nil, "a guild not yet loaded is not recorded as none")
+  GetGuildInfo = function() return "New Dawn", "Member", 4 end
+  fire("GUILD_ROSTER_UPDATE")
+  assert(ns.me().guild.name == "New Dawn" and ns.me().guild.rankIndex == 4, "the guild once the roster has come")
+  -- Nothing is read in combat; a change then is read when the fight ends.
+  fire("PLAYER_REGEN_DISABLED")
+  GetGuildInfo = function() return "New Dawn", "Officer", 1 end
+  local reads = 0
+  local read = GetGuildInfo
+  GetGuildInfo = function(...) reads = reads + 1 return read(...) end
+  fire("PLAYER_GUILD_UPDATE", "player")
+  fire("GUILD_ROSTER_UPDATE")
+  assert(reads == 0 and ns.me().guild.rank == "Member", "no guild read in combat")
+  fire("PLAYER_REGEN_ENABLED")
+  assert(reads == 1 and ns.me().guild.rank == "Officer", "read once when the fight ends: " .. reads)
+  -- Leaving: no guild, recorded as such.
+  GetGuildInfo = function() return nil end
+  IsInGuild = function() return false end
+  wait(10)
+  fire("PLAYER_GUILD_UPDATE", "player")
+  g = ns.me().guild
+  assert(g.none == true and g.name == nil and g.seen == now, "no guild, recorded as none")
+  -- Another player's guild update is not this character's.
+  GetGuildInfo = function() return "Elsewhere", "Member", 4 end
+  fire("PLAYER_GUILD_UPDATE", "party1")
+  assert(ns.me().guild.none, "another unit's guild is not read")
+  GetGuildInfo, IsInGuild = kept, function() return true end
+  fire("PLAYER_GUILD_UPDATE", "player")
 end
 -- Gold paid with no window open (a delve's reward chests, a boss's personal loot) is "loot" on retail, where
 -- the client tells it with a gold toast, before or after the money moves; a rise no toast of its amount

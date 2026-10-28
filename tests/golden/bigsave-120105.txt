@@ -1,4 +1,4 @@
-- addon
+- addon schema
 + account.achievements.earned = "9201:2026-10-20"
 + account.achievements.points = 10
 + account.achievements.t = 1792835263
@@ -1614,7 +1614,7 @@
 - catalogue.tooltips: [261389] [261402] [261415] [261428] [261441] [261454] [261467] [261480] [261493] [261506] [261519] [261532] [261545] [261558] [261571] [261584]
 - catalogue.tooltips: [261597] [261610] [261623] [261636] [261649] [261662] [261675] [261688] [261701] [261714] [261727] [261740] [261753] [261766] [261779] [261792]
 - catalogue.tooltips: [261805] [261818] [261831] [261844] [261857] [261870] [261883] [261896] [261909] [261922] [261935] [261948] [261961] [261974] [261987] [262000]
-- characters["Player-3666-0000000A"]: class level money race seen
+- characters["Player-3666-0000000A"]: class guild level money race seen
 - characters["Player-3666-0000000A"].bags: items t total used
 + characters["Player-3666-0000000A"].bags.items = "2589*7"
 + characters["Player-3666-0000000A"].bags.t = 1792835263
@@ -1630,7 +1630,10 @@
 + characters["Player-3666-0000000A"].gameRules.t = 1792835263
 + characters["Player-3666-0000000A"].gear[16] = "249392"
 + characters["Player-3666-0000000A"].gear.t = 1792835263
-+ characters["Player-3666-0000000A"].guild = "Vault"
++ characters["Player-3666-0000000A"].guild.name = "Vault"
++ characters["Player-3666-0000000A"].guild.rank = "Officer"
++ characters["Player-3666-0000000A"].guild.rankIndex = 1
++ characters["Player-3666-0000000A"].guild.seen = 1792835263
 + characters["Player-3666-0000000A"].level = 30
 - characters["Player-3666-0000000A"].loc: map sub zone
 + characters["Player-3666-0000000A"].loc.map = 1429
@@ -1790,6 +1793,12 @@
 + characters["Player-3666-0000000A"].xp.max = 47400
 + characters["Player-3666-0000000A"].xp.rested = 0
 + characters["Player-3666-0000000A"].xp.t = 1792835263
+- characters["Player-3666-0000000B"]: guild
++ characters["Player-3666-0000000B"].guild.name = "Shadow Traders"
++ characters["Player-3666-0000000B"].guild.seen = 1792831663
+- characters["Player-3666-0000000C"]: guild
++ characters["Player-3666-0000000C"].guild.name = "Shadow Traders"
++ characters["Player-3666-0000000C"].guild.seen = 1792831663
 - client: build portal
 + client.build = "1.60.1.70450"
 + client.portal = "test"
@@ -1850,9 +1859,13 @@
 + fields.vendor = "buy,limited,t,qty"
 + fields.xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob"
 + fields.zone = "t,char,map,instance,instanceId"
++ migrated[1].from = 1
++ migrated[1].t = 1792835263
++ migrated[1].to = 2
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-neutral@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
++ schema = 2
 + settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2

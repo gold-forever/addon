@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Your characters' guild, with your rank.** Each of your characters records its guild's name, your rank
+  and when it was last seen, or that it is in no guild, so leaving one shows. It is read at login and when
+  the guild changes, never in combat. Only your own characters' guild is recorded.
 - **The auction house panel loads when you first open the auction house.** It is a second folder,
   GoldForever_Auctions, shown in the AddOns list as Gold Forever Auctions (load on demand); keep both
   folders. A character who never visits the auction house never loads it. Nothing else changes.

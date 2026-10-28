@@ -53,7 +53,25 @@ local function recordIdentity()
 	-- Design 002 checklist #8: the ruleset may be readable from the mega-realm's name. Keep the
 	-- raw name until we know; the upload page can ask when it cannot tell.
 	me.realm = GetRealmName()
-	me.guild = GetGuildInfo("player")
+end
+
+-- This character's guild: { name, rank, rankIndex, seen }, or { none = true, seen } in none. Left as it was
+-- while the client knows of a guild it cannot yet name (at login, until the guild has loaded).
+local function recordGuild()
+	if not me then
+		return
+	end
+	local name, rank, rankIndex = GetGuildInfo("player")
+	if name then
+		me.guild = { name = name, rank = rank, rankIndex = rankIndex, seen = GetServerTime() }
+	elseif IsInGuild and not IsInGuild() then
+		me.guild = { none = true, seen = GetServerTime() }
+	end
+end
+
+-- Never in combat: a change then is read once when the fight ends.
+local function guildChanged()
+	ns.afterCombat("core", recordGuild)
 end
 
 -- State that changes during play; kept current during play and at every save, so a file read
@@ -207,6 +225,7 @@ end
 ns.on("PLAYER_LOGIN", "core", function()
 	recordIdentity()
 	recordState()
+	guildChanged()
 	C_Timer.NewTicker(60, function()
 		ns.safely("core", recordState)
 	end)
@@ -233,11 +252,12 @@ ns.on("PLAYER_UPDATE_RESTING", "core", recordState)
 ns.on("PLAYER_MONEY", "core", recordState)
 ns.on("PLAYER_XP_UPDATE", "core", recordState)
 ns.on("PLAYER_LEAVING_WORLD", "core", recordState)
-ns.on("PLAYER_GUILD_UPDATE", "core", function()
-	if me then
-		me.guild = GetGuildInfo("player")
+ns.on("PLAYER_GUILD_UPDATE", "core", function(unit)
+	if unit == nil or unit == "player" then
+		guildChanged()
 	end
 end)
+ns.on("GUILD_ROSTER_UPDATE", "core", guildChanged)
 
 -- The last chance before the client writes the file; also fires on /reload. Collectors that
 -- save on logout subscribe to it too.

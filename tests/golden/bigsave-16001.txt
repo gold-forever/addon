@@ -1,4 +1,4 @@
-- addon
+- addon schema
 + account.achievements.earned = "9201:2026-10-20"
 + account.achievements.points = 10
 + account.achievements.t = 1792835263
@@ -67,7 +67,7 @@
 + catalogue.tooltips[2589] = "Item 2589\nBinds when picked up\nTwo-Hand\9Staff"
 + catalogue.tooltips[249392] = "Item 249392\nBinds when picked up\nTwo-Hand\9Staff"
 + catalogue.tooltips[276236] = "Item 276236\nBinds when picked up\nTwo-Hand\9Staff"
-- characters["Player-3666-0000000A"]: class level money race seen
+- characters["Player-3666-0000000A"]: class guild level money race seen
 - characters["Player-3666-0000000A"].bags: items t total used
 + characters["Player-3666-0000000A"].bags.items = "2589*7"
 + characters["Player-3666-0000000A"].bags.t = 1792835263
@@ -83,7 +83,10 @@
 + characters["Player-3666-0000000A"].gameRules.t = 1792835263
 + characters["Player-3666-0000000A"].gear[16] = "249392"
 + characters["Player-3666-0000000A"].gear.t = 1792835263
-+ characters["Player-3666-0000000A"].guild = "Vault"
++ characters["Player-3666-0000000A"].guild.name = "Vault"
++ characters["Player-3666-0000000A"].guild.rank = "Officer"
++ characters["Player-3666-0000000A"].guild.rankIndex = 1
++ characters["Player-3666-0000000A"].guild.seen = 1792835263
 + characters["Player-3666-0000000A"].legacy.available = 0
 + characters["Player-3666-0000000A"].legacy.config = 597063
 + characters["Player-3666-0000000A"].legacy.currency = 4225
@@ -267,6 +270,12 @@
 + characters["Player-3666-0000000A"].xp.max = 47400
 + characters["Player-3666-0000000A"].xp.rested = 0
 + characters["Player-3666-0000000A"].xp.t = 1792835263
+- characters["Player-3666-0000000B"]: guild
++ characters["Player-3666-0000000B"].guild.name = "Shadow Traders"
++ characters["Player-3666-0000000B"].guild.seen = 1792831663
+- characters["Player-3666-0000000C"]: guild
++ characters["Player-3666-0000000C"].guild.name = "Shadow Traders"
++ characters["Player-3666-0000000C"].guild.seen = 1792831663
 - client: build interface portal
 + client.build = "1.60.1.70450"
 + client.interface = 16001
@@ -333,8 +342,12 @@
 + mapArt.maps[1429] = "1002,668,256,256;768730+768731+768732+768733"
 + mapArt.rects[1429] = "1415,0.40000,0.60000,0.30000,0.50000"
 + mapArt.t = 1792835263
++ migrated[1].from = 1
++ migrated[1].t = 1792835263
++ migrated[1].to = 2
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-horde@1792820863 EU-Shadowsong-neutral@1792828063
++ schema = 2
 + settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2

@@ -7,7 +7,21 @@
 local _, ns = ...
 
 -- In order; schema 1 is the baseline and needs none.
-ns.MIGRATIONS = {}
+ns.MIGRATIONS = {
+	-- A character's guild was its name; it is now { name, rank, rankIndex, seen } or { none = true, seen }
+	-- (Characters.lua). A name kept is seen when the character was, its rank unknown; no name stays unknown.
+	{
+		from = 1,
+		to = 2,
+		run = function(save)
+			for _, c in pairs(save.characters or {}) do
+				if type(c.guild) == "string" then
+					c.guild = { name = c.guild, seen = c.seen }
+				end
+			end
+		end,
+	},
+}
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.
 -- Nil and why when it cannot be: a newer save, a gap in the chain, or a migration that raised.

@@ -84,7 +84,7 @@ local function build()
 	p1:SetPoint("TOPLEFT", 24, -92)
 	p1:SetPoint("BOTTOMRIGHT", -24, 60)
 	for i, t in ipairs({
-		{ "Your characters", "level, gold, professions and where they are, for your own pages on the site" },
+		{ "Your characters", "level, gold, guild, professions and where they are, for your own pages on the site" },
 		{ "Your money and loot", "every coin in and out, and what you looted and sold" },
 		{ "Auction scans", "prices when you open the auction house, never who sells" },
 	}) do

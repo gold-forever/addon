@@ -51,14 +51,24 @@ local function step(from, to)
 	}
 end
 
--- The baseline: today's schema, and no migration yet.
+-- Today's schema, one migration on from the baseline.
 GoldForeverDB = nil
 local started, shipped = load()
-eq(shipped.SCHEMA, 1, "schema 1 is the baseline")
-eq(#shipped.MIGRATIONS, 0, "no migration beyond the baseline")
-eq(GoldForeverDB.schema, 1, "a new save starts at the current schema")
+eq(shipped.SCHEMA, 2, "schema 2 is today's")
+eq(#shipped.MIGRATIONS, 1, "one migration beyond the baseline")
+eq(GoldForeverDB.schema, 2, "a new save starts at the current schema")
 eq(GoldForeverDB.migrated, nil, "with no migration recorded")
 eq(started, "init, enable", "and the modules that require the Store start")
+
+-- 1 to 2: a character's guild, a name until now, is the guild record, seen when the character was; its rank
+-- unknown. A character with none recorded stays unknown, not "no guild".
+local upgraded = shipped.upgrade({ schema = 1, characters = {
+	a = { name = "Ann", guild = "Vault", seen = 1761000000 },
+	b = { name = "Bo", seen = 1761000500 },
+} }, 2, shipped.MIGRATIONS, 1761148800)
+local a, b = upgraded.characters.a.guild, upgraded.characters.b.guild
+eq(a.name .. " " .. a.seen .. " " .. tostring(a.rank) .. " " .. tostring(a.rankIndex) .. " " .. tostring(a.none), "Vault 1761000000 nil nil nil", "a guild name becomes the guild record")
+eq(b, nil, "no guild name stays unknown")
 
 -- Two migrations in order, recorded with their time.
 GoldForeverDB = { schema = 1, events = {} }
