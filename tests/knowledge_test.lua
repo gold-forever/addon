@@ -149,6 +149,14 @@ catalogue.npcs[237400] = "Unknown,80,83,normal,Beast"
 target({ guid = "Creature-0-4620-0-12-237400-000C", name = "Bramblehide", level = 81, kind = "Beast" })
 eq(catalogue.npcs[237400], "Bramblehide,80,83,normal,Beast", "a saved \"Unknown\" row takes the real name")
 
+-- A client in another language: its own word for the placeholder (UNKNOWNOBJECT) is never a name either.
+UNKNOWNOBJECT = "Inconnu"
+target({ guid = "Creature-0-4620-0-12-237401-000C", name = "Inconnu", level = 80, kind = "Beast" })
+eq(catalogue.npcs[237401], ",80,80,normal,Beast", "the client's own placeholder is never written as a name")
+target({ guid = "Creature-0-4620-0-12-237401-000C", name = "Épineux", level = 80, kind = "Beast" })
+eq(catalogue.npcs[237401], "Épineux,80,80,normal,Beast", "the real name fills the row")
+UNKNOWNOBJECT = "Unknown"
+
 -- Retail: the client keeps a restricted unit's identity secret.
 function issecretvalue(v)
 	return rawequal(v, SECRET)

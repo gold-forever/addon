@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **No more "Unknown" NPCs.** A mob or NPC read before the client has loaded its name ("Unknown", or the
+  word for it in your client's language) is recorded without a name, and its next sighting names it. Your
+  save's NPCs already named that way lose the placeholder once. The rare alert shows "?" instead.
 - **"Announce dings on Discord" is gone from the game.** Each Discord webhook now picks its own
   characters at gold-forever.app/settings, so the switch in Settings → Discord, `/gf dings` and the
   Companion page's Discord dings card are removed. The choices your save held are cleared once.

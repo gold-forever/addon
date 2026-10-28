@@ -85,7 +85,8 @@ local function seeUnit(unit, how)
 		local _, _, _, at = where()
 		local level = UnitLevel(unit)
 		local kind = UnitClassification(unit) == "rareelite" and " elite" or ""
-		alert(string.format("Rare: %s (%s%s)%s", ns.readable(UnitName(unit)) or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
+		local name = ns.readable(UnitName(unit))
+		alert(string.format("Rare: %s (%s%s)%s", not Encode.noName(name) and name or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
 	end
 end
 
@@ -128,7 +129,7 @@ ns.on("VIGNETTE_MINIMAP_UPDATED", "rares", function(vignette, onMinimap)
 	announced[info.objectGUID] = true
 	record(npc, "minimap")
 	if settings().announce then
-		alert(string.format("Rare nearby: %s (on the minimap)", info.name or "?"))
+		alert(string.format("Rare nearby: %s (on the minimap)", not Encode.noName(info.name) and info.name or "?"))
 	end
 end)
 

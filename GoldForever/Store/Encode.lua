@@ -119,6 +119,13 @@ function Encode.name(text)
 	return (string.gsub(text, ",", "\226\128\154"))
 end
 
+-- Whether a name names nothing: empty, "?", or the client's placeholder for a name it has not loaded yet
+-- ("Unknown" in English; UNKNOWNOBJECT and UNKNOWN hold the client's own word for it). Such a name is
+-- never written, so a later real one fills the row.
+function Encode.noName(text)
+	return text == nil or text == "" or text == "?" or text == "Unknown" or text == UNKNOWNOBJECT or text == UNKNOWN
+end
+
 -- Free text in a catalogue row: no commas (columns), semicolons (rows) or line breaks; nil for none.
 function Encode.text(s)
 	if not s or s == "" then

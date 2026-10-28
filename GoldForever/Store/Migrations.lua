@@ -30,6 +30,21 @@ ns.MIGRATIONS = {
 			save.dings = nil
 		end,
 	},
+	-- An NPC named with the client's placeholder for a name not yet loaded (Encode.noName) loses that
+	-- name; the rest of its row stays, and a later sighting names it.
+	{
+		from = 3,
+		to = 4,
+		run = function(save)
+			local npcs = save.catalogue and save.catalogue.npcs or {}
+			for id, row in pairs(npcs) do
+				local name, rest = string.match(row, "^([^,]*)(.*)$")
+				if name ~= "" and ns.Encode.noName(name) then
+					npcs[id] = rest
+				end
+			end
+		end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

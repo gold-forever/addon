@@ -9,12 +9,11 @@ local Encode = ns.Encode
 
 local levels = {} -- npc ID -> { min, max } seen this session, to widen the level range
 
--- A name worth keeping: readable (newer clients keep a restricted unit's name secret), not empty,
--- and not the client's "Unknown" for a name it has not loaded yet. nil otherwise: such a name is
--- never written, so a later real one fills the row (the server reads "" and "Unknown" as no name).
+-- A name worth keeping: readable (newer clients keep a restricted unit's name secret) and naming
+-- something (Encode.noName); nil otherwise.
 local function realName(v)
 	v = ns.readable(v)
-	if type(v) ~= "string" or v == "" or v == "?" or v == "Unknown" or v == UNKNOWNOBJECT or v == UNKNOWN then
+	if type(v) ~= "string" or Encode.noName(v) then
 		return nil
 	end
 	return v
