@@ -2920,7 +2920,7 @@ assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"]
 GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
 GoldForeverDB.exportedAt = exportedBefore
 local after = ns2.test.sessionText and ns2.test.sessionText() or ""
-seen("AFTER RELOAD\n", tostring(after), "Farming 3:57\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 64c|r\nXP: 44400 · 673011/h · level 31 in 4m (~133 kills)\nBags: 8 free")
+seen("AFTER RELOAD\n", tostring(after), "Farming 4:00\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 47c|r\nXP: 44400 · 664615/h · level 31 in 4m (~133 kills)\nBags: 8 free")
 do
   local kinds = {}
   for _, sc in ipairs(GoldForeverDB.scans) do kinds[#kinds + 1] = sc.kind .. "@" .. tostring(sc.t) end
@@ -3340,6 +3340,82 @@ do
   wait(10)
   xpcur, xpmax, GetXPExhaustion = bar[1], bar[2], rested
   fire("PLAYER_XP_UPDATE")
+end
+-- Reputation gains (addon#54): each gain or loss a rep row, its faction, delta, standing after and map.
+do
+  local function repRows(before)
+    local out = {}
+    for _, chunk in ipairs((GoldForeverDB.events[ns2.Encode.day(GetServerTime())] or {}).rep or {}) do
+      for row in chunk:gmatch("[^;]+") do
+        out[#out + 1] = row:match("^[^,]*,[^,]*,(.*)$")
+      end
+    end
+    return table.concat(out, " ", before + 1, #out), #out
+  end
+  local reputation = C_Reputation
+  local header = { isHeader = true, factionID = 0, name = "Alliance" }
+  local factions = { header, { factionID = 72, name = "Stormwind", reaction = 5, currentStanding = 3200 },
+    { factionID = 2744, name = "Valeera Sanguinar", reaction = 8, currentStanding = 41248 },
+    { factionID = 2710, name = "Silvermoon Court", reaction = 5, currentStanding = 3000 } }
+  C_Reputation = { GetNumFactions = function() return #factions end, GetFactionDataByIndex = function(i) return factions[i] end,
+    IsMajorFaction = FLAVOUR == "retail" and function(id) return id == 2710 end or nil }
+  local function standing(i, value) factions[i].currentStanding = value; fire("UPDATE_FACTION") end
+  local _, before = repRows(0)
+  -- A gain the client told: its delta, the standing after.
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind increased by 250.")
+  standing(2, 3450)
+  wait(5)
+  local rows, n = repRows(before)
+  seen("REP GAIN ", rows, "72,250,3450,1429")
+  -- A loss.
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind decreased by 50.")
+  standing(2, 3400)
+  wait(5)
+  rows, before = repRows(n)
+  seen("REP LOSS ", rows, "72,-50,3400,1429")
+  -- A gain on a faction new to the list: the told delta, as there is no standing before.
+  factions[#factions + 1] = { factionID = 349, name = "Ravenholdt", reaction = 4, currentStanding = 25 }
+  fire("UPDATE_FACTION")
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Ravenholdt increased by 25.")
+  wait(5)
+  rows, n = repRows(before)
+  seen("REP NEW FACTION ", rows, "349,25,25,1429")
+  -- Two gains on one faction at once: each its own row, each with the standing after it.
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind increased by 10.")
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind increased by 15.")
+  standing(2, 3425)
+  wait(5)
+  rows, before = repRows(n)
+  seen("REP TWO GAINS ", rows, "72,10,3410,1429 72,15,3425,1429")
+  -- A gain the client kept secret (in combat, on retail): the change in standing.
+  local SECRET = secretValue()
+  issecretvalue = function(v) return rawequal(v, SECRET) end
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", SECRET)
+  standing(3, 41348)
+  wait(5)
+  issecretvalue = nil
+  rows, n = repRows(before)
+  seen("REP SECRET GAIN ", rows, "2744,100,41348,1429")
+  -- A renown faction's standing stays put on retail: the told delta, no standing; on WoW: Forever, which has
+  -- no renown, the faction's standing like any other's.
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Silvermoon Court increased by 75.")
+  fire("UPDATE_FACTION")
+  wait(5)
+  rows, before = repRows(n)
+  seen("REP RENOWN ", rows, "2710,75,3000,1429", "2710,75,,1429")
+  -- Retail tells a warband faction's change in its own words; WoW: Forever has no warband.
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Your Warband's reputation with Silvermoon Court increased by 40.")
+  fire("UPDATE_FACTION")
+  wait(5)
+  rows, n = repRows(before)
+  seen("REP WARBAND ", rows, "", "2710,40,,1429")
+  before = n
+  -- Nothing told and no standing changed: no row.
+  fire("UPDATE_FACTION")
+  wait(5)
+  rows = repRows(before)
+  seen("REP NO CHANGE ", rows, "")
+  C_Reputation = reputation
 end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.

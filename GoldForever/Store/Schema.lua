@@ -75,6 +75,9 @@ ns.FIELDS = {
 	zone = "t,char,map,instance,instanceId",
 	boss = "t,char,encounter,name,difficulty,size,success,map,instanceId",
 	instance = "name,type",
+	-- Reputation.lua. delta: the gain, or a loss below 0; standing: the faction's standing after it, empty
+	-- where it is not known (a renown faction's, which the client keeps at its base).
+	rep = "t,char,faction,delta,standing,map",
 }
 
 -- A declaration's column names in order and by name, read once.

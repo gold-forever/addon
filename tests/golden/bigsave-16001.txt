@@ -316,6 +316,7 @@
 + fields.questName = "name"
 + fields.rare = "t,char,npc,map,x,y,how"
 + fields.recipe = "skillLine,output,min,max,reagents,name"
++ fields.rep = "t,char,faction,delta,standing,map"
 + fields.sale = "t,char,item,qty,price,deposit,cut"
 + fields.scan = "item,unit,qty,auctions,left"
 + fields.scanItem = "item,class,subclass,stack"
