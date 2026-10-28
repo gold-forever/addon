@@ -170,6 +170,43 @@ ns.module("Ledger", {
 	end,
 })
 
+-- Retail pays some gold with no window open: a delve's reward chests and a boss's personal loot put it
+-- straight in the purse and tell it with a gold toast, before or after the money moves (the owner's delves,
+-- 2026-10-28: two to four such payments at each end, every one ctx empty). A rise with no other context
+-- waits a moment for a toast of its amount.
+local TOAST_SECONDS = 2
+local toasts = {} -- { amount, at }: gold told, its rise not seen yet
+local untold = {} -- money rows waiting for their toast
+
+-- Whether a toast told this amount a moment ago; it is used up, and toasts too old to match are dropped.
+local function told(amount)
+	for i = #toasts, 1, -1 do
+		if GetTime() - toasts[i].at > TOAST_SECONDS then
+			table.remove(toasts, i)
+		end
+	end
+	for i, toast in ipairs(toasts) do
+		if toast.amount == amount then
+			table.remove(toasts, i)
+			return true
+		end
+	end
+	return false
+end
+
+local function waitForToast(row)
+	untold[#untold + 1] = row
+	ns.after(TOAST_SECONDS, "money", function()
+		for i, waiting in ipairs(untold) do
+			if waiting == row then
+				table.remove(untold, i)
+				ns.record("money", row)
+				return
+			end
+		end
+	end)
+end
+
 ns.on("PLAYER_MONEY", "money", function()
 	local me = ns.me()
 	if not me or ns.tornDown() then
@@ -177,10 +214,35 @@ ns.on("PLAYER_MONEY", "money", function()
 	end
 	local now = GetMoney()
 	if money and now ~= money then
-		ns.record("money", { t = ns.now(), char = me.ref, delta = now - money, ctx = context() })
+		local row = { t = ns.now(), char = me.ref, delta = now - money, ctx = context() }
+		if row.ctx ~= "" or not ns.retail or row.delta < 0 then
+			ns.record("money", row)
+		elseif told(row.delta) then
+			row.ctx = "loot"
+			ns.record("money", row)
+		else
+			waitForToast(row)
+		end
 	end
 	money = now
 end)
+
+if ns.retail then
+	ns.on("SHOW_LOOT_TOAST", "money", function(kind, _, quantity)
+		if kind ~= "money" then
+			return
+		end
+		for i, row in ipairs(untold) do
+			if row.delta == quantity then
+				table.remove(untold, i)
+				row.ctx = "loot"
+				ns.record("money", row)
+				return
+			end
+		end
+		toasts[#toasts + 1] = { amount = quantity, at = GetTime() }
+	end)
+end
 
 ns.on("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "money", function(kind)
 	open[INTERACTION[kind] or tostring(kind)] = true

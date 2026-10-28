@@ -743,6 +743,45 @@ for _, f in ipairs(tocFiles()) do
     end
   end
 end
+-- Gold paid with no window open (a delve's reward chests, a boss's personal loot) is "loot" on retail, where
+-- the client tells it with a gold toast, before or after the money moves; a rise no toast of its amount
+-- tells, or told long before, stays empty. WoW: Forever records them all at once and empty, as before, and
+-- does not listen for the toast.
+do
+  local day = GoldForeverDB.events[ns.Encode.day(now)]
+  local rows = day and day.money
+  local function ctxOf(delta)
+    for _, r in ipairs(ns.Views.rows(GoldForeverDB, "money")) do if r.delta == tostring(delta) then return r.ctx or "" end end
+  end
+  local function toast(amount) fire("SHOW_LOOT_TOAST", "money", nil, amount, 0, 2, true, 0, false, false, false) end
+  local forever = INTERFACE < 110000
+  local listening = false
+  for _, f in ipairs(frames) do listening = listening or hears(f, "SHOW_LOOT_TOAST") end
+  assert(listening ~= forever, "the gold toast is heard on retail alone")
+  money = money + 56172; fireNow("PLAYER_MONEY")
+  assert(not forever or ctxOf(56172) == "", "WoW: Forever writes the row at once")
+  toast(56172)
+  wait(10)
+  toast(31385)
+  money = money + 31385; fire("PLAYER_MONEY")
+  wait(10)
+  toast(999)
+  money = money + 4321; fireNow("PLAYER_MONEY")
+  toast(998)
+  wait(10)
+  toast(777)
+  wait(10)
+  money = money + 777; fire("PLAYER_MONEY")
+  wait(10)
+  local reward = forever and "" or "loot"
+  assert(ctxOf(56172) == reward, "a toast after its gold: " .. tostring(ctxOf(56172)))
+  assert(ctxOf(31385) == reward, "a toast before its gold: " .. tostring(ctxOf(31385)))
+  assert(ctxOf(4321) == "", "gold no toast tells: " .. tostring(ctxOf(4321)))
+  assert(ctxOf(777) == "", "gold told long before: " .. tostring(ctxOf(777)))
+  money = money - 56172 - 31385 - 4321 - 777; fire("PLAYER_MONEY")
+  GoldForeverDB.events[ns.Encode.day(now)].money = rows
+  wait(10)
+end
 fire("LOOT_READY")
 fire("LOOT_READY")
 fire("LOOT_SLOT_CLEARED", 1)
