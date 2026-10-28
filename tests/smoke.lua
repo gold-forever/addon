@@ -1198,6 +1198,8 @@ do
   end
   seen("RECIPE PROBE ", table.concat(out, " / "), want(193216), want(193222))
 end
+-- The panel's tests put fakes in place of the posts the addon hooked; the posting check below puts them back.
+local hookedPost, hookedConfirm = C_AuctionHouse.PostCommodity, C_AuctionHouse.ConfirmPostCommodity
 -- The auction panel: docked to the auction house, the bags' Linen priced and posted as a commodity.
 do
   AuctionHouseFrame = widget()
@@ -1972,15 +1974,23 @@ for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620
 seen("MOB STARTER ", tostring(GameTooltip.lines[3]), "Drops a quest starter: Captain Sander's Treasure Map (25% of loots) · not done")
 -- Stop: the session ends and its clock stops.
 SlashCmdList.GOLDFOREVER("reset")
--- Posting: a commodity and its confirmation are one post; an item's unit price is its buyout per item.
+-- Posting: a commodity and its confirmation are one post; an item's unit price is its buyout per item. Each
+-- carries the deposit the client asks for it, where the client tells it (retail); Forever's are empty.
 C_Item.GetItemLink = function() return "|Hitem:2592::::::::30|h[Wool Cloth]|h" end
 C_Item.GetItemID = function() return 2592 end
+C_AuctionHouse.PostCommodity, C_AuctionHouse.ConfirmPostCommodity = hookedPost, hookedConfirm
+if FLAVOUR == "retail" then
+  C_AuctionHouse.CalculateCommodityDeposit = function(itemID, duration, quantity) return itemID == 2592 and duration == 2 and 3 * quantity end
+  C_AuctionHouse.CalculateItemDeposit = function(location, duration, quantity) return location and duration == 3 and 250 * quantity end
+end
 C_AuctionHouse.PostCommodity({}, 2, 20, 95)
 C_AuctionHouse.ConfirmPostCommodity({}, 2, 20, 95)
 C_AuctionHouse.PostItem({}, 3, 2, 0, 3000)
 C_AuctionHouse.PostItem({}, 3, 2, 0, 3000) -- a second alike auction, no confirmation: two posts
 local day = GoldForeverDB.events["2026-10-20"]
-seen("POSTS ", tostring(day.post and day.post[1]), "1792517415,1,2592,2,1500,3,;1792517415,1,2592,2,1500,3,")
+seen("POSTS ", tostring(day.post and day.post[1]),
+  "1792517415,1,2592,20,95,2,1,;1792517415,1,2592,2,1500,3,,;1792517415,1,2592,2,1500,3,,",
+  "1792517415,1,2592,20,95,2,1,60;1792517415,1,2592,2,1500,3,,500;1792517415,1,2592,2,1500,3,,500")
 -- A sale mail, read twice: one sale row, no buyer.
 function GetInboxNumItems() return 1 end
 function GetInboxInvoiceInfo(i) return "seller", "Wool Cloth, bundle", "SomeBuyer", 0, 1900, 120, 95, 0, 0, 20, false end

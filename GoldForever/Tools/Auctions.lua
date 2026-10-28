@@ -11,6 +11,15 @@ local DEDUPE_SECONDS = 5 -- a post and its confirmation are one auction
 
 local lastPost -- { key, at }
 
+-- The deposit the client takes for a post, where it can tell it (retail's C_AuctionHouse); else nil.
+local function deposit(location, duration, quantity, commodity)
+	local ah = C_AuctionHouse
+	if commodity then
+		return ah.CalculateCommodityDeposit and ah.CalculateCommodityDeposit(C_Item.GetItemID(location), duration, quantity) or nil
+	end
+	return ah.CalculateItemDeposit and ah.CalculateItemDeposit(location, duration, quantity) or nil
+end
+
 -- A post, or with [confirming] the confirmation the client asks for after a warning (the same
 -- auction, recorded once).
 local function post(location, duration, quantity, unit, commodity, confirming)
@@ -28,7 +37,8 @@ local function post(location, duration, quantity, unit, commodity, confirming)
 		return -- the confirmation of the post just recorded
 	end
 	lastPost = { key = signature, at = GetTime() }
-	ns.append("post", Encode.row(ns.now(), me.ref, key, quantity or 1, unit, duration, commodity))
+	ns.append("post", Encode.row(ns.now(), me.ref, key, quantity or 1, unit, duration, commodity,
+		deposit(location, duration, quantity or 1, commodity)))
 	ns.catalogueItem(key)
 end
 

@@ -61,7 +61,9 @@ ns.FIELDS = {
 	-- Rares.lua.
 	rare = "t,char,npc,map,x,y,how",
 	-- Auctions.lua.
-	post = "t,char,item,qty,unit,duration,commodity",
+	-- deposit: what the client took for the post, in copper; empty where it cannot tell it (Forever) and in
+	-- rows written before it. The money row it moves is kept as before (ctx "auction").
+	post = "t,char,item,qty,unit,duration,commodity,deposit",
 	sale = "t,char,item,qty,price,deposit,cut",
 	-- price: the total paid in copper; commodity: 1 for a commodity, empty for an item.
 	ahBuy = "t,char,item,qty,price,commodity",
