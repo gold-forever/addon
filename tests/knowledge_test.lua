@@ -50,6 +50,7 @@ local ns = {
 		table.insert(handlers[event], fn)
 	end,
 	module = function() end,
+	lootListeners = {},
 }
 function ns.secret(v)
 	return issecretvalue ~= nil and issecretvalue(v) or false
@@ -107,6 +108,16 @@ assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
 local function target(t)
 	unit = t
 	fire("PLAYER_TARGET_CHANGED")
+end
+-- A loot window's rows as the loot collector hands them to its listeners, one a source.
+local function loot(...)
+	local rows = {}
+	for i, guid in ipairs({ ... }) do
+		rows[i] = { src = "", coin = 0, items = {}, guid = guid }
+	end
+	for _, listener in ipairs(ns.lootListeners) do
+		listener(0, {}, rows)
+	end
 end
 local function tooltip(data)
 	for _, h in ipairs(tooltipHooks) do
@@ -186,6 +197,43 @@ eq(catalogue.objects[2000], "Argentleaf", "a later readable tooltip names the ob
 fire("UNIT_SPELLCAST_SENT", "player", "Argentleaf", "Cast-4", 2366)
 fire("LOOT_READY")
 eq(catalogue.objects[2000], "Argentleaf", "a readable cast names it as before")
+-- A mob looted in a fight: its GUID and name secret on every unit while it lasts, and its corpse no
+-- unit to look at once it ends. The loot window's GUID names it then, by the client's unit tooltip.
+local hyperlinks = {} -- "unit:<GUID>" -> the tooltip's first line
+local asked = 0
+C_TooltipInfo = { GetHyperlink = function(link)
+	asked = asked + 1
+	local line = hyperlinks[link]
+	if ns.inCombat() then
+		line = line and SECRET
+	end
+	return line and { lines = { { leftText = line } } } or nil
+end }
+hyperlinks["unit:Creature-0-4620-0-12-5003-000A"] = "Ironjaw Basilisk"
+fire("PLAYER_REGEN_DISABLED")
+target({ guid = SECRET, name = SECRET, level = 74 })
+loot("Creature-0-4620-0-12-5003-000A")
+eq(catalogue.npcs[5003], nil, "a mob looted in a fight is not named while it lasts")
+unit = {}
+fire("PLAYER_REGEN_ENABLED")
+eq(catalogue.npcs[5003], "Ironjaw Basilisk,,,,", "a mob looted in a fight is named once it ends")
+-- A row without a name keeps its levels; a named one is not asked again.
+catalogue.npcs[5004] = ",75,76,normal,Beast"
+hyperlinks["unit:Creature-0-4620-0-12-5004-000B"] = "Rimeclaw"
+asked = 0
+loot("Creature-0-4620-0-12-5003-000B", "Creature-0-4620-0-12-5004-000B", "GameObject-0-4620-0-12-2001-000C", "?")
+eq(catalogue.npcs[5004], "Rimeclaw,75,76,normal,Beast", "a looted row without a name takes one out of combat")
+eq(asked, 1, "only the unnamed mob is looked up")
+-- A tooltip with no readable name yet (the client has not loaded it): asked again at the next loot.
+loot("Creature-0-4620-0-12-5005-000A")
+eq(catalogue.npcs[5005], nil, "no name: nothing written")
+hyperlinks["unit:Creature-0-4620-0-12-5005-000A"] = "Unknown"
+loot("Creature-0-4620-0-12-5003-000C")
+eq(catalogue.npcs[5005], nil, "\"Unknown\": nothing written")
+hyperlinks["unit:Creature-0-4620-0-12-5005-000A"] = "Frostbitten Yeti"
+loot("Creature-0-4620-0-12-5003-000D")
+eq(catalogue.npcs[5005], "Frostbitten Yeti,,,,", "a mob whose name loads later is named at the next loot")
+C_TooltipInfo = nil
 issecretvalue = nil
 
 return checks()

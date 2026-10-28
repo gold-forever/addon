@@ -116,6 +116,39 @@ function seeAgain()
 end
 ns.on("LOOT_READY", "npcs", seeAgain)
 
+-- A mob looted in a fight was secret on every unit while it lasted, and once it ends its corpse is
+-- seldom one; the loot window gave its GUID, and the client's unit tooltip for it names the mob.
+local unnamed = {} -- npc ID -> a GUID looted from it, until a readable name is found
+
+local function nameLooted()
+	local npcs = ns.db().catalogue.npcs
+	for id, guid in pairs(unnamed) do
+		local data = C_TooltipInfo.GetHyperlink("unit:" .. guid)
+		local name = data and data.lines and data.lines[1] and realName(data.lines[1].leftText)
+		if name then
+			unnamed[id] = nil
+			local stored = fields(npcs[id])
+			npcs[id] = Encode.row(Encode.name(name), stored[2], stored[3], stored[4], stored[5])
+		end
+	end
+end
+
+table.insert(ns.lootListeners, function(_, _, rows)
+	if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then
+		return -- a client without unit tooltips by GUID
+	end
+	local npcs = ns.db().catalogue.npcs
+	for _, row in ipairs(rows) do
+		local id = Encode.npcId(row.guid)
+		if id and not realName(fields(npcs[id])[1]) then
+			unnamed[id] = row.guid
+		end
+	end
+	if next(unnamed) then
+		ns.afterCombat("npc names", nameLooted)
+	end
+end)
+
 -- Objects: a gathering or opening cast names its target; the loot window that follows gives the
 -- object's ID.
 local cast -- { name, at }
