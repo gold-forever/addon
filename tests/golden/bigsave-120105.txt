@@ -16,6 +16,7 @@
 + api.namespaces.C_Item = "GetItemInfo GetItemInfoInstant GetItemMaxStackSizeByID"
 + api.namespaces.C_MajorFactions = "GetMajorFactionData GetRenownLevels GetRenownRewardsForLevel"
 + api.namespaces.C_Map = "GetBestMapForUnit GetMapArtLayerTextures GetMapArtLayers GetMapInfo GetMapRectOnMap GetPlayerMapPosition"
++ api.namespaces.C_MerchantFrame = "SellAllJunkItems"
 + api.namespaces.C_Reputation = "GetFactionDataByIndex GetNumFactions"
 + api.namespaces.C_Spell = "GetSpellDescription GetSpellName"
 + api.namespaces.C_TaxiMap = "GetAllTaxiNodes"

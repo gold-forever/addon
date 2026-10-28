@@ -2,7 +2,8 @@
 -- 2026-10-23-data-opportunities.md in the web repository). One `merchantTrade` row per trade at an
 -- open merchant:
 --   sell     an item from the bags, as the client sells it on a right-click and as sell-junk addons do
---            (C_Container.UseContainerItem): the item's vendor price times the stack
+--            (C_Container.UseContainerItem), or each junk stack the game's Sell All Junk sells
+--            (C_MerchantFrame.SellAllJunkItems): the item's vendor price times the stack
 --   buy      BuyMerchantItem: the merchant's price for the quantity; empty for items paid in currency
 --            or other items
 --   buyback  BuybackItem: the buyback price
@@ -44,11 +45,7 @@ end
 
 -- Selling: the hook runs right after the call, while the item still sits in its slot, locked until the
 -- server answers. An item without a vendor price is not sold, so nothing is written.
-local function sold(bag, slot)
-	if not atMerchant or not C_Container.GetContainerItemInfo then
-		return
-	end
-	local info = C_Container.GetContainerItemInfo(bag, slot)
+local function sell(info)
 	if not info or info.hasNoValue then
 		return
 	end
@@ -60,6 +57,28 @@ local function sold(bag, slot)
 	end
 	local count = info.stackCount or 1
 	record("sell", Encode.itemKey(link) or tostring(id), count, sellPrice * count)
+end
+
+local function sold(bag, slot)
+	if not atMerchant or not C_Container.GetContainerItemInfo then
+		return
+	end
+	sell(C_Container.GetContainerItemInfo(bag, slot))
+end
+
+-- Sell All Junk sells every poor-quality stack in the bags in one call, without UseContainerItem.
+local function soldJunk()
+	if not atMerchant or not C_Container.GetContainerItemInfo then
+		return
+	end
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and info.quality == 0 then
+				sell(info)
+			end
+		end
+	end
 end
 
 local function bought(index, quantity)
@@ -97,6 +116,11 @@ end
 if C_Container and C_Container.UseContainerItem then
 	hooksecurefunc(C_Container, "UseContainerItem", function(bag, slot)
 		ns.safely("trade", sold, bag, slot)
+	end)
+end
+if C_MerchantFrame and C_MerchantFrame.SellAllJunkItems then
+	hooksecurefunc(C_MerchantFrame, "SellAllJunkItems", function()
+		ns.safely("trade", soldJunk)
 	end)
 end
 if BuyMerchantItem then

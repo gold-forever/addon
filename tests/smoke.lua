@@ -289,6 +289,10 @@ function BuybackItem() end
 function GetMerchantItemLink() return "|Hitem:159::::::::30|h[Water]|h" end
 function GetBuybackItemInfo(i) return "Linen", 0, 91, 7 end
 function GetBuybackItemLink(i) return "|Hitem:2589::::::::30|h[Linen]|h" end
+-- Retail's Sell All Junk button calls C_MerchantFrame.SellAllJunkItems; the junk advisor's turn below
+-- swaps C_MerchantFrame, so the hooked table is kept here. Forever's session has no such call.
+local sellAllJunk = FLAVOUR == "retail" and { SellAllJunkItems = function() end } or nil
+C_MerchantFrame = sellAllJunk
 function GetNumSkillLines() return 0 end
 function GetSkillLineInfo() end
 
@@ -1837,6 +1841,34 @@ do
   local _, n = trades:gsub(",sell,", "")
   assert(n == 1, "a sale away from the merchant: " .. trades)
   print("TRADES " .. trades)
+end
+-- Retail's Sell All Junk: three junk stacks, a sell row each, and no money of its own (the money stream
+-- has the merchant's coin once, from PLAYER_MONEY).
+if sellAllJunk then
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo }
+  local bag = {
+    { itemID = 3300, quality = 0, stackCount = 2, hyperlink = "|Hitem:3300::::::::30|h[Rabbit's Foot]|h" },
+    { itemID = 2589, quality = 1, stackCount = 7, hyperlink = "|Hitem:2589::::::::30|h[Linen]|h" },
+    { itemID = 4865, quality = 0, stackCount = 1, hyperlink = "|Hitem:4865::::::::30|h[Ruined Pelt]|h" },
+    { itemID = 4867, quality = 0, stackCount = 3, hyperlink = "|Hitem:4867::::::::30|h[Broken Scorpid Leg]|h" },
+  }
+  C_Container.GetContainerNumSlots = function(b) return b == 0 and #bag or 0 end
+  C_Container.GetContainerItemInfo = function(b, s) return b == 0 and bag[s] or nil end
+  C_MerchantFrame = sellAllJunk
+  local moneyRows = #ns.Views.rows(GoldForeverDB, "money")
+  fire("MERCHANT_SHOW") wait(1)
+  C_MerchantFrame.SellAllJunkItems()
+  fire("MERCHANT_CLOSED")
+  local trades = table.concat(day.merchantTrade or {}, ";")
+  for _, sale in ipairs({ ",sell,3300,2,26,", ",sell,4865,1,13,", ",sell,4867,3,39," }) do
+    assert(trades:find(sale, 1, true), "Sell All Junk " .. sale .. ": " .. trades)
+  end
+  local _, n = trades:gsub(",sell,", "")
+  assert(n == 4, "three junk sales beside the one before: " .. trades)
+  local rows = ns.Views.rows(GoldForeverDB, "money")
+  assert(#rows == moneyRows, "no money row from the sale itself: " .. (#rows - moneyRows))
+  C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo = keep[1], keep[2]
+  C_MerchantFrame = nil
 end
 -- D7: purchases count only when the server confirms them; a cancel when the server confirms it.
 fire("AUCTION_HOUSE_SHOW")
