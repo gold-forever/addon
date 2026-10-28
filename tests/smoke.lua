@@ -289,6 +289,14 @@ C_AuctionHouse = { PostItem = function() end, PostCommodity = function() end, Co
 C_Container.UseContainerItem = function() end
 function BuyMerchantItem() end
 function BuybackItem() end
+-- A quest's reward window: the reward the player clicks Complete Quest with (hooked), the quest it shows,
+-- and its items, fixed ("reward") and to choose from ("choice"). The shown quest is set before a turn-in.
+function GetQuestReward(choice) end
+function GetQuestID() return questShown and questShown.id or 0 end
+function GetNumQuestRewards() return questShown and #questShown.reward or 0 end
+function GetNumQuestChoices() return questShown and #questShown.choice or 0 end
+function GetQuestItemLink(kind, i) local it = questShown and questShown[kind][i]; return it and it.link end
+function GetQuestItemInfo(kind, i) local it = questShown and questShown[kind][i]; if it then return "Reward", 0, it.n, 2, true, it.id end end
 function GetMerchantItemLink() return "|Hitem:159::::::::30|h[Water]|h" end
 function GetBuybackItemInfo(i) return "Linen", 0, 91, 7 end
 function GetBuybackItemLink(i) return "|Hitem:2589::::::::30|h[Linen]|h" end
@@ -883,9 +891,20 @@ end
 C_QuestLog = { GetTitleForQuestID = function() return "The Fargodeep Mine, part 2" end }
 fire("QUEST_ACCEPTED", 62)
 wait(10)
+-- Turned in with a fixed reward (two potions) and the second of two choices: both are its items.
+questShown = { id = 62, reward = { { link = "|Hitem:118::::::::30|h[Potion]|h", n = 2 } },
+  choice = { { link = "|Hitem:2575::::::::30|h[Shirt]|h", n = 1 }, { link = "|Hitem:6070::::::::30|h[Boots]|h", n = 1 } } }
+GetQuestReward(2)
+questShown = nil
 fire("QUEST_TURNED_IN", 62, 450, 75)
 money = money + 75; fire("PLAYER_MONEY")
 wait(10)
+do
+  local rows = {}
+  for _, r in ipairs(ns.Views.rows(GoldForeverDB, "quest")) do if r.quest == "62" then rows[#rows + 1] = r.kind .. ":" .. tostring(r.items) end end
+  table.sort(rows)
+  seen("QUEST ITEMS ", table.concat(rows, " "), "accept:nil done:118*2+6070*1", "accept:nil done:118*2+6070*1")
+end
 -- Money changed at the auction house has "auction" in ctx once, whichever events said the window opened.
 do
   local day = GoldForeverDB.events[ns.Encode.day(now)]

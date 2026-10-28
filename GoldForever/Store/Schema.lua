@@ -39,7 +39,9 @@ ns.FIELDS = {
 	-- Ledger.lua.
 	craft = "t,char,recipe,item,qty,skill,map",
 	money = "t,char,delta,ctx",
-	quest = "t,char,quest,kind,xp,money,map",
+	-- items: a turn-in's reward items, the fixed ones and the one chosen (Encode.items), as the reward window
+	-- showed them; empty for an accept, a quest turned in without the window, and rows written before it.
+	quest = "t,char,quest,kind,xp,money,map,items",
 	questName = "name",
 	flight = "t,char,from,to,cost,map",
 	taxiNode = "name",

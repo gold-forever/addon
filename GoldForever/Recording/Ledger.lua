@@ -281,13 +281,42 @@ local function questName(id)
 	end
 end
 
-local function quest(id, kind, xp, reward)
+local function quest(id, kind, xp, reward, items)
 	local me = ns.me()
 	if not me or not id then
 		return
 	end
-	ns.record("quest", { t = ns.now(), char = me.ref, quest = id, kind = kind, xp = xp, money = reward, map = C_Map.GetBestMapForUnit("player") })
+	ns.record("quest", { t = ns.now(), char = me.ref, quest = id, kind = kind, xp = xp, money = reward, map = C_Map.GetBestMapForUnit("player"), items = items })
 	questName(id)
+end
+
+-- The items of the reward window's quest, fixed and the one chosen, as Encode.items; read when the player
+-- clicks Complete Quest, since the window may close before the turn-in's event.
+local rewarded -- { quest, items }
+
+local function addReward(counts, kind, i)
+	local _, _, n, _, _, id = GetQuestItemInfo(kind, i)
+	local key = Encode.itemKey(GetQuestItemLink(kind, i)) or (id and tostring(id))
+	if key then
+		counts[key] = (counts[key] or 0) + (tonumber(n) or 1)
+	end
+end
+
+local function chosen(choice)
+	local counts = {}
+	for i = 1, GetNumQuestRewards() do
+		addReward(counts, "reward", i)
+	end
+	if choice and choice >= 1 and choice <= GetNumQuestChoices() then
+		addReward(counts, "choice", choice)
+	end
+	rewarded = { quest = GetQuestID(), items = next(counts) and Encode.items(counts) or nil }
+end
+
+if GetQuestReward and GetQuestID and GetQuestItemInfo and GetQuestItemLink then
+	hooksecurefunc("GetQuestReward", function(choice)
+		ns.safely("quest", chosen, choice)
+	end)
 end
 
 ns.on("QUEST_ACCEPTED", "quest", function(a, b)
@@ -297,7 +326,9 @@ end)
 -- ns.questAt: GetTime() of the last quest turned in, for money and XP from it (Levelling.lua).
 ns.on("QUEST_TURNED_IN", "quest", function(id, xp, reward)
 	ns.questAt = GetTime()
-	quest(id, "done", xp, reward)
+	local items = rewarded and rewarded.quest == id and rewarded.items or nil
+	rewarded = nil
+	quest(id, "done", xp, reward, items)
 end)
 
 -- Flights ----------------------------------------------------------------------------------------
