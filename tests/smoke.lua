@@ -446,6 +446,136 @@ for _, f in ipairs(tocFiles()) do
   assert(loadfile(dir .. "/" .. f))("GoldForever", ns)
 end
 tablesHaveHeights(ns)
+-- A follower dungeon on the save, frame by frame (addon#53: "script ran too long" in its first boss
+-- fight): trash with its kills and loot, then a boss fight of 140 s with what the client sends through
+-- one (achievement criteria by the dozen, nameplates, the mouseover and its tooltip, target changes).
+-- A frame runs the timers due when it begins; one queued meanwhile waits for the next frame. The
+-- worst frame is named with its slowest call and the client's achievement calls in it.
+function dungeonReplay(rows)
+  local db = GoldForeverDB
+  -- The retail achievement API, sized as the save's: its statistics by category, and three times its
+  -- earned achievements over 250 categories (the client lists more than a character has earned).
+  local statCategories, statsIn = {}, {}
+  for id, row in pairs(db.catalogue.statistics or {}) do
+    local group = tostring(row):match(",(.*)$") or "?"
+    if not statsIn[group] then statsIn[group] = {} statCategories[#statCategories + 1] = group end
+    table.insert(statsIn[group], id)
+  end
+  local earned = db.account and db.account.achievements and db.account.achievements.earned or ""
+  local _, commas = earned:gsub(",", "")
+  local achievementsEach = math.max(1, math.floor((commas + 1) * 3 / 250))
+  local apiCalls, inFight = 0, 0
+  local cat = {}
+  for i = 1, #statCategories do cat[i] = 1000 + i end
+  local achievementCategories = {}
+  for i = 1, 250 do achievementCategories[i] = 5000 + i end
+  GetStatisticsCategoryList = function() return cat end
+  GetCategoryList = function() return achievementCategories end
+  GetCategoryInfo = function(c) return "Category " .. c end
+  -- Each call takes the client a moment (20 µs here; retail's statistics are slower), so the frame
+  -- budget bounds the calls a frame as it does on the client.
+  local function clientCall()
+    apiCalls = apiCalls + 1
+    local t = os.clock() + 0.00002
+    while os.clock() < t do end
+  end
+  GetCategoryNumAchievements = function(c)
+    clientCall()
+    if c >= 5000 then return achievementsEach end
+    return #statsIn[statCategories[c - 1000]]
+  end
+  GetAchievementInfo = function(c, i)
+    clientCall()
+    if c >= 5000 then return c * 1000 + i, "Achievement", 10, i % 3 == 0, 10, 28, 26, "", 0, 236, "" end
+    return statsIn[statCategories[c - 1000]][i], "Statistic", 0, false
+  end
+  GetStatistic = function() clientCall() return "12" end
+  -- Frames of 1/60 s; each timed whole, and each call in it.
+  local worst = { ms = 0 }
+  local totalApi = 0
+  local serverStart, clockStart = now, clock
+  local frameN, slowest = 0, { ms = 0 }
+  local function timedCall(fn, ...)
+    local t = os.clock()
+    fn(...)
+    local ms = (os.clock() - t) * 1000
+    if ms > slowest.ms then local info = debug.getinfo(fn, "S") slowest = { ms = ms, where = info.short_src:match("[^/]+$") .. ":" .. info.linedefined } end
+  end
+  local function frame(events)
+    frameN = frameN + 1
+    local t = os.clock()
+    for _, e in ipairs(events or {}) do
+      for _, f in ipairs(frames) do if hears(f, e[1], e[2]) then timedCall(f.handler, f, e[1], unpack(e, 2)) end end
+      if e.hook then timedCall(e.hook, GameTooltip, e.data) end
+    end
+    table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end)
+    local due = {}
+    while timers[1] and timers[1].at <= clock do due[#due + 1] = table.remove(timers, 1) end
+    for _, tm in ipairs(due) do timedCall(tm.fn) end
+    local ms = (os.clock() - t) * 1000
+    if ms > worst.ms then worst = { ms = ms, at = frameN, call = slowest, api = apiCalls } end
+    totalApi, apiCalls, slowest = totalApi + apiCalls, 0, { ms = 0 }
+    clock = clock + 1 / 60
+    now = serverStart + math.floor(clock - clockStart)
+  end
+  -- `seconds` of frames, `perSecond` the events of each second's first frame.
+  local function play(seconds, perSecond)
+    for s = 1, seconds do
+      for _, tk in ipairs(liveTickers) do if not tk.cancelled and s % tk.every == 0 then timedCall(tk.fn, tk) end end
+      frame(perSecond and perSecond(s) or nil)
+      for _ = 2, 60 do frame() end
+    end
+  end
+  local boss = "Creature-0-3767-2805-1234-210156-0000ABCDEF"
+  local unitGUID = UnitGUID
+  UnitGUID = function(u) if u:find("^nameplate") or u == "mouseover" or u == "target" then return boss end return unitGUID(u) end
+  inDungeon = true
+  frame({ { "ZONE_CHANGED_NEW_AREA" }, { "PLAYER_ENTERING_WORLD", false, false } })
+  play(40)
+  -- Trash: 30 kills of 1080 XP, a corpse looted every third.
+  xpcur, xpmax = xpcur or 2570, 3000000
+  for k = 1, 30 do
+    fighting = true
+    play(1, function() return { { "PLAYER_REGEN_DISABLED" }, { "NAME_PLATE_UNIT_ADDED", "nameplate1" }, { "CRITERIA_UPDATE" } } end)
+    xpcur = xpcur + 1080
+    play(4, function() return { { "CHAT_MSG_COMBAT_XP_GAIN", "Trash dies, you gain 1080 experience." }, { "PLAYER_XP_UPDATE", "player" }, { "CRITERIA_UPDATE" } } end)
+    fighting = false
+    play(1, function() return { { "PLAYER_REGEN_ENABLED" } } end)
+    if k % 3 == 0 then
+      slots = { { kind = 2, qty = 3751, sources = { boss, 3751 } } }
+      play(1, function() return { { "LOOT_READY" }, { "LOOT_SLOT_CLEARED", 1 }, { "LOOT_CLOSED" } } end)
+      money = money + 3751
+      play(2, function() return { { "PLAYER_MONEY" }, { "BAG_UPDATE_DELAYED" } } end)
+    end
+  end
+  -- The boss: 140 s in combat.
+  fighting = true
+  local unitHooks = unitTooltipHooks
+  local beforeFight = totalApi
+  play(140, function(s)
+    local events = { { "CRITERIA_UPDATE" }, { "CRITERIA_UPDATE" }, { "UPDATE_MOUSEOVER_UNIT" }, { "PLAYER_TARGET_CHANGED" },
+      { "NAME_PLATE_UNIT_ADDED", "nameplate" .. (s % 5 + 1) }, { "UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-" .. s, 585 } }
+    if s == 1 then table.insert(events, 1, { "ENCOUNTER_START", 3057, "Derelict Duo", 205, 5 }) table.insert(events, 2, { "PLAYER_REGEN_DISABLED" }) end
+    for _, h in ipairs(unitHooks) do events[#events + 1] = { hook = h, data = { guid = boss, lines = { { leftText = "Boss" } } } } end
+    return events
+  end)
+  inFight = totalApi - beforeFight
+  fighting = false
+  xpcur = xpcur + 3244
+  play(10, function(s)
+    if s == 1 then return { { "ENCOUNTER_END", 3057, "Derelict Duo", 205, 5, 1 }, { "PLAYER_REGEN_ENABLED" }, { "CHAT_MSG_COMBAT_XP_GAIN", "Boss dies, you gain 3244 experience." },
+      { "PLAYER_XP_UPDATE", "player" }, { "ACHIEVEMENT_EARNED", 1 } } end
+  end)
+  inDungeon, UnitGUID = false, unitGUID
+  local budget = tonumber(os.getenv("GF_SMOKE_FRAME_MS")) or 100
+  if worst.ms > budget then failedSteps = (failedSteps or 0) + 1 end
+  rows[#rows + 1] = string.format("%-34s %8.1f ms  frame %d of %d: slowest call %.1f ms at %s, %d achievement calls%s", "dungeon: the worst frame", worst.ms,
+    worst.at or 0, frameN, worst.call and worst.call.ms or 0, worst.call and worst.call.where or "?", worst.api or 0, worst.ms > budget and "  FAILED: over the budget" or "")
+  -- Statistics and achievements change in a fight but wait for its end: a read is thousands of the
+  -- client's calls, and retail stopped one before (af416de).
+  if inFight > 0 then failedSteps = (failedSteps or 0) + 1 end
+  rows[#rows + 1] = string.format("%-34s %8d calls%s", "dungeon: achievement calls in the boss fight", inFight, inFight > 0 and "  FAILED: none in combat" or "")
+end
 if SAVE then
   local rows = {}
   local function timed(label, fn)
@@ -490,6 +620,17 @@ if SAVE then
   end)
   C_Timer.After = after
   rows[#rows + 1] = string.format("%-34s %8.1f ms  (%s)", "slowest single step after login", worst, worstAt)
+  -- GF_SMOKE_DUNGEON=1: the dungeon instead of the tour, a run of its own so the tour's save stays as it was.
+  if os.getenv("GF_SMOKE_DUNGEON") then
+    dungeonReplay(rows)
+    for _, r in ipairs(rows) do io.write(r, "\n") end
+    local errors = {}
+    for name, e in pairs(GoldForeverDB.errors or {}) do
+      if (e.t or 0) >= now - 3600 then errors[#errors + 1] = name .. ": " .. tostring(e.msg) end
+    end
+    io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
+    exit((#errors == 0 and not failedSteps) and 0 or 1)
+  end
   -- What the addon holds once logged in, before any window or the auction house is opened.
   collectgarbage("collect")
   local loginKB = collectgarbage("count")

@@ -104,6 +104,26 @@ function ns.recordErrorsIn(saved, stopped)
 	countStopped = stopped
 end
 
+-- An error no ns.safely caught reaches the game's error handler, which shows it but cannot be copied in
+-- combat (addon#53: "script ran too long" in a boss fight, in neither the errors nor the stopped count).
+-- One raised in a file of the addon's is recorded too, under that file, for /gf check; every error still
+-- goes on to the handler before, so other addons' errors are shown as they were. A handler set after
+-- this one (an error-catching addon) takes over, and has them itself.
+local ADDON_FILE = "GoldForever[%w_]*[/\\][%w_/\\]+%.lua"
+if geterrorhandler and seterrorhandler then
+	local shown = geterrorhandler()
+	seterrorhandler(function(err, ...)
+		local file = type(err) == "string" and string.match(err, ADDON_FILE)
+		if file then
+			local stack = debugstack and debugstack(2, 12, 0) or nil
+			pcall(ns.fail, string.gsub(string.gsub(file, "\\", "/"), "^GoldForever/", ""), err, stack)
+		end
+		if shown then
+			return shown(err, ...)
+		end
+	end)
+end
+
 function ns.after(seconds, name, fn)
 	C_Timer.After(seconds, function()
 		ns.safely(name, fn)

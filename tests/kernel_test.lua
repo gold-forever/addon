@@ -14,6 +14,12 @@ function CreateFrame()
 end
 function print() end
 SlashCmdList = {}
+-- The game's error handler, which an error no ns.safely caught reaches (addon#53: "script ran too long"
+-- in a boss fight, in neither the error table nor the stopped count).
+local shown = {}
+local errorHandler = function(err) shown[#shown + 1] = err end
+function geterrorhandler() return errorHandler end
+function seterrorhandler(fn) errorHandler = fn end
 local ns = {}
 for _, file in ipairs({ "Encode.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
@@ -40,6 +46,23 @@ time = 103
 ns.safely("next", function() end)
 eq(GoldForeverDB.stopped.long.n, 2, "and again each time")
 eq(GoldForeverDB.stopped.next, nil, "a call that returns is not")
+
+-- An error of the addon's that reached the game's handler is recorded under its file, before the save is
+-- loaded too; another addon's is not. The game shows both, as before.
+errorHandler("Interface/AddOns/GoldForever/Recording/Achievements.lua:34: script ran too long")
+time = 104
+errorHandler("Interface/AddOns/OtherAddon/Core.lua:9: attempt to index a nil value")
+local e = GoldForeverDB.errors["Recording/Achievements.lua"]
+eq(e and e.msg, "Interface/AddOns/GoldForever/Recording/Achievements.lua:34: script ran too long", "the addon's error, by its file")
+eq(e and e.n, 1, "once")
+local others = 0
+for _, recorded in pairs(GoldForeverDB.errors) do
+	others = others + ((recorded.msg or ""):find("OtherAddon", 1, true) and 1 or 0)
+end
+eq(others, 0, "another addon's error is not recorded")
+eq(#shown, 2, "the game's handler still shows both")
+errorHandler("Interface/AddOns/GoldForever_Auctions/Surfaces/AuctionPanel.lua:120: script ran too long")
+eq(GoldForeverDB.errors["GoldForever_Auctions/Surfaces/AuctionPanel.lua"] ~= nil, true, "the auction addon's too")
 
 -- A listener added while its event is dispatched (an addon loaded on demand at AUCTION_HOUSE_SHOW
 -- subscribing to it) first hears the next one, so what the event started is not done twice.

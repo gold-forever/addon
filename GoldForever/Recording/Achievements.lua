@@ -14,10 +14,17 @@ end
 -- A retail client has thousands of achievements and statistics, more than one frame may spend on: the
 -- reads go entry by entry on the frame budget (a category a frame was too much for retail's largest
 -- ones: "script ran too long", manual test run 001), then finish with `done`. count(category) is its
--- number of entries; perEntry(category, index, group) reads one, group the category's name.
+-- number of entries; perEntry(category, index, group) reads one, group the category's name. A fight
+-- pauses it until its end (addon#53: a boss fight sends criteria updates all along, and each read was
+-- thousands of the client's calls in combat).
 local function eachEntry(name, categories, count, perEntry, done)
 	local c, i, n, group = 1, 0, nil, nil
-	local function step()
+	local step
+	step = function()
+		if ns.inCombat() then
+			ns.afterCombat(name, step)
+			return
+		end
 		local started, work = ns.frameStart(), 0
 		while categories[c] ~= nil do
 			local category = categories[c]

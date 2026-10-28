@@ -216,8 +216,9 @@ function compareGolden(label, name, dump) {
   console.error([...show('golden', extra(was, now)), ...show('now   ', extra(now, was))].join('\n'))
   return false
 }
+// A run without a golden copy (name null) is judged by its exit alone.
 function smoke(label, name, env) {
-  const dump = path.join(scratch, `${name}.txt`)
+  const dump = path.join(scratch, `${name ?? 'unsaved'}.txt`)
   const run = spawnSync('luajit', ['tests/smoke.lua', 'GoldForever'], { cwd: repo, env: { ...process.env, ...env, GF_SMOKE_DUMP: dump }, maxBuffer: 64 << 20 })
   const out = String(run.stdout)
   if (run.status !== 0) {
@@ -227,7 +228,7 @@ function smoke(label, name, env) {
     failed++
     return false
   }
-  if (!compareGolden(label, name, dump)) {
+  if (name && !compareGolden(label, name, dump)) {
     failed++
     return false
   }
@@ -246,6 +247,9 @@ if (spawnSync('luajit', ['-v']).status === 0) {
     const out = smoke(`big save on ${interfaceNumber}`, `bigsave-${interfaceNumber}`, { GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_SAVE: save, GF_SMOKE_GUID: 'Player-3666-0000000A' })
     if (out) console.log(`✓ big save on ${interfaceNumber}: ${out.match(/MEMORY .*/)?.[0] ?? ''}`)
   }
+  // A follower dungeon on the big save, frame by frame (addon#53).
+  const dungeon = smoke('dungeon on the big save', null, { GF_SMOKE_INTERFACE: '120105', GF_SMOKE_SAVE: save, GF_SMOKE_GUID: 'Player-3666-0000000A', GF_SMOKE_DUNGEON: '1' })
+  if (dungeon) console.log(`✓ dungeon on the big save: ${dungeon.match(/dungeon: the worst frame +(.*)/)?.[1] ?? ''}`)
 } else if (process.env.CI) {
   // CI installs luajit first: without it the gate would pass on the unit tests alone.
   console.error('✗ no luajit: the smoke runs cannot run')
