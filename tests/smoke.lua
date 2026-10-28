@@ -67,9 +67,11 @@ local FLAVOUR = (tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001) >= 11
 local MIXIN = { AddLine = true, SetOwner = true, SelectBrowseResult = true, GetRecipeInfo = true, GetBagAndSlot = true, AddDoubleLine = true,
   SetBackdrop = true, SetBackdropColor = true, SetBackdropBorderColor = true }
 local CHILDREN = { CraftingPage = true, SchematicForm = true }
--- What a widget was given by SetText and SetHeight (or SetSize), kept beside it: the addon keeps child
--- frames under keys such as `text` itself.
-local texts, heights = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+-- What a widget was given by SetText, SetHeight and SetWidth (or SetSize), kept beside it: the addon keeps
+-- child frames under keys such as `text` itself.
+local texts, heights, widths = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+-- The width `w` was last given, or nil.
+function width(w) return widths[w] end
 -- And its anchors since the last ClearAllPoints, each as SetPoint was called.
 local points = setmetatable({}, { __mode = "k" })
 -- The anchor of `w` on `point` ({ point, ... } as given to SetPoint), or nil.
@@ -94,7 +96,8 @@ local function widget(t)
       return function(self, text) texts[self] = type(text) == "number" and tostring(text) or text end
     end
     if k == "SetHeight" and METHODS[FLAVOUR][k] then return function(self, h) heights[self] = h end end
-    if k == "SetSize" and METHODS[FLAVOUR][k] then return function(self, _, h) heights[self] = h end end
+    if k == "SetWidth" and METHODS[FLAVOUR][k] then return function(self, w) widths[self] = w end end
+    if k == "SetSize" and METHODS[FLAVOUR][k] then return function(self, w, h) widths[self], heights[self] = w, h end end
     if k == "SetPoint" and METHODS[FLAVOUR][k] then
       return function(self, ...)
         points[self] = points[self] or {}
@@ -3010,11 +3013,14 @@ do
   assert(Session.get() == nil, "toggle off: kill XP starts no session")
   local hud = ns2.test.hud()
   assert(hud and hud:IsShown() and hud.start:IsShown() and not hud.stop:IsShown(), "the HUD shows Start")
+  -- The idle line has the room up to Start for its text; a running session's rates keep their own widths.
+  assert(width(hud.gold) == width(hud) - 94 - 12 - 72, "the idle line reaches Start: " .. tostring(width(hud.gold)))
   local kinds = sysKinds()
   kinds = kinds == "" and "" or kinds .. " "
   hud.start:GetScript("OnClick")(hud.start)
   assert(sysKinds() == kinds .. "session_start", "Start records session_start: " .. sysKinds())
   assert(Session.get() and not Session.idle() and hud.stop:IsShown() and not hud.start:IsShown(), "running, the HUD shows Stop")
+  assert(width(hud.gold) == 140 and width(hud.xp) == 110 and width(hud.kills) == 92, "running, the rates keep their widths")
   loot(20)
   clock = clock + 16 * 60; now = now + 16 * 60
   assert(not Session.idle(), "toggle off: 15 minutes without loot does not end it")
@@ -3063,6 +3069,7 @@ do
   Session.stop()
   Session.setAutomatic(true)
   assert(not hud.start:IsShown() and not hud.stop:IsShown(), "toggle on: no Start or Stop on the line")
+  assert(width(hud.gold) == width(hud) - 94 - 12, "toggle on: the idle line reaches the right edge")
   loot(10)
   assert(Session.get() and not Session.idle() and not Session.get().byHand, "toggle on: loot starts a session")
   before = stops()

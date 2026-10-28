@@ -17,6 +17,7 @@ local startTicker -- set below; the HUD's OnShow starts it
 
 local W, H = 540, 34
 local BY_HAND = 72 -- the line's extra width for Start and Stop
+local GOLD_X, GOLD_W = 94, 140 -- where the gold rate starts, and its width while a session runs
 
 -- Start and Stop on the line, when sessions do not start and stop by themselves; the line widens for them.
 local function byHand(hud)
@@ -27,6 +28,9 @@ local function byHand(hud)
 	hud:SetWidth(manual and W + BY_HAND or W)
 	hud.ding:ClearAllPoints()
 	hud.ding:SetPoint("RIGHT", manual and -(12 + BY_HAND) or -12, 0)
+	-- With no session the gold field holds the line's only text: it takes the room up to the right edge
+	-- (or Start), which ding leaves empty then.
+	hud.gold:SetWidth(Session.get() and GOLD_W or W - 12 - GOLD_X)
 	hud.details.auto:Set(not manual)
 end
 
@@ -200,7 +204,7 @@ build = function()
 		return t
 	end
 	hud.time = field(28, 64, "sm", "muted")
-	hud.gold = field(94, 140, "md")
+	hud.gold = field(GOLD_X, GOLD_W, "md")
 	hud.xp = field(236, 110, "md")
 	hud.kills = field(348, 92, "md")
 	hud.ding = UI.Text(hit, "", { size = "sm", tone = "muted", align = "RIGHT" })
