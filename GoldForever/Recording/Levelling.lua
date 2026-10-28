@@ -149,8 +149,8 @@ local function kindAt(at, fighting)
 end
 
 -- The kills the client told of since the last reading ("Kobold dies, you gain 120 experience."), each
--- its XP, or false where the client kept the message secret. It tells each kill as it comes and raises
--- the XP bar once for kills close together, so one reading can hold several.
+-- its XP and mob, or false where the client kept the message secret. It tells each kill as it comes and
+-- raises the XP bar once for kills close together, so one reading can hold several.
 local kills = {}
 local KILLED = Encode.pattern(COMBATLOG_XPGAIN_FIRSTPERSON or "%s dies, you gain %d experience.")
 
@@ -159,37 +159,39 @@ ns.on("CHAT_MSG_COMBAT_XP_GAIN", "xp", function(message)
 		kills[#kills + 1] = false
 		return
 	end
-	local _, xp = string.match(message or "", KILLED)
+	local mob, xp = string.match(message or "", KILLED)
 	if xp then
-		kills[#kills + 1] = tonumber(xp)
+		kills[#kills + 1] = { xp = tonumber(xp), mob = Encode.text(mob) }
 	end
 end)
 
--- A gain split into the kills told: each its own XP, those kept secret sharing what is left evenly. One
--- share for the whole gain when there were fewer than two, or the XP told does not fit the gain.
+-- A gain split into the kills told: each its own XP and mob, those kept secret sharing what is left
+-- evenly, unnamed. One share for the whole gain when fewer than two were told (named for a kill told
+-- with that very XP), or the XP told does not fit the gain.
 local function shares(gained, told)
 	if #told < 2 then
-		return { gained }
+		local kill = told[1]
+		return { { xp = gained, mob = kill and kill.xp == gained and kill.mob or nil } }
 	end
 	local known, secret = 0, 0
-	for _, xp in ipairs(told) do
-		if xp then
-			known = known + xp
+	for _, kill in ipairs(told) do
+		if kill then
+			known = known + kill.xp
 		else
 			secret = secret + 1
 		end
 	end
 	local left = gained - known
 	if left < 0 or (secret == 0 and left > 0) or (secret > 0 and left < secret) then
-		return { gained }
+		return { { xp = gained } }
 	end
 	local out, sum = {}, 0
-	for i, xp in ipairs(told) do
-		out[i] = xp or math.floor(left / secret)
-		sum = sum + out[i]
+	for i, kill in ipairs(told) do
+		out[i] = kill or { xp = math.floor(left / secret) }
+		sum = sum + out[i].xp
 	end
 	-- What an even split leaves over goes to the last kill.
-	out[#out] = out[#out] + gained - sum
+	out[#out].xp = out[#out].xp + gained - sum
 	return out
 end
 
@@ -210,13 +212,14 @@ local function xpChanged()
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
 		local kind = kindAt(at, fighting)
-		local split = kind == "kill" and shares(gained, told) or { gained }
+		local split = kind == "kill" and shares(gained, told) or { { xp = gained } }
 		local restedLeft = row.rested
-		for i, xp in ipairs(split) do
+		for i, share in ipairs(split) do
+			local xp = share.xp
 			-- The rested XP spent, shared in proportion to each kill's XP.
 			local rested = i == #split and restedLeft or math.floor(row.rested * xp / gained)
 			restedLeft = restedLeft - rested
-			ns.record("xp", { t = row.t, char = me.ref, xp = xp, kind = kind, rested = rested > 0 and rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y })
+			ns.record("xp", { t = row.t, char = me.ref, xp = xp, kind = kind, rested = rested > 0 and rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y, mob = share.mob })
 			for _, listener in ipairs(ns.xpListeners) do
 				ns.safely("xp listener", listener, xp, kind)
 			end

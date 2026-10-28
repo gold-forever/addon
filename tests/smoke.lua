@@ -2313,7 +2313,7 @@ fire("PLAYER_XP_UPDATE") fire("PLAYER_LEVEL_UP", 31)
 wait(15)
 seen("MAP RECT ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.rects[1429]), "1415,0.40000,0.60000,0.30000,0.50000", "nil")
 seen("MAP ART ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.maps[1411]) .. " | maps " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.build), "1002,668,256,256;768730+768731+768732+768733 | maps 1.60.1.70450", "nil | maps nil")
-seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679;1792517415,1,400,other,,,1429,30,412,679;1792517535,1,300,kill,100,party,1429,30,412,679;1792517535,1,100,boss,100,party,1429,30,412,679;1792517535,1,500,quest,,,1429,30,412,679;1792517535,1,55,explore,,,1429,30,412,679;1792517535,1,42745,other,,,1429,30,412,679;1792517535,1,700,kill,,,1429,30,412,679")
+seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679,;1792517415,1,400,other,,,1429,30,412,679,;1792517535,1,300,kill,100,party,1429,30,412,679,;1792517535,1,100,boss,100,party,1429,30,412,679,;1792517535,1,500,quest,,,1429,30,412,679,;1792517535,1,55,explore,,,1429,30,412,679,;1792517535,1,42745,other,,,1429,30,412,679,;1792517535,1,700,kill,,,1429,30,412,679,")
 seen("LEVEL ROWS ", tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG), "1792517410,1,login,30,86400,600,79098,1429,412,679;1792517535,1,up,31,90000,0,79450,1429,412,679 | chat listens true")
 seen("ZONE ROWS ", tostring(lday.zone and lday.zone[1]), "1792517410,1,1429,,;1792517535,1,1446,,;1792517535,1,1429,,;1792517535,1,1429,party,389", "1792517410,1,1429,,;1792517535,1,1429,party,389")
 seen("BOSS ROWS ", tostring(lday.boss and lday.boss[1]) .. " | instance " .. tostring(GoldForeverDB.catalogue.instances and GoldForeverDB.catalogue.instances[389]), "1792517535,1,1443,Taragaman the Hungerer,1,5,,1429,389;1792517535,1,1443,Taragaman the Hungerer,1,5,1,1429,389 | instance Ragefire Chasm,party")
@@ -3077,12 +3077,14 @@ do
   assert(stops() == before + 1, "Stop with the toggle on records session_stop")
 end
 -- Kills close together (addon#50): the client tells each kill's XP as it comes, then raises the XP bar
--- once for both, so one XP update holds two kills. Each kill is its own row.
+-- once for both, so one XP update holds two kills. Each kill is its own row, naming its mob (addon#52).
 do
   local function xpRows()
     local out = {}
     for _, chunk in ipairs((GoldForeverDB.events[ns2.Encode.day(GetServerTime())] or {}).xp or {}) do
-      for row in chunk:gmatch("[^;]+") do out[#out + 1] = row:match("^[^,]*,[^,]*,([^,]*,[^,]*,[^,]*)") end
+      for row in chunk:gmatch("[^;]+") do
+        out[#out + 1] = row:match("^[^,]*,[^,]*,([^,]*,[^,]*,[^,]*)") .. "|" .. row:match("([^,]*)$")
+      end
     end
     return out
   end
@@ -3099,7 +3101,7 @@ do
   fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Worker dies, you gain 130 experience.")
   xpcur = xpcur + 250; fire("PLAYER_XP_UPDATE")
   wait(5)
-  seen("TWO KILLS IN ONE UPDATE ", newRows(before), "120,kill, 130,kill,")
+  seen("TWO KILLS IN ONE UPDATE ", newRows(before), "120,kill,|Kobold Vermin 130,kill,|Kobold Worker")
   -- With rested XP: each kill's share of the rested XP spent.
   before = #xpRows()
   GetXPExhaustion = function() return 2000 end; fire("UPDATE_EXHAUSTION")
@@ -3108,20 +3110,26 @@ do
   GetXPExhaustion = function() return 1760 end
   xpcur = xpcur + 480; fire("PLAYER_XP_UPDATE")
   wait(5)
-  seen("TWO RESTED KILLS IN ONE UPDATE ", newRows(before), "240,kill,120 240,kill,120")
+  seen("TWO RESTED KILLS IN ONE UPDATE ", newRows(before), "240,kill,120|Kobold Vermin 240,kill,120|Kobold Vermin")
   -- A kill alone: one row, as before.
   before = #xpRows()
   fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 120 experience.")
   xpcur = xpcur + 120; fire("PLAYER_XP_UPDATE")
   wait(5)
-  seen("ONE KILL ", newRows(before), "120,kill,")
+  seen("ONE KILL ", newRows(before), "120,kill,|Kobold Vermin")
+  -- A kill alone whose XP is not the gain: the gain is not its alone, so no mob.
+  before = #xpRows()
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 120 experience.")
+  xpcur = xpcur + 170; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  seen("ONE KILL NOT FITTING THE GAIN ", newRows(before), "170,kill,|")
   -- XP told that does not fit the gain: one row for the gain, as before.
   before = #xpRows()
   fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Vermin dies, you gain 120 experience.")
   fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold Worker dies, you gain 130 experience.")
   xpcur = xpcur + 200; fire("PLAYER_XP_UPDATE")
   wait(5)
-  seen("KILLS NOT FITTING THE GAIN ", newRows(before), "200,kill,")
+  seen("KILLS NOT FITTING THE GAIN ", newRows(before), "200,kill,|")
   -- Messages the client keeps secret: still one kill each, the XP shared between them.
   local SECRET = secretValue()
   function issecretvalue(v) return rawequal(v, SECRET) end
@@ -3131,7 +3139,23 @@ do
   xpcur = xpcur + 251; fire("PLAYER_XP_UPDATE")
   wait(5)
   issecretvalue = nil
-  seen("TWO SECRET KILLS IN ONE UPDATE ", newRows(before), "125,kill, 126,kill,")
+  seen("TWO SECRET KILLS IN ONE UPDATE ", newRows(before), "125,kill,| 126,kill,|")
+  -- A secret message beside a told kill: the told one is named, the secret one is not.
+  issecretvalue = function(v) return rawequal(v, SECRET) end
+  before = #xpRows()
+  fire("CHAT_MSG_COMBAT_XP_GAIN", "Defias Thug, the Bold dies, you gain 120 experience.")
+  fire("CHAT_MSG_COMBAT_XP_GAIN", SECRET)
+  xpcur = xpcur + 250; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  issecretvalue = nil
+  seen("A TOLD AND A SECRET KILL ", newRows(before), "120,kill,|Defias Thug\226\128\154 the Bold 130,kill,|")
+  -- XP that is no kill's (out of combat, no kill told): no mob.
+  fighting = false
+  wait(10)
+  before = #xpRows()
+  xpcur = xpcur + 50; fire("PLAYER_XP_UPDATE")
+  wait(5)
+  seen("XP NOT FROM A KILL ", newRows(before), "50,other,|")
   fighting = false
   wait(10)
   xpcur, xpmax, GetXPExhaustion = bar[1], bar[2], rested

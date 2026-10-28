@@ -69,7 +69,9 @@ ns.FIELDS = {
 	auctionEnd = "t,char,item,qty,unit,outcome",
 	-- Levelling.lua.
 	level = "t,char,kind,level,played,levelPlayed,money,map,x,y",
-	xp = "t,char,xp,kind,rested,instance,map,level,x,y",
+	-- mob: the name of the mob a kill's XP came from, as its combat XP message told it (Encode.text);
+	-- empty for XP that is no kill's, a kill the client kept secret, and rows written before it.
+	xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob",
 	zone = "t,char,map,instance,instanceId",
 	boss = "t,char,encounter,name,difficulty,size,success,map,instanceId",
 	instance = "name,type",
