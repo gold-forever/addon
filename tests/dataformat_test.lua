@@ -10,7 +10,7 @@ eq(D.GLOBAL, "GoldForever_Prices", "dataGlobal")
 
 -- format.go's field constants, fieldVersion to fieldUnits.
 local GO = { version = "v", at = "at", shared = "shared", lists = "lists", profiles = "profiles", id = "id",
-	edited = "edited", string = "string", dings = "dings", webhook = "webhook", characters = "characters", markets = "markets",
+	edited = "edited", string = "string", markets = "markets",
 	units = "units" }
 local function sorted(t, values)
 	local out = {}
@@ -24,10 +24,9 @@ eq(sorted(D.field, true), sorted(GO, true), "the fields")
 
 -- Data.lua's tables, as format.go draws them, and an item's figures in their order.
 local TABLES = {
-	prices = "at dings markets shared v",
+	prices = "at markets shared v",
 	shared = "at lists profiles",
 	entry = "edited id string",
-	dings = "at characters webhook",
 	item = "units",
 }
 eq(sorted(D.tables), sorted(TABLES), "the tables")

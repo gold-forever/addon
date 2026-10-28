@@ -17,7 +17,9 @@ local DataFormat = {}
 ns.DataFormat = DataFormat
 
 -- Data.lua's v. It changes when an addon reading the file as it is would misread it: a field removed,
--- renamed or given another type, or the item figures reordered. A new optional field does not.
+-- renamed or given another type, or the item figures reordered. A new optional field does not, nor does
+-- dropping one the addon reads as absent: dings was dropped at v = 1, and a file that still has it is read
+-- as any other, that field ignored.
 DataFormat.VERSION = 1
 
 -- The addon the companion writes, and the one global its Data.lua sets.
@@ -34,9 +36,6 @@ local F = {
 	id = "id",
 	edited = "edited",
 	string = "string",
-	dings = "dings",
-	webhook = "webhook",
-	characters = "characters",
 	markets = "markets",
 	units = "units",
 }
@@ -53,7 +52,6 @@ DataFormat.tables = {
 		[F.version] = "integer",
 		[F.at] = "integer: when the server built the prices",
 		[F.shared] = "shared, optional: the account's shared lists and sale profiles",
-		[F.dings] = "dings, optional: the site's side of the retired dings switch, which the addon does not read",
 		[F.markets] = "{ [market key] = { [item id] = item } }",
 	},
 	shared = {
@@ -65,11 +63,6 @@ DataFormat.tables = {
 		[F.id] = "string",
 		[F.edited] = "integer",
 		[F.string] = "string",
-	},
-	dings = {
-		[F.at] = "integer: when it last changed",
-		[F.webhook] = "boolean: whether a level-up webhook is connected",
-		[F.characters] = "{ [guid] = boolean }",
 	},
 	item = {
 		[F.units] = "integer, optional: the units on sale, there only for a thin price",
