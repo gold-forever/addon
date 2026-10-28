@@ -1,4 +1,4 @@
--- Gold Forever: the hub's Settings page: General, Modules, Discord and Looks.
+-- Gold Forever: the hub's Settings page: General, Modules and Looks.
 
 local _, ns = ...
 local Theme, UI = ns.Theme, ns.UI
@@ -55,11 +55,10 @@ end
 
 local function buildSettings(page)
 	local window = settings()
-	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "discord", label = "Discord" }, { key = "looks", label = "Looks" } }, function(key)
+	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "looks", label = "Looks" } }, function(key)
 		page.ensure(key)
 		page.general:SetShown(key == "general")
 		page.modules:SetShown(key == "modules")
-		page.discord:SetShown(key == "discord")
 		page.looks:SetShown(key == "looks")
 		if page[key].Refresh then
 			page[key]:Refresh()
@@ -73,12 +72,9 @@ local function buildSettings(page)
 	page.looks = CreateFrame("Frame", nil, page)
 	page.looks:SetAllPoints(page.general)
 	page.looks:Hide()
-	page.discord = CreateFrame("Frame", nil, page)
-	page.discord:SetAllPoints(page.general)
 	page.modules = CreateFrame("Frame", nil, page)
 	page.modules:SetAllPoints(page.general)
 	page.modules:Hide()
-	page.discord:Hide()
 
 	local appraiser = ns.settings("appraiser")
 	local advisor = ns.settings("advisor")
@@ -287,45 +283,6 @@ local function buildSettings(page)
 		note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
 		note:SetPoint("RIGHT", m, "RIGHT")
 	end
-	fills.discord = function()
-		-- Discord: dings for the character online. The webhook is added on the site; the switch needs the
-		-- companion, which carries the choice there and brings the site's side back.
-		local d = page.discord
-		local who = (ns.me() and ns.me().name) or (UnitName and UnitName("player")) or "this character"
-		local card = UI.Panel(d, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
-		card:SetPoint("TOPLEFT")
-		card:SetPoint("RIGHT", d, "RIGHT")
-		card:SetHeight(76)
-		local icon = UI.Icon(card, "trending-up", 20, "accent")
-		icon:SetPoint("TOPLEFT", 20, -18)
-		local label = UI.Text(card, "Announce dings on Discord for " .. who, { size = "md", medium = true })
-		label:SetPoint("TOPLEFT", 54, -18)
-		local hint = UI.Text(card, "", { size = "xs", tone = "faint", wrap = true })
-		hint:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -6)
-		hint:SetPoint("RIGHT", card, "RIGHT", -90, 0)
-		local switch
-		switch = UI.Switch(card, false, function(on)
-			ns.Dings.set(on)
-			d:Refresh()
-		end)
-		switch:SetPoint("RIGHT", -20, 0)
-		local about = UI.Text(d, "A ding posts a picture and a link to a public page with this character's name, realm, class, the level's time, zones, kills, gold and route. The webhook, and which other characters post, are set at gold-forever.app/settings.", { size = "xs", tone = "faint", wrap = true })
-		about:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -14)
-		about:SetPoint("RIGHT", d, "RIGHT")
-		function d:Refresh()
-			local state = ns.Dings.current()
-			switch:Set(state.on)
-			local can = ns.Dings.changeable(state)
-			if can then
-				switch:Enable()
-			else
-				switch:Disable()
-			end
-			switch:SetAlpha(can and 1 or 0.5)
-			hint:SetText(ns.Dings.hint(state))
-		end
-		d:Refresh()
-	end
 	fills.looks = function()
 		-- Looks: a card per look; a click switches every window to it, no reload.
 		local l = page.looks
@@ -361,7 +318,7 @@ local function buildSettings(page)
 	page.ensure("general")
 	-- Opened again: every tab drawn shows the settings as they are now.
 	function page:Refresh()
-		for _, key in ipairs({ "general", "modules", "discord" }) do
+		for _, key in ipairs({ "general", "modules" }) do
 			local f = self[key]
 			if f.built and f.Refresh then
 				f:Refresh()

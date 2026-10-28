@@ -36,6 +36,7 @@ local db = {
     factions = {}, legacyPerks = {}, questStarters = {}, legacyRewards = {} },
   characters = {}, events = {}, scans = {}, guildBanks = {}, errors = {}, account = {},
   settings = { retentionDays = 14, sampleSeconds = 5, share = false },
+  dings = {}, -- the retired "Announce dings on Discord" choices, by guid, until schema 3
 }
 
 local c = db.catalogue
@@ -87,6 +88,7 @@ for n, guid in ipairs(guids) do
     xp = { cur = 80000, max = 480000, rested = 380000, resting = 1, t = NOW - 3600 },
     loc = { map = 2393, zone = "Silvermoon City", sub = "The Bazaar" },
   }
+  db.dings[guid] = { on = n == 1, t = NOW - 7200 }
 end
 
 -- Scans: two markets, a full scan each, rows "item,unit,qty,count,band" in chunks of 500.

@@ -107,7 +107,7 @@ local PAGES = {
 	{ key = "settings", label = "Settings", icon = "settings", group = "Addon", build = ns.hubPages.settings, title = "Settings",
 		lede = "How Gold Forever looks and behaves. Changes apply at once." },
 	{ key = "guide", label = "Guide", icon = "circle-help", group = "Addon", build = ns.hubPages.guide, title = "Guide",
-		lede = "How to use Gold Forever: the auction house panel, crafting, the session, Discord, and the commands." },
+		lede = "How to use Gold Forever: the auction house panel, crafting, the session, and the commands." },
 	{ key = "design", label = "Design system", icon = "palette", group = "Addon", build = ns.hubPages.design, title = "Design system",
 		lede = "Every part of the window kit with example data, in the look in use." },
 }

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **"Announce dings on Discord" is gone from the game.** Each Discord webhook now picks its own
+  characters at gold-forever.app/settings, so the switch in Settings → Discord, `/gf dings` and the
+  Companion page's Discord dings card are removed. The choices your save held are cleared once.
 - **Your characters' guild, with your rank.** Each of your characters records its guild's name, your rank
   and when it was last seen, or that it is in no guild, so leaving one shows. It is read at login and when
   the guild changes, never in combat. Only your own characters' guild is recorded.

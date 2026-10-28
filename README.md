@@ -137,7 +137,7 @@ layers below it; a lower file tells the ones above what happened by an event (`n
 2. **Runtime:** `Core`: the saved table, the game's events (`ns.on`), the addon's own, `ns.safely`, the
    settings and their defaults (`ns.DEFAULTS`).
 3. **Collectors**, which record into the save: `Catalogue`, `Loot`, `Inventory`, `Professions`, `Market`,
-   `Ledger`, `Knowledge`, `Character`, `Legacy`, `Achievements`, `Rares`, `Auctions`, `Levelling`, `Dings`,
+   `Ledger`, `Knowledge`, `Character`, `Legacy`, `Achievements`, `Rares`, `Auctions`, `Levelling`,
    `Claim`.
 4. **Services:** `Pricing` (`ns.price`), `Prices` (everyone's prices), `Session`, `MobStats`,
    `CraftPlanner` (the craft quotes and queue), `Holdings`, `Lists`, `AuctionSettings`.

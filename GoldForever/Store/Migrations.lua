@@ -21,6 +21,15 @@ ns.MIGRATIONS = {
 			end
 		end,
 	},
+	-- The "Announce dings on Discord" choices, by character guid, are retired: the site decides what each
+	-- webhook posts.
+	{
+		from = 2,
+		to = 3,
+		run = function(save)
+			save.dings = nil
+		end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

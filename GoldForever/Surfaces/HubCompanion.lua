@@ -5,7 +5,7 @@ local Theme, UI = ns.Theme, ns.UI
 local Kit = ns.HubKit
 
 -- What the addon can know of the companion without the internet (design 009): whether its file loaded,
--- when it was written, its markets and items, this character's Discord dings, and what is missing.
+-- when it was written, its markets and items, and what is missing.
 local function buildCompanion(page)
 	local status = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
 	status:SetPoint("TOPLEFT")
@@ -21,9 +21,9 @@ local function buildCompanion(page)
 	line:SetPoint("RIGHT", status, "RIGHT", -16, 0)
 
 	local cards = {}
-	for i, label in ipairs({ "Prices written", "Markets", "This character's market", "Discord dings" }) do
+	for i, label in ipairs({ "Prices written", "Markets", "This character's market" }) do
 		local c = UI.StatCard(page, label, "", "")
-		c:SetWidth(math.floor((Kit.pageWidth(page) - 36) / 4))
+		c:SetWidth(math.floor((Kit.pageWidth(page) - 24) / 3))
 		if i == 1 then
 			c:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -12)
 		else
@@ -73,8 +73,6 @@ local function buildCompanion(page)
 		cards[1]:Set(st.age or "—", st.state == "ok" and "the prices file" or "")
 		cards[2]:Set(tostring(#st.markets), "in the file")
 		cards[3]:Set(mine and tostring(mine.items) or "—", mine and "items priced" or "none yet")
-		local d = ns.Dings.current()
-		cards[4]:Set(d and (d.on and "On" or "Off") or "—", d and (d.webhook == false and "no webhook on the site" or d.pending and "waiting for the upload" or d.companion and "this character" or "needs the companion") or "")
 		tbl:SetRows(st.markets)
 	end
 end

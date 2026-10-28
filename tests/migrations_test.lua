@@ -51,12 +51,12 @@ local function step(from, to)
 	}
 end
 
--- Today's schema, one migration on from the baseline.
+-- Today's schema, two migrations on from the baseline.
 GoldForeverDB = nil
 local started, shipped = load()
-eq(shipped.SCHEMA, 2, "schema 2 is today's")
-eq(#shipped.MIGRATIONS, 1, "one migration beyond the baseline")
-eq(GoldForeverDB.schema, 2, "a new save starts at the current schema")
+eq(shipped.SCHEMA, 3, "schema 3 is today's")
+eq(#shipped.MIGRATIONS, 2, "two migrations beyond the baseline")
+eq(GoldForeverDB.schema, 3, "a new save starts at the current schema")
 eq(GoldForeverDB.migrated, nil, "with no migration recorded")
 eq(started, "init, enable", "and the modules that require the Store start")
 
@@ -65,10 +65,15 @@ eq(started, "init, enable", "and the modules that require the Store start")
 local upgraded = shipped.upgrade({ schema = 1, characters = {
 	a = { name = "Ann", guild = "Vault", seen = 1761000000 },
 	b = { name = "Bo", seen = 1761000500 },
-} }, 2, shipped.MIGRATIONS, 1761148800)
+} }, 3, shipped.MIGRATIONS, 1761148800)
 local a, b = upgraded.characters.a.guild, upgraded.characters.b.guild
 eq(a.name .. " " .. a.seen .. " " .. tostring(a.rank) .. " " .. tostring(a.rankIndex) .. " " .. tostring(a.none), "Vault 1761000000 nil nil nil", "a guild name becomes the guild record")
 eq(b, nil, "no guild name stays unknown")
+
+-- 2 to 3: the retired "Announce dings on Discord" choices leave the save; the rest stays.
+upgraded = shipped.upgrade({ schema = 2, dings = { ["Player-1-a"] = { on = true, t = 1761000000 } }, characters = { a = { name = "Ann" } } }, 3, shipped.MIGRATIONS, 1761148800)
+eq(upgraded.dings, nil, "the dings choices are gone")
+eq(upgraded.characters.a.name, "Ann", "the rest is kept")
 
 -- Two migrations in order, recorded with their time.
 GoldForeverDB = { schema = 1, events = {} }

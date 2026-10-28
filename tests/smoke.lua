@@ -352,10 +352,10 @@ local function seen(label, value, forever, retail)
   if value ~= want then error(label:gsub("%s+$", "") .. ": expected [" .. tostring(want) .. "], got [" .. value .. "]", 2) end
 end
 -- GoldForever_Prices, the companion's data file, as the addon reads it: its tables but those the addon walks
--- (the markets, an item's figures, the lists, the dings' characters) stand empty in front of their fields,
+-- (the markets, an item's figures, the lists) stand empty in front of their fields,
 -- so each field asked of them is noted; the run fails on one ReadModels/DataFormat.lua does not list.
 local pricesFile, pricesAsked = nil, {}
-local PRICES_CHILDREN = { prices = { shared = "shared", dings = "dings" }, shared = { lists = "entries", profiles = "entries" } }
+local PRICES_CHILDREN = { prices = { shared = "shared" }, shared = { lists = "entries", profiles = "entries" } }
 local function noting(t, shape)
   if type(t) ~= "table" or getmetatable(t) then return t end
   local fields = {}
@@ -651,7 +651,7 @@ if SAVE then
     end
     timed(look .. ": settings tabs", function()
       local p = ns.hubWindow().pages.settings
-      for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do p.ensure(tab) end
+      for _, tab in ipairs({ "general", "modules", "looks" }) do p.ensure(tab) end
     end)
     timed(look .. ": revisit every page", function() for _, page in ipairs(pages) do SlashCmdList.GOLDFOREVER("ui " .. page) end end)
   end
@@ -2666,7 +2666,7 @@ for _, look in ipairs({ "classic", "arcane", "web" }) do
   local w = ns.hubWindow()
   local settingsPage = w and w.pages.settings
   assert(settingsPage and settingsPage.ensure, "the Settings page is open")
-  for _, tab in ipairs({ "general", "modules", "discord", "looks" }) do
+  for _, tab in ipairs({ "general", "modules", "looks" }) do
     settingsPage.ensure(tab)
     assert(settingsPage[tab].built, "Settings tab drawn: " .. tab)
   end
@@ -2802,21 +2802,16 @@ do
   assert(#frames == drawn, "and builds nothing")
   SlashCmdList.GOLDFOREVER("accent")
 end
--- Discord dings: changed in game only with the companion's file, and only once the site has a webhook.
+-- A companion file that still carries the site's dings state (the retired "Announce dings" switch) loads
+-- the Companion and Settings pages as any other, and nothing reads that state or writes a choice.
 do
-  local prices, guid = GoldForever_Prices, UnitGUID("player")
-  GoldForever_Prices = nil
-  SlashCmdList.GOLDFOREVER("ui companion") -- the Companion page without the companion's file
-  SlashCmdList.GOLDFOREVER("dings on")
-  assert(not (GoldForeverDB.dings and GoldForeverDB.dings[guid]), "no choice without the companion")
-  GoldForever_Prices = { v = 1, at = now - 60, dings = { webhook = false, characters = {} } }
-  SlashCmdList.GOLDFOREVER("dings on")
-  assert(not (GoldForeverDB.dings and GoldForeverDB.dings[guid]), "no choice without a webhook on the site")
-  GoldForever_Prices.dings.webhook = true
-  SlashCmdList.GOLDFOREVER("dings on")
-  assert(GoldForeverDB.dings[guid].on == true and GoldForeverDB.dings[guid].t == now, "the choice is saved with the time")
+  local prices = GoldForever_Prices
+  pricesAsked["prices.dings"] = nil
+  GoldForever_Prices = { v = 1, at = now - 60, markets = {}, dings = { at = now - 30, webhook = true, characters = { [UnitGUID("player")] = true } } }
+  SlashCmdList.GOLDFOREVER("ui companion")
   SlashCmdList.GOLDFOREVER("ui settings")
-  SlashCmdList.GOLDFOREVER("dings")
+  assert(not pricesAsked["prices.dings"], "the site's dings state is not read")
+  assert(GoldForeverDB.dings == nil, "no dings choice in the save")
   GoldForever_Prices = prices
 end
 SlashCmdList.GOLDFOREVER("ui ledger")

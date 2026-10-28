@@ -13,11 +13,10 @@ local GUIDE = {
 	{ "Selling rules and profiles", "The Selling rules page sets how you undercut, the floor and the normal price, and shows what that does to an item worth 10g; \"Rule for\" adds a rule for one item or a whole category (Rule › on the Sell tab opens it for the item in view). A sale profile (a GFP1 string, made at gold-forever.app/me/lists or shared by others) prices the items it names: keep so many, undercut, a fixed price or a point in the supply." },
 	{ "Crafting", "The Crafting page lists your recipes by profit; \"I have these\" counts what you hold at no cost. Queue crafts there or on the strip beside the profession window, and the Buy tab's \"Craft queue\" list buys only what is missing." },
 	{ "While you play", "The session HUD shows gold, XP and kills an hour; click it for the session. Big drops and rares get a message. The mail helper beside the mailbox opens auction mail a batch a press. Settings → Modules switches any part off; what the save records stays the same." },
-	{ "Discord", "Add a Discord webhook at gold-forever.app/settings, then switch \"Announce dings\" on in Settings → Discord for the character you play: each level-up posts a picture and a public page." },
 }
 local GUIDE_COMMANDS = {
 	{ "/gf", "this window (and /gf help: every command)" }, { "/gf hud", "the session HUD" }, { "/gf ah", "the auction panel" },
-	{ "/gf look arcane", "a look (web, classic, arcane)" }, { "/gf accent #2fd1a8", "an accent colour" }, { "/gf dings on", "Discord dings" },
+	{ "/gf look arcane", "a look (web, classic, arcane)" }, { "/gf accent #2fd1a8", "an accent colour" },
 	{ "/gf scan", "a full scan at the auction house" }, { "/gf welcome", "the first-run card" }, { "/gf prices", "the prices file" },
 }
 ns.test.GUIDE_COMMANDS = GUIDE_COMMANDS

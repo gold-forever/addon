@@ -80,7 +80,6 @@ Recording\Rares.lua
 Tools\CraftPlanner.lua
 Tools\Auctions.lua
 Recording\Levelling.lua
-Recording\Dings.lua
 Tools\Post.lua
 Tools\Shopping.lua
 Tools\SalePlan.lua

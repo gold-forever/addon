@@ -1,4 +1,6 @@
-- addon schema
+- addon
+- dings (6 lines)
+- schema
 + account.achievements.earned = "9201:2026-10-20"
 + account.achievements.points = 10
 + account.achievements.t = 1792835263
@@ -345,9 +347,12 @@
 + migrated[1].from = 1
 + migrated[1].t = 1792835263
 + migrated[1].to = 2
++ migrated[2].from = 2
++ migrated[2].t = 1792835263
++ migrated[2].to = 3
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-horde@1792820863 EU-Shadowsong-neutral@1792828063
-+ schema = 2
++ schema = 3
 + settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2

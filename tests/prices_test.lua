@@ -43,6 +43,11 @@ end
 
 eq(line(data(good), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "the item's line")
 eq(line(data({ 1234, 1100, 1, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "one player")
+-- A file that still carries the site's dings state (the retired in-game switch) reads as any other.
+local carrying = data(good)
+carrying.dings = { at = NOW, webhook = true, characters = { ["Player-4620-006C0FC1"] = true } }
+eq(line(carrying, { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "the dings state is ignored")
+eq(P.status(carrying, nil, NOW).state, "ok", "and the file is whole")
 
 eq(line(data({ 1234, 1100, 2.5, NOW }), { MARKET }, 2589, NOW), "Market 12s 34c / Min 11s 0c", "a fractional count is not an error")
 
