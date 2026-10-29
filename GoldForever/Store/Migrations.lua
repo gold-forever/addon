@@ -57,6 +57,13 @@ ns.MIGRATIONS = {
 		to = 6,
 		run = function() end,
 	},
+	-- The mail stream's to may be "Name-Realm", a character of yours on another WoW account (Mail.lua);
+	-- nothing the save holds changes.
+	{
+		from = 6,
+		to = 7,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

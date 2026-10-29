@@ -7,7 +7,7 @@
 --   * prices are read only from a file whose v is VERSION: any other, newer or older, shows no prices;
 --     /gf prices says which version the file is and which this addon reads, and the Companion page calls
 --     it a newer version and asks for the addon to be updated, whichever way it differs;
---   * the shared lists and profiles are read whatever v says;
+--   * the shared lists and profiles, and your characters, are read whatever v says;
 --   * a field the addon does not know is ignored, as is an item figure past the fifth; a known field of
 --     another type is taken as absent.
 
@@ -36,6 +36,9 @@ local F = {
 	id = "id",
 	edited = "edited",
 	string = "string",
+	characters = "characters",
+	realm = "realm",
+	name = "name",
 	markets = "markets",
 	units = "units",
 }
@@ -52,6 +55,7 @@ DataFormat.tables = {
 		[F.version] = "integer",
 		[F.at] = "integer: when the server built the prices",
 		[F.shared] = "shared, optional: the account's shared lists and sale profiles",
+		[F.characters] = "{ character, ... }, optional: the account's characters in this game, on every WoW account",
 		[F.markets] = "{ [market key] = { [item id] = item } }",
 	},
 	shared = {
@@ -63,6 +67,10 @@ DataFormat.tables = {
 		[F.id] = "string",
 		[F.edited] = "integer",
 		[F.string] = "string",
+	},
+	character = {
+		[F.realm] = "string",
+		[F.name] = "string",
 	},
 	item = {
 		[F.units] = "integer, optional: the units on sale, there only for a thin price",

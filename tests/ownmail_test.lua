@@ -69,6 +69,7 @@ local function fire(event, ...)
 	end
 end
 assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Ledger.lua"], "@Ledger.lua"))("GoldForever", ns)
 assert(load(SOURCES["Mail.lua"], "@Mail.lua"))("GoldForever", ns)
 
@@ -182,5 +183,68 @@ TakeInboxMoney(1)
 clock = clock + 60
 spend(-300000)
 eq(written("money", MONEY), "delta=300000 ctx=mail", "a transfer expected long ago tags nothing")
+
+-- Your characters on your other WoW accounts, from the companion's data file (DataFormat.lua): mail to one
+-- on your realm is your own mail, its recipient named as on the list, "Name-Realm".
+GoldForever_Prices = { v = 1, at = 1, markets = {}, characters = {
+	{ realm = "Argent Dawn", name = "Otheralt" },
+	{ realm = "Argent Dawn", name = "Bankalt" },
+	{ realm = "Argent Dawn", name = "Ann" },
+	{ realm = "Silvermoon", name = "Elsewhere" },
+	{ realm = "Argent Dawn", name = "Odd,one" },
+	{ realm = "Argent Dawn" },
+	{ realm = "Argent Dawn", name = 7 },
+	42,
+} }
+sendMoney = 5000
+SendMail("Otheralt", "", "")
+fire("MAIL_SEND_SUCCESS")
+eq(written("mail", MAIL), "char=1 to=Otheralt-Argent Dawn items=nil money=5000 cod=nil", "a character only on the list, as the list names it")
+spend(5000 + 30)
+eq(written("money", MONEY), "delta=-5000 ctx=mail+transfer; delta=-30 ctx=mail", "its gold is a transfer")
+SendMail("OTHERALT-argentdawn", "", "")
+fire("MAIL_SEND_SUCCESS")
+eq(written("mail", MAIL), "char=1 to=Otheralt-Argent Dawn items=nil money=5000 cod=nil", "matched in any case, without spaces")
+spend(5000 + 30)
+written("money", MONEY)
+SendMail("Bankalt", "", "")
+fire("MAIL_SEND_SUCCESS")
+eq(written("mail", MAIL), "char=1 to=2 items=nil money=5000 cod=nil", "a character of this save is its ref, listed or not")
+spend(5000 + 30)
+written("money", MONEY)
+SendMail("Odd,one", "", "")
+fire("MAIL_SEND_SUCCESS")
+eq(written("mail", MAIL), "char=1 to=Odd\226\128\154one-Argent Dawn items=nil money=5000 cod=nil", "a comma on the list never splits the row")
+spend(5000 + 30)
+written("money", MONEY)
+for _, recipient in ipairs({ "Elsewhere", "Otheralt-Silvermoon", "Ann", "7" }) do
+	SendMail(recipient, "", "")
+	fire("MAIL_SEND_SUCCESS")
+	eq(written("mail", MAIL), "", "nothing recorded for mail to " .. recipient .. " though listed")
+	spend(5030)
+	eq(written("money", MONEY), "delta=-5030 ctx=mail", "mail to " .. recipient .. " is no transfer")
+end
+sendMoney = 0
+inbox[3] = { sender = "Otheralt", subject = "gold", money = 8000 }
+TakeInboxMoney(3)
+spend(-8000)
+eq(written("money", MONEY), "delta=8000 ctx=mail+transfer", "gold from a character on the list is a transfer")
+
+-- A data file without the list, one whose list is not a table, or none at all: only this save's characters.
+for _, file in ipairs({ { v = 1, at = 1, markets = {} }, { v = 1, at = 1, markets = {}, characters = 42 }, false }) do
+	GoldForever_Prices = file or nil
+	sendMoney = 5000
+	SendMail("Otheralt", "", "")
+	fire("MAIL_SEND_SUCCESS")
+	eq(written("mail", MAIL), "", "no list, no mail to Otheralt recorded")
+	spend(5030)
+	eq(written("money", MONEY), "delta=-5030 ctx=mail", "no list, no transfer")
+	SendMail("Bankalt", "", "")
+	fire("MAIL_SEND_SUCCESS")
+	eq(written("mail", MAIL), "char=1 to=2 items=nil money=5000 cod=nil", "no list, your bank alt still")
+	spend(5030)
+	written("money", MONEY)
+end
+sendMoney = 0
 
 return checks()

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Mail to your characters on your other WoW accounts counts too.** With the companion running, the
+  addon knows the characters of every WoW account linked to your Gold Forever account, so mail to one of
+  them on the same realm is recorded as mail to your own character, and its gold is a transfer on both
+  sides. Without the companion's list, only the characters this WoW account has played count, as before.
 - **When your cooldown crafts are ready again.** For each of your characters, the save records when each
   recipe on a cooldown (transmutes, Mooncloth and the like) can be crafted again. It is read when you open
   your profession window and a moment after such a craft, never in combat. Recipes without a cooldown
