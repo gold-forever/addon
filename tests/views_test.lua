@@ -65,6 +65,8 @@ eq(V.category("gossip+mail+merchant"), "vendor", "the merchant over the mail")
 eq(V.category("loot"), "loot", "loot")
 eq(V.category("auctioneer+mailinfo"), "auction", "the auction house over the mail")
 eq(V.category(nil), "other", "no window")
+eq(V.category("mail+transfer"), "transfer", "gold moved between your own characters is a transfer, not mail")
+eq(V.category("merchant+transfer"), "transfer", "over any window")
 local flights = V.rows(db, "flight")
 local ledger = V.ledger(money, flights, 1, 0, function(t) return t < 100 and "19" or "20" end)
 local by = {}

@@ -57,6 +57,7 @@ Recording\Professions.lua
 Recording\Market.lua
 Recording\Trade.lua
 Recording\Ledger.lua
+Recording\Mail.lua
 Recording\Knowledge.lua
 Recording\KnowledgeTrainers.lua
 Recording\KnowledgeClient.lua

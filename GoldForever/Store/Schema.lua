@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 4
+ns.SCHEMA = 5
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
@@ -45,6 +45,9 @@ ns.FIELDS = {
 	questName = "name",
 	flight = "t,char,from,to,cost,map",
 	taxiNode = "name",
+	-- Mail.lua: mail sent to one of your own characters, never anyone else's. to: the recipient's ref;
+	-- items as Encode.items; money and cod in copper, empty for none.
+	mail = "t,char,to,items,money,cod",
 	-- Knowledge.lua.
 	npc = "name,minLevel,maxLevel,classification,type",
 	object = "name",

@@ -1837,6 +1837,7 @@
 + fields.legacyReward = "level,item,name,description"
 + fields.level = "t,char,kind,level,played,levelPlayed,money,map,x,y"
 + fields.loot = "t,char,map,x,y,src,first,coin,items,fish"
++ fields.mail = "t,char,to,items,money,cod"
 + fields.map = "name,type,parent"
 + fields.merchant = "map,x,y,items"
 + fields.merchantTrade = "t,char,kind,item,qty,price,map"
@@ -1870,10 +1871,13 @@
 + migrated[3].from = 3
 + migrated[3].t = 1792835263
 + migrated[3].to = 4
++ migrated[4].from = 4
++ migrated[4].t = 1792835263
++ migrated[4].to = 5
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-neutral@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
-+ schema = 4
++ schema = 5
 + settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2

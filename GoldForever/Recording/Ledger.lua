@@ -207,6 +207,51 @@ local function waitForToast(row)
 	end)
 end
 
+-- Gold moving between your own characters by mail (Mail.lua): each amount, below 0 for gold sent, waits
+-- for the change that carries it, which is then a transfer, not spending or income. The postage paid
+-- with gold sent is the rest of that change.
+local TRANSFER_SECONDS = 10
+local transfers = {} -- { amount, at }
+
+function ns.expectTransfer(amount)
+	transfers[#transfers + 1] = { amount = amount, at = GetTime() }
+end
+
+function ns.forgetTransfer(amount)
+	for i, transfer in ipairs(transfers) do
+		if transfer.amount == amount then
+			table.remove(transfers, i)
+			return
+		end
+	end
+end
+
+-- The transfer a change of `delta` carries, used up; transfers too old to match are dropped.
+local function transferIn(delta)
+	for i = #transfers, 1, -1 do
+		if GetTime() - transfers[i].at > TRANSFER_SECONDS then
+			table.remove(transfers, i)
+		end
+	end
+	for i, transfer in ipairs(transfers) do
+		if (delta < 0) == (transfer.amount < 0) and math.abs(delta) >= math.abs(transfer.amount) then
+			table.remove(transfers, i)
+			return transfer.amount
+		end
+	end
+end
+
+local function recordChange(row)
+	if row.ctx ~= "" or not ns.retail or row.delta < 0 then
+		ns.record("money", row)
+	elseif told(row.delta) then
+		row.ctx = "loot"
+		ns.record("money", row)
+	else
+		waitForToast(row)
+	end
+end
+
 ns.on("PLAYER_MONEY", "money", function()
 	local me = ns.me()
 	if not me or ns.tornDown() then
@@ -214,14 +259,14 @@ ns.on("PLAYER_MONEY", "money", function()
 	end
 	local now = GetMoney()
 	if money and now ~= money then
-		local row = { t = ns.now(), char = me.ref, delta = now - money, ctx = context() }
-		if row.ctx ~= "" or not ns.retail or row.delta < 0 then
-			ns.record("money", row)
-		elseif told(row.delta) then
-			row.ctx = "loot"
-			ns.record("money", row)
-		else
-			waitForToast(row)
+		local delta, ctx = now - money, context()
+		local transfer = transferIn(delta)
+		if transfer then
+			ns.record("money", { t = ns.now(), char = me.ref, delta = transfer, ctx = ctx == "" and "transfer" or ctx .. "+transfer" })
+			delta = delta - transfer
+		end
+		if delta ~= 0 then
+			recordChange({ t = ns.now(), char = me.ref, delta = delta, ctx = ctx })
 		end
 	end
 	money = now

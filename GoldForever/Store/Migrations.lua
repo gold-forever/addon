@@ -45,6 +45,12 @@ ns.MIGRATIONS = {
 			end
 		end,
 	},
+	-- The mail stream (Mail.lua) is new; nothing the save holds changes.
+	{
+		from = 4,
+		to = 5,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

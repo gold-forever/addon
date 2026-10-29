@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Mail to your own characters is known.** When a mail to one of your characters on the same realm is
+  sent, its items, gold and cash on delivery are recorded, so items sent to your bank alt are not lost
+  while they travel. The gold is shown as a transfer between your characters ("Your characters" in the
+  Ledger), not as spent at the mailbox, and again as a transfer when the alt takes it; the postage is
+  still mail. Mail to anyone else records nothing about them, as before.
 - **No more "Unknown" NPCs.** A mob or NPC read before the client has loaded its name ("Unknown", or the
   word for it in your client's language) is recorded without a name, and its next sighting names it. Your
   save's NPCs already named that way lose the placeholder once. The rare alert shows "?" instead.
