@@ -180,6 +180,7 @@ local function readRecipes()
 			p.max = base.maxSkillLevel or p.max
 		end
 	end
+	ns.emit("recipesRead", learned)
 end
 
 local recipesSoon = ns.throttle("recipes", 2, readRecipes)

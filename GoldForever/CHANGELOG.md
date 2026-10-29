@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **When your cooldown crafts are ready again.** For each of your characters, the save records when each
+  recipe on a cooldown (transmutes, Mooncloth and the like) can be crafted again. It is read when you open
+  your profession window and a moment after such a craft, never in combat. Recipes without a cooldown
+  record nothing.
 - **Mail to your own characters is known.** When a mail to one of your characters on the same realm is
   sent, its items, gold and cash on delivery are recorded, so items sent to your bank alt are not lost
   while they travel. The gold is shown as a transfer between your characters ("Your characters" in the

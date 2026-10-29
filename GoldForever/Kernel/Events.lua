@@ -27,6 +27,8 @@ end)
 --                  starts here, not on ADDON_LOADED, so it never runs before the table exists;
 --   "bagsRead"     the bags were read into the save (Inventory.lua): the pages that show them redraw;
 --   "queueChanged" the craft queue changed, with "added", "crafted" or "cleared" (CraftPlanner.lua);
+--   "recipesRead"  your profession window's recipes were read, with the learned ones by skill line
+--                  (Professions.lua): their cooldowns are read (Cooldowns.lua);
 --   "scanSaved"    a full scan with listings is in the save (Market.lua): its prices are built anew;
 --   "pricesReady"  a new full scan's prices are in (Pricing.lua);
 --   "itemChosen"   an item clicked in the hub's Inventory, with its id: the auction panel chooses it in Post;

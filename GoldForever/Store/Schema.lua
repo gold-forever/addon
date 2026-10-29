@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 5
+ns.SCHEMA = 6
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.

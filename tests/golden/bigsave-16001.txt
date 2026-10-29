@@ -357,9 +357,12 @@
 + migrated[4].from = 4
 + migrated[4].t = 1792835263
 + migrated[4].to = 5
++ migrated[5].from = 5
++ migrated[5].t = 1792835263
++ migrated[5].to = 6
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-horde@1792820863 EU-Shadowsong-neutral@1792828063
-+ schema = 5
++ schema = 6
 + settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2

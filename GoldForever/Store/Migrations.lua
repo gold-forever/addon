@@ -51,6 +51,12 @@ ns.MIGRATIONS = {
 		to = 5,
 		run = function() end,
 	},
+	-- Each character's cooldowns, recipe ID -> ready-at (Cooldowns.lua), are new; nothing the save holds changes.
+	{
+		from = 5,
+		to = 6,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

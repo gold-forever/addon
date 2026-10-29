@@ -54,9 +54,9 @@ end
 -- Today's schema, two migrations on from the baseline.
 GoldForeverDB = nil
 local started, shipped = load()
-eq(shipped.SCHEMA, 5, "schema 5 is today's")
-eq(#shipped.MIGRATIONS, 4, "four migrations beyond the baseline")
-eq(GoldForeverDB.schema, 5, "a new save starts at the current schema")
+eq(shipped.SCHEMA, 6, "schema 6 is today's")
+eq(#shipped.MIGRATIONS, 5, "five migrations beyond the baseline")
+eq(GoldForeverDB.schema, 6, "a new save starts at the current schema")
 eq(GoldForeverDB.migrated, nil, "with no migration recorded")
 eq(started, "init, enable", "and the modules that require the Store start")
 
@@ -65,13 +65,13 @@ eq(started, "init, enable", "and the modules that require the Store start")
 local upgraded = shipped.upgrade({ schema = 1, characters = {
 	a = { name = "Ann", guild = "Vault", seen = 1761000000 },
 	b = { name = "Bo", seen = 1761000500 },
-} }, 5, shipped.MIGRATIONS, 1761148800)
+} }, 6, shipped.MIGRATIONS, 1761148800)
 local a, b = upgraded.characters.a.guild, upgraded.characters.b.guild
 eq(a.name .. " " .. a.seen .. " " .. tostring(a.rank) .. " " .. tostring(a.rankIndex) .. " " .. tostring(a.none), "Vault 1761000000 nil nil nil", "a guild name becomes the guild record")
 eq(b, nil, "no guild name stays unknown")
 
 -- 2 to 3: the retired "Announce dings on Discord" choices leave the save; the rest stays.
-upgraded = shipped.upgrade({ schema = 2, dings = { ["Player-1-a"] = { on = true, t = 1761000000 } }, characters = { a = { name = "Ann" } } }, 5, shipped.MIGRATIONS, 1761148800)
+upgraded = shipped.upgrade({ schema = 2, dings = { ["Player-1-a"] = { on = true, t = 1761000000 } }, characters = { a = { name = "Ann" } } }, 6, shipped.MIGRATIONS, 1761148800)
 eq(upgraded.dings, nil, "the dings choices are gone")
 eq(upgraded.characters.a.name, "Ann", "the rest is kept")
 
@@ -83,18 +83,23 @@ upgraded = shipped.upgrade({ schema = 3, catalogue = { npcs = {
 	[2] = "Unbekannt,10,12,elite,Humanoid",
 	[3] = "Thornspine,80,80,normal,Beast",
 	[4] = ",70,70,,",
-} } }, 5, shipped.MIGRATIONS, 1761148800)
+} } }, 6, shipped.MIGRATIONS, 1761148800)
 local npcs = upgraded.catalogue.npcs
 eq(npcs[1], ",80,83,normal,Beast", "an English \"Unknown\" name is dropped, the row kept")
 eq(npcs[2], ",10,12,elite,Humanoid", "and the client's own word for it")
 eq(npcs[3], "Thornspine,80,80,normal,Beast", "a real name is kept")
 eq(npcs[4], ",70,70,,", "a row without a name is as it was")
 UNKNOWNOBJECT = nil
-eq(shipped.upgrade({ schema = 3 }, 5, shipped.MIGRATIONS, 1761148800).schema, 5, "a save without a catalogue upgrades")
+eq(shipped.upgrade({ schema = 3 }, 6, shipped.MIGRATIONS, 1761148800).schema, 6, "a save without a catalogue upgrades")
 
 -- 4 to 5: the new mail stream; the save is otherwise as it was.
-upgraded = shipped.upgrade({ schema = 4, characters = { a = { name = "Ann" } } }, 5, shipped.MIGRATIONS, 1761148800)
-eq(upgraded.schema .. " " .. upgraded.characters.a.name, "5 Ann", "a schema 4 save upgrades, the rest kept")
+upgraded = shipped.upgrade({ schema = 4, characters = { a = { name = "Ann" } } }, 6, shipped.MIGRATIONS, 1761148800)
+eq(upgraded.schema .. " " .. upgraded.characters.a.name, "6 Ann", "a schema 4 save upgrades, the rest kept")
+
+-- 5 to 6: each character's cooldowns are new (Cooldowns.lua); a schema 5 save has none and is otherwise as it was.
+upgraded = shipped.upgrade({ schema = 5, characters = { a = { name = "Ann", guild = { name = "Vault" } } } }, 6, shipped.MIGRATIONS, 1761148800)
+eq(upgraded.schema .. " " .. upgraded.characters.a.name .. " " .. upgraded.characters.a.guild.name .. " " .. tostring(upgraded.characters.a.cooldowns),
+	"6 Ann Vault nil", "a schema 5 save upgrades, no cooldowns known yet")
 
 -- Two migrations in order, recorded with their time.
 GoldForeverDB = { schema = 1, events = {} }

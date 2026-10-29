@@ -57,6 +57,7 @@ ReadModels\Pricing.lua
 Recording\Loot.lua
 Recording\Inventory.lua
 Recording\Professions.lua
+Recording\Cooldowns.lua
 Recording\Market.lua
 Recording\Trade.lua
 Recording\Ledger.lua
