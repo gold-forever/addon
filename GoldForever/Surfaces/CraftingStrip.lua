@@ -74,6 +74,27 @@ end
 -- One strip per look and accent.
 local strips = UI.perLook(build, dock)
 
+-- Sells for, Profit and Margin. A random result (or one that can fail) has none of them, and says so.
+local function saleRows(strip, q, gear, money, faint, dash)
+	if q.random then
+		strip.rows[2]:SetText(faint .. "random, can fail|r")
+		strip.rows[3]:SetText("")
+		strip.rows[4]:SetText("")
+		return
+	end
+	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and " any quality|r" or " after the cut|r")) or dash)
+	if q.profit and gear then
+		-- One price for every quality and item level: grey, not to be trusted.
+		strip.rows[3]:SetText(faint .. (q.profit >= 0 and "+" or "-") .. UI.layout.plain(money(math.abs(q.profit))) .. "|r")
+	elseif q.profit then
+		strip.rows[3]:SetText(q.profit >= 0 and (Theme.escape(Theme.color.success) .. "+|r" .. money(q.profit)) or (Theme.escape(Theme.color.danger) .. "-|r" .. money(-q.profit)))
+	else
+		strip.rows[3]:SetText(dash)
+	end
+	local margin = ns.Crafting.margin(q)
+	strip.rows[4]:SetText(margin and ((gear and faint or "") .. margin .. "%" .. (gear and "|r" or "")) or dash)
+end
+
 local function refresh()
 	if not strips.frame or not strips.frame:IsShown() then
 		return
@@ -102,18 +123,8 @@ local function refresh()
 	local quality = ns.price.itemInfo(r.output) or 1
 	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "× ") or "") .. ns.itemName(r.output) .. "|r")
 	strip.rows[1]:SetText(q.spend and money(q.spend) or dash)
-	local gear = ns.isGear(r.output)
-	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and " any quality|r" or " after the cut|r")) or dash)
-	if q.profit and gear then
-		-- One price for every quality and item level: grey, not to be trusted.
-		strip.rows[3]:SetText(faint .. (q.profit >= 0 and "+" or "-") .. UI.layout.plain(money(math.abs(q.profit))) .. "|r")
-	elseif q.profit then
-		strip.rows[3]:SetText(q.profit >= 0 and (Theme.escape(Theme.color.success) .. "+|r" .. money(q.profit)) or (Theme.escape(Theme.color.danger) .. "-|r" .. money(-q.profit)))
-	else
-		strip.rows[3]:SetText(dash)
-	end
-	local margin = ns.Crafting.margin(q)
-	strip.rows[4]:SetText(margin and ((gear and faint or "") .. margin .. "%" .. (gear and "|r" or "")) or dash)
+	local gear = not q.random and ns.isGear(r.output)
+	saleRows(strip, q, gear, money, faint, dash)
 	local toBuy = {}
 	for _, line in ipairs(q.lines) do
 		if line.toBuy > 0 then
@@ -136,7 +147,8 @@ local function refresh()
 		strip.lines[i].name:SetText(i == 1 and (faint .. "Nothing: your bags and bank hold it all.|r") or "")
 		strip.lines[i].value:SetText("")
 	end
-	strip.note:SetText(gear and "Gear has one price for every quality and item level: check the auction house for the quality you craft."
+	strip.note:SetText(q.random and "Its result is random, and it can fail: no sale price or profit to show."
+		or gear and "Gear has one price for every quality and item level: check the auction house for the quality you craft."
 		or "Reagents at the cheaper of the auction house and a vendor; what you hold counts at the lower of buying and selling it.")
 end
 
@@ -199,5 +211,8 @@ ns.CraftingStrip = {
 	end,
 	line = function(i)
 		return strips.frame.lines[i].name:GetText()
+	end,
+	row = function(i)
+		return strips.frame.rows[i]:GetText()
 	end,
 }

@@ -188,7 +188,8 @@ function ns.allCraftQuotes()
 end
 
 -- For the crafting strip: one recipe's quote from the catalogue, with what this character holds; nil
--- for a recipe the catalogue lacks or one that makes no item (an enchant).
+-- for a recipe the catalogue lacks or one that makes no item (an enchant). random: its result is random
+-- or can fail, so it has no sale or profit.
 function ns.quoteRecipe(id)
 	if not ns.me() then
 		return nil
@@ -202,6 +203,8 @@ function ns.quoteRecipe(id)
 		return held[x] or 0
 	end, ns.price.cut)
 	q.recipe = r
+	local _, _, class = ns.price.itemInfo(r.output)
+	q.random = ns.Crafting.randomResult(class, ns.price.market(r.output))
 	return q
 end
 

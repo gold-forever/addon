@@ -64,4 +64,11 @@ eq(need[2589], 12, "5 × 2 + 2 × 1 Linen")
 eq(need[2320], 6, "2 × 3 thread")
 eq(next(C.queueReagents({}, function() end)), nil, "an empty queue needs nothing")
 
+-- A random result (Wild Experimentation, a transmutation): the client names a recipe item (class 9) as
+-- its output, which has no price. A priced recipe item is a real sale; anything else is a fixed result.
+eq(C.randomResult(9, nil), true, "a recipe item without a price: random, or it fails")
+eq(C.randomResult(9, 5000), false, "a recipe item that sells: a real output")
+eq(C.randomResult(7, nil), false, "an unpriced trade good: unknown, not random")
+eq(C.randomResult(nil, nil), false, "an item not read yet: unknown, not random")
+
 return checks()

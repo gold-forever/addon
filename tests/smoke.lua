@@ -1180,6 +1180,21 @@ do
   ns.CraftingStrip.select(2963)
   local title = ns.CraftingStrip.shown()
   assert(title and title:find("Bolt of Linen Cloth", 1, true), "the strip names the recipe's item: " .. tostring(title))
+  assert(ns.CraftingStrip.row(3) ~= "" and not ns.CraftingStrip.row(2):find("random", 1, true), "a fixed result keeps its sale and profit: " .. ns.CraftingStrip.row(2))
+  -- A random result (Wild Experimentation): its output is a recipe item of its own name, never priced.
+  -- It says so instead of an unknown sale and profit, and still costs its reagents.
+  do
+    local values = { strsplit(",", GoldForeverDB.catalogue.recipes[2963]) }
+    values[ns.Encode.columns(GoldForeverDB.fields.recipe).output] = "99995"
+    GoldForeverDB.catalogue.recipes[99996] = table.concat(values, ",")
+    GoldForeverDB.catalogue.items[99995] = "Wild Experimentation,3,1,9,6,1,0,0,413574"
+    ns.CraftingStrip.select(99996)
+    local sale = ns.CraftingStrip.row(2)
+    assert(sale:find("random", 1, true) and not sale:find("unknown", 1, true), "the sale says the result is random: " .. sale)
+    assert(ns.CraftingStrip.row(3) == "" and ns.CraftingStrip.row(4) == "", "no profit or margin: " .. ns.CraftingStrip.row(3))
+    assert(not ns.CraftingStrip.row(1):find("unknown", 1, true), "the reagents' cost: " .. ns.CraftingStrip.row(1))
+    GoldForeverDB.catalogue.recipes[99996], GoldForeverDB.catalogue.items[99995] = nil, nil
+  end
   fire("TRADE_SKILL_CLOSE")
   assert(not ns.CraftingStrip.shown(), "and closes with the window")
   -- Another profession's window next, showing a recipe of its own: that one, not the last window's

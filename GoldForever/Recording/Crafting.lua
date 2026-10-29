@@ -85,6 +85,14 @@ function Crafting.margin(q)
 	return math.floor(q.profit / base * 100 + 0.5)
 end
 
+-- Whether a recipe's result is random or can fail (Wild Experimentation, a transmutation, prospecting),
+-- from its output's item class and market price. The client names such a recipe's output as a placeholder
+-- recipe item, which nobody sells; a priced recipe item is a real output.
+local RECIPE_CLASS = 9
+function Crafting.randomResult(class, market)
+	return class == RECIPE_CLASS and market == nil
+end
+
 -- Profit with "I have these": what the player holds costs nothing, only what is still to buy does.
 function Crafting.profitHeld(q)
 	if not q or not q.revenue or not q.cash then

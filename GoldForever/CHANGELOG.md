@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Recipes with a random result say so.** The crafting panel beside your profession window shows
+  "random, can fail" for a recipe whose result is random or can fail (Wild Experimentation, the
+  transmutations, prospecting), with no sale price or profit, instead of "unknown". Its reagents are
+  still costed when their prices are known. Other recipes are unchanged.
 - **Mail to your characters on your other WoW accounts counts too.** With the companion running, the
   addon knows the characters of every WoW account linked to your Gold Forever account, so mail to one of
   them on the same realm is recorded as mail to your own character, and its gold is a transfer on both
