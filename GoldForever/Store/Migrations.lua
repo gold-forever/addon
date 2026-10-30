@@ -70,6 +70,13 @@ ns.MIGRATIONS = {
 		to = 8,
 		run = function() end,
 	},
+	-- An item row may end in tier, the item's crafting-quality tier (Catalogue.lua); nothing the save holds
+	-- changes.
+	{
+		from = 8,
+		to = 9,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

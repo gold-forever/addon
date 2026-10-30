@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Each quality tier of a crafted item or reagent is told apart.** On retail the save records each
+  item's crafting quality tier (1-3 for reagents, 1-5 for crafted gear and consumables), so the site
+  can tell the tiers of, say, Argentleaf apart. It is read when an item is first recorded, never in
+  combat: an item met in a fight is recorded once it ends. WoW: Forever has no tiers and records none.
+  Gold Forever on the site must be up to date to read saves from this version.
+
 - **Every dungeon floor is named.** A floor you reach without a zone change, as on some floors of
   Windrunner Spire, showed as "Map 2494" on the site for the XP and loot recorded there. Every map a
   row records is now added to the catalogue with the zone above it; in combat, once the fight ends.

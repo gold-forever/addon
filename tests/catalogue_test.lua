@@ -13,6 +13,18 @@ C_TooltipInfo = {
 	end,
 }
 
+-- Whether the player is fighting, and what waits for the fight's end (ns.afterCombat).
+local fighting = false
+local afterFight = {}
+local function endFight()
+	fighting = false
+	local due = afterFight
+	afterFight = {}
+	for _, fn in ipairs(due) do
+		fn()
+	end
+end
+
 -- One session of the addon on the saved table db: Catalogue.lua loaded afresh, its timers in `tick`.
 local function session(db, lean)
 	local scheduled = {}
@@ -30,6 +42,16 @@ local function session(db, lean)
 		end,
 		on = function() end,
 		module = function() end,
+		inCombat = function()
+			return fighting
+		end,
+		afterCombat = function(_, fn)
+			if fighting then
+				afterFight[#afterFight + 1] = fn
+			else
+				fn()
+			end
+		end,
 	}
 	assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
@@ -164,6 +186,32 @@ eq(catalogued(300009, failing, TIER2), string.format(ROW, 300009) .. ",2", "an A
 eq(catalogued(300010, { GetItemReagentQualityByItemInfo = function() return "x" end }, PLAIN), string.format(ROW, 300010),
 	"an answer that is not a tier is none")
 eq(ns.FIELDS.item:match(",([^,]*)$"), "tier", "retail: the schema's item columns end with tier")
+
+-- A crafted item (gear, a consumable) answers GetItemCraftedQualityByItemInfo, 1–5; a reagent answers the
+-- reagent call, 1–3.
+local craftedAnswers = { [300012] = 5 }
+local both = {
+	GetItemReagentQualityByItemInfo = function(id) return answers[id] end,
+	GetItemCraftedQualityByItemInfo = function(id) return craftedAnswers[id] end,
+}
+eq(catalogued(300012, both, PLAIN), string.format(ROW, 300012) .. ",5", "retail: a crafted item's tier")
+eq(catalogued(300001, both, PLAIN), string.format(ROW, 300001) .. ",3", "retail: a reagent's tier")
+eq(catalogued(300002, both, PLAIN), string.format(ROW, 300002), "retail: an item without tiers has none")
+
+-- Never in combat: an item named in a fight is catalogued, its tier with it, once the fight ends.
+fighting = true
+C_TradeSkillUI = both
+local fightDb = { catalogue = { items = {}, tooltips = {} } }
+local fightNs, fightTick = session(fightDb, true)
+fightNs.catalogueItem(300012)
+while fightTick() do
+end
+eq(fightDb.catalogue.items[300012], nil, "in combat: nothing is read")
+endFight()
+while fightTick() do
+end
+C_TradeSkillUI = nil
+eq(fightDb.catalogue.items[300012], string.format(ROW, 300012) .. ",5", "after the fight: the row and its tier")
 
 -- Forever: no tier column declared, and none written even where the client would answer one.
 C_TradeSkillUI = retail

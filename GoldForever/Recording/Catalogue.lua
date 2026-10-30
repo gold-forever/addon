@@ -36,20 +36,24 @@ end
 -- For a lean (retail) save, which keeps none: an item's tooltip text read when asked.
 ns.itemTooltipText = tooltip
 
--- A retail item's crafting-quality tier: the client's answer, else the quality markup in its link. Asked only
--- where the schema declares the column; even there the call may be missing or fail (owner: "it has to not
--- fail on Forever as well"), so it is looked up and protected, and anything that is not a tier is none.
+-- A retail item's crafting-quality tier: the client's answer (a reagent's 1–3, a crafted item's 1–5), else the
+-- quality markup in its link. Asked only where the schema declares the column; even there the calls may be
+-- missing or fail (owner: "it has to not fail on Forever as well"), so they are looked up and protected, and
+-- anything that is not a tier is none.
 local TIERED = Encode.columns(ns.FIELDS.item).tier ~= nil
 local TIER_MARKUP = "Professions%-ChatIcon%-Quality%-.-Tier(%d)"
+local TIER_CALLS = { "GetItemReagentQualityByItemInfo", "GetItemCraftedQualityByItemInfo" }
 local function tier(id, link)
 	if not TIERED then
 		return nil
 	end
-	local quality = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
-	if quality then
-		local ok, value = pcall(quality, id)
-		if ok and type(value) == "number" and value >= 1 then
-			return value
+	for _, call in ipairs(TIER_CALLS) do
+		local quality = C_TradeSkillUI and C_TradeSkillUI[call]
+		if quality then
+			local ok, value = pcall(quality, id)
+			if ok and type(value) == "number" and value >= 1 then
+				return value
+			end
 		end
 	end
 	return type(link) == "string" and tonumber(string.match(link, TIER_MARKUP)) or nil
@@ -72,6 +76,15 @@ local function write(id)
 	return true
 end
 
+-- fn now, or on retail in a fight once it ends: the tier is never asked in combat.
+local function outOfFight(fn)
+	if TIERED then
+		ns.afterCombat("catalogue", fn)
+	else
+		ns.safely("catalogue", fn)
+	end
+end
+
 local function load(id)
 	if write(id) then
 		return
@@ -79,8 +92,10 @@ local function load(id)
 	pending[id] = true
 	if Item and Item.CreateFromItemID then
 		Item:CreateFromItemID(id):ContinueOnItemLoad(function()
-			pending[id] = nil
-			ns.safely("catalogue", write, id)
+			outOfFight(function()
+				pending[id] = nil
+				write(id)
+			end)
 		end)
 	end
 end
@@ -97,6 +112,10 @@ local tried = {} -- item IDs asked for this session: one with no tooltip is not 
 local draining = false
 
 local function drain()
+	if TIERED and ns.inCombat() then
+		ns.afterCombat("catalogue", drain)
+		return
+	end
 	for _ = 1, BATCH do
 		local id = queue[head]
 		if not id then

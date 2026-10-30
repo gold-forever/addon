@@ -5,15 +5,15 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 8
+ns.SCHEMA = 9
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
 ns.FIELDS = {
 	sys = "t,char,kind",
-	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns. Retail appends tier, an
-	-- item's crafting-quality tier (1–5), empty and left off the row's end for an untiered item; Forever
-	-- has no tiers and declares no column.
+	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns. Retail appends tier (from
+	-- schema 9), an item's crafting-quality tier (a reagent's 1–3, a crafted item's 1–5), empty and left off
+	-- the row's end for an untiered item; Forever has no tiers and declares no column.
 	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc" .. (ns.retail and ",tier" or ""),
 	-- Loot.lua. fish is appended to design 002's columns: set when the loot is a fishing catch.
 	loot = "t,char,map,x,y,src,first,coin,items,fish",
