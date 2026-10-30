@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Every dungeon floor is named.** A floor you reach without a zone change, as on some floors of
+  Windrunner Spire, showed as "Map 2494" on the site for the XP and loot recorded there. Every map a
+  row records is now added to the catalogue with the zone above it; in combat, once the fight ends.
+
 - **Items a vendor sells for currency are named too.** Opening a vendor now records the name, quality
   and icon of everything it sells, not only what it sells for gold, so a recipe bought with currency or
   tokens shows its name on the site and as sold by that vendor. Vendor prices are still recorded only

@@ -123,4 +123,7 @@ function ns.record(stream, row)
 		values[i] = row[name]
 	end
 	ns.append(stream, Encode.row(unpack(values, 1, #columns.names)))
+	if row.map then
+		ns.emit("mapRecorded", row.map)
+	end
 end

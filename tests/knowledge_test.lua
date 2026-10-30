@@ -47,6 +47,7 @@ local ns = {
 	safely = function(_, fn, ...)
 		return fn(...)
 	end,
+	listen = function() end,
 	on = function(event, _, fn)
 		handlers[event] = handlers[event] or {}
 		table.insert(handlers[event], fn)

@@ -298,9 +298,11 @@ end
 
 -- Maps -------------------------------------------------------------------------------------------
 
-local function seeMap()
+local asked = {} -- map IDs rows recorded this session, looked up once each
+local waiting = {} -- map IDs rows recorded in combat, looked up once it ends
+
+local function catalogueMap(map)
 	local maps = ns.db().catalogue.maps
-	local map = C_Map.GetBestMapForUnit("player")
 	while map and map ~= 0 and not maps[map] do
 		local info = C_Map.GetMapInfo(map)
 		if not info then
@@ -310,6 +312,31 @@ local function seeMap()
 		map = info.parentMapID
 	end
 end
+
+local function catalogueWaiting()
+	for map in pairs(waiting) do
+		catalogueMap(map)
+	end
+	waiting = {}
+end
+
+local function seeMap()
+	catalogueMap(C_Map.GetBestMapForUnit("player"))
+end
+
+-- A map a stream row records: a floor reached without a zone event is named too.
+ns.listen("mapRecorded", "maps", function(map)
+	if type(map) ~= "number" or asked[map] or ns.db().catalogue.maps[map] then
+		return
+	end
+	asked[map] = true
+	if ns.inCombat() then
+		waiting[map] = true
+		ns.afterCombat("maps", catalogueWaiting)
+		return
+	end
+	catalogueMap(map)
+end)
 
 for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
 	ns.on(event, "maps", seeMap)
