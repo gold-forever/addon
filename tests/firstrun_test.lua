@@ -6,7 +6,7 @@ local F = ns.FirstRun
 
 local function tables()
 	return { prices = { tooltip = true }, auction = { hidden = false }, crafting = { strip = true }, shop = { shown = true },
-		appraiser = { shown = true }, advisor = { shown = true } }
+		appraiser = { shown = true } }
 end
 
 local s = tables()
@@ -15,7 +15,6 @@ eq(s.prices.tooltip, true, "prices only: the tooltip")
 eq(s.auction.hidden, true, "no auction panel")
 eq(s.crafting.strip, false, "no crafting strip")
 eq(s.appraiser.shown, false, "no HUD")
-eq(s.advisor.shown, false, "no bag advice")
 
 s = tables()
 F.apply("trader", s)
@@ -25,7 +24,12 @@ eq(s.appraiser.shown, false, "no HUD")
 
 s = tables()
 F.apply("everything", s)
-eq(s.appraiser.shown and s.advisor.shown and s.crafting.strip and not s.auction.hidden and s.prices.tooltip, true, "everything on")
+eq(s.appraiser.shown and s.crafting.strip and not s.auction.hidden and s.prices.tooltip, true, "everything on")
+
+for _, p in ipairs(F.PRESETS) do
+	eq(p.on.advice, nil, p.id .. ": no bag advice")
+	eq(p.blurb:find("advice"), nil, p.id .. ": the blurb names no bag advice")
+end
 
 eq(F.apply("nonsense", tables()), false, "an unknown preset changes nothing")
 

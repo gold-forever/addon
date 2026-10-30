@@ -1,5 +1,5 @@
--- Gold Forever: what an item is worth (ns.price), for the HUD, the tooltips, the loot advisor, the
--- crafting and the auction panel. Prices come from the shared pool (Prices.lua) when the companion
+-- Gold Forever: what an item is worth (ns.price), for the HUD, the tooltips, the crafting
+-- and the auction panel. Prices come from the shared pool (Prices.lua) when the companion
 -- wrote one, else from the latest full scan of the character's own auction house in the saved file,
 -- valued as the web app does: the better of the market value after the auction cut and the vendor price.
 
@@ -295,7 +295,7 @@ ns.listen("scanSaved", "prices", function()
 	ownMarket(0)
 end)
 
--- For the loot advisor (Advisor.lua): the same prices and valuation as here.
+-- The same prices and valuation, for every file that prices an item.
 ns.price = {
 	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,

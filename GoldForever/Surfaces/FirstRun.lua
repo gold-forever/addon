@@ -16,8 +16,8 @@ FirstRun.PRESETS = {
 		on = { tooltip = true } },
 	{ id = "trader", label = "Trader", blurb = "Prices, the auction house panel and the crafting strip.",
 		on = { tooltip = true, auction = true, strip = true } },
-	{ id = "everything", label = "Everything", blurb = "All of it, the session HUD and bag advice too. Switch any off later.",
-		on = { tooltip = true, auction = true, strip = true, hud = true, advice = true } },
+	{ id = "everything", label = "Everything", blurb = "All of it, the session HUD too. Switch any off later.",
+		on = { tooltip = true, auction = true, strip = true, hud = true } },
 }
 
 -- Applies a preset to the settings tables (each as ns.settings would return it). Pure: no game API.
@@ -36,7 +36,6 @@ function FirstRun.apply(id, s)
 	s.auction.hidden = not on.auction
 	s.crafting.strip = on.strip == true
 	s.appraiser.shown = on.hud == true
-	s.advisor.shown = on.advice == true
 	return true
 end
 
@@ -52,7 +51,6 @@ local function settingsTables()
 		auction = ns.settings("auction"),
 		crafting = ns.settings("crafting"),
 		appraiser = ns.settings("appraiser"),
-		advisor = ns.settings("advisor"),
 	}
 end
 

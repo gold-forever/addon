@@ -40,7 +40,6 @@ end
 local PINNED = {
 	window = "{  }",
 	appraiser = "{ shown = true }",
-	advisor = "{ shown = true }",
 	rares = "{ announce = true, mark = true }",
 	crafting = "{ strip = true }",
 	craftQueue = "{ closed = false }",
@@ -69,6 +68,14 @@ eq(ns.DEFAULTS.auction.rule.markup, nil, "a nested default is copied")
 -- A section saved by an older version gets a default added since; what the player set stays.
 ns.db().settings.minimap = { angle = 90 }
 eq(show(ns.settings("minimap")), "{ angle = 90, hidden = false }", "a default added later reaches a saved section")
+
+-- The loot advisor is gone (addon#77): no default, and an old save's section stays as it was, unread.
+eq(ns.DEFAULTS.advisor, nil, "no loot advisor default")
+ns.db().settings.advisor = { shown = false }
+for name in pairs(ns.DEFAULTS) do
+	ns.settings(name)
+end
+eq(show(ns.db().settings.advisor), "{ shown = false }", "an old save's advisor section is left alone")
 
 -- Defaults given still win over ns.DEFAULTS (a section the tests make).
 eq(show(ns.settings("smoke", { a = 1 })), "{ a = 1 }", "defaults given")

@@ -93,7 +93,7 @@ local function refresh()
 end
 
 -- A small movable window with a title, a close button and a text body; its position is kept in
--- [store]. Shared with the loot advisor.
+-- [store].
 function ns.makeWindow(name, title, store, point, onClose)
 	local f = CreateFrame("Frame", name, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
 	f:SetSize(260, 120)

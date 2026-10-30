@@ -27487,7 +27487,6 @@ scans[3].rows: "4999,92,20,1,3"
 scans[3].t = 1792607200
 scans[3].zone = ""
 schema = 1
-settings.advisor.shown = true
 settings.appraiser.autoSession = true
 settings.appraiser.shown = true
 settings.auction.duration = 2

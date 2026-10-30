@@ -1,6 +1,6 @@
 -- Gold Forever: the items the characters hold, and what they are worth (ns.Views): the Inventory tab's
--- rows, the tooltip's holdings, the bank and mail the auction house pays for, the craft queue's reagents
--- and the loot advisor's lists. Pure Lua 5.1, as Views.lua.
+-- rows, the tooltip's holdings, the bank and mail the auction house pays for, and the craft queue's reagents.
+-- Pure Lua 5.1, as Views.lua.
 
 local _, ns = ...
 local Views = ns.Views
@@ -255,47 +255,6 @@ function Views.queuePlan(needs, mine, guild, others)
 		return a.id < b.id
 	end)
 	return rows
-end
-
--- The loot advisor's lists (Advisor.lua): each stack's best use, vendor, post or disenchant, whichever
--- brings the most. stacks = { { id, count, bound } }; price = { vendor, market, disenchant, itemInfo, cut }
--- as ns.price; skill is the character's enchanting. A bound stack is never posted; disenchanting needs the
--- skill. Returns lists by use ({ id, name, count, value, market }, most first) and their totals.
-function Views.adviseStacks(stacks, price, skill)
-	local lists = { vendor = {}, post = {}, disenchant = {} }
-	local totals = { vendor = 0, post = 0, disenchant = 0 }
-	for _, s in pairs(stacks) do
-		local options = {}
-		local vendor = price.vendor(s.id)
-		if vendor then
-			options.vendor = vendor * s.count
-		end
-		local market = not s.bound and price.market(s.id)
-		if market then
-			options.post = math.floor(market * (1 - price.cut)) * s.count
-		end
-		local de, needs = price.disenchant(s.id)
-		if de and de > 0 and skill >= needs then
-			options.disenchant = de * s.count
-		end
-		local best, value
-		for use, v in pairs(options) do
-			if not value or v > value then
-				best, value = use, v
-			end
-		end
-		if best and value > 0 then
-			local _, _, _, _, name = price.itemInfo(s.id)
-			table.insert(lists[best], { id = s.id, name = name or ("item " .. s.id), count = s.count, value = value, market = market })
-			totals[best] = totals[best] + value
-		end
-	end
-	for _, list in pairs(lists) do
-		table.sort(list, function(a, b)
-			return a.value > b.value
-		end)
-	end
-	return lists, totals
 end
 
 -- What the bags would sell for (Home's "Sell your bags"): Views.worthList over bags = { items, bound },

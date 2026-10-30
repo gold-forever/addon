@@ -372,7 +372,6 @@
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-horde@1792820863 EU-Shadowsong-neutral@1792828063
 + schema = 9
-+ settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2
 + settings.auction.durations = {}

@@ -15,7 +15,6 @@ end
 ns.DEFAULTS = {
 	window = {}, -- the look, the accent, the hub's place and its pages' choices
 	appraiser = { shown = true }, -- the session HUD
-	advisor = { shown = true },
 	rares = { announce = true, mark = true },
 	crafting = { strip = true }, -- the crafting strip, and the craft queue's recipes
 	craftQueue = { closed = false },

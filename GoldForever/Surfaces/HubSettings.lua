@@ -77,7 +77,6 @@ local function buildSettings(page)
 	page.modules:Hide()
 
 	local appraiser = ns.settings("appraiser")
-	local advisor = ns.settings("advisor")
 	local rares = ns.settings("rares")
 	local minimap = ns.settings("minimap")
 	-- Each tab drawn the first time it is chosen (General when the page opens).
@@ -214,9 +213,6 @@ local function buildSettings(page)
 			{ icon = "users", name = "Held counts in tooltips", blurb = "How many each of your characters holds, in bags, bank and mail.",
 				on = function() return prices.held ~= false end,
 				set = function(on) prices.held = on end },
-			{ icon = "backpack", name = "Bag advice at vendors", blurb = "What to sell, keep or post when a vendor opens.",
-				on = function() return advisor.shown end,
-				set = function(on) advisor.shown = on end },
 			{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
 				on = function() return auction.dealsAlert ~= false end,
 				set = function(on) auction.dealsAlert = on end },

@@ -1890,7 +1890,6 @@
 + scans order = EU-Shadowsong-neutral@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
 + schema = 9
-+ settings.advisor.shown = true
 + settings.appraiser.shown = false
 + settings.auction.duration = 2
 + settings.auction.durations = {}
