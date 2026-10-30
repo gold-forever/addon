@@ -15,7 +15,7 @@ local function help(rest)
 	print("  /gf - open or close the window")
 	print("  /gf hud - show or hide the session HUD")
 	print("  /gf ah - show or hide the auction panel · /gf scan - scan the auction house")
-	print("  /gf bags - what to do with your loot · /gf shop - your crafts by profit")
+	print("  /gf shop - your crafts by profit")
 	print("  /gf look web|classic|arcane - change the look · /gf minimap - the minimap button")
 	if rest == "all" then
 		print("  /gf ui <page> - open a page · /gf session - the session in chat · /gf reset - a new session")

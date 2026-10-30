@@ -147,7 +147,7 @@ local function run(f, script)
     if c.shown then run(c, script) end
   end
 end
-function CreateFrame(_, _, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {} })
+function CreateFrame(_, name, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {}, name = name })
   if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
   -- One unit's event only: the client passes the unit first, and calls the frame for no other.
@@ -1045,18 +1045,21 @@ for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
 -- No vendor value: the game's own Sell Price line shows it (addon#20).
 seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Disenchant |cff56c98f(better than selling)|r → ~53s 66c", "") -- no disenchant value on retail: the table is the classic one
 bagsFull = true
--- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
--- Blizzard's own call: the first press says what, the second sells, once.
+-- Where the merchant window has no junk button of its own (WoW: Forever), a Sell junk button on it sells
+-- junk with Blizzard's own call: the first press says what, the second sells, once. No window opens
+-- beside the merchant: the loot advisor is gone (addon#77).
 local sold = 0
-MerchantFrame = widget({ shown = true })
+MerchantFrame = widget({ shown = true, children = {} })
 function MerchantFrame:IsShown() return true end
 C_MerchantFrame = { GetNumJunkItems = function() return 3 end, IsSellAllJunkEnabled = function() return true end,
   SellAllJunkItems = function() sold = sold + 1 end }
 fire("MERCHANT_SHOW")
-seen("ADVISOR\n", tostring(appraiserText), "Sell junk: 3 items · 0c")
+for _, f in ipairs(frames) do assert(f.name ~= "GoldForeverAdvisor", "no loot window at the merchant") end
+assert(ns.commands.bags == nil, "no /gf bags")
 do
-  local sell = ns.Advisor.sellButton()
+  local sell = ns.SellJunk.button()
   assert(sell and sell:IsShown() and (sell.label:GetText()):find("Sell junk: 3 items", 1, true), "Sell junk shows: " .. tostring(sell and sell.label:GetText()))
+  assert(sell.parent == MerchantFrame, "on the merchant window")
   sell.scripts.OnClick(sell)
   assert(sold == 0 and (sell.label:GetText()):find("Press again", 1, true), "the first press only asks")
   sell.scripts.OnClick(sell)
@@ -1066,6 +1069,10 @@ do
   fire("BAG_UPDATE_DELAYED")
   assert(not sell:IsShown(), "no second junk button beside Blizzard's")
   MerchantSellAllJunkButton = nil
+  fire("BAG_UPDATE_DELAYED")
+  assert(sell:IsShown(), "back with junk to sell")
+  fire("MERCHANT_CLOSED")
+  assert(not sell:IsShown(), "gone when the merchant closes")
 end
 MerchantFrame, C_MerchantFrame = nil, nil
 -- A rare on a nameplate: announced once, recorded, marked with a skull.
@@ -1179,7 +1186,6 @@ ns.scanVersion = (ns.scanVersion or 0) + 1
 GoldForeverDB.catalogue.items[2996] = "Bolt of Linen Cloth,1,10,7,5,10,25,0,132890"
 GoldForeverDB.catalogue.tooltips[2996] = "Bolt of Linen Cloth"
 fire("AUCTION_HOUSE_SHOW")
-seen("SHOP\n", tostring(appraiserText), "|cffffd100Vendor these|r · 6s 87c\n1x Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 2s 66c\n7x Item‚ 2589 · 2s 66c|cff999999 (post at 40c each)|r\n \n|cffa335eeDisenchant these|r · 53s 66c\n1x Violet Sash · 53s 66c\n \n|cffffffffAll of it: 63s 19c|r", "|cffffd100Vendor these|r · 22s 72c\n1x Violet Sash · 15s 85c\n1x Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 6s 65c\n7x Item‚ 2589 · 6s 65c|cff999999 (post at 1s 0c each)|r\n \n|cffffffffAll of it: 29s 37c|r")
 -- The crafting strip: beside the profession window, the selected recipe's cost, sale and profit.
 do
   ProfessionsFrame = widget()
@@ -2666,13 +2672,15 @@ assert(GoldForeverDB.settings.window.look == "classic", "an unknown look changes
 do
   local helped = false
   local chat = print
-  print = function(...) if table.concat({ ... }, " "):find("/gf hud", 1, true) then helped = true end chat(...) end
+  local bags = false
+  print = function(...) local line = table.concat({ ... }, " ") if line:find("/gf hud", 1, true) then helped = true end if line:find("/gf bags", 1, true) then bags = true end chat(...) end
   local before = ns.hubWindow() ~= nil
   SlashCmdList.GOLDFOREVER("")
   assert((ns.hubWindow() ~= nil) ~= before, "/gf opens the hub, or closes it")
   SlashCmdList.GOLDFOREVER("help")
   print = chat
   assert(helped, "/gf help lists the commands")
+  assert(not bags, "no /gf bags in the help")
   SlashCmdList.GOLDFOREVER("")
 end
 SlashCmdList.GOLDFOREVER("look arcane")

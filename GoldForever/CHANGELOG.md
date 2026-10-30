@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The "your loot" window is gone.** The unskinned "Gold Forever · your loot" window no longer opens
+  at vendors, and `/gf bags` is gone with it. On WoW: Forever, whose merchant window has no Sell All
+  Junk button, the Sell junk button now sits under the merchant window: the first press says what it
+  will sell, the second sells.
+
 - **Every loot window keeps its coin.** Some loot windows recorded no coin while the money came in, so a
   session's gold and the mob ranking came out short: in a group the coin of one window can come as
   several shares, a moment late, or before the window shows it taken. Every share is now counted with

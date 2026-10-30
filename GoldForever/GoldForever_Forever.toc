@@ -77,7 +77,7 @@ Surfaces\Tooltips.lua
 ReadModels\DataFormat.lua
 ReadModels\Prices.lua
 ReadModels\PricesMarkets.lua
-Surfaces\Advisor.lua
+Surfaces\SellJunk.lua
 Recording\Rares.lua
 Tools\CraftPlanner.lua
 Tools\Auctions.lua
