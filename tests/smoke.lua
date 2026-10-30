@@ -18,6 +18,13 @@ function hooksecurefunc(a, b, c)
   if type(a) == "string" then local orig = _G[a]; _G[a] = function(...) return after(b, { n = select("#", ...), ... }, orig(...)) end
   else local orig = a[b]; a[b] = function(...) return after(c, { n = select("#", ...), ... }, orig(...)) end end
 end
+-- The send frame Mail.lua reads as SendMail runs: gold only.
+sendMoney = 0
+function SendMail() end
+function GetSendMailItemLink() end
+function GetSendMailItem() end
+function GetSendMailMoney() return sendMoney end
+function GetSendMailCOD() return 0 end
 -- The client's modified-click handler, which the addon hooks (alt-click chooses in Sell, shift-click adds
 -- to a shopping list).
 function HandleModifiedItemClick() end
@@ -3078,6 +3085,39 @@ local all = exported("all")
 assert(all.pending.picked.export.since == nil, "/gf export all holds everything again: " .. tostring(all.pending.picked.export.since))
 all:Hide()
 SlashCmdList.GOLDFOREVER("")
+-- Mail to your character on another WoW account: Data.lua, as the companion writes it, runs as the UI
+-- loads, so a character it lists after that is your own only after a /reload.
+do
+  local function companionFile(...)
+    local rows = {}
+    for _, name in ipairs({ ... }) do rows[#rows + 1] = '    { realm = "Classic Beta PvE 2", name = "' .. name .. '" },\n' end
+    return "-- Written by the Gold Forever companion and replaced on every refresh: do not edit.\n"
+      .. "GoldForever_Prices = {\n  v = 1,\n  at = " .. now .. ",\n  characters = {\n" .. table.concat(rows) .. "  },\n"
+      .. '  markets = {\n    ["forever-Classic Beta PvE 2-Alliance"] = {\n      [2589] = { 100, 90, 3, ' .. now .. ', 95 },\n    },\n  },\n}\n'
+  end
+  local function send(to)
+    sendMoney = 1000
+    SendMail(to, "", "")
+    fire("MAIL_SEND_SUCCESS")
+    sendMoney = 0
+    money = money - 1030; fire("PLAYER_MONEY")
+  end
+  local keep, day = GoldForever_Prices, GoldForeverDB.events[ns.Encode.day(now)]
+  fire("MAIL_SHOW")
+  assert(loadstring(companionFile("Testchar", "Otheracct")))()
+  local onDisk = companionFile("Testchar", "Otheracct", "Z\\195\\169ri")
+  send("Z\195\169ri")
+  seen("MAIL BEFORE RELOAD ", tostring(day.mail and day.mail[1]) .. " | " .. day.money[1]:match("[^;]*$"), "nil | " .. now .. ",1,-1030,mail")
+  assert(loadstring(onDisk))()
+  send("Z\195\169ri")
+  send("otheracct-ClassicBetaPvE2")
+  seen("MAIL AFTER RELOAD ", tostring(day.mail and day.mail[1]),
+    now .. ",1,Z\195\169ri-Classic Beta PvE 2,,1000,;" .. now .. ",1,Otheracct-Classic Beta PvE 2,,1000,")
+  seen("MAIL TRANSFERS ", day.money[1]:match("[^;]*;[^;]*;[^;]*;[^;]*$"),
+    now .. ",1,-1000,mail+transfer;" .. now .. ",1,-30,mail;" .. now .. ",1,-1000,mail+transfer;" .. now .. ",1,-30,mail")
+  fire("MAIL_CLOSED")
+  GoldForever_Prices = keep
+end
 money = 0; xpmax = 0; C_Container.GetContainerNumSlots = function() return 0 end
 fire("PLAYER_LEAVING_WORLD")
 fire("PLAYER_LOGOUT")

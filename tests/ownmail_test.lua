@@ -247,4 +247,34 @@ for _, file in ipairs({ { v = 1, at = 1, markets = {} }, { v = 1, at = 1, market
 end
 sendMoney = 0
 
+-- Data.lua, as the companion writes it, runs once, as the UI loads: a character it lists after that is
+-- your own only after a /reload, and the mail before it is spent at the mailbox, gold and postage together.
+local function companionFile(...)
+	local rows = {}
+	for _, name in ipairs({ ... }) do
+		rows[#rows + 1] = '    { realm = "Argent Dawn", name = "' .. name .. '" },\n'
+	end
+	return "-- Written by the Gold Forever companion and replaced on every refresh: do not edit.\n"
+		.. "GoldForever_Prices = {\n  v = 1,\n  at = 1792517000,\n  characters = {\n" .. table.concat(rows) .. "  },\n"
+		.. '  markets = {\n    ["retail-EU"] = {\n      [2589] = { 100, 90, 3, 1792516000, 95 },\n    },\n  },\n}\n'
+end
+local function uiLoads(file)
+	assert(load(file, "@Data.lua"))()
+end
+uiLoads(companionFile("Ann", "Otheralt"))
+local onDisk = companionFile("Ann", "Otheralt", "Z\\195\\169ri") -- written after the UI loaded
+sendMoney = 100000
+SendMail("Z\195\169ri", "", "")
+fire("MAIL_SEND_SUCCESS")
+eq(written("mail", MAIL), "", "a character listed after the UI loaded is not yet your own")
+spend(100030)
+eq(written("money", MONEY), "delta=-100030 ctx=mail", "its gold and postage are spent at the mailbox")
+uiLoads(onDisk)
+SendMail("Z\195\169ri", "", "")
+fire("MAIL_SEND_SUCCESS")
+eq(written("mail", MAIL), "char=1 to=Z\195\169ri-Argent Dawn items=nil money=100000 cod=nil", "after a /reload it is, its name as the file escapes it")
+spend(100030)
+eq(written("money", MONEY), "delta=-100000 ctx=mail+transfer; delta=-30 ctx=mail", "and its gold a transfer")
+sendMoney = 0
+
 return checks()
