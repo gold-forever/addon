@@ -103,13 +103,14 @@ end
 
 -- Levelling -----------------------------------------------------------------------------------------------
 
+-- Colours by token, read as the page fills: a look swaps the tokens' values.
 local SOURCES = {
-	{ key = "kill", label = "Kills", color = Theme.color.chart1 },
-	{ key = "quest", label = "Quests", color = Theme.color.chart2 },
-	{ key = "boss", label = "Bosses", color = Theme.color.xp },
-	{ key = "explore", label = "Exploring", color = Theme.color.success },
-	{ key = "gather", label = "Gathering", color = Theme.color.warning },
-	{ key = "other", label = "Other", color = Theme.color.chartMuted },
+	{ key = "kill", label = "Kills", color = "chart1" },
+	{ key = "quest", label = "Quests", color = "chart2" },
+	{ key = "boss", label = "Bosses", color = "xp" },
+	{ key = "explore", label = "Exploring", color = "success" },
+	{ key = "gather", label = "Gathering", color = "success" },
+	{ key = "other", label = "Other", color = "chartMuted" },
 }
 -- A kind not listed (one a newer addon records) is counted in Other.
 local LISTED = {}
@@ -180,8 +181,9 @@ local function buildLevelling(page)
 				end
 			end
 			if n > 0 then
-				segments[#segments + 1] = { value = n, color = s.color }
-				legend[#legend + 1] = string.format("%s%s|r %d%%", Theme.escape(s.color), s.label, math.floor(n / lv.xp * 100 + 0.5))
+				local color = Theme.color[s.color]
+				segments[#segments + 1] = { value = n, color = color }
+				legend[#legend + 1] = string.format("%s%s|r %d%%", Theme.escape(color), s.label, math.floor(n / lv.xp * 100 + 0.5))
 			end
 		end
 		mixLabel:SetText(lv.xp > 0 and ("XP by source: " .. table.concat(legend, " · ")) or "XP by source: none recorded yet")
