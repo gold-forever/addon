@@ -418,7 +418,7 @@ local function refresh(page)
 			end
 		end
 	end
-	page.table:SetRows(ah.rows)
+	page.table:SetRows(ah.rows, true) -- a click or the auction house's results keep the page (addon#76)
 	page:Refresh()
 end
 

@@ -172,6 +172,7 @@ local function buildCancel(page)
 		end })
 	tbl:SetPoint("TOPLEFT", 0, -40)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
+	page.table = tbl
 	local go = UI.Button(page, "Cancel next", function()
 		ns.safely("auction cancel", cancelNext)
 		ah.refresh()
@@ -185,7 +186,7 @@ local function buildCancel(page)
 		for _, a in ipairs(ah.owned) do
 			a.searched = select(2, cheapestFor(a))
 		end
-		tbl:SetRows(ah.owned)
+		tbl:SetRows(ah.owned, true) -- a click or a check keeps the page (addon#76)
 		local first = list[1]
 		if ah.checking == 0 then
 			go:SetLabel("Reading...")

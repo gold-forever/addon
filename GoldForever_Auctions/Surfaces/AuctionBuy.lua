@@ -221,7 +221,7 @@ local function buildShop(page)
 			local deal, book = shopDeal(e)
 			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, pct = e.pct, lowest = e.lowest, upTo = e.upTo, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
 		end
-		tbl:SetRows(shown)
+		tbl:SetRows(shown, true) -- a click or the auction house's results keep the page (addon#76)
 		local deal = ah.shopChosen and shopDeal(ah.shopChosen)
 		local label = ah.purchase and ah.purchase.quoted and ("Confirm: " .. ah.purchase.quantity .. " for " .. money(ah.purchase.quoted))
 			or (deal and ("Buy " .. deal.quantity .. " for " .. money(deal.total))) or "Buy next"

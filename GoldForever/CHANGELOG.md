@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Lists at the auction house keep their place.** Clicking an item on page 2 or further of the Sell,
+  Buy or Auctions list sent the list back to page 1, as did the search results and auction checks that
+  follow. The list now stays on the page you were reading, and the item you clicked stays chosen.
+
 - **The "your loot" window is gone.** The unskinned "Gold Forever · your loot" window no longer opens
   at vendors, and `/gf bags` is gone with it. On WoW: Forever, whose merchant window has no Sell All
   Junk button, the Sell junk button now sits under the merchant window: the first press says what it

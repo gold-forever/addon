@@ -189,6 +189,24 @@ function fire(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.h
 -- An event without running the timers due, for orderings within a second.
 function fireNow(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end end
 function wait(s) runTimers(clock + s) clock = clock + s end
+-- What a list's row stands for: a Sell row's item key, an own auction, a shopping list's item.
+local function ident(r) return r and (r.key or r.auctionID or r.itemId) end
+-- A UI.Table paged on to its second page of one row, act(line) run on that page's row: the table is
+-- still on that page, showing that row (addon#76).
+function keepsPlace(tbl, what, act)
+  local size = tbl.size
+  tbl.size = 1
+  tbl:Refresh()
+  tbl.scripts.OnMouseWheel(tbl, -1)
+  assert(tbl.page == 2, what .. " pages on: page " .. tostring(tbl.page))
+  local line = tbl.lines[1]
+  local row = line.row
+  act(line)
+  assert(tbl.page == 2, what .. " keeps its page: page " .. tostring(tbl.page))
+  assert(ident(tbl.lines[1].row) == ident(row), what .. " still shows the row")
+  tbl.size = size
+  tbl:Refresh()
+end
 -- GF_SMOKE_INTERFACE=120105 plays the same session on a retail client.
 local INTERFACE = tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001
 function GetBuildInfo() return "1.60.1", "70450", "", INTERFACE end
@@ -1357,6 +1375,25 @@ do
     AP.tab("scan")
     AP.tab("post")
   end
+  -- The Sell list keeps its page and its chosen row across a click on a row and the auction house's
+  -- results that follow it (addon#76: a click sent it back to page 1). A page of one row, so the bags'
+  -- two sellable items fill two pages.
+  do
+    local full = bagsFull
+    bagsFull = true
+    AP.tab("scan")
+    AP.tab("post")
+    local tbl = AP.panel().post.table
+    keepsPlace(tbl, "the Sell list", function(line)
+      local key = line.row.key
+      line.scripts.OnClick(line)
+      fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+      local _, chosen = AP.state()
+      assert(chosen and chosen.key == key, "the clicked row is chosen")
+    end)
+    bagsFull = full
+    ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  end
   -- A bag item's tooltip at the auction house says what Post would ask.
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
@@ -1573,6 +1610,16 @@ do
   end
   around("StartCommoditiesPurchase", "start")
   around("ConfirmCommoditiesPurchase", "confirm")
+  -- The Buy list keeps its page and its chosen item across a click and the results that follow it (addon#76).
+  GoldForeverDB.settings.auction.lists = { { name = "Two", entries = { { itemId = 2589, maxUnit = 4500 }, { itemId = 2592, maxUnit = 900 } } } }
+  GoldForeverDB.settings.auction.list = 1
+  AP.tab("shop")
+  keepsPlace(AP.panel().shop.table, "the Buy list", function(line)
+    local id = line.row.itemId
+    line.scripts.OnClick(line)
+    fire("COMMODITY_SEARCH_RESULTS_UPDATED", id)
+    assert(AP.panel().shop.table.lines[1].row.itemId == id, "the clicked item still in view")
+  end)
   GoldForeverDB.settings.auction.lists = { { name = "Mats", entries = { { itemId = 2589, maxUnit = 4500 } } } }
   AP.tab("shop")
   AP.shopChoose(GoldForeverDB.settings.auction.lists[1].entries[1])
@@ -1801,6 +1848,16 @@ do
     wait(1)
     local owned, checking = AP.owned()
     assert(not checking and #owned == 2, "both checked")
+    -- The Auctions list keeps its page across a click (Blizzard's window browses the item) and a check
+    -- of the own auctions read again (addon#76).
+    keepsPlace(AP.panel().cancel.table, "the Auctions list", function(line)
+      line.scripts.OnClick(line)
+      AP.cancelCheck()
+      fire("OWNED_AUCTIONS_UPDATED")
+      fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = GLOVES, itemLevel = 590 })
+      fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = GLOVES, itemLevel = 610 })
+      wait(1)
+    end)
     assert(owned[1].cheapest == 900000 and owned[1].under == 10, "590 against its own book: " .. tostring(owned[1].cheapest) .. " " .. tostring(owned[1].under))
     assert(owned[2].cheapest == 2100000 and owned[2].under == 0, "610 against its own: " .. tostring(owned[2].cheapest) .. " " .. tostring(owned[2].under))
     cancelled = nil
