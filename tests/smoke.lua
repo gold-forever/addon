@@ -2640,23 +2640,24 @@ do
   local labels = mix and mix:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   seen("LEVELLING MIX ", tostring(labels), "XP by source: Kills 2% · Quests 1% · Bosses 0% · Exploring 0% · Gathering 0% · Other 96%")
 end
--- Gathering is drawn in the look's success green, as the website draws it: true when a Levelling page
--- of the look in use shows it so.
+-- As the website draws them, Gathering in the look's success green and Exploring in its accent: true
+-- when a Levelling page of the look in use shows both so.
 local function gatheringGreen()
-  local want = ns.Theme.escape(ns.Theme.color.success) .. "Gathering|r"
+  local green = ns.Theme.escape(ns.Theme.color.success) .. "Gathering|r"
+  local gold = ns.Theme.escape(ns.Theme.color.accent) .. "Exploring|r"
   for _, t in pairs(texts) do
-    if type(t) == "string" and t:find("^XP by source: ") and t:find(want, 1, true) then return true end
+    if type(t) == "string" and t:find("^XP by source: ") and t:find(green, 1, true) and t:find(gold, 1, true) then return true end
   end
   return false
 end
-assert(gatheringGreen(), "Gathering is green in the web look")
+assert(gatheringGreen(), "Gathering is green and Exploring the accent in the web look")
 SlashCmdList.GOLDFOREVER("ui ledger")
 -- The classic look: the window of that look opens in place of the web one, on the same page, and the
 -- choice is kept; a name it does not know changes nothing.
 SlashCmdList.GOLDFOREVER("look classic")
 assert(GoldForeverDB.settings.window.look == "classic", "the look is kept in the settings")
 SlashCmdList.GOLDFOREVER("ui levelling")
-assert(gatheringGreen(), "Gathering is green in the classic look")
+assert(gatheringGreen(), "Gathering is green and Exploring the accent in the classic look")
 SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui inventory")
 SlashCmdList.GOLDFOREVER("look nonsense")
@@ -2678,7 +2679,7 @@ SlashCmdList.GOLDFOREVER("look arcane")
 assert(GoldForeverDB.settings.window.look == "arcane", "the arcane look is kept")
 SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui levelling")
-assert(gatheringGreen(), "Gathering is green in the arcane look")
+assert(gatheringGreen(), "Gathering is green and Exploring the accent in the arcane look")
 SlashCmdList.GOLDFOREVER("look web")
 SlashCmdList.GOLDFOREVER("ui ledger")
 -- The first-run card: due on this fresh save, shown after login, and a preset sets the modules.

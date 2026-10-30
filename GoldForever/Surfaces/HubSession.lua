@@ -108,7 +108,7 @@ local SOURCES = {
 	{ key = "kill", label = "Kills", color = "chart1" },
 	{ key = "quest", label = "Quests", color = "chart2" },
 	{ key = "boss", label = "Bosses", color = "xp" },
-	{ key = "explore", label = "Exploring", color = "success" },
+	{ key = "explore", label = "Exploring", color = "accent" },
 	{ key = "gather", label = "Gathering", color = "success" },
 	{ key = "other", label = "Other", color = "chartMuted" },
 }
