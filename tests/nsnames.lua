@@ -7,6 +7,7 @@
 -- the hub pages made when first shown. Every other name read is set once the files are loaded.
 NS_OPTIONAL = {
 	lootAt = true, lootSource = true, questAt = true, -- Loot.lua and Ledger.lua, at a loot or a quest
+	repairAt = true, -- Trade.lua, at a repair
 	scanVersion = true, lastScan = true, -- Market.lua, after a scan
 	listsPage = true, rulesPage = true, -- the hub pages, when built
 }

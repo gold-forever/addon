@@ -5,7 +5,8 @@ local _, ns = ...
 local Views = ns.Views
 
 -- Where a change in money came from, by the windows open at the time; a flight is matched by time. Gold
--- moved between your own characters by mail is tagged "transfer" (Ledger.lua), whatever window showed.
+-- moved between your own characters by mail is tagged "transfer" (Ledger.lua), whatever window showed; a
+-- repair's cost "repair", over the merchant's window.
 local CATEGORIES = {
 	{ "transfer", { transfer = true } },
 	{ "loot", { loot = true } },
@@ -13,6 +14,7 @@ local CATEGORIES = {
 	{ "training", { trainer = true } },
 	{ "travel", { taxinode = true, taxi = true } },
 	{ "auction", { auctioneer = true, auction = true } },
+	{ "repair", { repair = true } },
 	{ "vendor", { merchant = true } },
 	{ "mail", { mailinfo = true, mail = true } },
 	{ "trade", { trade = true } },
@@ -20,7 +22,7 @@ local CATEGORIES = {
 
 Views.CATEGORY_LABELS = {
 	loot = "Loot", quest = "Quests", training = "Training", travel = "Flights", auction = "Auction house",
-	vendor = "Vendors", mail = "Mail", trade = "Trade", transfer = "Your characters", other = "Other",
+	repair = "Repairs", vendor = "Vendors", mail = "Mail", trade = "Trade", transfer = "Your characters", other = "Other",
 }
 
 function Views.category(ctx, isFlight)

@@ -241,6 +241,19 @@ local function transferIn(delta)
 	end
 end
 
+-- Whether money spent now paid for a repair (Trade.lua); one repair tags one change.
+local REPAIR_SECONDS = 2
+local repairTagged -- the ns.repairAt a change was tagged for
+
+local function repaid(delta)
+	local at = ns.repairAt
+	if delta >= 0 or not at or at == repairTagged or GetTime() - at > REPAIR_SECONDS then
+		return false
+	end
+	repairTagged = at
+	return true
+end
+
 local function recordChange(row)
 	if row.ctx ~= "" or not ns.retail or row.delta < 0 then
 		ns.record("money", row)
@@ -264,6 +277,9 @@ ns.on("PLAYER_MONEY", "money", function()
 		if transfer then
 			ns.record("money", { t = ns.now(), char = me.ref, delta = transfer, ctx = ctx == "" and "transfer" or ctx .. "+transfer" })
 			delta = delta - transfer
+		end
+		if repaid(delta) then
+			ctx = ctx == "" and "repair" or ctx .. "+repair"
 		end
 		if delta ~= 0 then
 			recordChange({ t = ns.now(), char = me.ref, delta = delta, ctx = ctx })
