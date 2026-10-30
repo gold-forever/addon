@@ -2577,6 +2577,38 @@ wait(10)
 -- A place discovered, no zone change: the game's message says it is exploration XP.
 fire("UI_INFO_MESSAGE", 0, "Discovered Razor Hill: 55 experience gained")
 xpcur = 4255; fire("PLAYER_XP_UPDATE") wait(10)
+-- Gathering: a herb picked (Herb Gathering, then its node's loot) and a vein mined, each its XP.
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-20", 2366)
+slots = { { kind = 1, link = "|Hitem:765::::::::30|h[Silverleaf]|h", qty = 1, sources = { "GameObject-0-4620-0-12-1617-000J", 1 } } }
+fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+xpcur = 4295; fire("PLAYER_XP_UPDATE") wait(10)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-21", 2575)
+xpcur = 4355; fire("PLAYER_XP_UPDATE") wait(10)
+-- A gathering spell of a client's own (retail's per expansion), known by the name it shares with Mining.
+do
+  local named = C_Spell.GetSpellName
+  C_Spell.GetSpellName = function(id) return (id == 2575 or id == 423341) and "Mining" or named(id) end
+  fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-22", 423341)
+  C_Spell.GetSpellName = named
+end
+xpcur = 4365; fire("PLAYER_XP_UPDATE") wait(10)
+-- Another spell is no gathering.
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-23", 585)
+xpcur = 4370; fire("PLAYER_XP_UPDATE") wait(10)
+-- A kill or a discovery right next to a gather keeps its own kind: in combat, a kill the client told of
+-- just after a fight, a place discovered.
+fighting = true
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-24", 2575)
+xpcur = 4390; fire("PLAYER_XP_UPDATE")
+fighting = false
+wait(10)
+fire("PLAYER_REGEN_ENABLED")
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-25", 8613)
+fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold dies, you gain 25 experience.")
+xpcur = 4415; fire("PLAYER_XP_UPDATE") wait(10)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-26", 2366)
+fire("UI_INFO_MESSAGE", 0, "Discovered Razor Hill: 55 experience gained")
+xpcur = 4470; fire("PLAYER_XP_UPDATE") wait(10)
 xpcur = 47000; fire("PLAYER_XP_UPDATE") wait(10)
 xpcur = 300; xpmax = 49000; played = { 90000, 0 }
 fire("PLAYER_REGEN_ENABLED")
@@ -2584,7 +2616,7 @@ fire("PLAYER_XP_UPDATE") fire("PLAYER_LEVEL_UP", 31)
 wait(15)
 seen("MAP RECT ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.rects[1429]), "1415,0.40000,0.60000,0.30000,0.50000", "nil")
 seen("MAP ART ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.maps[1411]) .. " | maps " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.build), "1002,668,256,256;768730+768731+768732+768733 | maps 1.60.1.70450", "nil | maps nil")
-seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679,;1792517415,1,400,other,,,1429,30,412,679,;1792517535,1,300,kill,100,party,1429,30,412,679,;1792517535,1,100,boss,100,party,1429,30,412,679,;1792517535,1,500,quest,,,1429,30,412,679,;1792517535,1,55,explore,,,1429,30,412,679,;1792517535,1,42745,other,,,1429,30,412,679,;1792517535,1,700,kill,,,1429,30,412,679,")
+seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679,;1792517415,1,400,other,,,1429,30,412,679,;1792517535,1,300,kill,100,party,1429,30,412,679,;1792517535,1,100,boss,100,party,1429,30,412,679,;1792517535,1,500,quest,,,1429,30,412,679,;1792517535,1,55,explore,,,1429,30,412,679,;1792517535,1,40,gather,,,1429,30,412,679,;1792517535,1,60,gather,,,1429,30,412,679,;1792517535,1,10,gather,,,1429,30,412,679,;1792517535,1,5,other,,,1429,30,412,679,;1792517535,1,20,kill,,,1429,30,412,679,;1792517535,1,25,kill,,,1429,30,412,679,Kobold;1792517535,1,55,explore,,,1429,30,412,679,;1792517535,1,42530,other,,,1429,30,412,679,;1792517535,1,700,kill,,,1429,30,412,679,")
 seen("LEVEL ROWS ", tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG), "1792517410,1,login,30,86400,600,79098,1429,412,679;1792517535,1,up,31,90000,0,79450,1429,412,679 | chat listens true")
 seen("ZONE ROWS ", tostring(lday.zone and lday.zone[1]), "1792517410,1,1429,,;1792517535,1,1446,,;1792517535,1,1429,,;1792517535,1,1429,party,389", "1792517410,1,1429,,;1792517535,1,1429,party,389")
 seen("BOSS ROWS ", tostring(lday.boss and lday.boss[1]) .. " | instance " .. tostring(GoldForeverDB.catalogue.instances and GoldForeverDB.catalogue.instances[389]), "1792517535,1,1443,Taragaman the Hungerer,1,5,,1429,389;1792517535,1,1443,Taragaman the Hungerer,1,5,1,1429,389 | instance Ragefire Chasm,party")
@@ -3006,7 +3038,7 @@ assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"]
 GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
 GoldForeverDB.exportedAt = exportedBefore
 local after = ns2.test.sessionText and ns2.test.sessionText() or ""
-seen("AFTER RELOAD\n", tostring(after), "Farming 4:00\nCoin: 90c\nItems: 0c\n|cffffffffTotal: 90c|r\n|cffffd100Per hour: 13s 47c|r\nXP: 44400 · 664615/h · level 31 in 4m (~133 kills)\nBags: 8 free")
+seen("AFTER RELOAD\n", tostring(after), "Farming 5:32\nCoin: 90c\nItems: 13c\n|cffffffffTotal: 1s 3c|r\n|cffffd100Per hour: 11s 15c|r\nXP: 44400 · 480722/h · level 31 in 6m (~213 kills)\nBags: 8 free\n|cffaaaaaa1x Item, 765: 13c|r")
 do
   local kinds = {}
   for _, sc in ipairs(GoldForeverDB.scans) do kinds[#kinds + 1] = sc.kind .. "@" .. tostring(sc.t) end

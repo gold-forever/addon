@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 7
+ns.SCHEMA = 8
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
@@ -77,6 +77,7 @@ ns.FIELDS = {
 	auctionEnd = "t,char,item,qty,unit,outcome",
 	-- Levelling.lua.
 	level = "t,char,kind,level,played,levelPlayed,money,map,x,y",
+	-- kind: quest, boss, explore, kill, gather (a herb, vein or corpse gathered, from schema 8) or other.
 	-- mob: the name of the mob a kill's XP came from, as its combat XP message told it (Encode.text);
 	-- empty for XP that is no kill's, a kill the client kept secret, and rows written before it.
 	xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob",

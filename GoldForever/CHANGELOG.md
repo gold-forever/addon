@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **XP from gathering is its own kind.** XP for picking a herb, mining a vein or skinning a corpse is
+  recorded as gathering, not "other", so the site can show it beside kills, quests and exploring. A kill
+  or a discovery right next to a gather keeps its own kind. Gold Forever on the site must be up to date
+  to read saves from this version.
 - **No more empty squares in the text.** The first-run card's "Settings → General" showed an empty
   square: the arrow is in none of the fonts. Every text the addon shows now uses characters all its
   fonts draw: arrows and chevrons are ">", dashes "-", "…" is "...", "×" is "x" and "≈" is "~".

@@ -64,6 +64,12 @@ ns.MIGRATIONS = {
 		to = 7,
 		run = function() end,
 	},
+	-- An xp row's kind may be gather (Levelling.lua); nothing the save holds changes.
+	{
+		from = 7,
+		to = 8,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

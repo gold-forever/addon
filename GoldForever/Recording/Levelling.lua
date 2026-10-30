@@ -120,17 +120,47 @@ end)
 -- XP -------------------------------------------------------------------------------------------------
 
 local seen -- { cur, max, rested }: the last reading
-local zoneAt, bossAt, exploredAt = -math.huge, -math.huge, -math.huge
+local zoneAt, bossAt, exploredAt, gatheredAt = -math.huge, -math.huge, -math.huge, -math.huge
+
+-- Herb Gathering, Mining and Skinning, each rank's ID. A client's own gathering spells (retail's, one an
+-- expansion) share the base spell's name, so a cast of that name in the client's language counts too.
+local GATHERING = { [2366] = true, [2368] = true, [3570] = true, [11993] = true, [2575] = true, [2576] = true,
+	[3564] = true, [10248] = true, [8613] = true, [8617] = true, [8618] = true, [10768] = true }
+local GATHERING_BASE = { 2366, 2575, 8613 }
+
+local function spellName(id)
+	if C_Spell and C_Spell.GetSpellName then
+		return C_Spell.GetSpellName(id)
+	end
+	return GetSpellInfo and (GetSpellInfo(id)) or nil
+end
+
+local function gathering(spell)
+	if GATHERING[spell] then
+		return true
+	end
+	local name = spellName(spell)
+	if not name then
+		return false
+	end
+	for _, base in ipairs(GATHERING_BASE) do
+		if spellName(base) == name then
+			return true
+		end
+	end
+	return false
+end
 
 local function read()
 	return { cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0 }
 end
 
 -- What earned XP gained at `at`: a quest handed in, a boss killed, a place discovered (the game's
--- "Discovered …: N experience gained"), a kill (XP while in combat, or just after it), a new zone
--- (exploration the message missed), else something else (a profession, an event). The combat log would
--- name the kill, but the client keeps it for the Blizzard UI: an addon registering for it is blocked.
-local function kindAt(at, fighting)
+-- "Discovered …: N experience gained"), a kill (XP while in combat), a herb, vein or corpse gathered
+-- (unless the client told of a kill), a kill just after a fight, a new zone (exploration the message
+-- missed), else something else (a profession, an event). The combat log would name the kill, but the client keeps
+-- it for the Blizzard UI: an addon registering for it is blocked.
+local function kindAt(at, fighting, killTold)
 	local function near(t)
 		return math.abs(at - t) <= WINDOW
 	end
@@ -140,7 +170,11 @@ local function kindAt(at, fighting)
 		return "boss"
 	elseif near(exploredAt) then
 		return "explore"
-	elseif fighting or near(ns.combatEnded()) then
+	elseif fighting then
+		return "kill"
+	elseif near(gatheredAt) and not killTold then
+		return "gather"
+	elseif near(ns.combatEnded()) then
 		return "kill"
 	elseif near(zoneAt) then
 		return "explore"
@@ -211,7 +245,7 @@ local function xpChanged()
 	row.map, row.x, row.y = ns.position() -- where it was earned (no coordinates in instances)
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
-		local kind = kindAt(at, fighting)
+		local kind = kindAt(at, fighting, #told > 0)
 		local split = kind == "kill" and shares(gained, told) or { { xp = gained } }
 		local restedLeft = row.rested
 		for i, share in ipairs(split) do
@@ -247,6 +281,13 @@ ns.on("ENCOUNTER_END", "boss", function(encounter, name, difficulty, size, succe
 	end
 	ns.record("boss", { t = ns.now(), char = me.ref, encounter = encounter, name = Encode.name(name or "?"), difficulty = difficulty, size = size, success = success == 1, map = map(), instanceId = instanceId() })
 end)
+
+-- A gathering spell cast: a herb picked, a vein mined, a corpse skinned.
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "gather", function(unit, _, spell)
+	if unit == "player" and gathering(spell) then
+		gatheredAt = GetTime()
+	end
+end, "player")
 
 -- "Discovered Razor Hill: 55 experience gained", as a pattern from the client's own text.
 local DISCOVERED = Encode.pattern(ERR_ZONE_EXPLORED_XP or "Discovered %s: %d experience gained")
