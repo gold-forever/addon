@@ -2631,6 +2631,15 @@ SlashCmdList.GOLDFOREVER("ui inventory")
 SlashCmdList.GOLDFOREVER("ui design")
 SlashCmdList.GOLDFOREVER("ui characters")
 SlashCmdList.GOLDFOREVER("ui levelling")
+-- The XP by source names gathering on its own, beside kills, quests and exploring.
+do
+  local mix
+  for _, t in pairs(texts) do
+    if type(t) == "string" and t:find("^XP by source: ") and t:find("Exploring", 1, true) then mix = t end
+  end
+  local labels = mix and mix:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  seen("LEVELLING MIX ", tostring(labels), "XP by source: Kills 2% · Quests 1% · Bosses 0% · Exploring 0% · Gathering 0% · Other 96%")
+end
 SlashCmdList.GOLDFOREVER("ui ledger")
 -- The classic look: the window of that look opens in place of the web one, on the same page, and the
 -- choice is kept; a name it does not know changes nothing.

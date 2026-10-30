@@ -3,7 +3,8 @@
 ## Unreleased
 
 - **XP from gathering is its own kind.** XP for picking a herb, mining a vein or skinning a corpse is
-  recorded as gathering, not "other", so the site can show it beside kills, quests and exploring. A kill
+  recorded as gathering, not "other", and the Levelling page's XP by source shows it as Gathering, beside
+  kills, quests and exploring; the site can show it too once updated. A kill
   or a discovery right next to a gather keeps its own kind. Gold Forever on the site must be up to date
   to read saves from this version.
 - **No more empty squares in the text.** The first-run card's "Settings → General" showed an empty

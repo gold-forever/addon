@@ -108,8 +108,14 @@ local SOURCES = {
 	{ key = "quest", label = "Quests", color = Theme.color.chart2 },
 	{ key = "boss", label = "Bosses", color = Theme.color.xp },
 	{ key = "explore", label = "Exploring", color = Theme.color.success },
+	{ key = "gather", label = "Gathering", color = Theme.color.warning },
 	{ key = "other", label = "Other", color = Theme.color.chartMuted },
 }
+-- A kind not listed (one a newer addon records) is counted in Other.
+local LISTED = {}
+for _, s in ipairs(SOURCES) do
+	LISTED[s.key] = true
+end
 
 local function buildLevelling(page)
 	local lede = header(page)
@@ -168,7 +174,7 @@ local function buildLevelling(page)
 			local n = lv.sources[s.key] or 0
 			if s.key == "other" then
 				for kind, v in pairs(lv.sources) do
-					if kind ~= "kill" and kind ~= "quest" and kind ~= "boss" and kind ~= "explore" and kind ~= "other" then
+					if not LISTED[kind] then
 						n = n + v
 					end
 				end
