@@ -79,7 +79,7 @@ end
 -- silver unless told otherwise (manual test run 001: "17g 70s 0c" in Auction sales, "1,425g 0s 0c").
 local function cell(copper, precision)
 	if math.floor(math.abs(copper or 0) + 0.5) == 0 then
-		return tint("textFaint") .. "—|r"
+		return tint("textFaint") .. "-|r"
 	end
 	return colour(copper, precision or "silver")
 end

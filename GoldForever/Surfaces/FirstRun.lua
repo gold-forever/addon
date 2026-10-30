@@ -88,7 +88,7 @@ local function build()
 		{ "Your money and loot", "every coin in and out, and what you looted and sold" },
 		{ "Auction scans", "prices when you open the auction house, never who sells" },
 	}) do
-		local l = UI.Text(p1, Theme.escape(Theme.color.accent) .. "•|r  " .. t[1] .. "\n" .. Theme.escape(Theme.color.textMuted) .. t[2] .. "|r", { size = "sm", wrap = true })
+		local l = UI.Text(p1, Theme.escape(Theme.color.accent) .. "-|r  " .. t[1] .. "\n" .. Theme.escape(Theme.color.textMuted) .. t[2] .. "|r", { size = "sm", wrap = true })
 		l:SetPoint("TOPLEFT", 0, -(i - 1) * 44)
 		l:SetPoint("RIGHT", p1, "RIGHT")
 	end
@@ -175,7 +175,7 @@ local function build()
 		sw:SetPoint("LEFT", own, "RIGHT", 12 + (k - 1) * 30, 0)
 		sw:SetOn(current == a.hex)
 	end
-	local later = UI.Text(p3, "Settings → General changes both any time, and /gf look too.", { size = "xs", tone = "faint" })
+	local later = UI.Text(p3, "Settings > General changes both any time, and /gf look too.", { size = "xs", tone = "faint" })
 	later:SetPoint("TOPLEFT", 0, -132)
 	pages[3] = p3
 
@@ -226,7 +226,7 @@ local function build()
 		end
 		f:Hide()
 		ns.say(skipped and "first-run card skipped; everything stays as it was. /gf welcome shows it again."
-			or "started with the " .. chosen .. " preset. Settings → Modules changes it any time.")
+			or "started with the " .. chosen .. " preset. Settings > Modules changes it any time.")
 	end
 	skip = UI.Button(f, "Skip", function()
 		finish(true)

@@ -44,7 +44,7 @@ local function buildScan(page)
 	function page:Refresh()
 		local st = ns.scanState()
 		if st.phase == "asking" then
-			status:SetText("Asking the server…")
+			status:SetText("Asking the server...")
 			bar:Set(1, { { value = 0, color = Theme.color.accent } })
 		elseif st.phase == "reading" then
 			status:SetText(string.format("Reading %s of %s", BreakUpLargeNumbers and BreakUpLargeNumbers(st.done) or st.done, BreakUpLargeNumbers and BreakUpLargeNumbers(st.total) or st.total))
@@ -61,9 +61,9 @@ local function buildScan(page)
 			local s = ns.price.latestScan()
 			last = s and { t = s.t, auctions = s.auctions, prices = nil }
 		end
-		cards[1]:Set(last and tostring(last.auctions or 0) or "—", "auctions read")
-		cards[2]:Set(last and last.prices and tostring(last.prices) or "—", "item and price pairs")
-		cards[3]:Set(last and last.seconds and (last.seconds .. " s") or "—", "asking and reading")
+		cards[1]:Set(last and tostring(last.auctions or 0) or "-", "auctions read")
+		cards[2]:Set(last and last.prices and tostring(last.prices) or "-", "item and price pairs")
+		cards[3]:Set(last and last.seconds and (last.seconds .. " s") or "-", "asking and reading")
 		cards[4]:Set(last and ns.Views.ago(last.t, ns.now()) or "never", last and (last.kind == "partial" and "cut short: not used" or last.kind == "throttled" and "the server said wait") or "")
 	end
 end

@@ -1032,11 +1032,11 @@ table.insert(GoldForeverDB.scans, { t = 1792520100, kind = "full", market = "EU-
 ns.scanVersion = (ns.scanVersion or 0) + 1
 slots = { { kind = 1, link = "|Hitem:271206::::::::30|h[Skin]|h", qty = 1, sources = { "Creature-0-4620-0-12-1922-000H", 1 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin — 6s 87c")
+seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin - 6s 87c")
 GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
 -- No vendor value: the game's own Sell Price line shows it (addon#20).
-seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Disenchant |cff56c98f(better than selling)|r → ≈ 53s 66c", "") -- no disenchant value on retail: the table is the classic one
+seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Disenchant |cff56c98f(better than selling)|r → ~53s 66c", "") -- no disenchant value on retail: the table is the classic one
 bagsFull = true
 -- Where the merchant window has no junk button of its own (WoW: Forever), the advisor sells junk with
 -- Blizzard's own call: the first press says what, the second sells, once.
@@ -1172,7 +1172,7 @@ ns.scanVersion = (ns.scanVersion or 0) + 1
 GoldForeverDB.catalogue.items[2996] = "Bolt of Linen Cloth,1,10,7,5,10,25,0,132890"
 GoldForeverDB.catalogue.tooltips[2996] = "Bolt of Linen Cloth"
 fire("AUCTION_HOUSE_SHOW")
-seen("SHOP\n", tostring(appraiserText), "|cffffd100Vendor these|r · 6s 87c\n1× Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 2s 66c\n7× Item‚ 2589 · 2s 66c|cff999999 (post at 40c each)|r\n \n|cffa335eeDisenchant these|r · 53s 66c\n1× Violet Sash · 53s 66c\n \n|cffffffffAll of it: 63s 19c|r", "|cffffd100Vendor these|r · 22s 72c\n1× Violet Sash · 15s 85c\n1× Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 6s 65c\n7× Item‚ 2589 · 6s 65c|cff999999 (post at 1s 0c each)|r\n \n|cffffffffAll of it: 29s 37c|r")
+seen("SHOP\n", tostring(appraiserText), "|cffffd100Vendor these|r · 6s 87c\n1x Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 2s 66c\n7x Item‚ 2589 · 2s 66c|cff999999 (post at 40c each)|r\n \n|cffa335eeDisenchant these|r · 53s 66c\n1x Violet Sash · 53s 66c\n \n|cffffffffAll of it: 63s 19c|r", "|cffffd100Vendor these|r · 22s 72c\n1x Violet Sash · 15s 85c\n1x Leftover Abomination Skin · 6s 87c\n \n|cff56c98fPost these|r · 6s 65c\n7x Item‚ 2589 · 6s 65c|cff999999 (post at 1s 0c each)|r\n \n|cffffffffAll of it: 29s 37c|r")
 -- The crafting strip: beside the profession window, the selected recipe's cost, sale and profit.
 do
   ProfessionsFrame = widget()
@@ -1212,7 +1212,7 @@ do
     GoldForeverDB.catalogue.recipes[99997] = table.concat(values, ",")
     ns.CraftingStrip.select(99997)
     local last = ns.CraftingStrip.line(6)
-    assert(ns.CraftingStrip.line(5):find("1× ", 1, true) and last and last:find("+3 more", 1, true), "the last line says how many more: " .. tostring(last))
+    assert(ns.CraftingStrip.line(5):find("1x ", 1, true) and last and last:find("+3 more", 1, true), "the last line says how many more: " .. tostring(last))
     GoldForeverDB.catalogue.recipes[99997] = nil
   end
   fireNow("TRADE_SKILL_CLOSE")
@@ -1330,7 +1330,7 @@ do
     assert(col and tbl.heads[col].text.text == "TYPICAL", "the Sell list's TYPICAL column")
     for _, c in ipairs(tbl.columns) do assert(c.title ~= "Market", "no Market column on the Sell list") end
     local cell = tbl.columns[col].text
-    assert(cell(chosen) == "—", "no typical price without the pool's: " .. tostring(cell(chosen)))
+    assert(cell(chosen) == "-", "no typical price without the pool's: " .. tostring(cell(chosen)))
     local keep = GoldForever_Prices
     -- The pool's entry, scanned after the own scan: value 90s, typical 50s.
     GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = { [2589] = { 9000, 8000, 3, now + 86400, 5000 } } } }
@@ -1436,7 +1436,7 @@ do
     bankPage.take.none.scripts.OnClick(bankPage.take.none)
     assert(ns.fetchList()[2589] == nil, "Don't take unmarks it")
     bankPage.take.typed(25)
-    assert(ns.fetchList()[2589] == 25, "Take… 25")
+    assert(ns.fetchList()[2589] == 25, "Take... 25")
     -- At the bank: its stacks move into the bags, and it leaves the list.
     local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.UseContainerItem, C_Container.GetContainerNumFreeSlots,
       C_Container.SplitContainerItem, C_Container.PickupContainerItem }
@@ -2042,7 +2042,7 @@ C_QuestLog.IsQuestFlaggedCompleted = function() return false end
 raidNotices = {}
 slots = { { kind = 1, link = "|Hitem:1357::::::::30|h[Map]|h", qty = 1, quest = 136, sources = { "Creature-0-4620-0-12-1922-000Q", 1 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
-seen("QUEST ALERT ", tostring(raidNotices[1]) .. " | recorded quest " .. tostring(GoldForeverDB.catalogue.questStarters[1357]), "Starts a quest: Captain Sander's Treasure Map — right-click it in your bags to start it. | recorded quest 136")
+seen("QUEST ALERT ", tostring(raidNotices[1]) .. " | recorded quest " .. tostring(GoldForeverDB.catalogue.questStarters[1357]), "Starts a quest: Captain Sander's Treasure Map - right-click it in your bags to start it. | recorded quest 136")
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
 seen("MOB STARTER ", tostring(GameTooltip.lines[3]), "Drops a quest starter: Captain Sander's Treasure Map (25% of loots) · not done")
@@ -2310,7 +2310,7 @@ end
 seen("RARE ROWS ", tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]), "1792517415,1,947,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate;1792517415,1,61234,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate", "nil")
 seen("APPRAISER\n", tostring(ns.test.sessionText and ns.test.sessionText()), "Loot something to start a session.")
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
-seen("TOOLTIP ", tostring(GameTooltip.lines[1]), "looted 4× · ~4s 50c a loot", "looted 4× · ~2s 62c a loot")
+seen("TOOLTIP ", tostring(GameTooltip.lines[1]), "looted 4x · ~4s 50c a loot", "looted 4x · ~2s 62c a loot")
 -- The pool's prices from GoldForever_Data (contract T01): one price a double line for the player's own
 -- market (addon#20), as "Market → 12s 34c / Min → 11s 0c", and the first line's shade; another label's line.
 local POOL_ROWS = { Typical = true, Min = true, Scanned = true }
@@ -2491,7 +2491,7 @@ do
 end
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
-seen("MOB ", tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lines[2]), "looted 4× · ~4s 50c a loot | Linen Cloth 25% · Item‚ 2934 25% · Captain Sander's Treasure Map 25%", "looted 4× · ~2s 62c a loot | Linen Cloth 25% · Item‚ 2934 25% · Captain Sander's Treasure Map 25%")
+seen("MOB ", tostring(GameTooltip.lines[1]) .. " | " .. tostring(GameTooltip.lines[2]), "looted 4x · ~4s 50c a loot | Linen Cloth 25% · Item‚ 2934 25% · Captain Sander's Treasure Map 25%", "looted 4x · ~2s 62c a loot | Linen Cloth 25% · Item‚ 2934 25% · Captain Sander's Treasure Map 25%")
 -- One more loot of that mob after its tooltip was built: counted in place, not by reading every row.
 -- It is a fight of its own with no kill XP (a grey mob): its corpse counts as one kill once the fight
 -- closes, and looting it again later counts nothing.
@@ -2504,7 +2504,7 @@ wait(10)
 assert(ns.test.sessionKills() == killsBefore + 1, "a grey mob's corpse is a kill: " .. tostring(ns.test.sessionKills()) .. " after " .. killsBefore)
 GameTooltip.lines = {}
 for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620-0-12-1922-000F" }) end
-seen("MOB AFTER LOOT ", tostring(GameTooltip.lines[1]), "looted 5× · ~3s 68c a loot", "looted 5× · ~2s 18c a loot")
+seen("MOB AFTER LOOT ", tostring(GameTooltip.lines[1]), "looted 5x · ~3s 68c a loot", "looted 5x · ~2s 18c a loot")
 -- Two corpses looted back to back: the first window's coin arrives after the second opened.
 local coinDay = GoldForeverDB.events["2026-10-20"]
 local before = #(table.concat(coinDay.loot, ";"))

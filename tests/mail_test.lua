@@ -85,7 +85,7 @@ handlers.MAIL_INBOX_UPDATE()
 flush()
 eq(table.concat(taken, " | "), "Auction expired: Linen Cloth | Auction successful: Wool Cloth", "the auction mails in turn, the letter stays")
 eq(B.running(), false, "the batch ends when none is left")
-eq(notes[1], "Opening…", "the batch says it opens")
+eq(notes[1], "Opening...", "the batch says it opens")
 eq(notes[#notes], "All auction mail opened.", "and says when it is done")
 -- A take the server refuses each time: tried again three times, then the batch stops and says so.
 mails[#mails + 1] = { "Auction successful: Stuck", 100, 0 }

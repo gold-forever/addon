@@ -80,10 +80,10 @@ local function buildCharacters(page)
 		{ key = "name", title = "Character", flex = 2, text = function(r) return r.online and (r.display .. "  " .. Theme.escape(Theme.color.success) .. "online|r") or r.display end,
 			color = function(r) return classColor(r.class) end },
 		{ key = "level", title = "Level", width = 56, align = "RIGHT" },
-		{ key = "progress", title = "Into level", width = 80, align = "RIGHT", text = function(r) return r.progress and string.format("%d%%", math.floor(r.progress * 100)) or "—" end,
+		{ key = "progress", title = "Into level", width = 80, align = "RIGHT", text = function(r) return r.progress and string.format("%d%%", math.floor(r.progress * 100)) or "-" end,
 			sort = function(r) return r.level + (r.progress or 0) end },
 		{ key = "restedLevels", title = "Rested", width = 90, align = "RIGHT",
-			text = function(r) return r.restedLevels and (r.restedLevels >= Views.RESTED_CAP_LEVELS - 0.005 and "full" or string.format("%.2f levels", r.restedLevels)) or "—" end,
+			text = function(r) return r.restedLevels and (r.restedLevels >= Views.RESTED_CAP_LEVELS - 0.005 and "full" or string.format("%.2f levels", r.restedLevels)) or "-" end,
 			color = function(r) return r.restedLevels and r.restedLevels >= 0.005 and Theme.color.rested or Theme.color.textFaint end },
 		{ key = "money", title = "Gold", width = 110, align = "RIGHT", text = function(r) return UI.layout.amount(r.money, "gold") end },
 		{ key = "seen", title = "Seen", width = 80, align = "RIGHT", text = function(r) return r.online and "now" or Views.ago(r.seen, ns.now()) end,
@@ -102,7 +102,7 @@ local function buildCharacters(page)
 		if best then
 			nextUp:Set(Theme.escape(classColor(best.class)) .. best.display .. "|r", string.format("%.2f levels of rested XP waiting", best.restedLevels))
 		else
-			nextUp:Set("—", "no one else with rested XP")
+			nextUp:Set("-", "no one else with rested XP")
 		end
 		capped:Set(tostring(#rows), top > 0 and (top .. " at the level cap") or "none at the level cap yet")
 		tbl:SetRows(rows)
@@ -149,7 +149,7 @@ local function buildInventory(page)
 	quality:SetWidth(150)
 	-- Typing gathers its keys into a refresh at most every 0.3 seconds: each one reads every bag.
 	local searched = ns.throttle("ui inventory search", 0.3, refresh)
-	local search = UI.SearchBox(page, "Search items…", function(text)
+	local search = UI.SearchBox(page, "Search items...", function(text)
 		filter.query = string.lower(text)
 		searched()
 	end)
@@ -235,7 +235,7 @@ local function buildSales(page)
 	end
 	local names = {}
 	local tbl = UI.Table(page, {
-		{ key = "item", title = "Item", flex = 3, text = function(r) return r.qty > 1 and (r.item .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.qty .. "|r") or r.item end },
+		{ key = "item", title = "Item", flex = 3, text = function(r) return r.qty > 1 and (r.item .. Theme.escape(Theme.color.textFaint) .. " x" .. r.qty .. "|r") or r.item end },
 		{ key = "char", title = "Character", flex = 2, text = function(r) return names[r.char] or "?" end, color = function() return Theme.color.textMuted end },
 		{ key = "price", title = "Sold for", width = 90, align = "RIGHT", text = function(r) return UI.layout.amount(r.price) end },
 		{ key = "net", title = "After cut", width = 90, align = "RIGHT", text = function(r) return UI.layout.amount(r.net) end },

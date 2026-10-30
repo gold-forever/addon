@@ -54,7 +54,7 @@ local function build()
 		{ key = "bags", title = "Bags", width = 56, align = "RIGHT" },
 		{ key = "bank", title = "Bank", width = 56, align = "RIGHT", text = function(r) return r.bank > 0 and tostring(r.bank) or "" end },
 		{ key = "where", title = "Elsewhere", flex = 2, color = function() return Theme.color.textMuted end },
-		{ key = "buy", title = "Buy", width = 80, align = "RIGHT", text = function(r) return r.buy > 0 and (r.buy .. (r.vendor and " vendor" or "")) or "—" end,
+		{ key = "buy", title = "Buy", width = 80, align = "RIGHT", text = function(r) return r.buy > 0 and (r.buy .. (r.vendor and " vendor" or "")) or "-" end,
 			color = function(r) return r.buy > 0 and Theme.color.accent or Theme.color.textFaint end },
 	}, { pageSize = 7, rowHeight = 22, empty = "Nothing queued.", itemId = function(r) return r.id end })
 	f.table:SetPoint("TOPLEFT", 14, -64)
@@ -104,7 +104,7 @@ function CraftQueue.refresh()
 	local crafts = {}
 	for _, q in ipairs(queue) do
 		local r = ns.recipeOf(q.recipe)
-		crafts[#crafts + 1] = q.count .. "× " .. (r and ns.itemName(r.output) or ("recipe " .. q.recipe))
+		crafts[#crafts + 1] = q.count .. "x " .. (r and ns.itemName(r.output) or ("recipe " .. q.recipe))
 	end
 	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
 	local rows, buy, vendors, ready = {}, 0, 0, true
@@ -244,7 +244,7 @@ local function buyFromMerchant()
 					left = left - take
 				end
 				if n > 0 then
-					bought[#bought + 1] = n .. "× " .. ns.itemName(id)
+					bought[#bought + 1] = n .. "x " .. ns.itemName(id)
 					spent, money = spent + n * unit, money - n * unit
 				end
 			end

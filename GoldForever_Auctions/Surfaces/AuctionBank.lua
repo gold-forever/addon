@@ -91,7 +91,7 @@ local function buildBank(page)
 		ask:Hide()
 	end, { width = 70, height = 26 })
 	cancel:SetPoint("LEFT", okay, "RIGHT", 6, 0)
-	local some = UI.Button(detail, "Take…", function()
+	local some = UI.Button(detail, "Take...", function()
 		if bankChosen and bankChosen.place == "bank" then
 			askText:SetText(string.format("Take how many %s? %d in the bank.", bankChosen.name, bankChosen.count))
 			amount:SetText("")

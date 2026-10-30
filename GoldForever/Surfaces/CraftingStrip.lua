@@ -121,7 +121,7 @@ local function refresh()
 	end
 	local r = q.recipe
 	local quality = ns.price.itemInfo(r.output) or 1
-	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "× ") or "") .. ns.itemName(r.output) .. "|r")
+	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "x ") or "") .. ns.itemName(r.output) .. "|r")
 	strip.rows[1]:SetText(q.spend and money(q.spend) or dash)
 	local gear = not q.random and ns.isGear(r.output)
 	saleRows(strip, q, gear, money, faint, dash)
@@ -135,7 +135,7 @@ local function refresh()
 	local shown = #toBuy > LINES and LINES - 1 or #toBuy
 	for i = 1, shown do
 		local line, l = toBuy[i], strip.lines[i]
-		l.name:SetText(line.toBuy .. "× " .. ns.itemName(line.id))
+		l.name:SetText(line.toBuy .. "x " .. ns.itemName(line.id))
 		l.value:SetText(line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
 	end
 	if shown < #toBuy then

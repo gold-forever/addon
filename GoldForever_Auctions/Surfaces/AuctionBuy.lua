@@ -51,11 +51,11 @@ local function buyNext()
 		C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
 		ah.buying = { id = p.itemId, n = p.quantity }
 		await("shop", "shop:" .. p.itemId, note, letGo)
-		note:SetText("Buying…")
+		note:SetText("Buying...")
 		return
 	end
 	if not deal then
-		note:SetText(book and "Nothing at or under your price now." or "Searching…")
+		note:SetText(book and "Nothing at or under your price now." or "Searching...")
 		searchEntry(e)
 		return
 	end
@@ -71,7 +71,7 @@ local function buyNext()
 	if book.commodity then
 		ah.purchase = { itemId = e.itemId, quantity = deal.quantity, expected = deal.total }
 		C_AuctionHouse.StartCommoditiesPurchase(e.itemId, deal.quantity)
-		note:SetText("Asking the auction house for a price…")
+		note:SetText("Asking the auction house for a price...")
 	else
 		-- The cheapest auction by someone else at or under the limit: one a press.
 		for _, a in ipairs(book.levels) do
@@ -79,7 +79,7 @@ local function buyNext()
 				C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
 				ah.buying = { id = e.itemId, n = a.quantity or 1 }
 				await("shop", "shop:" .. e.itemId, note, letGo)
-				note:SetText("Buying one for " .. money(a.buyout) .. "…")
+				note:SetText("Buying one for " .. money(a.buyout) .. "...")
 				return
 			end
 		end
@@ -174,7 +174,7 @@ local function buildShop(page)
 			if r.deal and r.deal.over then
 				return Theme.escape(Theme.color.warning) .. "over: " .. r.deal.quantity .. " for " .. money(r.deal.total) .. "|r"
 			end
-			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "—" or "")
+			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "-" or "")
 		end },
 	}, {
 		pageSize = 9,
@@ -191,7 +191,7 @@ local function buildShop(page)
 	tbl:SetPoint("TOPLEFT", 0, -38)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	page.table = tbl
-	local editLists = UI.Button(page, "Edit lists ›", function()
+	local editLists = UI.Button(page, "Edit lists >", function()
 		ns.openPage("lists")
 	end, { width = 110, height = 26 })
 	editLists:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)

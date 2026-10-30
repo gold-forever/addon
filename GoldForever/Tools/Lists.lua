@@ -108,7 +108,7 @@ local function announceDeals()
 		names[i] = name or ("item " .. under[i])
 	end
 	ns.say(string.format("%d %s on your lists %s at or under your price: %s%s. Open the Buy tab.", #under, #under == 1 and "item" or "items",
-		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", …" or ""))
+		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", ..." or ""))
 end
 ns.listen("pricesReady", "deals", announceDeals)
 

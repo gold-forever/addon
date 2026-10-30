@@ -91,23 +91,23 @@ eq(L.group(999), "999", "under a thousand as it is")
 eq(L.group(-12345), "-12,345", "a minus keeps its place")
 eq(plain(L.money(30000000000, "gold")), "3,000,000g", "gold grouped")
 eq(plain(L.money(-250)), "-2s 50c", "a loss")
-eq(plain(L.amount(0)), "—", "nothing in a cell is a dash")
-eq(plain(L.amount(0.4)), "—", "under half a copper rounds to nothing")
-eq(plain(L.amount(nil)), "—", "no amount is a dash")
+eq(plain(L.amount(0)), "-", "nothing in a cell is a dash")
+eq(plain(L.amount(0.4)), "-", "under half a copper rounds to nothing")
+eq(plain(L.amount(nil)), "-", "no amount is a dash")
 eq(plain(L.amount(1484)), "14s 84c", "an amount is money")
 eq(plain(L.amount(177000)), "17g 70s", "gold and silver in a cell, no 0c")
 
 -- Tooltips for cells cut short: only those, as their full text or the column's own lines.
 local cols = {
 	{ key = "name", title = "Item" },
-	{ key = "held", title = "Held", text = function(row) return row.held .. "×" end },
+	{ key = "held", title = "Held", text = function(row) return row.held .. "x" end },
 	{ key = "where", title = "Where", tooltip = function(row) return row.holders end },
 }
 local row = { name = "Linen Cloth", held = 13, where = "Testchar 6 (bags), Testchar 2 (bags)", holders = { "Testchar 6 (bags)", "Testchar 2 (bags)" } }
 eq(#L.overflowTip(cols, row, {}), 0, "nothing cut, no tooltip")
 local tip = L.overflowTip(cols, row, { true, true, true })
 eq(tip[1].title .. ": " .. tip[1].lines[1], "Item: Linen Cloth", "a cut cell shows its text")
-eq(tip[2].lines[1], "13×", "as the column renders it")
+eq(tip[2].lines[1], "13x", "as the column renders it")
 eq(table.concat(tip[3].lines, " / "), "Testchar 6 (bags) / Testchar 2 (bags)", "or the column's own lines")
 eq(L.overflowTip(cols, row, { [3] = true })[1].title, "Where", "only the cut ones")
 

@@ -60,7 +60,7 @@ local function buildDesign(page)
 	local tabs = UI.TabBar(body, { { key = "learned", label = "Learned" }, { key = "unlearned", label = "Unlearned" }, { key = "skillup", label = "Skill up" } })
 	tabs:SetPoint("TOPLEFT", 0, y)
 	tabs:SetWidth(320)
-	local search = UI.SearchBox(body, "Search items…")
+	local search = UI.SearchBox(body, "Search items...")
 	search:SetPoint("TOPLEFT", 340, y - 2)
 	search:SetWidth(240)
 	y = y - 48

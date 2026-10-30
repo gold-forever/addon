@@ -55,12 +55,12 @@ local function refresh()
 	end
 	local sum = ns.sessionSummary()
 	local secs, value, unpriced, r = sum.elapsed, sum.value, sum.unpriced, sum.rates
-	local dash = faint .. "—|r"
+	local dash = faint .. "-|r"
 	hud.time:SetText((Session.idle() and "ended " or "") .. Views.duration(math.max(60, secs)))
 	hud.gold:SetText((r.rated and UI.layout.money(r.goldPerHour, "gold") or dash) .. faint .. " /h|r")
 	hud.xp:SetText((r.rated and Views.short(r.xpPerHour) or dash) .. faint .. " XP/h|r")
 	hud.kills:SetText((r.rated and Views.short(r.killsPerHour) or dash) .. faint .. " kills/h|r")
-	hud.ding:SetText(not r.rated and "warming up…" or r.dingIn and ("ding in " .. Theme.escape(Theme.color.text) .. Views.duration(r.dingIn) .. "|r") or "")
+	hud.ding:SetText(not r.rated and "warming up..." or r.dingIn and ("ding in " .. Theme.escape(Theme.color.text) .. Views.duration(r.dingIn) .. "|r") or "")
 
 	local d = hud.details
 	if not d:IsShown() then
@@ -85,7 +85,7 @@ local function refresh()
 			local quality, _, _, _, name = itemInfo(it.id)
 			local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.id) or (GetItemIcon and GetItemIcon(it.id))
 			row.icon:SetTexture(icon or 134400) -- the question mark
-			row.name:SetText(Theme.escape(Theme.quality[quality or 1] or Theme.color.text) .. (name or ("item " .. it.id)) .. "|r" .. faint .. " ×" .. it.n .. "|r")
+			row.name:SetText(Theme.escape(Theme.quality[quality or 1] or Theme.color.text) .. (name or ("item " .. it.id)) .. "|r" .. faint .. " x" .. it.n .. "|r")
 			row.value:SetText(it.value > 0 and UI.layout.money(it.value, "gold") or (faint .. "no price|r"))
 		end
 	end

@@ -120,7 +120,7 @@ local function text()
 	for i = 1, math.min(TOP_ITEMS, #sum.ranked) do
 		local item = sum.ranked[i]
 		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(item.id)) or ("item " .. item.id)
-		table.insert(lines, string.format("|cffaaaaaa%d× %s: %s|r", item.n, name, item.value > 0 and coins(item.value) or "no price"))
+		table.insert(lines, string.format("|cffaaaaaa%dx %s: %s|r", item.n, name, item.value > 0 and coins(item.value) or "no price"))
 	end
 	return table.concat(lines, "\n")
 end
@@ -147,9 +147,9 @@ local function bigDrops(taken)
 			if quest and not Catalogue.questDone(quest) and not startersAlerted[id] then
 				startersAlerted[id] = true
 				local text = "Starts a quest: " .. (name or ("item " .. id))
-				ns.alert(text .. " — right-click it in your bags to start it.")
+				ns.alert(text .. " - right-click it in your bags to start it.")
 			elseif not quest and ((threshold > 0 and value >= threshold) or (quality or 0) >= 3) then
-				local text = string.format("Big drop: %s%s — %s", n > 1 and (n .. "× ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
+				local text = string.format("Big drop: %s%s - %s", n > 1 and (n .. "x ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
 				ns.alert(text)
 			end
 		end

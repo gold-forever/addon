@@ -44,7 +44,7 @@ local function buildCrafting(page)
 		-- Gear: shown in grey and sorted last, its price being one for every quality.
 		{ key = "profit", title = "Profit", width = 84, align = "RIGHT", text = function(r) return r.gear and (Theme.escape(Theme.color.textFaint) .. UI.layout.plain(money(r.profit)) .. "|r") or money(r.profit) end,
 			sort = function(r) return (not r.gear and r.profit) or -math.huge end },
-		{ key = "margin", title = "Margin", width = 64, align = "RIGHT", text = function(r) return r.margin and (r.margin .. "%") or "—" end,
+		{ key = "margin", title = "Margin", width = 64, align = "RIGHT", text = function(r) return r.margin and (r.margin .. "%") or "-" end,
 			color = function(r) return r.gear and Theme.color.textFaint or Theme.color[BAND_COLOR[ns.Crafting.band(r.margin)] or "textFaint"] end,
 			sort = function(r) return (not r.gear and r.margin) or -math.huge end },
 	}, {
@@ -129,7 +129,7 @@ local function buildCrafting(page)
 				local profit = held and ns.Crafting.profitHeld(q) or q.profit
 				local cost = held and q.cash or q.spend
 				rows[#rows + 1] = {
-					id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "× ") or "") .. itemName(r.output), quality = itemQuality(r.output),
+					id = r.id, q = q, name = (r.yield ~= 1 and (r.yield .. "x ") or "") .. itemName(r.output), quality = itemQuality(r.output),
 					cost = cost, revenue = q.revenue, profit = profit, gear = q.gear,
 					margin = profit and cost and cost > 0 and math.floor(profit / cost * 100 + 0.5) or nil,
 				}
@@ -165,7 +165,7 @@ local function buildCrafting(page)
 			local x = i <= fits and sel.q.lines[i] or nil
 			l.hover.itemId = x and x.id
 			if x then
-				l.name:SetText(x.needed .. "× " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  (" .. x.owned .. " held)|r") or ""))
+				l.name:SetText(x.needed .. "x " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  (" .. x.owned .. " held)|r") or ""))
 				l.value:SetText(x.unit and (UI.layout.amount(x.unit) .. " each, " .. (x.from == "vendor" and "vendor" or "AH")) or "no price")
 			elseif i == fits + 1 and more > 0 then
 				l.name:SetText(Theme.escape(Theme.color.textFaint) .. "+" .. more .. " more " .. (more == 1 and "reagent" or "reagents") .. "|r")

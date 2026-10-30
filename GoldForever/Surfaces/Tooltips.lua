@@ -46,7 +46,7 @@ local function mobLines(npc)
 				done == false and " · not done" or done and " · done" or "")
 		end
 	end
-	return string.format("looted %d× · ~%s a loot", m.loots, coins(value)), #top > 0 and table.concat(top, " · ") or nil,
+	return string.format("looted %dx · ~%s a loot", m.loots, coins(value)), #top > 0 and table.concat(top, " · ") or nil,
 		#starters > 0 and ("Drops a quest starter: " .. table.concat(starters, ", ")) or nil
 end
 
@@ -121,7 +121,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			local sale = worth(data.id) or 0
 			local verdict = de > sale and " |cff56c98f(better than selling)|r" or ""
 			local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
-			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. "Disenchant" .. verdict .. short, "≈ " .. coins(de), 1, 1, 1, 1, 1, 1)
+			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. "Disenchant" .. verdict .. short, "~" .. coins(de), 1, 1, 1, 1, 1, 1)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)

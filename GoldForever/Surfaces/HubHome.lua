@@ -47,7 +47,7 @@ local function buildHome(page)
 		-- A card that opens a page says so: "Open ›" in its corner, and its edge lights up under the pointer
 		-- (manual test run 001: hard to know it can be clicked).
 		if a.go then
-			local open = UI.Text(card, "Open ›", { size = "xs", tone = "faint" })
+			local open = UI.Text(card, "Open >", { size = "xs", tone = "faint" })
 			open:SetPoint("TOPRIGHT", -10, -8)
 			card:SetScript("OnClick", function()
 				ns.openPage(a.go)
@@ -228,7 +228,7 @@ local function buildHome(page)
 				local quality = itemQuality(it.id)
 				local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.id) or (GetItemIcon and GetItemIcon(it.id))
 				r.icon:SetTexture(icon or 134400)
-				r.name:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. itemName(it.id) .. "|r" .. faint .. " ×" .. it.count .. "|r")
+				r.name:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. itemName(it.id) .. "|r" .. faint .. " x" .. it.count .. "|r")
 				r.hint:SetText(it.where == "vendor" and "to a vendor" or "at the auction house, after its cut")
 				r.value:SetText(UI.layout.money(it.value, "gold"))
 			end

@@ -298,7 +298,7 @@ local function start(manual)
 		npc = Encode.source(ns.readable(UnitGUID("npc"))),
 		npcFaction = UnitExists("npc") and (UnitFactionGroup("npc") or "none") or nil,
 	}
-	ns.say("scanning the auction house…")
+	ns.say("scanning the auction house...")
 	C_AuctionHouse.ReplicateItems()
 	-- No update within a minute: the client is throttling; record that instead of waiting forever.
 	local mine = scan

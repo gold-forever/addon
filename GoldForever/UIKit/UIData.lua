@@ -349,7 +349,7 @@ function UI.Table(parent, columns, opts)
 		local sorted = self.sortColumn and string.format(" · by %s, %s first", string.lower(self.columns[self.sortColumn].title),
 			self.sortDescending and "highest" or "lowest") or ""
 		self.footer:SetText(#rows == 0 and (opts.empty or "Nothing yet.") or
-			((shown.pages > 1 and string.format("%d–%d of %d · page %d of %d (wheel to page)", (shown.page - 1) * self.size + 1,
+			((shown.pages > 1 and string.format("%d-%d of %d · page %d of %d (wheel to page)", (shown.page - 1) * self.size + 1,
 				math.min(#rows, shown.page * self.size), #rows, shown.page, shown.pages) or string.format("%d rows", #rows)) .. sorted))
 		self:SetHeight(ROW + 2 + self.size * ROW + 24)
 	end

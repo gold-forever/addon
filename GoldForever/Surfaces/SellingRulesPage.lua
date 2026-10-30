@@ -60,7 +60,7 @@ local function buildRule(page)
 	local function showExamples()
 		local lines = Post.examples(shown(), money)
 		for i, l in ipairs(lines) do
-			lines[i] = Theme.escape(Theme.color.accent) .. "•|r " .. l
+			lines[i] = Theme.escape(Theme.color.accent) .. "-|r " .. l
 		end
 		exampleText:SetText(table.concat(lines, "\n\n"))
 	end

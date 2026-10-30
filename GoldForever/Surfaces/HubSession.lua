@@ -39,7 +39,7 @@ local function buildSessionNow(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Loot", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		{ key = "n", title = "Count", width = 60, align = "RIGHT" },
-		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return r.value > 0 and UI.layout.amount(r.value) or "—" end },
+		{ key = "value", title = "Worth", width = 100, align = "RIGHT", text = function(r) return r.value > 0 and UI.layout.amount(r.value) or "-" end },
 	}, { pageSize = 5, empty = "Nothing looted this session." })
 	tbl:SetPoint("TOPLEFT", cards[1], "BOTTOMLEFT", 0, -124)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
@@ -51,7 +51,7 @@ local function buildSessionNow(page)
 		local faint = Theme.escape(Theme.color.textFaint)
 		if not sum then
 			for _, c in ipairs(cards) do
-				c:Set("—", "")
+				c:Set("-", "")
 			end
 			for _, l in ipairs(lines) do
 				l:SetText("")
@@ -63,9 +63,9 @@ local function buildSessionNow(page)
 		end
 		local r = sum.rates
 		cards[1]:Set(Views.duration(math.max(60, sum.elapsed)), sum.ended and "ended" or "running")
-		cards[2]:Set(r.rated and UI.layout.money(r.goldPerHour, "gold") or "—", r.rated and "" or "after a minute")
-		cards[3]:Set(r.rated and Views.short(r.xpPerHour) or "—", r.dingIn and ("ding in " .. Views.duration(r.dingIn)) or "")
-		cards[4]:Set(r.rated and Views.short(r.killsPerHour) or "—", "no combat log")
+		cards[2]:Set(r.rated and UI.layout.money(r.goldPerHour, "gold") or "-", r.rated and "" or "after a minute")
+		cards[3]:Set(r.rated and Views.short(r.xpPerHour) or "-", r.dingIn and ("ding in " .. Views.duration(r.dingIn)) or "")
+		cards[4]:Set(r.rated and Views.short(r.killsPerHour) or "-", "no combat log")
 		lines[1]:SetText(UI.layout.money(sum.coin))
 		lines[2]:SetText(UI.layout.money(sum.value) .. (sum.unpriced > 0 and (faint .. string.format("  +%d unpriced", sum.unpriced) .. "|r") or ""))
 		lines[3]:SetText(Views.short(sum.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, sum.nextLevel or 0) .. "|r") or ""))
@@ -77,7 +77,7 @@ local function buildSessionNow(page)
 			rows[i] = { name = name or ("item " .. it.id), quality = quality or 1, n = it.n, value = it.value }
 		end
 		tbl:SetRows(rows, true) -- a click or the ticker keeps the page
-		note:SetText("A big drop (" .. UI.layout.money(sum.bigDrop, "gold") .. " or more, or rare and better) gets a message and a sound; change it in Settings → General.")
+		note:SetText("A big drop (" .. UI.layout.money(sum.bigDrop, "gold") .. " or more, or rare and better) gets a message and a sound; change it in Settings > General.")
 	end
 	-- Once a second while shown, and no ticker otherwise.
 	local ticker
@@ -134,9 +134,9 @@ local function buildLevelling(page)
 	mix:SetPoint("RIGHT", page, "RIGHT")
 	local tbl = UI.Table(page, {
 		{ key = "level", title = "Level", width = 60, align = "RIGHT" },
-		{ key = "seconds", title = "Time on it", flex = 1, align = "RIGHT", text = function(r) return r.seconds and Views.duration(r.seconds) or Theme.escape(Theme.color.textFaint) .. "—|r" end },
-		{ key = "money", title = "Gold when reached", flex = 1, align = "RIGHT", text = function(r) return r.money and UI.layout.amount(r.money) or Theme.escape(Theme.color.textFaint) .. "—|r" end },
-		{ key = "reached", title = "Reached", flex = 1, align = "RIGHT", text = function(r) return r.reached and Views.ago(r.reached, ns.now()) or Theme.escape(Theme.color.textFaint) .. "—|r" end,
+		{ key = "seconds", title = "Time on it", flex = 1, align = "RIGHT", text = function(r) return r.seconds and Views.duration(r.seconds) or Theme.escape(Theme.color.textFaint) .. "-|r" end },
+		{ key = "money", title = "Gold when reached", flex = 1, align = "RIGHT", text = function(r) return r.money and UI.layout.amount(r.money) or Theme.escape(Theme.color.textFaint) .. "-|r" end },
+		{ key = "reached", title = "Reached", flex = 1, align = "RIGHT", text = function(r) return r.reached and Views.ago(r.reached, ns.now()) or Theme.escape(Theme.color.textFaint) .. "-|r" end,
 			color = function() return Theme.color.textMuted end },
 	}, { pageSize = 6, empty = "No level-ups recorded yet.", sort = sortOf("levelling", "level") })
 	tbl:SetPoint("TOPLEFT", mix, "BOTTOMLEFT", 0, -16)
@@ -154,15 +154,15 @@ local function buildLevelling(page)
 			progress:SetText(string.format("%s / %s XP · %d%% · %s rested", count(xp.cur), count(xp.max), math.floor(xp.cur / xp.max * 100), count(have)))
 			bar:Set(xp.max, { { value = xp.cur, color = Theme.color.xp }, { value = math.min(have, xp.max - xp.cur), color = Theme.color.rested } })
 			local left = xp.max - xp.cur
-			ding:Set(lv.perHour and ("in " .. Views.duration(left / lv.perHour * 3600)) or "—", count(left) .. " XP to go" .. (lv.perHour and " at your pace" or ""))
+			ding:Set(lv.perHour and ("in " .. Views.duration(left / lv.perHour * 3600)) or "-", count(left) .. " XP to go" .. (lv.perHour and " at your pace" or ""))
 			rested:Set(string.format("%.2f levels", have / xp.max), have > 0 and "kills give double XP until it is used" or "rest in an inn or a city to build it")
 		else
 			progress:SetText("At the level cap: nothing left to level.")
 			bar:Set(1, { { value = 1, color = Theme.color.xp } })
-			ding:Set("—", "at the level cap")
-			rested:Set("—", "at the level cap")
+			ding:Set("-", "at the level cap")
+			rested:Set("-", "at the level cap")
 		end
-		pace:Set(lv.perHour and count(lv.perHour) or "—", lv.perHour and Views.duration(lv.playSeconds) .. " of play counted" or "not enough play recorded yet")
+		pace:Set(lv.perHour and count(lv.perHour) or "-", lv.perHour and Views.duration(lv.playSeconds) .. " of play counted" or "not enough play recorded yet")
 		local segments, legend = {}, {}
 		for _, s in ipairs(SOURCES) do
 			local n = lv.sources[s.key] or 0
@@ -205,7 +205,7 @@ local function buildMobs(page)
 		end)
 		if not mobs then
 			tbl:SetRows({})
-			tbl.footer:SetText("Counting the loot…")
+			tbl.footer:SetText("Counting the loot...")
 			return
 		end
 		local rows = {}

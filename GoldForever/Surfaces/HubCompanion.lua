@@ -70,9 +70,9 @@ local function buildCompanion(page)
 				mine = m
 			end
 		end
-		cards[1]:Set(st.age or "—", st.state == "ok" and "the prices file" or "")
+		cards[1]:Set(st.age or "-", st.state == "ok" and "the prices file" or "")
 		cards[2]:Set(tostring(#st.markets), "in the file")
-		cards[3]:Set(mine and tostring(mine.items) or "—", mine and "items priced" or "none yet")
+		cards[3]:Set(mine and tostring(mine.items) or "-", mine and "items priced" or "none yet")
 		tbl:SetRows(st.markets)
 	end
 end

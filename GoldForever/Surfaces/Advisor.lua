@@ -54,7 +54,7 @@ local function text()
 			table.insert(lines, heading .. " · " .. coins(totals[use]))
 			for i = 1, math.min(LIST_LENGTH, #list) do
 				local x = list[i]
-				local line = string.format("%d× %s · %s", x.count, x.name, coins(x.value))
+				local line = string.format("%dx %s · %s", x.count, x.name, coins(x.value))
 				if use == "post" and x.market then
 					line = line .. "|cff999999 (post at " .. coins(x.market) .. " each)|r"
 				end

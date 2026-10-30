@@ -58,7 +58,7 @@ local function copy(value, depth)
 		return value
 	end
 	if depth <= 0 then
-		return "…"
+		return "..."
 	end
 	local out, n = {}, 0
 	for k, v in pairs(value) do
@@ -188,14 +188,14 @@ ns.commands.legacy = function()
 	hookAll()
 	seen = {}
 	phase = "before"
-	ns.say("watching the API for 3 s, then opening the Legacy window…")
+	ns.say("watching the API for 3 s, then opening the Legacy window...")
 	ns.after(3, "legacy", function()
 		phase = "open"
 		if not pcall(ToggleLegacySystemUI) and LegacySystemFrame_LoadUI then
 			pcall(LegacySystemFrame_LoadUI)
 			pcall(ToggleLegacySystemUI)
 		end
-		ns.say("open the Legacy window if it did not open, and click through its pages — 20 s.")
+		ns.say("open the Legacy window if it did not open, and click through its pages - 20 s.")
 		ns.after(20, "legacy", finishTrace)
 	end)
 end

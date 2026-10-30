@@ -212,10 +212,10 @@ local function statusLines(out)
 		table.insert(out, string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
 	end
 	for name, e in pairs(db.errors) do
-		table.insert(out, string.format("  |cffe8615a%s|r failed %d× — %s", name, e.n, e.msg))
+		table.insert(out, string.format("  |cffe8615a%s|r failed %dx - %s", name, e.n, e.msg))
 	end
 	for name, e in pairs(db.stopped or {}) do
-		table.insert(out, string.format("  |cffe8615a%s|r stopped by the client for running too long %d×", name, e.n))
+		table.insert(out, string.format("  |cffe8615a%s|r stopped by the client for running too long %dx", name, e.n))
 	end
 	table.insert(out, "  The file is written at logout and /reload.")
 end

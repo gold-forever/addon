@@ -115,7 +115,7 @@ function UI.Window(name, title, pages, store, opts)
 	local nav = CreateFrame("Frame", nil, side)
 	nav:SetPoint("TOPLEFT", 8, -130)
 	nav:SetPoint("BOTTOMRIGHT", -8, FOOT + 8)
-	local search = UI.SearchBox(side, "Search pages…", function(text)
+	local search = UI.SearchBox(side, "Search pages...", function(text)
 		if w.Filter then
 			w:Filter(text)
 		end

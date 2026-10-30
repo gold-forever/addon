@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **No more empty squares in the text.** The first-run card's "Settings → General" showed an empty
+  square: the arrow is in none of the fonts. Every text the addon shows now uses characters all its
+  fonts draw: arrows and chevrons are ">", dashes "-", "…" is "...", "×" is "x" and "≈" is "~".
 - **Recipes with a random result say so.** The crafting panel beside your profession window shows
   "random, can fail" for a recipe whose result is random or can fail (Wild Experimentation, the
   transmutations, prospecting), with no sale price or profit, instead of "unknown". Its reagents are

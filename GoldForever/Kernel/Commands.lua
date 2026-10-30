@@ -12,15 +12,15 @@ SLASH_GOLDFOREVER2 = "/goldforever"
 -- rest. The stored counts and failures are for bug reports, under "/gf check" (manual test run 001).
 local function help(rest)
 	print(ns.PREFIX .. " commands:")
-	print("  /gf — open or close the window")
-	print("  /gf hud — show or hide the session HUD")
-	print("  /gf ah — show or hide the auction panel · /gf scan — scan the auction house")
-	print("  /gf bags — what to do with your loot · /gf shop — your crafts by profit")
-	print("  /gf look web|classic|arcane — change the look · /gf minimap — the minimap button")
+	print("  /gf - open or close the window")
+	print("  /gf hud - show or hide the session HUD")
+	print("  /gf ah - show or hide the auction panel · /gf scan - scan the auction house")
+	print("  /gf bags - what to do with your loot · /gf shop - your crafts by profit")
+	print("  /gf look web|classic|arcane - change the look · /gf minimap - the minimap button")
 	if rest == "all" then
-		print("  /gf ui <page> — open a page · /gf session — the session in chat · /gf reset — a new session")
-		print("  /gf bigdrop <gold> — big-drop alerts · /gf accent #rrggbb · /gf welcome — the first-run card")
-		print("  /gf prices — the prices file · /gf rares [mark] · /gf claim <code> · /gf export · /gf check — details for a bug report")
+		print("  /gf ui <page> - open a page · /gf session - the session in chat · /gf reset - a new session")
+		print("  /gf bigdrop <gold> - big-drop alerts · /gf accent #rrggbb · /gf welcome - the first-run card")
+		print("  /gf prices - the prices file · /gf rares [mark] · /gf claim <code> · /gf export · /gf check - details for a bug report")
 	else
 		print("  More: /gf help all")
 	end

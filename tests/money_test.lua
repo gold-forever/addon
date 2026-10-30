@@ -44,7 +44,7 @@ eq(L.money(0, "silver"), C .. "0c|r", "coloured silver precision, nothing")
 eq(L.money(-86900, "silver"), "-" .. G .. "8g|r " .. S .. "69s|r", "coloured silver precision, a loss")
 
 -- In a table cell: a faint dash for nothing, else gold and silver.
-local DASH = "|cff6c7690—|r"
+local DASH = "|cff6c7690-|r"
 eq(L.amount(0), DASH, "cell nothing")
 eq(L.amount(nil), DASH, "cell no amount")
 eq(L.amount(0.4), DASH, "cell under half a copper")

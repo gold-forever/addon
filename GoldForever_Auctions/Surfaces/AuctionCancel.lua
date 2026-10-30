@@ -58,7 +58,7 @@ local function startCheck()
 		C_AuctionHouse.QueryOwnedAuctions({ { sortOrder = 0, reverseSort = false } })
 	end
 	ah.checking = 0
-	ah.panel.cancel.note:SetText("Reading your auctions…")
+	ah.panel.cancel.note:SetText("Reading your auctions...")
 	-- The list never coming (throttled, the auction house closing) does not leave the check running.
 	local run = {}
 	checkRun = run
@@ -124,7 +124,7 @@ local function cancelNext()
 	end
 	C_AuctionHouse.CancelAuction(a.auctionID)
 	await("cancel", "cancel:" .. a.auctionID, ah.panel.cancel.note)
-	ah.panel.cancel.note:SetText("Cancelling " .. a.name .. "…")
+	ah.panel.cancel.note:SetText("Cancelling " .. a.name .. "...")
 end
 
 ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
@@ -160,9 +160,9 @@ local function buildCancel(page)
 	check:SetPoint("TOPRIGHT", 0, 0)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Your auction", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
-			text = function(r) return r.quantity > 1 and (r.name .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.quantity .. "|r") or r.name end },
+			text = function(r) return r.quantity > 1 and (r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.quantity .. "|r") or r.name end },
 		{ key = "unit", title = "Yours", width = 74, align = "RIGHT", text = function(r) return money(r.unit) end },
-		{ key = "cheapest", title = "Cheapest", width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "—" or "") end },
+		{ key = "cheapest", title = "Cheapest", width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "-" or "") end },
 		{ key = "under", title = "Under", width = 56, align = "RIGHT", text = function(r) return r.under and r.under > 0 and (r.under .. "%") or "" end,
 			color = function(r) return r.under and r.under > tolerance() and Theme.color.warning or Theme.color.textMuted end, sort = function(r) return r.under or 0 end },
 	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut.", itemId = function(r) return r.itemID end,
@@ -188,9 +188,9 @@ local function buildCancel(page)
 		tbl:SetRows(ah.owned)
 		local first = list[1]
 		if ah.checking == 0 then
-			go:SetLabel("Reading…")
+			go:SetLabel("Reading...")
 		elseif ah.checking then
-			go:SetLabel(string.format("Checking %d of %d…", ah.checking, #ah.owned))
+			go:SetLabel(string.format("Checking %d of %d...", ah.checking, #ah.owned))
 		elseif first then
 			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
 			go:SetLabel("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
@@ -198,7 +198,7 @@ local function buildCancel(page)
 			go:SetLabel("Cancel next")
 		end
 		go:SetEnabled((first and not ah.checking and not busy()) and true or false)
-		if not ah.checking and page.note:GetText() == "Reading your auctions…" then
+		if not ah.checking and page.note:GetText() == "Reading your auctions..." then
 			page.note:SetText(#ah.owned == 0 and "You have no auctions up."
 				or string.format("%d of your %d auctions are undercut past %d%%.", #list, #ah.owned, tolerance()))
 		end

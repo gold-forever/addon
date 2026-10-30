@@ -22,7 +22,7 @@ local function buildRares(page)
 		{ key = "last", title = "Last", width = 80, align = "RIGHT", text = function(r) return Views.ago(r.last, ns.now()) end },
 		{ key = "where", title = "Where", flex = 2, color = function() return Theme.color.textMuted end },
 		{ key = "how", title = "How", width = 80, color = function() return Theme.color.textFaint end },
-		{ key = "value", title = "A loot", width = 90, align = "RIGHT", text = function(r) return r.value and UI.layout.amount(r.value) or "—" end,
+		{ key = "value", title = "A loot", width = 90, align = "RIGHT", text = function(r) return r.value and UI.layout.amount(r.value) or "-" end,
 			sort = function(r) return r.value or -1 end },
 	}, { pageSize = 14, empty = "No rare seen yet: they are logged when a nameplate, the target or the minimap shows one.", sort = sortOf("rares", "last") })
 	tbl:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -10)
@@ -32,7 +32,7 @@ local function buildRares(page)
 		-- holds from before that was switched off is those false rares (manual test run 001: "NPC …" from
 		-- Silvermoon): none listed.
 		note:SetText(isRetail and "Rares are recorded on WoW: Forever only: retail's cities are full of map markers that are not rares."
-			or "Logged from nameplates, your target and the minimap. Settings → Modules switches the alerts.")
+			or "Logged from nameplates, your target and the minimap. Settings > Modules switches the alerts.")
 		if isRetail then
 			tbl:SetRows({})
 			return -- no rare listed, so no mob's loot to count

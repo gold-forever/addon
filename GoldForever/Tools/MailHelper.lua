@@ -199,7 +199,7 @@ function Mail.press()
 		return
 	end
 	run = { left = Mail.BATCH }
-	ns.emit("mailBatch", "Opening…")
+	ns.emit("mailBatch", "Opening...")
 	step()
 end
 

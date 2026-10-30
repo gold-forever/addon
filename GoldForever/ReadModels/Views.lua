@@ -180,7 +180,7 @@ end
 -- "2d 4h", "3h 12m", "45m", "under a minute".
 function Views.duration(seconds)
 	if not seconds then
-		return "—"
+		return "-"
 	end
 	seconds = math.floor(seconds)
 	local d, h, m = math.floor(seconds / 86400), math.floor(seconds / 3600) % 24, math.floor(seconds / 60) % 60
@@ -197,7 +197,7 @@ end
 -- "now", "12m ago", "3h ago", "2d ago".
 function Views.ago(t, now)
 	if not t then
-		return "—"
+		return "-"
 	end
 	local s = now - t
 	if s < 60 then

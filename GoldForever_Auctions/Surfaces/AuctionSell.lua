@@ -167,7 +167,7 @@ local function post()
 			C_AuctionHouse.ConfirmPostItem(unpack(args, 1, args.n))
 		end
 		await("post", r.key, ah.panel.post.note)
-		ah.panel.post.note:SetText("Posting…")
+		ah.panel.post.note:SetText("Posting...")
 		return
 	end
 	ah.confirm = nil
@@ -200,7 +200,7 @@ local function post()
 		return
 	end
 	await("post", r.key, ah.panel.post.note)
-	ah.panel.post.note:SetText("Posting…")
+	ah.panel.post.note:SetText("Posting...")
 end
 
 local function posted()
@@ -256,11 +256,11 @@ end)
 
 local function buildPost(page)
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 3, text = function(r) return r.name .. Theme.escape(Theme.color.textFaint) .. " ×" .. r.count .. "|r" end,
+		{ key = "name", title = "Item", flex = 3, text = function(r) return r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.count .. "|r" end,
 			color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		-- The typical price, what selling is priced against; the tooltip's "Market" is the day's value (addon#21).
-		{ key = "typical", title = "Typical", width = 84, align = "RIGHT", text = function(r) return r.typical and money(r.typical) or "—" end, sort = function(r) return r.typical or 0 end },
-		{ key = "post", title = "Post at", width = 92, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "—" end,
+		{ key = "typical", title = "Typical", width = 84, align = "RIGHT", text = function(r) return r.typical and money(r.typical) or "-" end, sort = function(r) return r.typical or 0 end },
+		{ key = "post", title = "Post at", width = 92, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "-" end,
 			sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
 		pageSize = 5,
@@ -286,7 +286,7 @@ local function buildPost(page)
 	name:SetPoint("TOPLEFT", 14, -12)
 	name:SetPoint("RIGHT", detail, "RIGHT", -96, 0)
 	-- The selling rules live in the hub: this opens them on a rule for the item in view.
-	local ruleButton = UI.Button(detail, "Rule ›", function()
+	local ruleButton = UI.Button(detail, "Rule >", function()
 		ns.openPage("rules")
 		if ns.rulesPage and ah.chosen then
 			ns.rulesPage.chooseScope("add-item")
@@ -369,7 +369,7 @@ local function buildPost(page)
 			qty:Set(quantity(r))
 		end
 		local sug = r.suggestion
-		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  ×" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
+		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  x" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
 		local hint = Post.trendHint(r.trend)
 		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or "No price yet: scan first") .. "|r"
@@ -384,19 +384,19 @@ local function buildPost(page)
 		end
 		-- The price Sell measures against, named for what it is: the typical price, or the market value and its source.
 		local base = r.typical and ("typical " .. money(r.typical))
-			or ("market " .. (r.market and money(r.market) or "—") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
+			or ("market " .. (r.market and money(r.market) or "-") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
 		facts:SetText(string.format("Cheapest other %s · %s%s · floor %s · normal %s", cheapest, base, trend,
-			sug and money(sug.floor) or "—", sug and money(sug.normal) or "—"))
+			sug and money(sug.floor) or "-", sug and money(sug.normal) or "-"))
 		local l = ah.live[r.key]
 		for i, line in ipairs(listed) do
 			local x = l and l.list and l.list[i]
-			line.unit:SetText(x and money(x.unit) or (i == 1 and (faint .. (l and "none listed" or "searching…") .. "|r") or ""))
-			line.qty:SetText(x and ("×" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
+			line.unit:SetText(x and money(x.unit) or (i == 1 and (faint .. (l and "none listed" or "searching...") .. "|r") or ""))
+			line.qty:SetText(x and ("x" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
 		end
 		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
 		local can = sug and (sug.unit or r.anyway) and not busy()
 		if can then
-			button:SetLabel(sug.unit and ("Post " .. quantity(r) .. " × " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " × " .. money(r.anyway)))
+			button:SetLabel(sug.unit and ("Post " .. quantity(r) .. " x " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " x " .. money(r.anyway)))
 		else
 			button:SetLabel(sug and sug.reason == "hold" and "Under your floor" or "Post")
 		end
