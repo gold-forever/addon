@@ -131,13 +131,26 @@ ns.on("LOOT_READY", "loot", function()
 	ns.lootSource = first and (w.sources[first].src or sourceOf(first)) or nil -- for skill-ups from gathering
 end)
 
--- Windows whose coin was taken and has not reached the purse yet, oldest first. The coin of one
--- loot window can arrive after the next window opened (looting corpse after corpse), so each rise
--- in money goes to the oldest window waiting, never to whichever window is open.
+-- Windows whose coin was taken and whose rows are not written yet, oldest first. The coin of one
+-- loot window can arrive after the next window opened (looting corpse after corpse), and in a group
+-- as several rises, one per share. So a rise goes to the oldest window still without coin, else to the
+-- newest one, as more of its coin.
 local awaitingCoin = {}
 local purse -- GetMoney() at the last money change
-local early -- { amount, at }: a rise that came before its money slot cleared, for a second
+-- { amount, at, from }: rises in the last second no window was waiting for first, the last at `at`,
+-- given to `from` as more of its coin or to none. The next money slot to clear takes them: they can be
+-- its coin come before the slot cleared.
+local early
 local EARLY_SECONDS = 1
+
+local function coinFor()
+	for _, w in ipairs(awaitingCoin) do
+		if not w.coinAt then
+			return w
+		end
+	end
+	return awaitingCoin[#awaitingCoin]
+end
 
 ns.on("PLAYER_MONEY", "loot coin", function()
 	local now = GetMoney()
@@ -146,11 +159,18 @@ ns.on("PLAYER_MONEY", "loot coin", function()
 	if rise <= 0 then
 		return
 	end
-	if #awaitingCoin > 0 then
-		local w = table.remove(awaitingCoin, 1)
-		w.coin = (w.coin or 0) + rise
+	local w, at = coinFor(), GetTime()
+	if w and not w.coinAt then
+		w.coin, w.coinAt = rise, at
+		return
+	end
+	if w then
+		w.coin, w.coinAt = w.coin + rise, at
+	end
+	if early and early.from == w and at - early.at <= EARLY_SECONDS then
+		early.amount, early.at = early.amount + rise, at
 	else
-		early = { amount = rise, at = GetTime() }
+		early = { amount = rise, at = at, from = w }
 	end
 end)
 
@@ -162,11 +182,16 @@ ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)
 	if info.money then
 		info.taken = true
 		if early and GetTime() - early.at <= EARLY_SECONDS then
-			window.coin = (window.coin or 0) + early.amount
-		else
-			awaitingCoin[#awaitingCoin + 1] = window
+			if early.from then
+				early.from.coin = early.from.coin - early.amount
+			end
+			window.coin, window.coinAt = (window.coin or 0) + early.amount, early.at
 		end
 		early = nil
+		if not window.awaiting then
+			window.awaiting = true
+			awaitingCoin[#awaitingCoin + 1] = window
+		end
 		return
 	end
 	if not info.key then
@@ -179,14 +204,19 @@ ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)
 	end
 end)
 
--- Coin: GetMoney() rises a moment after the money slot clears, so the rows are written a second
--- after the window closes, with the rise the window was given (above). It goes to the money slot's
--- sources (by their amounts when the client gives them), else to every source. In a group the rise
--- is this character's share, not the slot's amount.
+-- Coin: GetMoney() rises a moment after the money slot clears, so the rows are written once the
+-- window's coin has settled (above): a second after the window closed or after its last rise, or,
+-- while its coin has not come, up to COIN_WAIT_SECONDS; and in the order the windows closed. It goes
+-- to the money slot's sources (by their amounts when the client gives them), else to every source. In
+-- a group the rise is this character's share, not the slot's amount.
+local SETTLE_SECONDS = 1
+local COIN_WAIT_SECONDS = 5
+local closing = {} -- windows closed and not written yet, oldest first
+
 local function finish(w)
 	for i, waiting in ipairs(awaitingCoin) do
 		if waiting == w then
-			table.remove(awaitingCoin, i) -- its coin never came
+			table.remove(awaitingCoin, i)
 			break
 		end
 	end
@@ -248,11 +278,25 @@ ns.on("LOOT_CLOSED", "loot", function()
 	local w = window
 	window = nil
 	ns.lootAt = GetTime() -- coin arrives a moment after the window closes
-	if w then
-		ns.after(1, "loot", function()
-			finish(w)
-		end)
+	if not w then
+		return
 	end
+	closing[#closing + 1] = w
+	local closed = GetTime()
+	local function settle()
+		local now = GetTime()
+		local coinDue = w.awaiting and not w.coinAt and now - closed < COIN_WAIT_SECONDS
+		local coinComing = w.coinAt and now - w.coinAt < SETTLE_SECONDS
+		if coinDue or coinComing then
+			ns.after(SETTLE_SECONDS, "loot", settle)
+			return
+		end
+		w.settled = true
+		while closing[1] and closing[1].settled do
+			finish(table.remove(closing, 1))
+		end
+	end
+	ns.after(SETTLE_SECONDS, "loot", settle)
 end)
 
 -- Remember which container item was used, for loot whose source is an Item GUID.

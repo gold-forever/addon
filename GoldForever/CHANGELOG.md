@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Every loot window keeps its coin.** Some loot windows recorded no coin while the money came in, so a
+  session's gold and the mob ranking came out short: in a group the coin of one window can come as
+  several shares, a moment late, or before the window shows it taken. Every share is now counted with
+  its window, the window's loot is recorded once its coin is in (up to five seconds), and windows are
+  still recorded in the order they closed.
+
 - **Each quality tier of a crafted item or reagent is told apart.** On retail the save records each
   item's crafting quality tier (1-3 for reagents, 1-5 for crafted gear and consumables), so the site
   can tell the tiers of, say, Argentleaf apart. It is read when an item is first recorded, never in
