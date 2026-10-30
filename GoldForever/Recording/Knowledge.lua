@@ -115,42 +115,90 @@ function seeAgain()
 end
 ns.on("LOOT_READY", "npcs", seeAgain)
 
+-- An NPC named from anywhere but its unit: the name fills its row, or makes one, unless it has a name.
+-- The save stops waiting for it (unnamed, below). Rares.lua names a rare seen only as a minimap marker.
+local forget
+function ns.nameNpc(id, name)
+	name = realName(name)
+	if not name then
+		return false
+	end
+	local npcs = ns.db().catalogue.npcs
+	local stored = fields(npcs[id])
+	if not realName(stored[1]) then
+		npcs[id] = Encode.row(Encode.name(name), stored[2], stored[3], stored[4], stored[5])
+	end
+	forget(id)
+	return true
+end
+
 -- A mob looted in a fight was secret on every unit while it lasted, and once it ends its corpse is
--- seldom one; the loot window gave its GUID, and the client's unit tooltip for it names the mob.
-local unnamed = {} -- npc ID -> a GUID looted from it, until a readable name is found
+-- seldom one; the loot window gave its GUID, and the client's unit tooltip for it names the mob. In an
+-- instance that tooltip stays secret out of combat too, so the mob is named after it, at a loading
+-- screen. Until named it waits in the save, db.unnamedNpcs: npc ID -> "GUID,sessions tried" (not in the
+-- catalogue, which is uploaded), and is tried in up to SESSIONS sessions.
+local SESSIONS = 10
+local tried = {} -- npc ID -> true once its try is counted this session
+
+function forget(id)
+	local db = ns.db()
+	if db.unnamedNpcs then
+		db.unnamedNpcs[id] = nil
+		if not next(db.unnamedNpcs) then
+			db.unnamedNpcs = nil
+		end
+	end
+end
+
+local probe = {} -- the last values "/gf probe" reports (temporary, below)
 
 local function nameLooted()
-	local npcs = ns.db().catalogue.npcs
-	for id, guid in pairs(unnamed) do
-		local data = C_TooltipInfo.GetHyperlink("unit:" .. guid)
-		local name = data and data.lines and data.lines[1] and realName(data.lines[1].leftText)
-		if name then
-			unnamed[id] = nil
-			local stored = fields(npcs[id])
-			npcs[id] = Encode.row(Encode.name(name), stored[2], stored[3], stored[4], stored[5])
+	local unnamed = ns.db().unnamedNpcs or {}
+	for id, entry in pairs(unnamed) do
+		local guid, sessions = string.match(entry, "^([^,]+),(%d+)$")
+		local data = guid and C_TooltipInfo.GetHyperlink("unit:" .. guid)
+		if not ns.nameNpc(id, data and data.lines and data.lines[1] and data.lines[1].leftText) and not tried[id] then
+			tried[id] = true
+			sessions = (tonumber(sessions) or SESSIONS) + 1
+			if sessions >= SESSIONS then
+				forget(id)
+			else
+				unnamed[id] = guid .. "," .. sessions
+			end
 		end
+	end
+end
+
+-- A client without unit tooltips by GUID names no looted mob.
+local function retryLooted()
+	if C_TooltipInfo and C_TooltipInfo.GetHyperlink and ns.db().unnamedNpcs then
+		ns.afterCombat("npc names", nameLooted)
 	end
 end
 
 table.insert(ns.lootListeners, function(_, _, rows)
 	if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then
-		return -- a client without unit tooltips by GUID
+		return
 	end
-	local npcs = ns.db().catalogue.npcs
+	local db = ns.db()
 	for _, row in ipairs(rows) do
 		local id = Encode.npcId(row.guid)
-		if id and not realName(fields(npcs[id])[1]) then
-			unnamed[id] = row.guid
+		probe.looted = id and row.guid or probe.looted
+		if id and not realName(fields(db.catalogue.npcs[id])[1]) and not (db.unnamedNpcs and db.unnamedNpcs[id]) then
+			db.unnamedNpcs = db.unnamedNpcs or {}
+			db.unnamedNpcs[id] = row.guid .. ",0"
 		end
 	end
-	if next(unnamed) then
-		ns.afterCombat("npc names", nameLooted)
-	end
+	retryLooted()
 end)
 
 -- Objects: a gathering or opening cast names its target; the loot window that follows gives the
 -- object's ID.
 local cast -- { name, at }
+-- An object's tooltip whose GUID was secret (in an instance), its first line readable: { name, at }.
+local shown
+local OBJECT = Enum and Enum.TooltipDataType and Enum.TooltipDataType.Object
+local RECENT = 10 -- seconds from the cast or tooltip to the loot window
 
 -- A cast on a unit (a buff on oneself or a friend, a spell on a mob) names no object: it is never
 -- kept, so no player's name can end up as an object's (design 002: no other players' names).
@@ -168,22 +216,30 @@ ns.on("UNIT_SPELLCAST_SENT", "objects", function(unit, target)
 		return
 	end
 	-- Every cast replaces the last, so an older cast never names the next loot.
+	probe.cast = target
 	target = realName(target)
 	cast = target and not onUnit(target) and { name = target, at = GetTime() } or nil
 end, "player")
+local function recent(seen)
+	return seen and GetTime() - seen.at < RECENT and seen.name or nil
+end
+
 ns.on("LOOT_READY", "objects", function()
-	local id = ns.lootSource and string.match(ns.lootSource, "^o(%d+)$")
-	if id and cast and GetTime() - cast.at < 10 then
-		ns.db().catalogue.objects[tonumber(id)] = Encode.name(cast.name)
+	local id = ns.lootSource and tonumber(string.match(ns.lootSource, "^o(%d+)$"))
+	local objects = ns.db().catalogue.objects
+	if id and recent(cast) then
+		objects[id] = Encode.name(cast.name)
+	elseif id and not objects[id] and recent(shown) then
+		objects[id] = Encode.name(shown.name)
 	end
-	cast = nil
+	cast, shown = nil, nil
 end)
 
 -- Objects by tooltip: mousing over a herb, vein, chest or fishing pool shows a tooltip whose
 -- data carries the object's GUID on newer clients.
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
-	-- A mob's tooltip names it too: a catalogued mob still without a name takes the name it shows.
+	-- A mob's tooltip names it too: a mob still without a name takes the name it shows, in a new row if need be.
 	local function objectTooltip(_, data)
 		-- The GUID and the first line are secret for a unit whose identity the client keeps.
 		local guid = data and ns.readable(data.guid)
@@ -192,25 +248,52 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipD
 		if src then
 			kind, id = string.match(src, "^([on])(%d+)$")
 		end
-		local line = id and data.lines and data.lines[1] and realName(data.lines[1].leftText)
+		local shownType = data and ns.readable(data.type)
+		if data and (shownType == nil or shownType == OBJECT) then
+			probe.guid, probe.type, probe.line = data.guid, data.type, data.lines and data.lines[1] and data.lines[1].leftText
+		end
+		-- An object whose GUID is secret: its name, for the loot window that follows.
+		local object = not id and OBJECT and shownType == OBJECT
+		local line = (id or object) and data.lines and data.lines[1] and realName(data.lines[1].leftText)
 		if not (line and ns.db()) then
 			return
 		end
-		id = tonumber(id)
-		local catalogue = ns.db().catalogue
-		if kind == "o" then
-			catalogue.objects[id] = Encode.name(line)
-		elseif catalogue.npcs[id] then
-			local stored = fields(catalogue.npcs[id])
-			if not realName(stored[1]) then
-				stored[1] = Encode.name(line)
-				catalogue.npcs[id] = table.concat(stored, ",")
-			end
+		if object then
+			shown = { name = line, at = GetTime() }
+		elseif kind == "o" then
+			ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
+		else
+			ns.nameNpc(tonumber(id), line)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)
 		ns.safely("objects", objectTooltip, _, data)
 	end)
+end
+
+-- Temporary, until instance loot is named in game: "/gf probe" says which of the values the naming
+-- reads the client keeps secret or empty, here and now.
+local function told(v)
+	if ns.secret(v) then
+		return "secret"
+	end
+	return (v == nil or v == "") and "empty" or tostring(v)
+end
+
+ns.commands.probe = function()
+	local say = { "instance " .. told(IsInInstance and IsInInstance()) .. ", in combat " .. told(ns.inCombat()) }
+	for _, unit in ipairs({ "target", "mouseover", "nameplate1" }) do
+		say[#say + 1] = unit .. ": GUID " .. told(UnitGUID(unit)) .. ", name " .. told(UnitName(unit))
+	end
+	local hyperlink = probe.looted and C_TooltipInfo and C_TooltipInfo.GetHyperlink
+	local data = hyperlink and C_TooltipInfo.GetHyperlink("unit:" .. probe.looted)
+	say[#say + 1] = "last looted mob " .. told(probe.looted) .. ": unit tooltip "
+		.. told(data and data.lines and data.lines[1] and data.lines[1].leftText)
+	say[#say + 1] = "last cast target " .. told(probe.cast)
+	say[#say + 1] = "last object tooltip: GUID " .. told(probe.guid) .. ", type " .. told(probe.type) .. ", line " .. told(probe.line)
+	for _, line in ipairs(say) do
+		ns.say(line)
+	end
 end
 
 -- Maps -------------------------------------------------------------------------------------------
@@ -309,8 +392,10 @@ ns.module("Knowledge", {
 	enable = function()
 		ns.after(10, "map art", readMapArt)
 	end,
-	-- The map is seen on every zone change, a loading screen's too.
+	-- The map is seen on every zone change, a loading screen's too. Leaving an instance is one: the mobs
+	-- looted in it are named then.
 	world = function()
 		ns.safely("maps", seeMap)
+		ns.safely("npc names", retryLooted)
 	end,
 })

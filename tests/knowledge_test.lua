@@ -32,11 +32,13 @@ assert(not pcall(function() return SECRET.find end) and not pcall(function() ret
 
 local handlers, tooltipHooks = {}, {}
 local catalogue = { npcs = {}, objects = {}, maps = {}, trainers = {} }
+local db = { catalogue = catalogue }
+local knowledge -- the module Knowledge.lua declares
 local ns = {
 	FIELDS = {},
 	commands = {},
 	db = function()
-		return { catalogue = catalogue }
+		return db
 	end,
 	after = function() end,
 	throttle = function()
@@ -49,7 +51,11 @@ local ns = {
 		handlers[event] = handlers[event] or {}
 		table.insert(handlers[event], fn)
 	end,
-	module = function() end,
+	module = function(name, def)
+		if name == "Knowledge" then
+			knowledge = def
+		end
+	end,
 	lootListeners = {},
 }
 function ns.secret(v)
@@ -76,6 +82,12 @@ function GetTime()
 	return clock
 end
 UNKNOWNOBJECT = "Unknown"
+Enum = { TooltipDataType = { Unit = 2, Object = 33 } }
+local inInstance = false
+C_Map = { GetBestMapForUnit = function() end }
+function IsInInstance()
+	return inInstance
+end
 
 -- The unit "target" as the test sets it.
 local unit = {}
@@ -212,7 +224,7 @@ local asked = 0
 C_TooltipInfo = { GetHyperlink = function(link)
 	asked = asked + 1
 	local line = hyperlinks[link]
-	if ns.inCombat() then
+	if ns.inCombat() or inInstance then
 		line = line and SECRET
 	end
 	return line and { lines = { { leftText = line } } } or nil
@@ -241,6 +253,101 @@ eq(catalogue.npcs[5005], nil, "\"Unknown\": nothing written")
 hyperlinks["unit:Creature-0-4620-0-12-5005-000A"] = "Frostbitten Yeti"
 loot("Creature-0-4620-0-12-5003-000D")
 eq(catalogue.npcs[5005], "Frostbitten Yeti,,,,", "a mob whose name loads later is named at the next loot")
+-- An instance (a dungeon, a delve, a scenario): the unit tooltip for a looted GUID is secret there in
+-- and out of combat, so a mob looted in one is named only once out of it, at the loading screen.
+-- Until then it waits in the save, so a /reload or a logout in between loses nothing.
+local function reload()
+	for event in pairs(handlers) do
+		handlers[event] = nil
+	end
+	for i = #tooltipHooks, 1, -1 do
+		tooltipHooks[i] = nil
+	end
+	for i = #ns.lootListeners, 1, -1 do
+		ns.lootListeners[i] = nil
+	end
+	assert(load(SOURCES["Combat.lua"], "@Combat.lua"))("GoldForever", ns)
+	assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
+end
+inInstance = true
+hyperlinks["unit:Creature-0-4620-0-12-258955-000A"] = "Shadowguard Acolyte"
+fire("PLAYER_REGEN_DISABLED")
+loot("Creature-0-4620-0-12-258955-000A")
+fire("PLAYER_REGEN_ENABLED")
+eq(catalogue.npcs[258955], nil, "instance: a looted mob is not named while in it")
+eq(db.unnamedNpcs and db.unnamedNpcs[258955] ~= nil, true, "instance: the unnamed mob is remembered in the save")
+eq(catalogue.unnamedNpcs, nil, "and not in the catalogue, which is uploaded")
+reload()
+knowledge.world()
+eq(catalogue.npcs[258955], nil, "a loading screen still in the instance names nothing")
+inInstance = false
+knowledge.world()
+eq(catalogue.npcs[258955], "Shadowguard Acolyte,,,,", "the loading screen out of it names the mob, after a /reload")
+eq(db.unnamedNpcs, nil, "and the save no longer holds it")
+-- A mob the client never names is tried once a session, for 10 sessions, then forgotten.
+loot("Creature-0-4620-0-12-258956-000A")
+for _ = 1, 3 do
+	knowledge.world()
+end
+for session = 2, 9 do
+	reload()
+	knowledge.world()
+	knowledge.world()
+end
+eq(db.unnamedNpcs and db.unnamedNpcs[258956] ~= nil, true, "a mob still unnamed after 9 sessions is tried again")
+reload()
+knowledge.world()
+eq(db.unnamedNpcs, nil, "after its 10th session it is forgotten")
+eq(catalogue.npcs[258956], nil, "and nothing is written for it")
+-- A mob's tooltip adds a row for an NPC with none yet, and the save stops waiting for it.
+inInstance = true
+loot("Creature-0-4620-0-12-258957-000A")
+tooltip({ guid = "Creature-0-4620-0-12-258957-000A", type = 2, lines = { { leftText = "Darkway Sentinel" } } })
+eq(catalogue.npcs[258957], "Darkway Sentinel,,,,", "a tooltip adds a named row for an NPC without one")
+eq(db.unnamedNpcs, nil, "a mob named by its tooltip is no longer waited for")
+-- A chest in an instance: its cast target and its tooltip's GUID secret, its tooltip's first line not.
+-- The object looted next, within 10 seconds, takes the name its tooltip showed.
+tooltip({ guid = SECRET, type = 33, lines = { { leftText = "Darkway Coffer" } } })
+fire("UNIT_SPELLCAST_SENT", "player", SECRET, "Cast-5", 6478)
+ns.lootSource = "o584517"
+fire("LOOT_READY")
+eq(catalogue.objects[584517], "Darkway Coffer", "instance: a chest is named from its tooltip's line")
+tooltip({ guid = SECRET, type = 2, lines = { { leftText = "Someone" } } })
+ns.lootSource = "o584518"
+fire("LOOT_READY")
+eq(catalogue.objects[584518], nil, "a unit's tooltip never names an object")
+tooltip({ guid = SECRET, type = 33, lines = { { leftText = "Old Coffer" } } })
+clock = clock + 11
+ns.lootSource = "o584519"
+fire("LOOT_READY")
+eq(catalogue.objects[584519], nil, "a tooltip more than 10 seconds old names nothing")
+tooltip({ guid = SECRET, type = 33, lines = { { leftText = "Spent Coffer" } } })
+ns.lootSource = "o584520"
+fire("LOOT_READY")
+ns.lootSource = "o584521"
+fire("LOOT_READY")
+eq(catalogue.objects[584521], nil, "a tooltip names one loot only")
+inInstance = false
+
+-- "/gf probe" (temporary): what the naming reads, told as secret, empty or the value; never an error.
+local said = {}
+ns.say = function(text)
+	said[#said + 1] = text
+end
+inInstance = true
+hyperlinks["unit:Creature-0-4620-0-12-258957-000A"] = "Darkway Sentinel"
+unit = { guid = SECRET, name = SECRET }
+tooltip({ guid = SECRET, type = SECRET, lines = { { leftText = SECRET } } })
+fire("UNIT_SPELLCAST_SENT", "player", SECRET, "Cast-6", 6478)
+ns.commands.probe()
+local told = table.concat(said, "\n")
+eq(told:find("target: GUID secret, name secret", 1, true) ~= nil, true, "probe: a secret target")
+eq(told:find("mouseover: GUID empty, name empty", 1, true) ~= nil, true, "probe: no mouseover")
+eq(told:find("unit tooltip secret", 1, true) ~= nil, true, "probe: the looted mob's tooltip, secret in an instance")
+eq(told:find("last cast target secret", 1, true) ~= nil, true, "probe: a secret cast target")
+eq(told:find("last object tooltip: GUID secret, type secret, line secret", 1, true) ~= nil, true, "probe: a secret tooltip")
+unit = {}
+inInstance = false
 C_TooltipInfo = nil
 issecretvalue = nil
 

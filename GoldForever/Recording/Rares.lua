@@ -123,6 +123,8 @@ ns.on("VIGNETTE_MINIMAP_UPDATED", "rares", function(vignette, onMinimap)
 		return -- a treasure or an event, not an NPC
 	end
 	vignettes[vignette] = true
+	-- Often a rare's only sighting: its marker names it in the catalogue when nothing else has.
+	ns.nameNpc(npc, info.name)
 	if announced[info.objectGUID] then
 		return
 	end

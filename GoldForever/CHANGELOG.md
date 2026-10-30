@@ -7,6 +7,12 @@
   kills, quests and exploring; the site can show it too once updated. A kill
   or a discovery right next to a gather keeps its own kind. Gold Forever on the site must be up to date
   to read saves from this version.
+- **Mobs and chests looted in dungeons and delves get their names.** A mob looted in an instance is
+  named once you leave it (at the loading screen), even after a `/reload` or a logout in between; one
+  the game still won't name is tried again in each of your next 10 sessions. A chest whose tooltip shows
+  its name is named from it when you loot it. On WoW: Forever, a rare seen only on the minimap gives
+  the catalogue its name. `/gf probe` (temporary) lists what the game lets the addon read where you
+  stand, for the check in game.
 - **No more empty squares in the text.** The first-run card's "Settings → General" showed an empty
   square: the arrow is in none of the fonts. Every text the addon shows now uses characters all its
   fonts draw: arrows and chevrons are ">", dashes "-", "…" is "...", "×" is "x" and "≈" is "~".
