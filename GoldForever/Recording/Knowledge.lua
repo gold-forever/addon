@@ -39,6 +39,13 @@ local function miss()
 	end
 end
 
+-- A unit's classification and encoded type, the stored ones where the client does not tell them.
+local function described(unit, stored)
+	local classification = ns.readable(UnitClassification(unit))
+	local kind = ns.readable(UnitCreatureType(unit))
+	return classification or (stored and stored[4]) or nil, kind and Encode.name(kind) or (stored and stored[5]) or nil
+end
+
 local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
 		return
@@ -59,12 +66,13 @@ local function seeUnit(unit)
 	end
 	local level = ns.readable(UnitLevel(unit))
 	if type(level) ~= "number" or level <= 0 then
-		-- "??": too far above the player to show; the range stays as it was. A row without a name
-		-- still takes one.
-		if stored and not named and name then
-			stored[1] = Encode.name(name)
-			npcs[id] = table.concat(stored, ",")
+		-- "??": too far above the player to show, or a boss; the range stays as it was, the rest is written.
+		local classification, kind = described(unit, stored)
+		if not (stored or name or classification or kind) then
+			return
 		end
+		npcs[id] = Encode.row(name and Encode.name(name) or named or "", stored and stored[2], stored and stored[3],
+			classification, kind)
 		return
 	end
 	local range = levels[id]
@@ -79,10 +87,7 @@ local function seeUnit(unit)
 	range[1] = math.min(range[1] or level, level)
 	range[2] = math.max(range[2] or level, level)
 	levels[id] = range
-	local kind = ns.readable(UnitCreatureType(unit))
-	local classification = ns.readable(UnitClassification(unit))
-	npcs[id] = Encode.row(name and Encode.name(name) or named or "", range[1], range[2],
-		classification or (stored and stored[4]) or nil, kind and Encode.name(kind) or (stored and stored[5]) or nil)
+	npcs[id] = Encode.row(name and Encode.name(name) or named or "", range[1], range[2], described(unit, stored))
 end
 
 ns.on("PLAYER_TARGET_CHANGED", "npcs", function()
@@ -115,19 +120,80 @@ function seeAgain()
 end
 ns.on("LOOT_READY", "npcs", seeAgain)
 
+-- A unit tooltip's level line as the client words it ("Level 80 Humanoid (Elite)", "Level ?? Boss"):
+-- its level ("??" is none), classification and creature type, each nil where the lines do not tell.
+local creatureTypes -- the client's creature type names, read once
+
+local function escaped(text)
+	return (string.gsub(text, "%p", "%%%0"))
+end
+
+local function wordedType(text)
+	if not creatureTypes and C_CreatureInfo and C_CreatureInfo.GetCreatureTypeIDs then
+		creatureTypes = {}
+		for _, typeId in ipairs(C_CreatureInfo.GetCreatureTypeIDs() or {}) do
+			local info = C_CreatureInfo.GetCreatureTypeInfo(typeId)
+			creatureTypes[#creatureTypes + 1] = info and info.name
+		end
+	end
+	for _, typeName in ipairs(creatureTypes or {}) do
+		if string.find(text, typeName, 1, true) then
+			return typeName
+		end
+	end
+	return nil
+end
+
+local function wordedClassification(text)
+	local function has(word)
+		return word and string.find(text, word, 1, true)
+	end
+	if has(BOSS) then
+		return "worldboss"
+	elseif has(RARE) then
+		return has(ELITE) and "rareelite" or "rare"
+	end
+	return has(ELITE) and "elite" or "normal"
+end
+
+local function tooltipLevel(lines)
+	local before, after = string.match(TOOLTIP_UNIT_LEVEL or "", "^(.-)%%s(.*)$")
+	if not before then
+		return nil
+	end
+	local pattern = "^" .. escaped(before) .. "(%S+)" .. escaped(after)
+	for i = 2, #(lines or {}) do
+		local text = ns.readable(lines[i].leftText)
+		text = text and string.gsub(string.gsub(text, "|c%x%x%x%x%x%x%x%x", ""), "|r", "")
+		local level = text and string.match(text, pattern)
+		if level then
+			level = tonumber(level)
+			return level and level > 0 and level or nil, wordedClassification(text), wordedType(text)
+		end
+	end
+	return nil
+end
+
 -- An NPC named from anywhere but its unit: the name fills its row, or makes one, unless it has a name.
--- The save stops waiting for it (unnamed, below). Rares.lua names a rare seen only as a minimap marker.
+-- A unit tooltip's lines widen its level range and fill a classification and type it lacks. The save
+-- stops waiting for it (unnamed, below). Rares.lua names a rare seen only as a minimap marker.
 local forget
-function ns.nameNpc(id, name)
+function ns.nameNpc(id, name, lines)
 	name = realName(name)
 	if not name then
 		return false
 	end
 	local npcs = ns.db().catalogue.npcs
 	local stored = fields(npcs[id])
-	if not realName(stored[1]) then
-		npcs[id] = Encode.row(Encode.name(name), stored[2], stored[3], stored[4], stored[5])
+	local level, classification, kind = tooltipLevel(lines)
+	local low, high = tonumber(stored[2]), tonumber(stored[3])
+	if level then
+		low, high = math.min(low or level, level), math.max(high or level, level)
+		levels[id] = { low, high }
 	end
+	npcs[id] = Encode.row(realName(stored[1]) and stored[1] or Encode.name(name), low, high,
+		(stored[4] or "") ~= "" and stored[4] or classification,
+		(stored[5] or "") ~= "" and stored[5] or kind and Encode.name(kind))
 	forget(id)
 	return true
 end
@@ -157,7 +223,8 @@ local function nameLooted()
 	for id, entry in pairs(unnamed) do
 		local guid, sessions = string.match(entry, "^([^,]+),(%d+)$")
 		local data = guid and C_TooltipInfo.GetHyperlink("unit:" .. guid)
-		if not ns.nameNpc(id, data and data.lines and data.lines[1] and data.lines[1].leftText) and not tried[id] then
+		local lines = data and data.lines
+		if not ns.nameNpc(id, lines and lines[1] and lines[1].leftText, lines) and not tried[id] then
 			tried[id] = true
 			sessions = (tonumber(sessions) or SESSIONS) + 1
 			if sessions >= SESSIONS then
@@ -263,7 +330,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipD
 		elseif kind == "o" then
 			ns.db().catalogue.objects[tonumber(id)] = Encode.name(line)
 		else
-			ns.nameNpc(tonumber(id), line)
+			ns.nameNpc(tonumber(id), line, data.lines)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(_, data)

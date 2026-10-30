@@ -224,11 +224,15 @@ local hyperlinks = {} -- "unit:<GUID>" -> the tooltip's first line
 local asked = 0
 C_TooltipInfo = { GetHyperlink = function(link)
 	asked = asked + 1
-	local line = hyperlinks[link]
-	if ns.inCombat() or inInstance then
-		line = line and SECRET
+	local shown = hyperlinks[link]
+	if shown == nil then
+		return nil
 	end
-	return line and { lines = { { leftText = line } } } or nil
+	local lines = {}
+	for i, text in ipairs(type(shown) == "table" and shown or { shown }) do
+		lines[i] = { leftText = (ns.inCombat() or inInstance) and SECRET or text }
+	end
+	return { lines = lines }
 end }
 hyperlinks["unit:Creature-0-4620-0-12-5003-000A"] = "Ironjaw Basilisk"
 fire("PLAYER_REGEN_DISABLED")
@@ -329,6 +333,47 @@ ns.lootSource = "o584521"
 fire("LOOT_READY")
 eq(catalogue.objects[584521], nil, "a tooltip names one loot only")
 inInstance = false
+
+-- A mob named later gets its level, classification and type from its tooltip's level line, as the
+-- client words it (TOOLTIP_UNIT_LEVEL, ELITE, BOSS, RARE, the creature type names); "??" is no level.
+TOOLTIP_UNIT_LEVEL = "Level %s"
+ELITE, BOSS, RARE = "Elite", "Boss", "Rare"
+local TYPES = { [1] = "Beast", [7] = "Humanoid", [6] = "Undead" }
+C_CreatureInfo = {
+	GetCreatureTypeIDs = function()
+		return { 1, 6, 7 }
+	end,
+	GetCreatureTypeInfo = function(id)
+		return { name = TYPES[id] }
+	end,
+}
+hyperlinks["unit:Creature-0-4620-0-12-6001-000A"] = { "Grimward Guard", "Level 80 Humanoid (Elite)" }
+hyperlinks["unit:Creature-0-4620-0-12-6002-000A"] = { "Vexthar the Unbroken", "<The Hollow Court>", "Level ?? Humanoid (Boss)" }
+hyperlinks["unit:Creature-0-4620-0-12-6003-000A"] = { "Bog Stalker", "Level 78 Beast" }
+hyperlinks["unit:Creature-0-4620-0-12-6004-000A"] = { "Old Bonegrinder", "Level 81 Rare Elite Undead" }
+loot("Creature-0-4620-0-12-6001-000A", "Creature-0-4620-0-12-6002-000A", "Creature-0-4620-0-12-6003-000A",
+	"Creature-0-4620-0-12-6004-000A")
+eq(catalogue.npcs[6001], "Grimward Guard,80,80,elite,Humanoid", "a mob named later: its level, elite and type")
+eq(catalogue.npcs[6002], "Vexthar the Unbroken,,,worldboss,Humanoid", "a boss named later: no level, boss and type")
+eq(catalogue.npcs[6003], "Bog Stalker,78,78,normal,Beast", "a normal mob named later")
+eq(catalogue.npcs[6004], "Old Bonegrinder,81,81,rareelite,Undead", "a rare elite named later")
+-- A mob catalogued with a name but no level gets it on a later sighting: its tooltip, or its unit.
+catalogue.npcs[6005] = "Hollow Sentry,,,,"
+tooltip({ guid = "Creature-0-4620-0-12-6005-000A", lines = { { leftText = "Hollow Sentry" }, { leftText = "Level 79 Humanoid (Elite)" } } })
+eq(catalogue.npcs[6005], "Hollow Sentry,79,79,elite,Humanoid", "a named row without a level takes its tooltip's")
+tooltip({ guid = "Creature-0-4620-0-12-6005-000A", lines = { { leftText = "Hollow Sentry" }, { leftText = "Level 81 Humanoid" } } })
+eq(catalogue.npcs[6005], "Hollow Sentry,79,81,elite,Humanoid", "a later tooltip widens the range and keeps the classification")
+tooltip({ guid = "Creature-0-4620-0-12-6005-000A", lines = { { leftText = "Hollow Sentry" }, { leftText = SECRET } } })
+eq(catalogue.npcs[6005], "Hollow Sentry,79,81,elite,Humanoid", "a secret level line changes nothing")
+catalogue.npcs[6006] = "Vexthar's Shade,,,,"
+target({ guid = "Creature-0-4620-0-12-6006-000A", name = "Vexthar's Shade", level = -1, classification = "worldboss", kind = "Undead" })
+eq(catalogue.npcs[6006], "Vexthar's Shade,,,worldboss,Undead", "a boss seen at level ?? still takes its classification and type")
+target({ guid = "Creature-0-4620-0-12-6007-000A", name = "Hollow Warden", level = -1, classification = "elite", kind = "Humanoid" })
+eq(catalogue.npcs[6007], "Hollow Warden,,,elite,Humanoid", "a mob first seen at level ?? is catalogued with its classification")
+target({ guid = "Creature-0-4620-0-12-6008-000A", name = SECRET, level = -1, classification = SECRET, kind = SECRET })
+eq(catalogue.npcs[6008], nil, "a mob at level ?? with nothing readable writes no empty row")
+TOOLTIP_UNIT_LEVEL, ELITE, BOSS, RARE, C_CreatureInfo = nil, nil, nil, nil, nil
+unit = {}
 
 -- "/gf probe" (temporary): what the naming reads, told as secret, empty or the value; never an error.
 local said = {}
