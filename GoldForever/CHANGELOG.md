@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Items a vendor sells for currency are named too.** Opening a vendor now records the name, quality
+  and icon of everything it sells, not only what it sells for gold, so a recipe bought with currency or
+  tokens shows its name on the site and as sold by that vendor. Vendor prices are still recorded only
+  for gold.
 - **XP from gathering is its own kind.** XP for picking a herb, mining a vein or skinning a corpse is
   recorded as gathering, not "other", and the Levelling page's XP by source shows it as Gathering, beside
   kills, quests and exploring; the site can show it too once updated. A kill

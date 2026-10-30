@@ -383,10 +383,10 @@ local function readMerchant()
 		end
 		if id then
 			sold[#sold + 1] = id
+			ns.catalogueItem(id) -- whatever its cost: an item sold for currency is named too
 		end
 		if id and price and price > 0 and not extended then
 			vendor[id] = Encode.row(price, available and available >= 0 or nil, ns.now(), quantity)
-			ns.catalogueItem(id)
 		end
 	end
 	local npc = Encode.npcId(ns.readable(UnitGUID("npc")))
