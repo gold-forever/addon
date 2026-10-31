@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Late loot coin is counted as loot in the Ledger.** Coin that came in more than two seconds after a
+  loot window opened or closed, from a window kept open a while or a slow server, was shown as Other.
+  Coin the loot window takes as its own is now tagged loot, up to the five seconds it waits after closing.
+
 - **The "Bag advice at vendors" switch is gone.** It did nothing since the "your loot" window was
   removed, so it no longer shows in Settings → Modules, and the Everything preset on the first-run card
   no longer mentions bag advice. An older save's setting is left as it is and is no longer read.

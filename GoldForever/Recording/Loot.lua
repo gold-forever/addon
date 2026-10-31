@@ -143,6 +143,11 @@ local purse -- GetMoney() at the last money change
 local early
 local EARLY_SECONDS = 1
 
+-- Whether a rise now would be taken as a loot window's coin, for the money row's context (Ledger.lua).
+function ns.lootCoinDue()
+	return #awaitingCoin > 0
+end
+
 local function coinFor()
 	for _, w in ipairs(awaitingCoin) do
 		if not w.coinAt then

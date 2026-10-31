@@ -142,8 +142,8 @@ local function showing(name)
 	return not known
 end
 
-local function context()
-	if ns.lootAt and GetTime() - ns.lootAt < 2 then
+local function context(delta)
+	if (ns.lootAt and GetTime() - ns.lootAt < 2) or (delta > 0 and ns.lootCoinDue and ns.lootCoinDue()) then
 		return "loot"
 	end
 	if ns.questAt and GetTime() - ns.questAt < 3 then
@@ -272,7 +272,8 @@ ns.on("PLAYER_MONEY", "money", function()
 	end
 	local now = GetMoney()
 	if money and now ~= money then
-		local delta, ctx = now - money, context()
+		local delta = now - money
+		local ctx = context(delta)
 		local transfer = transferIn(delta)
 		if transfer then
 			ns.record("money", { t = ns.now(), char = me.ref, delta = transfer, ctx = ctx == "" and "transfer" or ctx .. "+transfer" })
