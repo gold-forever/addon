@@ -28,6 +28,7 @@ end
 -- One session of the addon on the saved table db: Catalogue.lua loaded afresh, its timers in `tick`.
 local function session(db, lean)
 	local scheduled = {}
+	local catalogueModule
 	local ns = {
 		lean = lean,
 		retail = lean,
@@ -41,7 +42,9 @@ local function session(db, lean)
 			return fn(...)
 		end,
 		on = function() end,
-		module = function() end,
+		module = function(_, def)
+			catalogueModule = def
+		end,
 		inCombat = function()
 			return fighting
 		end,
@@ -57,6 +60,10 @@ local function session(db, lean)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Catalogue.lua"], "@Catalogue.lua"))("GoldForever", ns)
+	-- The game enabling the module at login.
+	ns.enableCatalogue = function()
+		catalogueModule.enable()
+	end
 	-- Runs the earliest scheduled callback, as the game's timer would.
 	local function tick()
 		local fn = table.remove(scheduled, 1)
@@ -226,5 +233,84 @@ C_TradeSkillUI = nil
 eq(ns.FIELDS.item:match(",([^,]*)$"), "equipLoc", "Forever: the schema's item columns end with equipLoc")
 eq(foreverDb.catalogue.items[300001], string.format(ROW, 300001), "Forever: no tier from the API")
 eq(foreverDb.catalogue.items[300011], string.format(ROW, 300011), "Forever: no tier from the link")
+
+-- Retail rows catalogued before schema 9 (addon#72): the test save had 25,121 rows and not one tier, while
+-- the client answered the tier. They get it once a session, after login and on sight, from C_TradeSkillUI
+-- alone: their row is already there, so GetItemInfo is not asked.
+local tierAsked = {}
+local function counting(answers)
+	return function(id)
+		tierAsked[id] = (tierAsked[id] or 0) + 1
+		return answers[id]
+	end
+end
+local oldApi = {
+	GetItemReagentQualityByItemInfo = counting({ [400001] = 2, [400004] = 3, [400005] = 1 }),
+	GetItemCraftedQualityByItemInfo = counting({ [400002] = 5 }),
+}
+local OLD = "Azeroot,1,1,7,5,20,1,0,1,1,INVTYPE_NON_EQUIP_IGNORE"
+local function oldSave()
+	return { catalogue = { items = {
+		[400001] = OLD, -- a reagent
+		[400002] = OLD, -- a crafted item
+		[400003] = OLD, -- untiered
+		[400004] = "Old,1,1,7,5,20,1,0,1", -- a row from before minLevel and equipLoc
+		[400005] = OLD .. ",1", -- already has its tier
+	}, tooltips = {} } }
+end
+C_TradeSkillUI = oldApi
+local oldDb = oldSave()
+local oldNs, oldTick = session(oldDb, true)
+oldNs.enableCatalogue()
+while oldTick() do
+end
+eq(oldDb.catalogue.items[400001], OLD .. ",2", "old retail save, after login: a reagent's row gets its tier")
+eq(oldDb.catalogue.items[400002], OLD .. ",5", "old retail save, after login: a crafted item's row gets its tier")
+eq(oldDb.catalogue.items[400003], OLD, "old retail save: an untiered item's row is unchanged")
+eq(oldDb.catalogue.items[400004], "Old,1,1,7,5,20,1,0,1,,,3", "a short row: the tier in the tier column")
+eq(oldDb.catalogue.items[400005], OLD .. ",1", "a row with its tier is unchanged")
+eq(tierAsked[400005], nil, "a row with its tier is not asked again")
+eq(asked[400001], nil, "the fill asks only the tier, not the item's info")
+oldNs.catalogueItem(400003)
+oldNs.catalogueItem(400001)
+while oldTick() do
+end
+eq(tierAsked[400003], 2, "an untiered item is asked once a session (both calls)")
+eq(tierAsked[400001], 1, "a filled item is not asked again")
+
+-- On sight: an old row named by loot, a bag or a scan gets its tier, without the login pass.
+local sightDb = oldSave()
+local sightNs, sightTick = session(sightDb, true)
+sightNs.catalogueItem(400001)
+while sightTick() do
+end
+eq(sightDb.catalogue.items[400001], OLD .. ",2", "old retail row seen: its tier")
+eq(asked[400001], nil, "old retail row seen: its info is not asked")
+
+-- Never in combat.
+fighting = true
+local combatDb = oldSave()
+local combatNs, combatTick = session(combatDb, true)
+combatNs.enableCatalogue()
+while combatTick() do
+end
+eq(combatDb.catalogue.items[400001], OLD, "in combat: no tier asked")
+endFight()
+while combatTick() do
+end
+eq(combatDb.catalogue.items[400001], OLD .. ",2", "after the fight: the tier")
+
+-- Forever: its rows never get a tier column.
+local foreverOld = oldSave()
+for id in pairs(foreverOld.catalogue.items) do
+	foreverOld.catalogue.tooltips[id] = "kept"
+end
+local fNs, fTick = session(foreverOld, false)
+fNs.enableCatalogue()
+fNs.catalogueItem(400001)
+while fTick() do
+end
+eq(foreverOld.catalogue.items[400001], OLD, "Forever: an old row gets no tier")
+C_TradeSkillUI = nil
 
 return checks()

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Items you already had get their crafting tier (retail).** Items catalogued before the tier column
+  was added kept their old row, so none of them got a tier. After login, and whenever you see such an
+  item, the addon now asks the game for its tier once a session and adds it to the row. It never asks
+  during a fight. WoW: Forever is unchanged.
+
 - **Late loot coin is counted as loot in the Ledger.** Coin that came in more than two seconds after a
   loot window opened or closed, from a window kept open a while or a slow server, was shown as Other.
   Coin the loot window takes as its own is now tagged loot, up to the five seconds it waits after closing.
