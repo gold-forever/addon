@@ -207,14 +207,19 @@ local function waitForToast(row)
 	end)
 end
 
--- Gold moving between your own characters by mail (Mail.lua): each amount, below 0 for gold sent, waits
--- for the change that carries it, which is then a transfer, not spending or income. The postage paid
--- with gold sent is the rest of that change.
+-- Gold moving by mail (Mail.lua): each amount, below 0 for gold sent, waits for the change that carries
+-- it, which is then tagged with what it was: "transfer" between your own characters (not spending or
+-- income), or the kind of mail its gold was taken from (sale, outbid, auction, npc, player). The postage
+-- paid with gold sent is the rest of that change.
 local TRANSFER_SECONDS = 10
-local transfers = {} -- { amount, at }
+local transfers = {} -- { amount, at, tag }
+
+function ns.expectMailMoney(amount, tag)
+	transfers[#transfers + 1] = { amount = amount, at = GetTime(), tag = tag }
+end
 
 function ns.expectTransfer(amount)
-	transfers[#transfers + 1] = { amount = amount, at = GetTime() }
+	ns.expectMailMoney(amount, "transfer")
 end
 
 function ns.forgetTransfer(amount)
@@ -226,18 +231,27 @@ function ns.forgetTransfer(amount)
 	end
 end
 
--- The transfer a change of `delta` carries, used up; transfers too old to match are dropped.
+-- The mail money a change of `delta` carries, used up: its amount and tag, an exact amount before one
+-- the change holds with more; amounts too old to match are dropped.
 local function transferIn(delta)
 	for i = #transfers, 1, -1 do
 		if GetTime() - transfers[i].at > TRANSFER_SECONDS then
 			table.remove(transfers, i)
 		end
 	end
+	local found
 	for i, transfer in ipairs(transfers) do
-		if (delta < 0) == (transfer.amount < 0) and math.abs(delta) >= math.abs(transfer.amount) then
-			table.remove(transfers, i)
-			return transfer.amount
+		if transfer.amount == delta then
+			found = i
+			break
 		end
+		if not found and (delta < 0) == (transfer.amount < 0) and math.abs(delta) >= math.abs(transfer.amount) then
+			found = i
+		end
+	end
+	if found then
+		local transfer = table.remove(transfers, found)
+		return transfer.amount, transfer.tag
 	end
 end
 
@@ -274,9 +288,9 @@ ns.on("PLAYER_MONEY", "money", function()
 	if money and now ~= money then
 		local delta = now - money
 		local ctx = context(delta)
-		local transfer = transferIn(delta)
+		local transfer, tag = transferIn(delta)
 		if transfer then
-			ns.record("money", { t = ns.now(), char = me.ref, delta = transfer, ctx = ctx == "" and "transfer" or ctx .. "+transfer" })
+			ns.record("money", { t = ns.now(), char = me.ref, delta = transfer, ctx = ctx == "" and tag or ctx .. "+" .. tag })
 			delta = delta - transfer
 		end
 		if repaid(delta) then

@@ -1,7 +1,8 @@
 -- Gold Forever: mail you send to your own characters (the mail stream), so items and gold moved to an
 -- alt are known while they travel, and its gold is a transfer in the ledger on both sides (Ledger.lua).
 -- Mail to or from anyone else records nothing about them: a recipient or sender is only ever compared
--- with your own characters, never written.
+-- with your own characters, never written; gold taken from a mail tags its ledger row with the mail's
+-- kind (sale, outbid, auction, npc, player), never a name or subject.
 
 local _, ns = ...
 local Encode = ns.Encode
@@ -102,11 +103,64 @@ end)
 
 -- Receiving ----------------------------------------------------------------------------------------
 
--- Gold taken from a mail your own character sent: the ledger's next rise of that much is a transfer.
+-- Whether a subject is one of the client's subject formats ("Outbid on %s"), %s standing for anything.
+local function worded(subject, formats)
+	if type(subject) ~= "string" then
+		return false
+	end
+	for _, f in ipairs(formats) do
+		local escaped = string.gsub(f, "([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
+		if string.find(subject, "^" .. string.gsub(escaped, "%%%%s", ".+") .. "$") then
+			return true
+		end
+	end
+	return false
+end
+
+-- The auction house's subjects: for a bid given back (outbid, or the auction cancelled), and the rest.
+local function returnedBid()
+	return { AUCTION_OUTBID_MAIL_SUBJECT or "Outbid on %s", AUCTION_REMOVED_MAIL_SUBJECT or "Auction canceled: %s" }
+end
+local function otherAuction()
+	return {
+		AUCTION_SOLD_MAIL_SUBJECT or "Auction successful: %s",
+		AUCTION_EXPIRED_MAIL_SUBJECT or "Auction expired: %s",
+		AUCTION_WON_MAIL_SUBJECT or "Auction won: %s",
+	}
+end
+
+-- What kind of mail a mail with gold is, as its ledger tag, from what the client gives for it: its
+-- invoice type, sender, subject and flags; nil when that can't be told. Only the kind leaves here.
+local function kind(index)
+	local _, _, sender, subject, _, _, _, _, _, _, _, canReply, isGM = GetInboxHeaderInfo(index)
+	if ownCharacter(sender) then
+		return "transfer"
+	end
+	local invoice = GetInboxInvoiceInfo and GetInboxInvoiceInfo(index)
+	if invoice == "seller" then
+		return "sale"
+	end
+	local fromHouse = canReply == false and not isGM
+	if fromHouse and worded(subject, returnedBid()) then
+		return "outbid"
+	end
+	if invoice or (fromHouse and worded(subject, otherAuction())) then
+		return "auction"
+	end
+	if isGM or canReply == false then
+		return "npc"
+	end
+	if canReply then
+		return "player"
+	end
+end
+
+-- Gold taken from a mail: the ledger's next rise of that much is tagged with the mail's kind.
 local function take(index)
-	local _, _, sender, _, money = GetInboxHeaderInfo(index)
-	if positive(money) and ownCharacter(sender) then
-		ns.expectTransfer(money)
+	local money = select(5, GetInboxHeaderInfo(index))
+	local tag = positive(money) and kind(index)
+	if tag then
+		ns.expectMailMoney(money, tag)
 	end
 end
 

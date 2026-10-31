@@ -25,6 +25,8 @@ function GetSendMailItemLink() end
 function GetSendMailItem() end
 function GetSendMailMoney() return sendMoney end
 function GetSendMailCOD() return 0 end
+-- Taking a mail's gold, which Mail.lua hooks to tag the rise with the mail's kind.
+function TakeInboxMoney() end
 -- The client's modified-click handler, which the addon hooks (alt-click chooses in Sell, shift-click adds
 -- to a shopping list).
 function HandleModifiedItemClick() end
@@ -3235,6 +3237,14 @@ do
     now .. ",1,Z\195\169ri-Classic Beta PvE 2,,1000,;" .. now .. ",1,Otheracct-Classic Beta PvE 2,,1000,")
   seen("MAIL TRANSFERS ", day.money[1]:match("[^;]*;[^;]*;[^;]*;[^;]*$"),
     now .. ",1,-1000,mail+transfer;" .. now .. ",1,-30,mail;" .. now .. ",1,-1000,mail+transfer;" .. now .. ",1,-30,mail")
+  -- A sale's gold taken from the mailbox: its row says it was a sale, and names no one.
+  local header, invoice = GetInboxHeaderInfo, GetInboxInvoiceInfo
+  function GetInboxHeaderInfo() return nil, nil, "Alliance Auction House", "Auction successful: Wool Cloth", 1925, 0, 29.5, 0, false, false, false, false, false end
+  function GetInboxInvoiceInfo() return "seller", "Wool Cloth", "SomeBuyer", 0, 1900, 120, 95, 0, 0, 20, false end
+  TakeInboxMoney(1)
+  money = money + 1925; fire("PLAYER_MONEY")
+  seen("MAIL SALE ", day.money[1]:match("[^;]*$"), now .. ",1,1925,mail+sale")
+  GetInboxHeaderInfo, GetInboxInvoiceInfo = header, invoice
   fire("MAIL_CLOSED")
   GoldForever_Prices = keep
 end

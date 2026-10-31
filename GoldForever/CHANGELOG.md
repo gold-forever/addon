@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Gold taken from mail says what kind of mail it was.** The Ledger's mail rows now tell an auction
+  house sale (mail+sale), a bid given back when outbid or the auction was cancelled (mail+outbid), other
+  auction house mail (mail+auction), mail from an NPC, the game or a GM (mail+npc) and a player's mail
+  (mail+player); gold from your own characters stays mail+transfer. Only the kind is kept, never a
+  sender's name or a subject. Plain mail is left only when the kind can't be told.
+
 - **The guild bank's gold and your rank's withdrawals are recorded.** At the guild bank the addon now
   also saves the bank's gold, how much gold your rank may still take today, and for each tab you can
   view how many items a day your rank may take from it, so the site can count only what you can take.

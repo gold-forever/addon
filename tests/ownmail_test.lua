@@ -28,11 +28,14 @@ function GetSendMailMoney() return sendMoney end
 function GetSendMailCOD() return sendCod end
 function SendMail() end
 
--- The inbox: sender and money of each mail.
+-- The inbox: sender, subject, money, flags and invoice type of each mail; a player's mail can be answered.
 local inbox = {}
 function GetInboxHeaderInfo(i)
 	local m = inbox[i]
-	return nil, nil, m.sender, m.subject, m.money, 0, 20, 0, false, false, false, true
+	return nil, nil, m.sender, m.subject, m.money, 0, 20, 0, false, false, false, m.canReply ~= false, m.isGM or false
+end
+function GetInboxInvoiceInfo(i)
+	return inbox[i].invoice
 end
 function TakeInboxMoney() end
 function AutoLootMailItem() end
@@ -161,7 +164,7 @@ spend(-300000)
 eq(written("money", MONEY), "delta=300000 ctx=mail+transfer", "gold from your own character is a transfer")
 AutoLootMailItem(2)
 spend(-5000)
-eq(written("money", MONEY), "delta=5000 ctx=mail", "gold from anyone else is mail")
+eq(written("money", MONEY), "delta=5000 ctx=mail+player", "gold from another player is a player's mail")
 AutoLootMailItem(1)
 spend(-300000)
 eq(written("money", MONEY), "delta=300000 ctx=mail+transfer", "taken with Open All too")
@@ -174,7 +177,7 @@ written("mail", MAIL)
 sendMoney = 0
 AutoLootMailItem(2)
 spend(-5000)
-eq(written("money", MONEY), "delta=5000 ctx=mail", "a rise is not the gold sent")
+eq(written("money", MONEY), "delta=5000 ctx=mail+player", "a rise is not the gold sent")
 spend(1030)
 eq(written("money", MONEY), "delta=-1000 ctx=mail+transfer; delta=-30 ctx=mail", "the fall that follows is")
 
@@ -183,6 +186,80 @@ TakeInboxMoney(1)
 clock = clock + 60
 spend(-300000)
 eq(written("money", MONEY), "delta=300000 ctx=mail", "a transfer expected long ago tags nothing")
+
+-- Each kind of mail its gold is taken from, from the invoice type, sender, subject and flags.
+local function taken(mail)
+	inbox[9] = mail
+	AutoLootMailItem(9)
+	spend(-mail.money)
+	return written("money", MONEY)
+end
+local HOUSE = "Alliance Auction House"
+eq(taken({ sender = HOUSE, subject = "Auction successful: Wool Cloth", money = 1925, canReply = false, invoice = "seller" }),
+	"delta=1925 ctx=mail+sale", "an auction house sale")
+eq(taken({ sender = HOUSE, subject = "Outbid on Linen Cloth", money = 5000, canReply = false }),
+	"delta=5000 ctx=mail+outbid", "a bid given back: outbid")
+eq(taken({ sender = HOUSE, subject = "Auction canceled: Linen Cloth", money = 5000, canReply = false }),
+	"delta=5000 ctx=mail+outbid", "a bid given back: the auction cancelled")
+eq(taken({ sender = HOUSE, subject = "Auction won: Ore", money = 40, canReply = false, invoice = "buyer" }),
+	"delta=40 ctx=mail+auction", "other auction house mail with gold, by its invoice")
+eq(taken({ sender = "Auktionshaus", subject = "Gewonnen: Erz", money = 40, canReply = false, invoice = "buyer" }),
+	"delta=40 ctx=mail+auction", "an invoice alone says auction house, whatever the subject's language")
+eq(taken({ sender = HOUSE, subject = "Auction expired: Ore", money = 40, canReply = false }),
+	"delta=40 ctx=mail+auction", "other auction house mail with gold, by its subject")
+eq(taken({ sender = "Thaddeus Webb", subject = "Your reward", money = 26340, canReply = false }),
+	"delta=26340 ctx=mail+npc", "sent by an NPC or the game")
+eq(taken({ sender = "Gamemaster", subject = "Outbid on Ore", money = 100, canReply = true, isGM = true }),
+	"delta=100 ctx=mail+npc", "sent by a GM, whatever its subject")
+eq(taken({ sender = "Mallory", subject = "Auction successful: Free gold", money = 700 }),
+	"delta=700 ctx=mail+player", "a player's letter titled like the auction house's is a player's")
+eq(taken({ sender = "Bankalt", subject = "Outbid on Ore", money = 900 }),
+	"delta=900 ctx=mail+transfer", "your own character's gold stays a transfer")
+eq(taken({ sender = "Who", subject = "?", money = 300, canReply = "unknown" }),
+	"delta=300 ctx=mail+player", "an answerable mail is a player's")
+inbox[9] = { sender = nil, subject = nil, money = 300 }
+GetInboxHeaderInfo = (function(orig)
+	return function(i)
+		if i == 9 then
+			return nil, nil, nil, nil, 300
+		end
+		return orig(i)
+	end
+end)(GetInboxHeaderInfo)
+AutoLootMailItem(9)
+spend(-300)
+eq(written("money", MONEY), "delta=300 ctx=mail", "plain mail when the kind can't be told")
+
+-- Taken together, each rise finds its own mail: the exact amount before a smaller one.
+inbox[9] = nil
+inbox[10] = { sender = "Stranger", subject = "hi", money = 300 }
+inbox[11] = { sender = HOUSE, subject = "Auction successful: Ore", money = 500, canReply = false, invoice = "seller" }
+TakeInboxMoney(10)
+TakeInboxMoney(11)
+spend(-500)
+spend(-300)
+eq(written("money", MONEY), "delta=500 ctx=mail+sale; delta=300 ctx=mail+player", "each rise its own mail's kind")
+
+-- No name or subject of another player's mail is kept: only the kind, in the money row.
+local function holds(t, text, seen)
+	seen = seen or {}
+	if seen[t] then
+		return false
+	end
+	seen[t] = true
+	for k, v in pairs(t) do
+		if (type(v) == "string" and v:find(text, 1, true)) or (type(k) == "string" and k:find(text, 1, true))
+			or (type(v) == "table" and holds(v, text, seen)) then
+			return true
+		end
+	end
+	return false
+end
+inbox[12] = { sender = "Secretname", subject = "Secretsubject", money = 77 }
+AutoLootMailItem(12)
+spend(-77)
+eq(written("money", MONEY), "delta=77 ctx=mail+player", "the kind is kept")
+eq(tostring(holds(save, "Secret")), "false", "no sender or subject in the save")
 
 -- Your characters on your other WoW accounts, from the companion's data file (DataFormat.lua): mail to one
 -- on your realm is your own mail, its recipient named as on the list, "Name-Realm".
