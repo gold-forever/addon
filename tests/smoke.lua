@@ -3656,6 +3656,74 @@ do
   seen("REP NO CHANGE ", rows, "")
   C_Reputation = reputation
 end
+-- The guild bank: its gold, once the server has sent it, and per viewable tab its items and how many a day
+-- the rank may take (GetGuildBankTabInfo's fifth value: -1 unlimited, 0 none); a tab not viewable, nothing;
+-- and the gold the rank may still take today (GetGuildBankWithdrawMoney: -1 unlimited), once sent.
+do
+  local bankMoney, allowance = 0, 0
+  local tabs = {
+    { "Mats", "icon", true, true, -1, -1 },
+    { "Officers", "icon", true, false, 0, 0 },
+    { "Raid", "icon", true, true, 5, 3 },
+    { "Hidden", "icon", false, false, 0, 0 },
+  }
+  local stock = { [1] = { [1] = 2589 }, [2] = { [4] = 2592 }, [3] = { [7] = 2589 } }
+  function GetGuildBankMoney() return bankMoney end
+  function GetGuildBankWithdrawMoney() return allowance end
+  function GetNumGuildBankTabs() return #tabs end
+  function GetGuildBankTabInfo(tab) return unpack(tabs[tab]) end
+  function GetCurrentGuildBankTab() return 1 end
+  function QueryGuildBankTab() end
+  function GetGuildBankItemLink(tab, slot) local id = stock[tab] and stock[tab][slot] return id and "|Hitem:" .. id .. "::::::::30|h[x]|h" or nil end
+  function GetGuildBankItemInfo(tab, slot) return "icon", 10 end
+  local key = ns.market(string.lower(ns.me().faction or "?")) .. ":" .. GetGuildInfo("player")
+  fire("GUILDBANKFRAME_OPENED")
+  wait(2)
+  local bank = GoldForeverDB.guildBanks[key]
+  assert(bank and bank.tabs[1] and bank.tabs[1].items == "2589*10", "the guild bank's first tab: " .. tostring(bank and bank.tabs[1] and bank.tabs[1].items))
+  assert(bank.money == nil, "no gold before the server has sent it: " .. tostring(bank.money))
+  assert(bank.moneyWithdraw == nil, "no allowance before the server has sent it: " .. tostring(bank.moneyWithdraw))
+  assert(bank.tabs[1].withdraw == -1 and bank.tabs[2].withdraw == 0 and bank.tabs[3].withdraw == 5,
+    "the rank's withdrawals a day per tab: " .. tostring(bank.tabs[1].withdraw) .. " " .. tostring(bank.tabs[2].withdraw) .. " " .. tostring(bank.tabs[3].withdraw))
+  assert(bank.tabs[4] == nil, "a tab not viewable keeps nothing")
+  bankMoney = 123456789
+  fire("GUILDBANK_UPDATE_MONEY")
+  wait(2)
+  assert(bank.money == 123456789, "the bank's gold in copper: " .. tostring(bank.money))
+  -- The gold sent is zero: zero is recorded.
+  bankMoney = 0
+  fire("GUILDBANK_UPDATE_MONEY")
+  wait(2)
+  assert(bank.money == 0, "an empty bank's gold: " .. tostring(bank.money))
+  allowance = -1
+  wait(2)
+  fire("GUILDBANKFRAME_OPENED")
+  wait(2)
+  assert(bank.moneyWithdraw == -1, "an unlimited rank's gold a day: " .. tostring(bank.moneyWithdraw))
+  allowance = 0
+  fire("GUILDBANK_UPDATE_WITHDRAWMONEY")
+  wait(2)
+  assert(bank.moneyWithdraw == 0, "a rank that may take no gold: " .. tostring(bank.moneyWithdraw))
+  allowance = 500000
+  fire("GUILDBANK_UPDATE_WITHDRAWMONEY")
+  wait(2)
+  assert(bank.moneyWithdraw == 500000, "50 gold a day, in copper: " .. tostring(bank.moneyWithdraw))
+  -- A withdrawal count the client does not give leaves what an earlier visit saw.
+  tabs[3][5] = nil
+  fire("GUILDBANKFRAME_OPENED")
+  wait(2)
+  assert(bank.tabs[3].withdraw == 5, "an unknown count keeps the last known: " .. tostring(bank.tabs[3].withdraw))
+  bankMoney = 123456789
+  fire("GUILDBANK_UPDATE_MONEY")
+  wait(2)
+  -- A later visit reads 0 until the server sends again: the last known stays.
+  bankMoney, allowance = 0, 0
+  fire("GUILDBANKFRAME_OPENED")
+  wait(2)
+  assert(bank.money == 123456789 and bank.moneyWithdraw == 500000,
+    "a later visit before the server has sent: " .. tostring(bank.money) .. " " .. tostring(bank.moneyWithdraw))
+  bankMoney, allowance = 123456789, 500000
+end
 -- Anything the addon recorded after the reload fails the run, as the big-save tour does: an error
 -- caught by ns.safely is not raised, so only this sees it.
 local left = recorded()

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The guild bank's gold and your rank's withdrawals are recorded.** At the guild bank the addon now
+  also saves the bank's gold, how much gold your rank may still take today, and for each tab you can
+  view how many items a day your rank may take from it, so the site can count only what you can take.
+
 - **Items you already had get their crafting tier (retail).** Items catalogued before the tier column
   was added kept their old row, so none of them got a tier. After login, and whenever you see such an
   item, the addon now asks the game for its tier once a session and adds it to the row. It never asks

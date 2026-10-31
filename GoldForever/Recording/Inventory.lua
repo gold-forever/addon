@@ -262,6 +262,16 @@ ns.on("PLAYERBANKSLOTS_CHANGED", "bank", bankSoon)
 -- Guild bank -------------------------------------------------------------------------------------
 
 local SLOTS_PER_TAB = MAX_GUILDBANK_SLOTS_PER_TAB or 98
+-- The bank's gold and the gold the rank may still take today (-1 unlimited) read 0 until the server sends
+-- them (GUILDBANK_UPDATE_MONEY, GUILDBANK_UPDATE_WITHDRAWMONEY): a 0 before is unknown.
+local sent = {}
+
+local function sentMoney(read, which)
+	local value = read and read()
+	if type(value) == "number" and (sent[which] or value ~= 0) then
+		return value
+	end
+end
 
 local function readGuildBank()
 	local me = ns.me()
@@ -275,7 +285,7 @@ local function readGuildBank()
 	banks[key] = bank
 	local current = GetCurrentGuildBankTab and GetCurrentGuildBankTab()
 	for tab = 1, GetNumGuildBankTabs() do
-		local name, _, viewable = GetGuildBankTabInfo(tab)
+		local name, _, viewable, _, withdraw = GetGuildBankTabInfo(tab)
 		if viewable then
 			local counts, any = {}, false
 			for slot = 1, SLOTS_PER_TAB do
@@ -292,16 +302,23 @@ local function readGuildBank()
 			end
 			-- A tab not yet sent by the server reads empty; keep what an earlier visit saw.
 			if any or tab == current then
-				bank.tabs[tab] = { name = name, items = Encode.items(counts), t = ns.now() }
+				bank.tabs[tab] = { name = name, items = Encode.items(counts), t = ns.now(), withdraw = bank.tabs[tab] and bank.tabs[tab].withdraw }
+			end
+			-- Items a day the rank may take: -1 unlimited, 0 none; a count not given keeps the last known.
+			if bank.tabs[tab] and type(withdraw) == "number" then
+				bank.tabs[tab].withdraw = withdraw
 			end
 		end
 	end
+	bank.money = sentMoney(GetGuildBankMoney, "money") or bank.money
+	bank.moneyWithdraw = sentMoney(GetGuildBankWithdrawMoney, "withdraw") or bank.moneyWithdraw
 	bank.t = ns.now()
 end
 
 local guildBankSoon = ns.throttle("guildBank", 1, readGuildBank)
 
 local function guildBankOpened()
+	sent = {}
 	for tab = 1, GetNumGuildBankTabs() do
 		local _, _, viewable = GetGuildBankTabInfo(tab)
 		if viewable then
@@ -313,6 +330,14 @@ end
 
 ns.on("GUILDBANKFRAME_OPENED", "guildBank", guildBankOpened)
 ns.on("GUILDBANKBAGSLOTS_CHANGED", "guildBank", guildBankSoon)
+ns.on("GUILDBANK_UPDATE_MONEY", "guildBank", function()
+	sent.money = true
+	guildBankSoon()
+end)
+ns.on("GUILDBANK_UPDATE_WITHDRAWMONEY", "guildBank", function()
+	sent.withdraw = true
+	guildBankSoon()
+end)
 
 -- Newer clients open the bank and guild bank through the interaction manager.
 local INTERACTION = Enum and Enum.PlayerInteractionType or {}
