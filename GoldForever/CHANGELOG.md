@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Mobs named later get their creature type and level more often (retail).** A mob looted in an
+  instance and named afterwards now takes its type from its tooltip's own words when the game's list of
+  creature types doesn't name it, and a level the game colours by difficulty is read as a level. A mob
+  shown at level ?? still gets no level. `/gf probe` now shows the last looted mob's whole tooltip.
+
 - **Gold taken from mail says what kind of mail it was.** The Ledger's mail rows now tell an auction
   house sale (mail+sale), a bid given back when outbid or the auction was cancelled (mail+outbid), other
   auction house mail (mail+auction), mail from an NPC, the game or a GM (mail+npc) and a player's mail

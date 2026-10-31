@@ -372,6 +372,40 @@ target({ guid = "Creature-0-4620-0-12-6007-000A", name = "Hollow Warden", level 
 eq(catalogue.npcs[6007], "Hollow Warden,,,elite,Humanoid", "a mob first seen at level ?? is catalogued with its classification")
 target({ guid = "Creature-0-4620-0-12-6008-000A", name = SECRET, level = -1, classification = SECRET, kind = SECRET })
 eq(catalogue.npcs[6008], nil, "a mob at level ?? with nothing readable writes no empty row")
+-- The level line's shapes on retail and the classic clients: the number coloured (|cff, |cn), a skull
+-- for ??, classic's "Elite" before the type, a type the client's list lacks or a client giving no list
+-- at all: the line's words left after level and classification are the type.
+local function named(id, line)
+	local guid = "Creature-0-4620-0-12-" .. id .. "-000A"
+	tooltip({ guid = guid, lines = { { leftText = "Mob " .. id }, { leftText = line } } })
+	return catalogue.npcs[id]
+end
+eq(named(6010, "Level |cffff000082|r Beast"), "Mob 6010,82,82,normal,Beast", "a coloured level is a level")
+eq(named(6011, "Level |cnDIFFICULTY_VERYDIFFICULT:83|r Humanoid (Elite)"), "Mob 6011,83,83,elite,Humanoid",
+	"a level coloured by name is a level")
+eq(named(6012, "Level |TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:0|t Undead (Boss)"),
+	"Mob 6012,,,worldboss,Undead", "a skull for the level is no level, the type still read")
+eq(named(6013, "Level 80 Elite Humanoid"), "Mob 6013,80,80,elite,Humanoid", "classic's word order")
+eq(named(6014, "Level 80 Mechanical"), "Mob 6014,80,80,normal,Mechanical", "a type the client's list lacks")
+eq(named(6015, "Level 80 Gas Cloud"), "Mob 6015,80,80,normal,Gas Cloud", "a type of two words")
+eq(named(6016, "Level ?? (Boss)"), "Mob 6016,,,worldboss,", "a line naming no type gives none")
+C_CreatureInfo = {
+	GetCreatureTypeIDs = function()
+		return {}
+	end,
+	GetCreatureTypeInfo = function() end,
+}
+reload() -- a client giving no type names, from its first tooltip
+-- The scenario from the check (addon#75, 2026-10-31): elite mobs at ??, looted and named after the
+-- instance, the client giving no type names.
+hyperlinks["unit:Creature-0-4620-0-12-6020-000A"] = { "Shadowguard Steelsoul", "Level ?? Humanoid (Elite)" }
+hyperlinks["unit:Creature-0-4620-0-12-6021-000A"] = { "Wind Serpent", "Level 90 Beast (Elite)" }
+hyperlinks["unit:Creature-0-4620-0-12-6022-000A"] = { "Shadowguard Adept", "Level |cnNORMAL_FONT_COLOR:90|r Humanoid" }
+loot("Creature-0-4620-0-12-6020-000A", "Creature-0-4620-0-12-6021-000A", "Creature-0-4620-0-12-6022-000A")
+eq(catalogue.npcs[6020], "Shadowguard Steelsoul,,,elite,Humanoid", "scenario: an elite at ?? gets its type")
+eq(catalogue.npcs[6021], "Wind Serpent,90,90,elite,Beast", "scenario: an elite gets its level and type")
+eq(catalogue.npcs[6022], "Shadowguard Adept,90,90,normal,Humanoid", "scenario: a coloured level, no type list")
+eq(named(6023, "Level 90 Rare Elite Humanoid"), "Mob 6023,90,90,rareelite,Humanoid", "no type list: classic's word order")
 TOOLTIP_UNIT_LEVEL, ELITE, BOSS, RARE, C_CreatureInfo = nil, nil, nil, nil, nil
 unit = {}
 
@@ -394,6 +428,13 @@ eq(told:find("last cast target secret", 1, true) ~= nil, true, "probe: a secret 
 eq(told:find("last object tooltip: GUID secret, type secret, line secret", 1, true) ~= nil, true, "probe: a secret tooltip")
 unit = {}
 inInstance = false
+-- Out of the instance it shows the looted mob's level line, colour codes and all, to compare with the row.
+hyperlinks["unit:Creature-0-4620-0-12-6022-000A"] = { "Darkway Sentinel", "<Darkway>", "Level |cnNORMAL_FONT_COLOR:90|r Humanoid (Elite)" }
+said = {}
+ns.commands.probe()
+told = table.concat(said, "\n")
+eq(told:find("unit tooltip Darkway Sentinel / <Darkway> / Level ||cnNORMAL_FONT_COLOR:90||r Humanoid (Elite)", 1, true) ~= nil, true,
+	"probe: the looted mob's lines, its markup shown")
 C_TooltipInfo = nil
 issecretvalue = nil
 

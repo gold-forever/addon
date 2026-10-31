@@ -156,19 +156,41 @@ local function wordedClassification(text)
 	return has(ELITE) and "elite" or "normal"
 end
 
+-- A line without its colours (|cffRRGGBB, |cnNAME:, |r). A texture for the level (a boss's skull) has
+-- no spaces, so it stays one word: no level.
+local function plain(text)
+	text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+	text = string.gsub(text, "|cn[^:|]*:", "")
+	return (string.gsub(text, "|r", ""))
+end
+
+-- The words after the level that are neither a classification nor in brackets: the type as the line
+-- names it, for a type the client's list lacks or a client giving none.
+local function restType(rest)
+	rest = string.gsub(rest, "%b()", " ")
+	for _, word in pairs({ BOSS, RARE, ELITE }) do
+		rest = string.gsub(" " .. rest .. " ", "%s" .. escaped(word) .. "%s", " ")
+	end
+	rest = string.match((string.gsub(rest, "%s+", " ")), "^%s*(.-)%s*$")
+	return rest ~= "" and rest or nil
+end
+
 local function tooltipLevel(lines)
 	local before, after = string.match(TOOLTIP_UNIT_LEVEL or "", "^(.-)%%s(.*)$")
 	if not before then
 		return nil
 	end
-	local pattern = "^" .. escaped(before) .. "(%S+)" .. escaped(after)
+	local pattern = "^" .. escaped(before) .. "(%S+)" .. escaped(after) .. "(.*)$"
 	for i = 2, #(lines or {}) do
 		local text = ns.readable(lines[i].leftText)
-		text = text and string.gsub(string.gsub(text, "|c%x%x%x%x%x%x%x%x", ""), "|r", "")
-		local level = text and string.match(text, pattern)
-		if level then
-			level = tonumber(level)
-			return level and level > 0 and level or nil, wordedClassification(text), wordedType(text)
+		text = text and plain(text)
+		local token, rest = nil, nil
+		if text then
+			token, rest = string.match(text, pattern)
+		end
+		if token then
+			local level = tonumber(token)
+			return level and level > 0 and level or nil, wordedClassification(text), wordedType(text) or restType(rest)
 		end
 	end
 	return nil
@@ -354,8 +376,14 @@ ns.commands.probe = function()
 	end
 	local hyperlink = probe.looted and C_TooltipInfo and C_TooltipInfo.GetHyperlink
 	local data = hyperlink and C_TooltipInfo.GetHyperlink("unit:" .. probe.looted)
+	local shown = {}
+	for i, line in ipairs(data and data.lines or {}) do
+		-- Markup escaped, so the chat frame shows a level line's colour codes rather than applying them.
+		local text = told(line.leftText)
+		shown[i] = (string.gsub(text, "|", "||"))
+	end
 	say[#say + 1] = "last looted mob " .. told(probe.looted) .. ": unit tooltip "
-		.. told(data and data.lines and data.lines[1] and data.lines[1].leftText)
+		.. (#shown > 0 and table.concat(shown, " / ") or "empty")
 	say[#say + 1] = "last cast target " .. told(probe.cast)
 	say[#say + 1] = "last object tooltip: GUID " .. told(probe.guid) .. ", type " .. told(probe.type) .. ", line " .. told(probe.line)
 	for _, line in ipairs(say) do
