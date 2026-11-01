@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Every auction house sale's gold is tagged mail+sale.** When gold from several mails taken quickly
+  arrived in one step, only the first mail was tagged and the rest was left plain mail; each mail's gold
+  is now its own Ledger row with its own kind.
+
 - **Mobs named later get their creature type and level more often (retail).** A mob looted in an
   instance and named afterwards now takes its type from its tooltip's own words when the game's list of
   creature types doesn't name it, and a level the game colours by difficulty is read as a level. A mob

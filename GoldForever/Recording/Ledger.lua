@@ -288,10 +288,12 @@ ns.on("PLAYER_MONEY", "money", function()
 	if money and now ~= money then
 		local delta = now - money
 		local ctx = context(delta)
+		-- Mails taken quickly can land in one change: each mail it holds is a row of its own.
 		local transfer, tag = transferIn(delta)
-		if transfer then
+		while transfer do
 			ns.record("money", { t = ns.now(), char = me.ref, delta = transfer, ctx = ctx == "" and tag or ctx .. "+" .. tag })
 			delta = delta - transfer
+			transfer, tag = transferIn(delta)
 		end
 		if repaid(delta) then
 			ctx = ctx == "" and "repair" or ctx .. "+repair"

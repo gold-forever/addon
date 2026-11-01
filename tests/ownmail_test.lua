@@ -240,6 +240,23 @@ spend(-500)
 spend(-300)
 eq(written("money", MONEY), "delta=500 ctx=mail+sale; delta=300 ctx=mail+player", "each rise its own mail's kind")
 
+-- Two sales taken quickly, their gold in one rise (the client's purse moved twice before the first
+-- PLAYER_MONEY was handled): each mail's gold is its own row, both tagged sale.
+inbox[13] = { sender = HOUSE, subject = "Auction successful: Ore", money = 30000, canReply = false, invoice = "seller" }
+inbox[14] = { sender = HOUSE, subject = "Auction successful: Wool Cloth", money = 11500, canReply = false, invoice = "seller" }
+TakeInboxMoney(13)
+TakeInboxMoney(14)
+spend(-41500)
+eq(written("money", MONEY), "delta=30000 ctx=mail+sale; delta=11500 ctx=mail+sale", "a rise holding two sales is two sales")
+inbox[13].money, inbox[14].money = 11500, 30000
+AutoLootMailItem(13)
+AutoLootMailItem(14)
+spend(-41500)
+eq(written("money", MONEY), "delta=11500 ctx=mail+sale; delta=30000 ctx=mail+sale", "in the order taken, whatever the sizes")
+TakeInboxMoney(13)
+spend(-11520)
+eq(written("money", MONEY), "delta=11500 ctx=mail+sale; delta=20 ctx=mail", "the rest of a rise with no mail of its own is plain mail")
+
 -- No name or subject of another player's mail is kept: only the kind, in the money row.
 local function holds(t, text, seen)
 	seen = seen or {}
