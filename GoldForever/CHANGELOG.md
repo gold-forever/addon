@@ -11,6 +11,9 @@
   arrived in one step, only the first mail was tagged and the rest was left plain mail; each mail's gold
   is now its own Ledger row with its own kind.
 
+- **`/gf probe` opens a box to copy from.** Its lines now also show in the same copy box as `/gf check`,
+  already selected, so Ctrl+C takes them whole to paste into an issue or a chat. Escape closes it.
+
 - **Mobs named later get their creature type and level more often (retail).** A mob looted in an
   instance and named afterwards now takes its type from its tooltip's own words when the game's list of
   creature types doesn't name it, and a level the game colours by difficulty is read as a level. A mob

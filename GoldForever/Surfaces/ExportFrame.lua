@@ -143,7 +143,7 @@ ns.commands.export = function(arg)
 	more()
 end
 
--- A box of text to copy: a report the player pastes into a bug report (/gf uidebug). Many lines,
+-- A box of text to copy: a report the player pastes into a bug report (/gf check, uidebug, probe). Many lines,
 -- scrolling; all of it selected so Ctrl+C takes it whole.
 local copy
 function ns.showCopy(title, text)
@@ -189,6 +189,11 @@ end
 -- /gf check's lines, to paste into a bug report instead of a screenshot.
 ns.listen("checked", "check", function(text)
 	ns.showCopy("Gold Forever: check", text)
+end)
+
+-- /gf probe's lines, to paste into an issue instead of reading them off the screen.
+ns.listen("probed", "probe", function(text)
+	ns.showCopy("Gold Forever: probe", text)
 end)
 
 -- For the smoke test.

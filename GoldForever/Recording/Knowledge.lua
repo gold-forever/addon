@@ -386,7 +386,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipD
 end
 
 -- Temporary, until instance loot is named in game: "/gf probe" says which of the values the naming
--- reads the client keeps secret or empty, here and now.
+-- reads the client keeps secret or empty, here and now. In chat, and to copy ("probed": the copy box).
 local function told(v)
 	if ns.secret(v) then
 		return "secret"
@@ -414,6 +414,7 @@ ns.commands.probe = function()
 	for _, line in ipairs(say) do
 		ns.say(line)
 	end
+	ns.emit("probed", table.concat(say, "\n"))
 end
 
 -- Maps -------------------------------------------------------------------------------------------

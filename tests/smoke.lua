@@ -948,6 +948,28 @@ do
   for _, l in ipairs(said) do if l:find("paid flights", 1, true) then line = l end end
   assert(line and line:find(ns.price.coins(12345), 1, true) and not line:find("12345c", 1, true), "flights line: " .. tostring(line))
 end
+-- /gf probe: its lines in the copy box too, focused and selected; Escape closes it.
+do
+  local said, saved = {}, print
+  local copy
+  for _, f in ipairs(frames) do if f.name == "GoldForeverCopy" then copy = f end end
+  local box, focused, selected = copy and copy.box, false, false
+  box.SetFocus = function() focused = true end
+  box.HighlightText = function() selected = true end
+  copy:Hide()
+  function print(...) said[#said + 1] = table.concat({...}, " ") end
+  SlashCmdList.GOLDFOREVER("probe")
+  print = saved
+  assert(not GoldForeverDB.errors["/gf probe"] and not GoldForeverDB.errors["probe"], "/gf probe runs without a failure")
+  local lines = {}
+  for i, l in ipairs(said) do lines[i] = l:sub(#ns.PREFIX + 3) end
+  assert(#said == 7 and copy.shown and copy.heading:GetText() == "Gold Forever: probe", "the probe opens the copy box")
+  assert(box:GetText() == table.concat(lines, "\n"), "the copy box gets the probe's lines: " .. tostring(box:GetText()))
+  assert(focused and selected, "the probe's text focused and selected")
+  box.scripts.OnEscapePressed(box)
+  assert(not copy.shown, "Escape closes the copy box")
+  box.SetFocus, box.HighlightText = nil, nil
+end
 -- A settings table saved before a default was added gets it; what the player set stays.
 do
   GoldForeverDB.settings.smokeOld = { shown = false }

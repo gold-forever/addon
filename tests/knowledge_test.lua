@@ -48,6 +48,7 @@ local ns = {
 		return fn(...)
 	end,
 	listen = function() end,
+	emit = function() end,
 	on = function(event, _, fn)
 		handlers[event] = handlers[event] or {}
 		table.insert(handlers[event], fn)
@@ -479,6 +480,18 @@ ns.commands.probe()
 told = table.concat(said, "\n")
 eq(told:find("unit tooltip Darkway Sentinel / <Darkway> / Level ||cnNORMAL_FONT_COLOR:90||r Humanoid (Elite)", 1, true) ~= nil, true,
 	"probe: the looted mob's lines, its markup shown")
+-- And in the copy box, the same lines, one each, so they paste whole (as "/gf check" does).
+local copied
+ns.emit = function(event, text)
+	if event == "probed" then
+		copied = text
+	end
+end
+said = {}
+ns.commands.probe()
+eq(copied, table.concat(said, "\n"), "probe: the copy box gets the chat lines")
+eq(#said, 7, "probe: seven lines")
+ns.emit = function() end
 C_TooltipInfo = nil
 issecretvalue = nil
 
