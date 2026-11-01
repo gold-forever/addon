@@ -121,7 +121,8 @@ end
 ns.on("LOOT_READY", "npcs", seeAgain)
 
 -- A unit tooltip's level line as the client words it ("Level 80 Humanoid (Elite)", "Level ?? Boss"):
--- its level ("??" is none), classification and creature type, each nil where the lines do not tell.
+-- its level ("??" is none), classification and creature type (on that line, else on the next), each
+-- nil where the lines do not tell.
 local creatureTypes -- the client's creature type names, read once
 
 local function escaped(text)
@@ -175,6 +176,28 @@ local function restType(rest)
 	return rest ~= "" and rest or nil
 end
 
+-- The line after the level line, which on retail names the type ("Level ?? (Elite)", then "Beast"):
+-- a type the client names, or one plain word that is no faction, PvP or skinning line.
+local function lineType(line)
+	local text = line and ns.readable(line.leftText)
+	text = type(text) == "string" and string.match(plain(text), "^%s*(.-)%s*$")
+	if not text or text == "" then
+		return nil
+	end
+	for _, typeName in ipairs(creatureTypes or {}) do
+		if text == typeName then
+			return text
+		end
+	end
+	for _, word in pairs({ FACTION_ALLIANCE, FACTION_HORDE, PVP, UNIT_SKINNABLE_LEATHER, UNIT_SKINNABLE_HERB,
+		UNIT_SKINNABLE_ROCK, UNIT_SKINNABLE_BOLTS }) do
+		if text == word then
+			return nil
+		end
+	end
+	return not string.find(text, "[%s%p%d]") and text or nil
+end
+
 local function tooltipLevel(lines)
 	local before, after = string.match(TOOLTIP_UNIT_LEVEL or "", "^(.-)%%s(.*)$")
 	if not before then
@@ -190,7 +213,8 @@ local function tooltipLevel(lines)
 		end
 		if token then
 			local level = tonumber(token)
-			return level and level > 0 and level or nil, wordedClassification(text), wordedType(text) or restType(rest)
+			return level and level > 0 and level or nil, wordedClassification(text),
+				wordedType(text) or restType(rest) or lineType(lines[i + 1])
 		end
 	end
 	return nil
@@ -223,7 +247,7 @@ end
 -- A mob looted in a fight was secret on every unit while it lasted, and once it ends its corpse is
 -- seldom one; the loot window gave its GUID, and the client's unit tooltip for it names the mob. In an
 -- instance that tooltip stays secret out of combat too, so the mob is named after it, at a loading
--- screen. Until named it waits in the save, db.unnamedNpcs: npc ID -> "GUID,sessions tried" (not in the
+-- screen. A named mob without a type waits the same way, to take it. Until named it waits in the save, db.unnamedNpcs: npc ID -> "GUID,sessions tried" (not in the
 -- catalogue, which is uploaded), and is tried in up to SESSIONS sessions.
 local SESSIONS = 10
 local tried = {} -- npc ID -> true once its try is counted this session
@@ -273,7 +297,8 @@ table.insert(ns.lootListeners, function(_, _, rows)
 	for _, row in ipairs(rows) do
 		local id = Encode.npcId(row.guid)
 		probe.looted = id and row.guid or probe.looted
-		if id and not realName(fields(db.catalogue.npcs[id])[1]) and not (db.unnamedNpcs and db.unnamedNpcs[id]) then
+		local stored = id and fields(db.catalogue.npcs[id])
+		if id and not (realName(stored[1]) and (stored[5] or "") ~= "") and not (db.unnamedNpcs and db.unnamedNpcs[id]) then
 			db.unnamedNpcs = db.unnamedNpcs or {}
 			db.unnamedNpcs[id] = row.guid .. ",0"
 		end

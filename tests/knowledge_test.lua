@@ -242,7 +242,8 @@ eq(catalogue.npcs[5003], nil, "a mob looted in a fight is not named while it las
 unit = {}
 fire("PLAYER_REGEN_ENABLED")
 eq(catalogue.npcs[5003], "Ironjaw Basilisk,,,,", "a mob looted in a fight is named once it ends")
--- A row without a name keeps its levels; a named one is not asked again.
+-- A row without a name keeps its levels; a named one with a type is not asked again.
+catalogue.npcs[5003] = "Ironjaw Basilisk,,,,Beast"
 catalogue.npcs[5004] = ",75,76,normal,Beast"
 hyperlinks["unit:Creature-0-4620-0-12-5004-000B"] = "Rimeclaw"
 asked = 0
@@ -338,10 +339,10 @@ inInstance = false
 -- client words it (TOOLTIP_UNIT_LEVEL, ELITE, BOSS, RARE, the creature type names); "??" is no level.
 TOOLTIP_UNIT_LEVEL = "Level %s"
 ELITE, BOSS, RARE = "Elite", "Boss", "Rare"
-local TYPES = { [1] = "Beast", [7] = "Humanoid", [6] = "Undead" }
+local TYPES = { [1] = "Beast", [7] = "Humanoid", [6] = "Undead", [12] = "Gas Cloud" }
 C_CreatureInfo = {
 	GetCreatureTypeIDs = function()
-		return { 1, 6, 7 }
+		return { 1, 6, 7, 12 }
 	end,
 	GetCreatureTypeInfo = function(id)
 		return { name = TYPES[id] }
@@ -389,6 +390,27 @@ eq(named(6013, "Level 80 Elite Humanoid"), "Mob 6013,80,80,elite,Humanoid", "cla
 eq(named(6014, "Level 80 Mechanical"), "Mob 6014,80,80,normal,Mechanical", "a type the client's list lacks")
 eq(named(6015, "Level 80 Gas Cloud"), "Mob 6015,80,80,normal,Gas Cloud", "a type of two words")
 eq(named(6016, "Level ?? (Boss)"), "Mob 6016,,,worldboss,", "a line naming no type gives none")
+-- Retail puts the type on its own line after the level line (addon#75, 2026-11-01: "Level ?? (Elite)"
+-- then "Beast"): read when the level line names none, a faction, PvP or skinning line never a type.
+FACTION_HORDE, PVP, UNIT_SKINNABLE_LEATHER = "Horde", "PvP", "Skinnable"
+local function lined(id, ...)
+	local lines = { { leftText = "Mob " .. id } }
+	for _, text in ipairs({ ... }) do
+		lines[#lines + 1] = { leftText = text }
+	end
+	tooltip({ guid = "Creature-0-4620-0-12-" .. id .. "-000A", lines = lines })
+	return catalogue.npcs[id]
+end
+eq(lined(6030, "Level ?? (Elite)", "Beast"), "Mob 6030,,,elite,Beast", "the type on the line after the level line")
+eq(lined(6031, "Level 90", "Undead", "Horde"), "Mob 6031,90,90,normal,Undead", "a level without words, the type below it")
+eq(lined(6032, "Level ?? (Elite)", "Mechanical"), "Mob 6032,,,elite,Mechanical", "a single word below, not in the client's list")
+eq(lined(6033, "Level ?? (Elite)", "Quest Giver"), "Mob 6033,,,elite,", "two words below that are no known type: none")
+eq(lined(6040, "Level ?? (Elite)", "Gas Cloud"), "Mob 6040,,,elite,Gas Cloud", "a known type of two words below")
+eq(lined(6034, "Level ?? (Elite)", "Horde"), "Mob 6034,,,elite,", "a faction line is no type")
+eq(lined(6035, "Level ?? (Elite)", "PvP"), "Mob 6035,,,elite,", "a PvP line is no type")
+eq(lined(6036, "Level ?? (Elite)", "Skinnable"), "Mob 6036,,,elite,", "a skinning line is no type")
+eq(lined(6037, "Level 80 Humanoid", "Beast"), "Mob 6037,80,80,normal,Humanoid", "the level line's own type wins")
+eq(lined(6038, "Level ?? (Elite)", "|cffffffffBeast|r"), "Mob 6038,,,elite,Beast", "a coloured type line")
 C_CreatureInfo = {
 	GetCreatureTypeIDs = function()
 		return {}
@@ -406,7 +428,29 @@ eq(catalogue.npcs[6020], "Shadowguard Steelsoul,,,elite,Humanoid", "scenario: an
 eq(catalogue.npcs[6021], "Wind Serpent,90,90,elite,Beast", "scenario: an elite gets its level and type")
 eq(catalogue.npcs[6022], "Shadowguard Adept,90,90,normal,Humanoid", "scenario: a coloured level, no type list")
 eq(named(6023, "Level 90 Rare Elite Humanoid"), "Mob 6023,90,90,rareelite,Humanoid", "no type list: classic's word order")
+-- The delve from the check (addon#75, 2026-11-01), no type list: the type on its own line.
+hyperlinks["unit:Creature-0-4620-0-12-258958-000A"] = { "Shredscale Hydra", "Level ?? (Elite)", "Beast" }
+loot("Creature-0-4620-0-12-258958-000A")
+eq(catalogue.npcs[258958], "Shredscale Hydra,,,elite,Beast", "delve: the type on the line after the level line")
+eq(lined(6039, "Level ?? (Elite)", "Horde"), "Mob 6039,,,elite,", "no type list: a faction line is no type")
+-- A mob already named without a type (Wind Serpent, stored 2026-10-31) fills from its GUID's tooltip
+-- when looted again, in an instance at the loading screen out of it; a typed one is not looked up.
+catalogue.npcs[266194] = "Wind Serpent,,,elite,"
+hyperlinks["unit:Creature-0-4620-0-12-266194-000A"] = { "Wind Serpent", "Level ?? (Elite)", "Beast" }
+inInstance = true
+loot("Creature-0-4620-0-12-266194-000A")
+eq(catalogue.npcs[266194], "Wind Serpent,,,elite,", "instance: a named mob without a type waits")
+eq(db.unnamedNpcs and db.unnamedNpcs[266194] ~= nil, true, "and is remembered in the save")
+reload()
+inInstance = false
+knowledge.world()
+eq(catalogue.npcs[266194], "Wind Serpent,,,elite,Beast", "a named mob without a type fills at the loading screen")
+eq(db.unnamedNpcs, nil, "and is no longer waited for")
+asked = 0
+loot("Creature-0-4620-0-12-266194-000B", "Creature-0-4620-0-12-6022-000A")
+eq(asked, 0, "named mobs with a type are not looked up again")
 TOOLTIP_UNIT_LEVEL, ELITE, BOSS, RARE, C_CreatureInfo = nil, nil, nil, nil, nil
+FACTION_HORDE, PVP, UNIT_SKINNABLE_LEATHER = nil, nil, nil
 unit = {}
 
 -- "/gf probe" (temporary): what the naming reads, told as secret, empty or the value; never an error.

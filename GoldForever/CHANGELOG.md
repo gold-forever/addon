@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Mobs from delves and dungeons get their creature type (retail).** The game shows a mob's type on
+  its own line under "Level ?? (Elite)"; that line is now read, so a delve's mobs are stored as Beast,
+  Humanoid and so on rather than with no type. A mob already stored without a type gets it the next
+  time you loot it, after the loading screen when you loot it in an instance.
+
 - **Every auction house sale's gold is tagged mail+sale.** When gold from several mails taken quickly
   arrived in one step, only the first mail was tagged and the rest was left plain mail; each mail's gold
   is now its own Ledger row with its own kind.
