@@ -11,6 +11,10 @@
   window shows it small, in the look's warning colour, left of its close button: "Prices 38 h old", then
   in days from two days. It goes once fresh prices are loaded, as the login warning does.
 
+- **Previous and Next under the wide Sell list.** In the Sell tab's wide layout, when your items fill
+  more than one page, Previous and Next buttons and the page you are on (such as "2 / 4") sit under the
+  list at its right. Each is off at its end; the mouse wheel still pages. The narrow layout is unchanged.
+
 - **The auction house's Sell tab can be wide.** A Wide button beside Rule › on the Sell tab widens the
   panel: the list of items to sell gets more rows and more width, and the chosen item's prices, listings
   and Post button stand in a column beside it. Narrow brings back the layout you know. Your choice is

@@ -1455,6 +1455,46 @@ do
     assert(auction.sellWide == true, "wide is saved")
     wideShown("toggled", 880)
     assert(page().layoutButton.label.text:upper() == "NARROW", "the toggle offers narrow")
+    -- Previous / Next under the wide list, bottom right (addon#86): hidden with one page; with more, the
+    -- page of how many, each off at its end; the buttons and the wheel page alike.
+    do
+      local pg = page()
+      local pager, tbl = pg.pager, pg.table
+      assert(pager and not pager:IsShown(), "wide, one page: no Previous / Next")
+      local top = anchor(pager, "TOPRIGHT")
+      assert(top and top[2] == tbl and top[3] == "BOTTOMRIGHT", "Previous / Next under the list, at its right")
+      local on = {}
+      for _, b in ipairs({ pager.previous, pager.next }) do
+        b.SetEnabled = function(self, v) on[self] = v end
+      end
+      local size = tbl.size
+      tbl.size = 1
+      tbl:Refresh()
+      local function at(what, text, prev, nxt)
+        assert(pager:IsShown(), what .. ": shown")
+        assert(pager.text.text == text, what .. ": " .. text .. ", not " .. tostring(pager.text.text))
+        assert(on[pager.previous] == prev and on[pager.next] == nxt, what .. ": Previous " .. tostring(on[pager.previous]) .. ", Next " .. tostring(on[pager.next]))
+      end
+      at("two pages", "1 / 2", false, true)
+      pager.next.scripts.OnClick(pager.next)
+      assert(tbl.page == 2, "Next pages on")
+      at("Next", "2 / 2", true, false)
+      pager.previous.scripts.OnClick(pager.previous)
+      assert(tbl.page == 1, "Previous pages back")
+      at("Previous", "1 / 2", false, true)
+      tbl.scripts.OnMouseWheel(tbl, -1)
+      at("the wheel", "2 / 2", true, false)
+      -- Narrow: never there, the narrow layout as before.
+      local toggle = pg.layoutButton
+      toggle.scripts.OnClick(toggle)
+      tbl.size = 1
+      tbl:Refresh()
+      assert(not pager:IsShown(), "narrow, two pages: no Previous / Next")
+      toggle.scripts.OnClick(toggle)
+      tbl.size = size
+      tbl:Refresh()
+      assert(not pager:IsShown(), "back to one page: hidden")
+    end
     -- Only Sell is wide: the other tabs keep the panel's own width.
     AP.tab("scan")
     assert(width(AP.panel()) == 420, "Scan at the panel's own width")

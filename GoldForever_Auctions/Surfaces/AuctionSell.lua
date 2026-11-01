@@ -277,6 +277,16 @@ local function layout(wide, room)
 	return { wide = true, width = width, rows = ROWS.wide, list = width - PAD - GAP - COLUMN, column = COLUMN, gap = GAP, pad = PAD }
 end
 
+-- Previous / Next under the wide list (addon#86): only wide and with more than one page; `page` is the
+-- table's, already within its pages.
+local function pager(wide, count, page, size)
+	local pages = math.ceil(count / size)
+	if not wide or pages <= 1 then
+		return { shown = false }
+	end
+	return { shown = true, text = page .. " / " .. pages, previous = page > 1, next = page < pages }
+end
+
 local DOCK = 6 -- the panel's gap to the auction house (AuctionPanel.lua)
 local MARGIN = 8 -- kept free at the screen's edge
 
@@ -387,11 +397,43 @@ local function buildPost(page)
 	page.button = button
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
 
+	-- Under the wide list at its right: Previous, the page of how many, Next; the wheel still pages.
+	local paging = CreateFrame("Frame", nil, page)
+	paging:SetSize(220, 24)
+	local function turn(by)
+		return function()
+			tbl.page = tbl.page + by
+			tbl:Refresh()
+		end
+	end
+	paging.previous = UI.Button(paging, "Previous", turn(-1), { width = 80, height = 22 })
+	paging.next = UI.Button(paging, "Next", turn(1), { width = 80, height = 22 })
+	paging.text = UI.Text(paging, "", { size = "xs", tone = "muted", align = "CENTER" })
+	paging.next:SetPoint("RIGHT")
+	paging.text:SetPoint("RIGHT", paging.next, "LEFT", -6, 0)
+	paging.text:SetWidth(48)
+	paging.previous:SetPoint("RIGHT", paging.text, "LEFT", -6, 0)
+	page.pager = paging
+	local wideNow = false
+	local drawTable = tbl.Refresh
+	-- Every redraw of the list (rows, a click, the wheel, a resize) sets the pager to the page shown.
+	function tbl:Refresh()
+		drawTable(self)
+		local p = pager(wideNow, #self.all, self.page, self.size)
+		paging:SetShown(p.shown)
+		if p.shown then
+			paging.text:SetText(p.text)
+			paging.previous:SetEnabled(p.previous)
+			paging.next:SetEnabled(p.next)
+		end
+	end
+
 	-- Narrow: the list over the box, its controls in a row at the bottom. Wide: the box a column at the
 	-- page's right, the list up to it, the controls stacked, the Post button the column's width.
 	local function place(plan)
 		local panel = page:GetParent()
 		panel:SetWidth(plan.width)
+		wideNow = plan.wide
 		tbl.size = plan.rows
 		tbl:ClearAllPoints()
 		detail:ClearAllPoints()
@@ -418,6 +460,8 @@ local function buildPost(page)
 			duration:SetPoint("BOTTOMLEFT", 14, 12)
 			qtyLabel:SetPoint("BOTTOMLEFT", 14, 56)
 		end
+		paging:ClearAllPoints()
+		paging:SetPoint("TOPRIGHT", tbl, "BOTTOMRIGHT", 0, -6)
 		page.note:ClearAllPoints()
 		page.note:SetPoint("TOPLEFT", detail, "BOTTOMLEFT", 0, -8)
 		page.note:SetPoint("RIGHT", plan.wide and detail or page, "RIGHT")
@@ -554,4 +598,4 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
-ns.AuctionSell = { key = "post", label = "Sell", build = buildPost, refresh = refresh, post = post, reread = reread, layout = layout }
+ns.AuctionSell = { key = "post", label = "Sell", build = buildPost, refresh = refresh, post = post, reread = reread, layout = layout, pager = pager }
