@@ -223,6 +223,7 @@ eq(catalogue.objects[2000], "Argentleaf", "a readable cast names it as before")
 -- unit to look at once it ends. The loot window's GUID names it then, by the client's unit tooltip.
 local hyperlinks = {} -- "unit:<GUID>" -> the tooltip's first line
 local asked = 0
+local hidden = {} -- "unit:<GUID>" -> true: secret out of the instance too (retail, 2026-11-01)
 C_TooltipInfo = { GetHyperlink = function(link)
 	asked = asked + 1
 	local shown = hyperlinks[link]
@@ -231,7 +232,7 @@ C_TooltipInfo = { GetHyperlink = function(link)
 	end
 	local lines = {}
 	for i, text in ipairs(type(shown) == "table" and shown or { shown }) do
-		lines[i] = { leftText = (ns.inCombat() or inInstance) and SECRET or text }
+		lines[i] = { leftText = (ns.inCombat() or inInstance or hidden[link]) and SECRET or text }
 	end
 	return { lines = lines }
 end }
@@ -492,6 +493,51 @@ ns.commands.probe()
 eq(copied, table.concat(said, "\n"), "probe: the copy box gets the chat lines")
 eq(#said, 7, "probe: seven lines")
 ns.emit = function() end
+-- Retail hides an instance mob's tooltip from addons, and at the loading screen out of it the lookup
+-- came back secret too (addon#75, 2026-11-01): such a mob is not asked again for 10 sessions, unless
+-- looted again out of an instance. A lookup that reads (WoW: Forever, or retail later) still fills.
+local function session()
+	reload()
+	knowledge.world()
+end
+hyperlinks["unit:Creature-0-4620-0-12-246352-000A"] = "Bladesworn Cultist"
+hidden["unit:Creature-0-4620-0-12-246352-000A"] = true
+inInstance = true
+loot("Creature-0-4620-0-12-246352-000A")
+inInstance = false
+asked = 0
+session()
+eq(asked, 1, "secret: the loading screen out of the instance asks once")
+eq(catalogue.npcs[246352], nil, "and writes nothing")
+asked = 0
+knowledge.world()
+for _ = 2, 11 do
+	session()
+end
+eq(asked, 0, "a lookup that came back secret is not asked again for 10 sessions")
+eq(db.unnamedNpcs and db.unnamedNpcs[246352] ~= nil, true, "and is still waited for")
+hidden["unit:Creature-0-4620-0-12-246352-000A"] = nil
+session()
+eq(asked, 1, "the 12th session asks again")
+eq(catalogue.npcs[246352], "Bladesworn Cultist,,,,", "and a lookup that reads fills")
+eq(db.unnamedNpcs, nil, "and is no longer waited for")
+-- Resting, looted again in an instance: still not asked; out of one: asked at once, by the new GUID.
+hyperlinks["unit:Creature-0-4620-0-12-258712-000A"] = "Shadowfused Sentinel"
+hidden["unit:Creature-0-4620-0-12-258712-000A"] = true
+inInstance = true
+loot("Creature-0-4620-0-12-258712-000A")
+inInstance = false
+session()
+inInstance = true
+loot("Creature-0-4620-0-12-258712-000B")
+inInstance = false
+asked = 0
+session()
+eq(asked, 0, "resting, looted again in an instance: not asked at the next loading screen")
+hyperlinks["unit:Creature-0-4620-0-12-258712-000C"] = "Shadowfused Sentinel"
+loot("Creature-0-4620-0-12-258712-000C")
+eq(catalogue.npcs[258712], "Shadowfused Sentinel,,,,", "resting, looted out of an instance: asked and filled")
+eq(db.unnamedNpcs, nil, "and is no longer waited for")
 C_TooltipInfo = nil
 issecretvalue = nil
 

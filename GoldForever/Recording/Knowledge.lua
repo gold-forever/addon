@@ -247,10 +247,26 @@ end
 -- A mob looted in a fight was secret on every unit while it lasted, and once it ends its corpse is
 -- seldom one; the loot window gave its GUID, and the client's unit tooltip for it names the mob. In an
 -- instance that tooltip stays secret out of combat too, so the mob is named after it, at a loading
--- screen. A named mob without a type waits the same way, to take it. Until named it waits in the save, db.unnamedNpcs: npc ID -> "GUID,sessions tried" (not in the
--- catalogue, which is uploaded), and is tried in up to SESSIONS sessions.
+-- screen. A named mob without a type waits the same way, to take it. Until named it waits in the
+-- save, db.unnamedNpcs: npc ID -> "GUID,sessions tried[,sessions resting]" (not in the catalogue,
+-- which is uploaded), and is tried in up to SESSIONS sessions. Retail can keep that tooltip secret
+-- out of the instance too: a lookup answered secret there rests SESSIONS sessions, or until the mob
+-- is looted out of an instance. A client with readable tooltips (WoW: Forever) never rests one.
 local SESSIONS = 10
 local tried = {} -- npc ID -> true once its try is counted this session
+
+local function entry(text)
+	local guid, sessions, resting = string.match(text, "^([^,]+),(%d+),?(%d*)$")
+	return guid, tonumber(sessions) or SESSIONS, tonumber(resting) or 0
+end
+
+local function entryText(guid, sessions, resting)
+	return guid .. "," .. sessions .. (resting > 0 and "," .. resting or "")
+end
+
+local function inInstance()
+	return IsInInstance and IsInInstance() and true or false
+end
 
 function forget(id)
 	local db = ns.db()
@@ -264,20 +280,31 @@ end
 
 local probe = {} -- the last values "/gf probe" reports (temporary, below)
 
+local function lookUp(id, guid, sessions)
+	local data = guid and C_TooltipInfo.GetHyperlink("unit:" .. guid)
+	local lines = data and data.lines
+	local first = lines and lines[1] and lines[1].leftText
+	if ns.nameNpc(id, first, lines) or tried[id] then
+		return
+	end
+	tried[id] = true
+	sessions = sessions + 1
+	if sessions >= SESSIONS then
+		forget(id)
+		return
+	end
+	ns.db().unnamedNpcs[id] = entryText(guid, sessions, ns.secret(first) and not inInstance() and SESSIONS or 0)
+end
+
 local function nameLooted()
 	local unnamed = ns.db().unnamedNpcs or {}
-	for id, entry in pairs(unnamed) do
-		local guid, sessions = string.match(entry, "^([^,]+),(%d+)$")
-		local data = guid and C_TooltipInfo.GetHyperlink("unit:" .. guid)
-		local lines = data and data.lines
-		if not ns.nameNpc(id, lines and lines[1] and lines[1].leftText, lines) and not tried[id] then
+	for id, text in pairs(unnamed) do
+		local guid, sessions, resting = entry(text)
+		if resting == 0 then
+			lookUp(id, guid, sessions)
+		elseif not tried[id] then
 			tried[id] = true
-			sessions = (tonumber(sessions) or SESSIONS) + 1
-			if sessions >= SESSIONS then
-				forget(id)
-			else
-				unnamed[id] = guid .. "," .. sessions
-			end
+			unnamed[id] = entryText(guid, sessions, resting - 1)
 		end
 	end
 end
@@ -298,9 +325,15 @@ table.insert(ns.lootListeners, function(_, _, rows)
 		local id = Encode.npcId(row.guid)
 		probe.looted = id and row.guid or probe.looted
 		local stored = id and fields(db.catalogue.npcs[id])
-		if id and not (realName(stored[1]) and (stored[5] or "") ~= "") and not (db.unnamedNpcs and db.unnamedNpcs[id]) then
-			db.unnamedNpcs = db.unnamedNpcs or {}
-			db.unnamedNpcs[id] = row.guid .. ",0"
+		local waiting = id and db.unnamedNpcs and db.unnamedNpcs[id]
+		if id and not (realName(stored[1]) and (stored[5] or "") ~= "") then
+			if not waiting then
+				db.unnamedNpcs = db.unnamedNpcs or {}
+				db.unnamedNpcs[id] = row.guid .. ",0"
+			elseif not inInstance() then
+				local _, sessions = entry(waiting)
+				db.unnamedNpcs[id] = entryText(row.guid, sessions, 0)
+			end
 		end
 	end
 	retryLooted()

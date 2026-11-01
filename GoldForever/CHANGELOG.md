@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Mobs whose tooltip the game hides are no longer looked up every session (retail).** Retail hides
+  the tooltip of a mob looted in a delve or dungeon, even after the loading screen out of it. Such a mob
+  is now left alone for 10 sessions, or until you loot it outside an instance. Where the tooltip can be
+  read, the mob is filled as before.
+
 - **The auction house's Sell tab can be wide.** A Wide button beside Rule › on the Sell tab widens the
   panel: the list of items to sell gets more rows and more width, and the chosen item's prices, listings
   and Post button stand in a column beside it. Narrow brings back the layout you know. Your choice is
