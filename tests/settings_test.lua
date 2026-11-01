@@ -45,7 +45,7 @@ local PINNED = {
 	craftQueue = "{ closed = false }",
 	scan = "{ auto = false }",
 	prices = "{ tooltip = true }",
-	auction = "{ duration = 2, rule = {  } }",
+	auction = "{ duration = 2, rule = {  }, sellWide = false }",
 	mail = "{ helper = true }",
 	minimap = "{ angle = 225, hidden = false }",
 	firstRun = "{  }",

@@ -161,6 +161,7 @@ function CreateFrame(_, name, parent) local f = widget({ events = {}, shown = tr
   function f:Hide() if not self.shown then return end local was = visible(self) self.shown = false if was then run(self, "OnHide") end end
   function f:SetShown(on) if on then self:Show() else self:Hide() end end
   function f:IsShown() return self.shown end
+  function f:GetParent() return self.parent end
   function f:IsVisible() return visible(self) end
   function f:CreateFontString() local fs = widget({}); fontStrings[fs] = true; function fs:SetText(t) self.text = t; texts[self] = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
@@ -1417,6 +1418,76 @@ do
     end)
     bagsFull = full
     ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+  end
+  -- The Sell tab's wide / narrow toggle (addon#84): narrow at first, as before; wide widens the panel
+  -- beside the auction house, the list taller and the item's box a column beside it, only on Sell and
+  -- only as far as the screen has room; remembered for the next visit, in every look.
+  do
+    local auction = GoldForeverDB.settings.auction
+    local look = GoldForeverDB.settings.window.look or "web"
+    AuctionHouseFrame.GetRight = function() return 816 end
+    UIParent.GetRight = function() return 1820 end
+    AP.tab("post")
+    local function page() return AP.panel().post end
+    local function narrowShown(what)
+      local pg = page()
+      assert(width(AP.panel()) == 420 and pg.table.size == 5, what .. ": narrow, the panel's own width and five rows: " .. tostring(width(AP.panel())) .. " " .. tostring(pg.table.size))
+      local top = anchor(pg.detail, "TOPLEFT")
+      assert(top and top[2] == pg.table and top[3] == "BOTTOMLEFT", what .. ": narrow, the box under the list")
+    end
+    local function wideShown(what, w)
+      local pg = page()
+      assert(width(AP.panel()) == w and pg.table.size == 13, what .. ": wide, " .. w .. " and thirteen rows: " .. tostring(width(AP.panel())) .. " " .. tostring(pg.table.size))
+      local top, right = anchor(pg.detail, "TOPRIGHT"), anchor(pg.table, "RIGHT")
+      assert(top and top[2] == pg and width(pg.detail) == 330, what .. ": wide, the box a column at the page's right")
+      assert(right and right[2] == pg.detail and right[3] == "LEFT", what .. ": wide, the list up to the box")
+      assert(not anchor(pg.detail, "TOPLEFT"), what .. ": wide, the box no longer under the list")
+    end
+    assert(not auction.sellWide, "the Sell tab narrow at first")
+    narrowShown("at first")
+    local toggle = page().layoutButton
+    assert(toggle and toggle.label.text:upper() == "WIDE", "the toggle offers wide: " .. tostring(toggle and toggle.label.text))
+    toggle.scripts.OnClick(toggle)
+    assert(auction.sellWide == true, "wide is saved")
+    wideShown("toggled", 880)
+    assert(page().layoutButton.label.text:upper() == "NARROW", "the toggle offers narrow")
+    -- Only Sell is wide: the other tabs keep the panel's own width.
+    AP.tab("scan")
+    assert(width(AP.panel()) == 420, "Scan at the panel's own width")
+    AP.tab("post")
+    wideShown("back on Sell", 880)
+    -- Less room (a larger UI scale): as wide as the screen allows, never past it.
+    UIParent.GetRight = function() return 1600 end
+    AP.tab("scan")
+    AP.tab("post")
+    wideShown("less room", 1600 - 816 - 6 - 8)
+    -- Too little room for a list beside the box: narrow, and the tab says why.
+    UIParent.GetRight = function() return 1365 end
+    AP.tab("scan")
+    AP.tab("post")
+    narrowShown("no room")
+    assert(page().note:GetText():find("room", 1, true), "no room: said: " .. tostring(page().note:GetText()))
+    UIParent.GetRight = function() return 1820 end
+    -- The next visit opens wide (the panel hidden and shown, as closing and opening do; Scan at the
+    -- panel's own width meanwhile), and a panel drawn anew in each look reads the setting.
+    AP.panel():Hide()
+    assert(width(AP.panel()) == 420, "hidden: the panel's own width")
+    AP.panel():Show()
+    wideShown("the next visit", 880)
+    for _, l in ipairs({ "classic", "arcane", "web" }) do
+      SlashCmdList.GOLDFOREVER("look " .. l)
+      AP.tab("post")
+      wideShown(l, 880)
+    end
+    SlashCmdList.GOLDFOREVER("look " .. look)
+    -- And back: narrow as before.
+    toggle = page().layoutButton
+    toggle.scripts.OnClick(toggle)
+    assert(auction.sellWide == false, "narrow is saved")
+    narrowShown("toggled back")
+    AuctionHouseFrame.GetRight, UIParent.GetRight = nil, nil
+    ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+    fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   end
   -- A bag item's tooltip at the auction house says what Post would ask.
   GameTooltip.lines = {}

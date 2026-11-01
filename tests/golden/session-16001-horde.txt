@@ -60610,6 +60610,7 @@ settings.auction.rule.belowFloor = "hold"
 settings.auction.rule.floor = 80
 settings.auction.rule.normal = 120
 settings.auction.rule.undercut = "1s"
+settings.auction.sellWide = false
 settings.auction.sharedAt = 78
 settings.craftQueue.closed = false
 settings.crafting.queue[1].count = 3

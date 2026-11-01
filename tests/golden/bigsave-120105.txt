@@ -1906,6 +1906,7 @@
 + settings.auction.rule.floor = 80
 + settings.auction.rule.normal = 120
 + settings.auction.rule.undercut = "1s"
++ settings.auction.sellWide = false
 + settings.crafting.queue = {}
 + settings.crafting.strip = true
 + settings.firstRun.due = false

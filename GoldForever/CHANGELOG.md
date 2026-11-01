@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The auction house's Sell tab can be wide.** A Wide button beside Rule › on the Sell tab widens the
+  panel: the list of items to sell gets more rows and more width, and the chosen item's prices, listings
+  and Post button stand in a column beside it. Narrow brings back the layout you know. Your choice is
+  remembered. Only the Sell tab widens, never over the auction house; where the screen has too little
+  room beside it at your UI scale, the tab stays narrow and says so.
+
 - **Mobs from delves and dungeons get their creature type (retail).** The game shows a mob's type on
   its own line under "Level ?? (Elite)"; that line is now read, so a delve's mobs are stored as Beast,
   Humanoid and so on rather than with no type. A mob already stored without a type gets it the next

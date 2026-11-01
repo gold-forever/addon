@@ -20,7 +20,7 @@ ns.DEFAULTS = {
 	craftQueue = { closed = false },
 	scan = { auto = false },
 	prices = { tooltip = true },
-	auction = { rule = {}, duration = 2 },
+	auction = { rule = {}, duration = 2, sellWide = false }, -- sellWide: the Sell tab's wide layout (addon#84)
 	mail = { helper = true },
 	minimap = { angle = 225, hidden = false },
 	firstRun = {},

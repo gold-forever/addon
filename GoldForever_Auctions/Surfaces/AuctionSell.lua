@@ -254,6 +254,43 @@ ns.on("AUCTION_HOUSE_POST_ERROR", "auction panel", function()
 	end
 end)
 
+-- The tab's two layouts (addon#84): narrow, the list over the item's box; wide, the panel wider, the
+-- list taller and wider, the box a column beside it. Wide takes only the room the screen has beside the
+-- auction house; with too little for a list beside the box it stays narrow (`cramped`).
+local PAD = 36 -- the page's inset in the panel, left and right
+local GAP = 10 -- between the list and the box
+local COLUMN = 330 -- the box's width beside the list
+local WIDE = 880 -- the wide panel's width, room allowing
+local MIN_LIST = 260 -- the narrowest list worth putting beside the box
+local ROWS = { narrow = 5, wide = 13 }
+
+local function layout(wide, room)
+	local narrow = { wide = false, width = ah.WIDTH, rows = ROWS.narrow, list = ah.WIDTH - PAD, pad = PAD }
+	if not wide then
+		return narrow
+	end
+	local width = room and math.min(WIDE, math.floor(room)) or WIDE
+	if width - PAD - GAP - COLUMN < MIN_LIST then
+		narrow.cramped = true
+		return narrow
+	end
+	return { wide = true, width = width, rows = ROWS.wide, list = width - PAD - GAP - COLUMN, column = COLUMN, gap = GAP, pad = PAD }
+end
+
+local DOCK = 6 -- the panel's gap to the auction house (AuctionPanel.lua)
+local MARGIN = 8 -- kept free at the screen's edge
+
+-- The room beside the auction house in the panel's units, or nil before the auction house is placed.
+local function roomBeside(panel)
+	local right = AuctionHouseFrame and AuctionHouseFrame:GetRight()
+	local edge = UIParent:GetRight()
+	if type(right) ~= "number" or type(edge) ~= "number" then
+		return nil
+	end
+	local px = (edge * UIParent:GetEffectiveScale() - right * AuctionHouseFrame:GetEffectiveScale())
+	return px / panel:GetEffectiveScale() - DOCK - MARGIN
+end
+
 local function buildPost(page)
 	local tbl = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, text = function(r) return r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.count .. "|r" end,
@@ -274,17 +311,13 @@ local function buildPost(page)
 			ah.refresh()
 		end,
 	})
-	tbl:SetPoint("TOPLEFT")
-	tbl:SetPoint("RIGHT", page, "RIGHT")
 	page.table = tbl
 
 	local detail = UI.Panel(page, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
-	detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
-	detail:SetPoint("RIGHT", page, "RIGHT")
-	detail:SetHeight(252)
+	page.detail = detail
 	local name = UI.Text(detail, "", { size = "md", medium = true })
 	name:SetPoint("TOPLEFT", 14, -12)
-	name:SetPoint("RIGHT", detail, "RIGHT", -96, 0)
+	name:SetPoint("RIGHT", detail, "RIGHT", -166, 0)
 	-- The selling rules live in the hub: this opens them on a rule for the item in view.
 	local ruleButton = UI.Button(detail, "Rule >", function()
 		ns.openPage("rules")
@@ -294,6 +327,15 @@ local function buildPost(page)
 	end, { width = 72, height = 24 })
 	ruleButton:SetPoint("TOPRIGHT", -10, -8)
 	page.ruleButton = ruleButton
+	-- Wide or narrow, saved in the settings; the label offers the other.
+	local layoutButton = UI.Button(detail, "Wide", function()
+		local s = settings()
+		s.sellWide = not s.sellWide
+		page.applyLayout()
+		ah.refresh()
+	end, { kind = "ghost", width = 64, height = 24 })
+	layoutButton:SetPoint("RIGHT", ruleButton, "LEFT", -6, 0)
+	page.layoutButton = layoutButton
 	local reason = UI.Text(detail, "", { size = "sm" })
 	reason:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
 	reason:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
@@ -311,7 +353,7 @@ local function buildPost(page)
 		unit:SetWidth(110)
 		local qty = UI.Text(detail, "", { size = "xs", tone = "muted" })
 		qty:SetPoint("LEFT", unit, "RIGHT", 12, 0)
-		qty:SetWidth(200)
+		qty:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
 		listed[i] = { unit = unit, qty = qty }
 	end
 	-- Chosen for the item in view and remembered for it; with no item chosen, the default.
@@ -324,10 +366,8 @@ local function buildPost(page)
 		ah.refresh()
 	end)
 	page.duration = duration
-	duration:SetPoint("BOTTOMLEFT", 14, 12)
 	-- How many of a commodity to post, remembered for it; hidden for gear (one at a time).
 	local qtyLabel = UI.Text(detail, "Post", { size = "sm", tone = "muted" })
-	qtyLabel:SetPoint("BOTTOMLEFT", 14, 56)
 	local qty = UI.Slider(detail, 1, 2, 1, 1, function(v)
 		if ah.chosen then
 			settings().quantities[ah.chosen.key] = v
@@ -344,11 +384,61 @@ local function buildPost(page)
 		ns.safely("auction post", post)
 		ah.refresh()
 	end, { kind = "primary", width = 240, height = 30 })
-	button:SetPoint("BOTTOMRIGHT", -14, 11)
 	page.button = button
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
-	page.note:SetPoint("TOPLEFT", detail, "BOTTOMLEFT", 0, -8)
-	page.note:SetPoint("RIGHT", page, "RIGHT")
+
+	-- Narrow: the list over the box, its controls in a row at the bottom. Wide: the box a column at the
+	-- page's right, the list up to it, the controls stacked, the Post button the column's width.
+	local function place(plan)
+		local panel = page:GetParent()
+		panel:SetWidth(plan.width)
+		tbl.size = plan.rows
+		tbl:ClearAllPoints()
+		detail:ClearAllPoints()
+		duration:ClearAllPoints()
+		qtyLabel:ClearAllPoints()
+		button:ClearAllPoints()
+		tbl:SetPoint("TOPLEFT")
+		if plan.wide then
+			detail:SetPoint("TOPRIGHT", page, "TOPRIGHT")
+			detail:SetWidth(plan.column)
+			detail:SetHeight(tbl:GetHeight())
+			tbl:SetPoint("RIGHT", detail, "LEFT", -plan.gap, 0)
+			button:SetPoint("BOTTOMLEFT", 14, 11)
+			button:SetPoint("BOTTOMRIGHT", -14, 11)
+			duration:SetPoint("BOTTOMLEFT", 14, 50)
+			qtyLabel:SetPoint("BOTTOMLEFT", 14, 92)
+		else
+			tbl:SetPoint("RIGHT", page, "RIGHT")
+			detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
+			detail:SetPoint("RIGHT", page, "RIGHT")
+			detail:SetHeight(252)
+			button:SetPoint("BOTTOMRIGHT", -14, 11)
+			button:SetWidth(240)
+			duration:SetPoint("BOTTOMLEFT", 14, 12)
+			qtyLabel:SetPoint("BOTTOMLEFT", 14, 56)
+		end
+		page.note:ClearAllPoints()
+		page.note:SetPoint("TOPLEFT", detail, "BOTTOMLEFT", 0, -8)
+		page.note:SetPoint("RIGHT", plan.wide and detail or page, "RIGHT")
+		tbl:Refresh()
+	end
+	-- The layout chosen, as far as the room beside the auction house allows: on showing, and on a toggle.
+	function page.applyLayout()
+		local wide = settings().sellWide
+		local plan = layout(wide, wide and roomBeside(page:GetParent()) or nil)
+		place(plan)
+		layoutButton:SetLabel(wide and "Narrow" or "Wide")
+		if plan.cramped then
+			page.note:SetText("Too little room beside the auction house for the wide layout at this UI scale.")
+		end
+	end
+	page.applyLayout()
+	page:HookScript("OnShow", page.applyLayout)
+	-- The other tabs keep the panel's own width.
+	page:HookScript("OnHide", function()
+		page:GetParent():SetWidth(ah.WIDTH)
+	end)
 
 	function page:Refresh()
 		local faint = Theme.escape(Theme.color.textFaint)
@@ -464,4 +554,4 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
-ns.AuctionSell = { key = "post", label = "Sell", build = buildPost, refresh = refresh, post = post, reread = reread }
+ns.AuctionSell = { key = "post", label = "Sell", build = buildPost, refresh = refresh, post = post, reread = reread, layout = layout }
