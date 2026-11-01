@@ -89,6 +89,9 @@ function anchor(w, point)
     if a[1] == point then return a end
   end
 end
+-- The colour a font string was last given by SetTextColor, as { r, g, b }, or nil.
+local colours = setmetatable({}, { __mode = "k" })
+function colour(w) return colours[w] end
 -- Every font string made, to find a line by its text.
 fontStrings = setmetatable({}, { __mode = "k" })
 -- The text of a font string that begins with `start`, or nil.
@@ -114,6 +117,7 @@ local function widget(t)
       end
     end
     if k == "ClearAllPoints" and METHODS[FLAVOUR][k] then return function(self) points[self] = nil end end
+    if k == "SetTextColor" and METHODS[FLAVOUR][k] then return function(self, r, g, b) colours[self] = { r, g, b } end end
     -- Only methods (capitalised, as the client's are); a missing field is nil, as on a real frame.
     if type(k) ~= "string" or not k:match("^%u") then return nil end
     if CHILDREN[k] then return widget() end
@@ -2944,6 +2948,40 @@ do
   ns.AuctionPanel.panel().scan:Refresh()
   seen("SCAN TAB, ALLIANCE SCAN ONLY ", shown("never") and "never" or "a scan", "never", "a scan")
   GoldForeverDB.scans, ns.lastScan, me.faction, GoldForeverDB.lastReplicate = scans, lastScan, faction, replicated
+end
+-- Stale prices beside the hub's X (addon#85): the warning's rule (the file over a day old), in the look's
+-- warning colour, left of the X and above the page title's top so the two never meet; gone when fresh,
+-- and read again as the window opens and every 10 s while it shows.
+do
+  local keep = GoldForever_Prices
+  for _, look in ipairs({ "classic", "arcane", "web" }) do
+    SlashCmdList.GOLDFOREVER("look " .. look)
+    GoldForever_Prices = { v = 1, at = now - 38 * 3600, markets = {} }
+    if ns.hubWindow() then ns.hubWindow():Hide() end
+    SlashCmdList.GOLDFOREVER("ui home")
+    local w = ns.hubWindow()
+    local note = w.staleNote
+    assert(note and note:GetText() == "Prices 38 h old", look .. ": the note beside the X: " .. tostring(note and note:GetText()))
+    local r, g, b = ns.Theme.rgb(ns.Theme.color.warning)
+    local c = colour(note)
+    assert(c and c[1] == r and c[2] == g and c[3] == b, look .. ": in the look's warning colour")
+    local at, cat = anchor(note, "TOPRIGHT"), anchor(w.close, "TOPRIGHT")
+    assert(at and at[2] == w.close and at[3] == "TOPLEFT" and at[4] < 0, look .. ": left of the X")
+    local title = anchor(w.pageTitle, "TOPLEFT")
+    local bottom = cat[5] + at[5] - ns.Theme.text.xs
+    assert(bottom > title[3], look .. ": above the page title's top: " .. bottom .. " vs " .. title[3])
+    GoldForever_Prices = { v = 1, at = now - 3600, markets = {} }
+    tick(10)
+    assert(note:GetText() == "", look .. ": gone once the prices are fresh")
+    GoldForever_Prices = { v = 1, at = now - 25 * 3600, markets = {} }
+    tick(10)
+    assert(note:GetText() == "Prices 25 h old", look .. ": back while it shows")
+    w:Hide()
+    GoldForever_Prices = { v = 1, at = now - 3600, markets = {} }
+    SlashCmdList.GOLDFOREVER("ui home")
+    assert(note:GetText() == "", look .. ": read again as the window opens")
+  end
+  GoldForever_Prices = keep
 end
 -- Opening the window onto the page it shows refreshes that page once, not once as it shows and again
 -- as the page is chosen.

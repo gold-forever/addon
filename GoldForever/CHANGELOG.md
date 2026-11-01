@@ -7,6 +7,10 @@
   is now left alone for 10 sessions, or until you loot it outside an instance. Where the tooltip can be
   read, the mob is filled as before.
 
+- **Stale prices show beside the window's X.** While everyone's prices are over a day old, the main
+  window shows it small, in the look's warning colour, left of its close button: "Prices 38 h old", then
+  in days from two days. It goes once fresh prices are loaded, as the login warning does.
+
 - **The auction house's Sell tab can be wide.** A Wide button beside Rule › on the Sell tab widens the
   panel: the list of items to sell gets more rows and more width, and the chosen item's prices, listings
   and Post button stand in a column beside it. Narrow brings back the layout you know. Your choice is

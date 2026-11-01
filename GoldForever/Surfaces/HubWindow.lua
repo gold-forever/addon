@@ -142,11 +142,19 @@ function UI.Window(name, title, pages, store, opts)
 	perfButton:SetScript("OnClick", function()
 		ns.safely("footprint", measure, true)
 	end)
+	-- The stale-prices note, by the login warning's rule (Prices.staleTitle).
+	local function staleNote()
+		local text = ns.Prices.staleTitle(GoldForever_Prices, GetServerTime())
+		w.staleNote:SetText(text or "")
+		w.staleNote:SetShown(text ~= nil)
+	end
 	local function started()
 		ns.safely("footprint", measure, true)
+		ns.safely("stale note", staleNote)
 		if C_Timer and C_Timer.NewTicker and not ticker then
 			ticker = C_Timer.NewTicker(10, function()
 				ns.safely("footprint", measure, false)
+				ns.safely("stale note", staleNote)
 			end)
 		end
 	end
@@ -218,6 +226,11 @@ function UI.Window(name, title, pages, store, opts)
 	local close = UI.CloseButton(w)
 	close:SetPoint("TOPRIGHT", hero, "TOPRIGHT", close.template and 2 or -14, close.template and 2 or -14)
 	close:SetFrameLevel(hero:GetFrameLevel() + 5)
+	w.close = close
+	-- Stale prices, small beside the X (addon#85): its top 16 below the header's, so the note ends above
+	-- the page title's top (30 below) in every look and never meets it.
+	w.staleNote = UI.Text(words, "", { size = "xs", tone = Theme.color.warning })
+	w.staleNote:SetPoint("TOPRIGHT", close, "TOPLEFT", -6, close.template and -18 or -2)
 
 	-- The page ----
 	local content = CreateFrame("Frame", nil, w)

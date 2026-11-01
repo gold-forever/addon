@@ -318,6 +318,16 @@ eq(P.staleWarning({ at = NOW - 2 * DAY - 5 }, NOW, nil), "everyone's prices are 
 eq(P.staleWarning({ at = NOW - DAY - 5 }, NOW, nil):find("1 day old", 1, true) ~= nil, true, "one day")
 eq(P.staleWarning({ at = NOW - 2 * DAY }, NOW, NOW - 3600), nil, "warned an hour ago")
 
+-- The hub's title-bar note beside the X: the same over-a-day rule, every time it is asked (no once a
+-- day); hours under two days, then days as the warning counts them.
+eq(P.staleTitle(nil, NOW), nil, "no file, no note")
+eq(P.staleTitle({ at = NOW - 3600 }, NOW), nil, "a fresh file")
+eq(P.staleTitle({ at = NOW - DAY }, NOW), nil, "a day old exactly: not yet stale, as the warning")
+eq(P.staleTitle({ at = NOW - DAY - 5 }, NOW), "Prices 24 h old", "just over a day")
+eq(P.staleTitle({ at = NOW - 38 * 3600 }, NOW), "Prices 38 h old", "the issue's 38 hours")
+eq(P.staleTitle({ at = NOW - 2 * DAY - 5 }, NOW), "Prices 2 days old", "two days, as the warning says")
+eq(P.staleTitle({ at = "x" }, NOW), nil, "a malformed time")
+
 -- The warning runs from the Prices module's world hook: at the login's loading screen, not a /reload's or
 -- a later one, and noted in the prices settings so it shows at most once a day.
 local prices, said = {}, {}

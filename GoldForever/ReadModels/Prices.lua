@@ -307,6 +307,19 @@ function Prices.staleWarning(data, now, lastWarned)
 	return string.format("everyone's prices are %d %s old: is the companion app running? gold-forever.app/companion", days, days == 1 and "day" or "days")
 end
 
+-- The hub's note beside its X while the prices file is stale, by the warning's rule (over a day old),
+-- e.g. "Prices 38 h old"; nil when it is fresh or absent.
+function Prices.staleTitle(data, now)
+	if type(data) ~= "table" or not amount(data[F.at]) or now - data[F.at] <= Prices.STALE_FILE then
+		return nil
+	end
+	local hours = math.floor((now - data[F.at]) / 3600)
+	if hours < 48 then
+		return string.format("Prices %d h old", hours)
+	end
+	return string.format("Prices %d days old", math.floor(hours / 24))
+end
+
 -- Whether the companion app is at work: its prices file is loaded and no older than a day, as it writes
 -- one every hour. Without it the player uploads their save by hand (/gf export).
 function Prices.connected(data, now)
