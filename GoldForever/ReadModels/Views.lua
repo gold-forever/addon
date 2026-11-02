@@ -120,11 +120,8 @@ function Views.characters(characters, now, online)
 	return rows, best
 end
 
--- One character's levelling from its level and XP rows:
--- { levels = { { level, seconds, reached, money } }, sources = { [kind] = xp }, xp, rested,
---   playSeconds, perHour }. A level's time is from /played: each row knows when its level started
--- (played - levelPlayed), so a level lasted from its start to the next one's.
-function Views.levelling(levelRows, xpRows, ref)
+-- When each level started, in /played seconds (played - levelPlayed), and when each was reached.
+local function levelMarks(levelRows, ref)
 	local starts, reached = {}, {}
 	for _, r in ipairs(levelRows or {}) do
 		if r.char == ref then
@@ -137,12 +134,17 @@ function Views.levelling(levelRows, xpRows, ref)
 			end
 		end
 	end
-	local out = { levels = {}, sources = {}, xp = 0, rested = 0, playSeconds = 0 }
+	return starts, reached
+end
+
+-- Each level, newest first: a level lasted from its start to the next one's.
+local function levels(starts, reached)
+	local out = {}
 	for level, start in pairs(starts) do
 		local nextStart = starts[level + 1]
 		local seconds = nextStart and nextStart >= start and (nextStart - start) or nil
 		if seconds or reached[level] then
-			out.levels[#out.levels + 1] = {
+			out[#out + 1] = {
 				level = level,
 				seconds = seconds,
 				reached = reached[level] and reached[level].t,
@@ -152,13 +154,17 @@ function Views.levelling(levelRows, xpRows, ref)
 	end
 	for level, r in pairs(reached) do
 		if not starts[level] then
-			out.levels[#out.levels + 1] = { level = level, reached = r.t, money = r.money }
+			out[#out + 1] = { level = level, reached = r.t, money = r.money }
 		end
 	end
-	table.sort(out.levels, function(a, b)
+	table.sort(out, function(a, b)
 		return a.level > b.level
 	end)
+	return out
+end
 
+-- The XP rows' sums into out: by source, in all, rested, and the seconds played between them.
+local function addXp(out, xpRows, ref)
 	local last
 	for _, r in ipairs(xpRows or {}) do
 		local xp = tonumber(r.xp)
@@ -173,6 +179,14 @@ function Views.levelling(levelRows, xpRows, ref)
 			last = r.t
 		end
 	end
+end
+
+-- One character's levelling from its level and XP rows:
+-- { levels = { { level, seconds, reached, money } }, sources = { [kind] = xp }, xp, rested,
+--   playSeconds, perHour }.
+function Views.levelling(levelRows, xpRows, ref)
+	local out = { levels = levels(levelMarks(levelRows, ref)), sources = {}, xp = 0, rested = 0, playSeconds = 0 }
+	addXp(out, xpRows, ref)
 	out.perHour = out.playSeconds >= 300 and out.xp / out.playSeconds * 3600 or nil
 	return out
 end
