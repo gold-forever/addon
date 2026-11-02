@@ -15,6 +15,18 @@ local NEUTRAL_MAPS = { [1434] = true, [1446] = true, [1452] = true } -- Strangle
 
 local scan -- the scan in progress
 
+-- Whether the map, or a map it lies in, is a zone with a neutral auction house.
+local function inNeutralZone(map)
+	while map do
+		if NEUTRAL_MAPS[map] then
+			return true
+		end
+		local info = C_Map.GetMapInfo(map)
+		map = info and info.parentMapID ~= 0 and info.parentMapID or nil
+	end
+	return false
+end
+
 -- Side of the auction house: the auctioneer's own faction (goblins have none), else by map.
 local function side()
 	local faction = UnitExists("npc") and UnitFactionGroup("npc")
@@ -23,13 +35,8 @@ local function side()
 	elseif UnitExists("npc") then
 		return "neutral"
 	end
-	local map = C_Map.GetBestMapForUnit("player")
-	while map do
-		if NEUTRAL_MAPS[map] then
-			return "neutral"
-		end
-		local info = C_Map.GetMapInfo(map)
-		map = info and info.parentMapID ~= 0 and info.parentMapID or nil
+	if inNeutralZone(C_Map.GetBestMapForUnit("player")) then
+		return "neutral"
 	end
 	local me = ns.me()
 	return string.lower(me and me.faction or "?")
@@ -39,17 +46,7 @@ end
 -- tooltip's neutral line (design 009 decision 9). Read on zone changes, not per tooltip.
 local neutralHere = false
 local function readNeutral()
-	local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-	local found = false
-	while map do
-		if NEUTRAL_MAPS[map] then
-			found = true
-			break
-		end
-		local info = C_Map.GetMapInfo(map)
-		map = info and info.parentMapID ~= 0 and info.parentMapID or nil
-	end
-	neutralHere = found
+	neutralHere = inNeutralZone(C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
 end
 ns.on("ZONE_CHANGED_NEW_AREA", "neutral zone", readNeutral)
 function ns.atNeutralZone()
@@ -122,6 +119,65 @@ function Market.partial(n, read, cutShort)
 	return n > 0 and (cutShort or (read or 0) < n * COMPLETE) or false
 end
 
+-- Retail's distinct items as chunks of rows, by item ID.
+local function itemChunks(items)
+	local ids = {}
+	for id in pairs(items) do
+		ids[#ids + 1] = id
+	end
+	table.sort(ids)
+	local rows = {}
+	for k, id in ipairs(ids) do
+		rows[k] = items[id]
+	end
+	return Encode.chunks(rows)
+end
+
+local function scanRecord(s, n, partial, rows)
+	return {
+		t = s.t,
+		market = s.market,
+		-- A partial scan is stored as "throttled" (the server reads no rows of one), marked partial.
+		kind = (n > 0 and not partial) and "full" or "throttled",
+		partial = partial or nil,
+		bands = 0,
+		auctions = n,
+		map = s.map,
+		zone = s.zone,
+		npc = s.npc,
+		npcFaction = s.npcFaction,
+		rows = Encode.chunks(rows),
+	}
+end
+
+local function store(s, n, partial, rows, prices)
+	local record = scanRecord(s, n, partial, rows)
+	-- Retail's distinct items (sorted and joined, a frame's work of its own on a full scan) go into the
+	-- record the next frame; the save is written at logout, long after.
+	if s.items then
+		ns.after(0, "scan", function()
+			record.items = itemChunks(s.items)
+		end)
+	end
+	local scans = ns.db().scans
+	scans[#scans + 1] = record
+	prune()
+	-- Prices built from the scans (Pricing.lua) are stale now; the count of scans may not change.
+	ns.scanVersion = (ns.scanVersion or 0) + 1
+	ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = prices, seconds = ns.now() - s.t, market = s.market }
+	-- The new prices are read (over frames for a big scan); the deals line follows when they are in. A
+	-- partial scan gives no prices and no deals line.
+	if n > 0 and not partial then
+		ns.emit("scanSaved")
+	end
+	if partial then
+		ns.say(string.format("scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends.", s.read or 0, n))
+	else
+		ns.say(string.format("scanned %d auctions into %d prices (%s).", n, prices, s.market))
+	end
+	scan = nil
+end
+
 local function finish(s, buckets, n)
 	local partial = Market.partial(n, s.read, s.cutShort)
 	if partial then
@@ -133,55 +189,6 @@ local function finish(s, buckets, n)
 		keys[#keys + 1] = key
 	end
 	local rows, i = {}, 0
-	local function store()
-		local record = {
-			t = s.t,
-			market = s.market,
-			-- A partial scan is stored as "throttled" (the server reads no rows of one), marked partial.
-			kind = (n > 0 and not partial) and "full" or "throttled",
-			partial = partial or nil,
-			bands = 0,
-			auctions = n,
-			map = s.map,
-			zone = s.zone,
-			npc = s.npc,
-			npcFaction = s.npcFaction,
-			rows = Encode.chunks(rows),
-		}
-		-- Retail's distinct items (sorted and joined, a frame's work of its own on a full scan) go into the
-		-- record the next frame; the save is written at logout, long after.
-		if s.items then
-			ns.after(0, "scan", function()
-				local ids = {}
-				for id in pairs(s.items) do
-					ids[#ids + 1] = id
-				end
-				table.sort(ids)
-				local items = {}
-				for k, id in ipairs(ids) do
-					items[k] = s.items[id]
-				end
-				record.items = Encode.chunks(items)
-			end)
-		end
-		local scans = ns.db().scans
-		scans[#scans + 1] = record
-		prune()
-		-- Prices built from the scans (Pricing.lua) are stale now; the count of scans may not change.
-		ns.scanVersion = (ns.scanVersion or 0) + 1
-		ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = #keys, seconds = ns.now() - s.t, market = s.market }
-		-- The new prices are read (over frames for a big scan); the deals line follows when they are in. A
-		-- partial scan gives no prices and no deals line.
-		if n > 0 and not partial then
-			ns.emit("scanSaved")
-		end
-		if partial then
-			ns.say(string.format("scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends.", s.read or 0, n))
-		else
-			ns.say(string.format("scanned %d auctions into %d prices (%s).", n, #keys, s.market))
-		end
-		scan = nil
-	end
 	local function encode()
 		local started, done = ns.frameStart(), 0
 		local stop = #keys
@@ -198,7 +205,7 @@ local function finish(s, buckets, n)
 		if i < #keys then
 			ns.after(0, "scan", encode)
 		else
-			store()
+			store(s, n, partial, rows, #keys)
 		end
 	end
 	encode()
