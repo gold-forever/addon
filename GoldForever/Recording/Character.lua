@@ -35,26 +35,8 @@ local function readCurrencies()
 	me.currencies = { items = Encode.items(amounts), t = ns.now() }
 end
 
-local function readReputation()
-	local me = ns.me()
-	if not me then
-		return
-	end
-	local names = ns.db().catalogue.factions
-	-- As with currencies: a faction under a closed header keeps its standing read last.
-	local byFaction, order = {}, {}
-	local function keep(id, text)
-		if not byFaction[id] then
-			order[#order + 1] = id
-		end
-		byFaction[id] = text
-	end
-	for entry in string.gmatch((me.reputation and me.reputation.factions) or "", "[^+]+") do
-		local id = tonumber(string.match(entry, "^(%d+):"))
-		if id then
-			keep(id, entry)
-		end
-	end
+-- Each faction's "factionID:reaction:value" as the client lists them now, its name catalogued.
+local function factionStandings(names)
 	local standing = {}
 	if C_Reputation and C_Reputation.GetNumFactions and C_Reputation.GetFactionDataByIndex then
 		for i = 1, C_Reputation.GetNumFactions() do
@@ -73,7 +55,29 @@ local function readReputation()
 			end
 		end
 	end
-	for _, entry in ipairs(standing) do
+	return standing
+end
+
+local function readReputation()
+	local me = ns.me()
+	if not me then
+		return
+	end
+	-- As with currencies: a faction under a closed header keeps its standing read last.
+	local byFaction, order = {}, {}
+	local function keep(id, text)
+		if not byFaction[id] then
+			order[#order + 1] = id
+		end
+		byFaction[id] = text
+	end
+	for entry in string.gmatch((me.reputation and me.reputation.factions) or "", "[^+]+") do
+		local id = tonumber(string.match(entry, "^(%d+):"))
+		if id then
+			keep(id, entry)
+		end
+	end
+	for _, entry in ipairs(factionStandings(ns.db().catalogue.factions)) do
 		keep(tonumber(string.match(entry, "^(%d+):")), entry)
 	end
 	local merged = {}

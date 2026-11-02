@@ -133,24 +133,29 @@ local function lineOf(id)
 	return nil
 end
 
-local function readRecipes()
-	local me = ns.me()
-	if not me or not C_TradeSkillUI or not C_TradeSkillUI.GetAllRecipeIDs then
-		return
+-- The open profession window's own line, its base info and its recipe IDs; nil for someone else's
+-- profession, a guild's, or a window with none.
+local function ownProfession()
+	if not C_TradeSkillUI or not C_TradeSkillUI.GetAllRecipeIDs then
+		return nil
 	end
 	if C_TradeSkillUI.IsTradeSkillLinked and C_TradeSkillUI.IsTradeSkillLinked() then
-		return -- someone else's profession
+		return nil -- someone else's profession
 	end
 	if C_TradeSkillUI.IsTradeSkillGuild and C_TradeSkillUI.IsTradeSkillGuild() then
-		return
+		return nil
 	end
 	local base = C_TradeSkillUI.GetBaseProfessionInfo and C_TradeSkillUI.GetBaseProfessionInfo()
 	local line = base and base.professionID
 	local ids = C_TradeSkillUI.GetAllRecipeIDs()
 	if not line or not ids or #ids == 0 then
-		return
+		return nil
 	end
+	return line, base, ids
+end
 
+-- The learned recipes by skill line; each recipe's schematic catalogued the first time its line is read.
+local function learnedRecipes(ids, line)
 	local recipes = ns.db().catalogue.recipes
 	local learned = {} -- skill line -> learned recipe IDs
 	for _, id in ipairs(ids) do
@@ -166,6 +171,19 @@ local function readRecipes()
 			end)
 		end
 	end
+	return learned
+end
+
+local function readRecipes()
+	local me = ns.me()
+	if not me then
+		return
+	end
+	local line, base, ids = ownProfession()
+	if not line then
+		return
+	end
+	local learned = learnedRecipes(ids, line)
 	-- Only the lines the list really belongs to; a stale list leaves the open line untouched.
 	for own, list in pairs(learned) do
 		catalogued[own] = true
