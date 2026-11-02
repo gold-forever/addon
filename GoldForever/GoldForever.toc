@@ -86,7 +86,7 @@ ReadModels\PricesMarkets.lua
 Surfaces\SellJunk.lua
 Recording\Rares.lua
 Tools\CraftPlanner.lua
-Tools\Auctions.lua
+Recording\Auctions.lua
 Recording\Levelling.lua
 Tools\Post.lua
 Tools\Shopping.lua
