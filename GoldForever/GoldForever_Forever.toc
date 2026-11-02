@@ -21,6 +21,7 @@ Store\Export.lua
 Kernel\Realms.lua
 Kernel\Modules.lua
 Kernel\Errors.lua
+Kernel\Scheduling.lua
 Kernel\Events.lua
 Kernel\Combat.lua
 Kernel\OnDemand.lua

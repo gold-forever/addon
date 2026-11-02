@@ -34,7 +34,7 @@ local function fire(event, ...)
 end
 
 local ns = { say = function() end, stopped = function() return false end }
-for _, file in ipairs({ "Errors.lua", "Events.lua", "Combat.lua" }) do
+for _, file in ipairs({ "Errors.lua", "Scheduling.lua", "Events.lua", "Combat.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
 

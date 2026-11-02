@@ -135,7 +135,7 @@ layers below it; a lower file tells the ones above what happened by an event (`n
 1. **Pure** (no game API, unit tested): `Encode` (the facade, with `EncodeIds`, `EncodeText`, `EncodeAmounts`), `Money`, `Scans`, `Export`, `Realms`, `Views`, `Post`,
    `SalePlan`, `Shopping`, `Crafting`, `Disenchant`, `Theme`, `UILayout`.
 2. **Runtime:** `Core`: the saved table, the game's events (`ns.on`), the addon's own, `ns.safely`, the
-   settings and their defaults (`ns.DEFAULTS`).
+   settings and their defaults (`ns.DEFAULTS`); `Scheduling` (`ns.after`, `ns.throttle`, the frame budget).
 3. **Collectors**, which record into the save: `Catalogue`, `Loot`, `Inventory`, `Professions`, `Market`,
    `Ledger`, `Knowledge`, `Character`, `Legacy`, `Achievements`, `Rares`, `Auctions`, `Levelling`,
    `Claim`.

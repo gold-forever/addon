@@ -1,5 +1,5 @@
 -- Gold Forever: the error path. A collector that fails records its error (ns.fail) and leaves the others
--- running: ns.safely runs a call that way, and ns.after and ns.throttle run later ones through it.
+-- running: ns.safely runs a call that way (Scheduling.lua runs later ones through it).
 
 local _, ns = ...
 
@@ -79,21 +79,6 @@ function ns.safely(name, fn, ...)
 	return ok
 end
 
--- Work spread over frames takes about FRAME_MS a frame: ns.frameStart() when a frame's share begins,
--- then ns.frameSpent(started, done, fallback[, ms]) every so often says whether to yield. Where the client
--- has no profiling timer, `fallback` units of work a frame instead. `ms` gives a larger share to work the
--- player waits on (a scan's reading).
-local FRAME_MS = 3
-function ns.frameStart()
-	return debugprofilestop and debugprofilestop() or nil
-end
-function ns.frameSpent(started, done, fallback, ms)
-	if started then
-		return done % 25 == 0 and debugprofilestop() - started >= (ms or FRAME_MS)
-	end
-	return done >= fallback
-end
-
 -- From the save's loading on (Store/Save.lua), errors are recorded in it, those from before with them, and
 -- each stopped call is counted by `stopped(name)`.
 function ns.recordErrorsIn(saved, stopped)
@@ -122,32 +107,4 @@ if geterrorhandler and seterrorhandler then
 			return shown(err, ...)
 		end
 	end)
-end
-
-function ns.after(seconds, name, fn)
-	C_Timer.After(seconds, function()
-		ns.safely(name, fn)
-	end)
-end
-
--- fn at most once per `seconds`; calls during the wait collapse into one run at its end.
-function ns.throttle(name, seconds, fn)
-	local waiting, last = false, -math.huge
-	return function()
-		if waiting then
-			return
-		end
-		local wait = last + seconds - GetTime()
-		if wait <= 0 then
-			last = GetTime()
-			ns.safely(name, fn)
-		else
-			waiting = true
-			C_Timer.After(wait, function()
-				waiting = false
-				last = GetTime()
-				ns.safely(name, fn)
-			end)
-		end
-	end
 end
