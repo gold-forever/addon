@@ -122,16 +122,14 @@ local function copyMark(id, name)
 	return not id and type(name) == "string" and string.find(name, " %(older copy%)$") and "named" or nil
 end
 
-local function mergeShared()
-	local file = GoldForever_Prices
-	local shared = type(file) == "table" and type(file[F.shared]) == "table" and file[F.shared] or nil
-	local s = settings()
-	-- The list and profile in use are kept by index: found again once the drop and the merge are done.
+-- The list and profile in use are kept by index: the function returned finds them again once the drop
+-- and the merge are done.
+local function keepSelection(s)
 	local before = #visible(s)
 	local listWas = s.list and visible(s)[s.list]
 	local generated = s.list and s.list > before and s.list - before or nil
 	local profileWas = s.profile and (s.profiles or {})[s.profile]
-	local function restore()
+	return function()
 		if profileWas then
 			s.profile = ns.Shopping.refind(s.profiles, profileWas)
 		end
@@ -141,8 +139,11 @@ local function mergeShared()
 			s.list = #visible(s) + generated
 		end
 	end
-	-- The "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up),
-	-- marked or only named so.
+end
+
+-- The "(older copy)" lists and profiles earlier merges kept (owner, 2026-10-24: they piled up),
+-- marked or only named so.
+local function dropOlderCopies(s)
 	for _, items in ipairs({ s.lists or {}, s.profiles or {} }) do
 		for _, x in ipairs(items) do
 			x.copyOf = x.copyOf or copyMark(x.id, x.name)
@@ -152,27 +153,41 @@ local function mergeShared()
 	if n > 0 then
 		ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
 	end
+end
+
+-- The site's lists or profiles in the file, each decoded and stamped with its id and edit time; one that
+-- does not decode is left out.
+local function sharedOnes(entries, decode)
+	local out = {}
+	for _, x in ipairs(type(entries) == "table" and entries or {}) do
+		local one = type(x) == "table" and type(x[F.string]) == "string" and decode(x[F.string])
+		if one and type(x[F.id]) == "string" then
+			one.id, one.edited = x[F.id], tonumber(x[F.edited]) or 0
+			one.copyOf = copyMark(nil, one.name)
+			out[#out + 1] = one
+		end
+	end
+	return out
+end
+
+-- A shared list string holds one list.
+local function sharedList(text)
+	local lists = ns.Shopping.decode(text)
+	return lists and lists[1]
+end
+
+local function mergeShared()
+	local file = GoldForever_Prices
+	local shared = type(file) == "table" and type(file[F.shared]) == "table" and file[F.shared] or nil
+	local s = settings()
+	local restore = keepSelection(s)
+	dropOlderCopies(s)
 	if not shared or shared[F.at] == s.sharedAt then
 		restore()
 		return
 	end
-	local lists, profiles = {}, {}
-	for _, x in ipairs(type(shared[F.lists]) == "table" and shared[F.lists] or {}) do
-		local got = type(x) == "table" and type(x[F.string]) == "string" and ns.Shopping.decode(x[F.string])
-		if got and got[1] and type(x[F.id]) == "string" then
-			got[1].id, got[1].edited = x[F.id], tonumber(x[F.edited]) or 0
-			got[1].copyOf = copyMark(nil, got[1].name)
-			lists[#lists + 1] = got[1]
-		end
-	end
-	for _, x in ipairs(type(shared[F.profiles]) == "table" and shared[F.profiles] or {}) do
-		local p = type(x) == "table" and type(x[F.string]) == "string" and ns.SalePlan.decode(x[F.string])
-		if p and type(x[F.id]) == "string" then
-			p.id, p.edited = x[F.id], tonumber(x[F.edited]) or 0
-			p.copyOf = copyMark(nil, p.name)
-			profiles[#profiles + 1] = p
-		end
-	end
+	local lists = sharedOnes(shared[F.lists], sharedList)
+	local profiles = sharedOnes(shared[F.profiles], ns.SalePlan.decode)
 	local a, b
 	s.removedShared = s.removedShared or {}
 	s.lists, a = ns.Shopping.merge(s.lists or {}, lists, s.removedShared)
