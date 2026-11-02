@@ -167,78 +167,97 @@ end
 -- or a number of units: whole stacks move as they are, and the last part is split off into an empty bag
 -- slot (owner, 2026-10-25: "take all, or take qty"). What is taken comes off the list.
 local FETCH_GAP = 0.15
+
+-- The bank's stacks of the chosen items, in the bank's order.
+local function chosenStacks(want)
+	local stacks = {}
+	for _, bag in ipairs(BANK) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and info.itemID and want[info.itemID] then
+				stacks[#stacks + 1] = { bag = bag, slot = slot, id = info.itemID, n = info.stackCount or 1 }
+			end
+		end
+	end
+	return stacks
+end
+
+-- The units still to take of each chosen item: math.huge for all of it.
+local function unitsWanted(want)
+	local left = {}
+	for id, w in pairs(want) do
+		left[id] = w == true and math.huge or tonumber(w) or 0
+	end
+	return left
+end
+
+local function stackAfter(stacks, at, id)
+	for k = at + 1, #stacks do
+		if stacks[k].id == id then
+			return true
+		end
+	end
+	return false
+end
+
+-- The list once the fetch stops with `moved` of the stacks taken: an item all taken, or with none left in
+-- the bank, comes off; the rest stays chosen, all of it or how many.
+local function settleFetch(want, left, stacks, moved, taken, full)
+	for id, n in pairs(left) do
+		if n <= 0 or not stackAfter(stacks, moved, id) then
+			want[id] = nil
+		else
+			want[id] = n == math.huge or n
+		end
+	end
+	if taken > 0 or full then
+		ns.say(string.format("took %d %s from the bank to sell%s.", taken, taken == 1 and "stack" or "stacks",
+			full and "; your bags are full, the rest stays chosen" or ""))
+	end
+end
+
+-- A stack into the bags, whole, or the part still wanted split off into an empty bag slot; false when no
+-- bag slot is empty for the part.
+local function takeStack(stack, need, left)
+	if need >= stack.n then
+		C_Container.UseContainerItem(stack.bag, stack.slot)
+		left[stack.id] = need - stack.n
+		return true
+	end
+	local bag, slot = emptyBagSlot()
+	if not bag then
+		return false
+	end
+	C_Container.SplitContainerItem(stack.bag, stack.slot, need)
+	C_Container.PickupContainerItem(bag, slot)
+	left[stack.id] = 0
+	return true
+end
+
 local function fetchFromBank()
 	local want = ns.fetchList()
 	if not want or not next(want) or ns.inCombat() then
 		return
 	end
-	local moves, left = {}, {}
-	for _, bag in ipairs(BANK) do
-		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
-			local info = C_Container.GetContainerItemInfo(bag, slot)
-			if info and info.itemID and want[info.itemID] then
-				moves[#moves + 1] = { bag = bag, slot = slot, id = info.itemID, n = info.stackCount or 1 }
-			end
-		end
-	end
-	for id, w in pairs(want) do
-		left[id] = w == true and math.huge or tonumber(w) or 0
-	end
-	local i, taken, full = 0, 0, false
-	local function done()
-		for id, n in pairs(left) do
-			-- Stacks of it still in the bank, not reached (bags full, bank closed)?
-			local more = false
-			for k = i + 1, #moves do
-				if moves[k].id == id then
-					more = true
-				end
-			end
-			if n <= 0 or not more then
-				want[id] = nil -- all taken, or none left in the bank
-			else
-				want[id] = n == math.huge or n -- still to take: all of it, or how many
-			end
-		end
-		if taken > 0 or full then
-			ns.say(string.format("took %d %s from the bank to sell%s.", taken, taken == 1 and "stack" or "stacks",
-				full and "; your bags are full, the rest stays chosen" or ""))
-		end
-	end
+	local stacks, left = chosenStacks(want), unitsWanted(want)
+	local moved, taken = 0, 0
 	local function step()
-		i = i + 1
-		local m = moves[i]
+		local stack = stacks[moved + 1]
 		-- The bank closed, or a fight began, mid-fetch: this stack was not taken, so it stays to look for.
-		if not m or not bankOpen or ns.inCombat() then
-			i = i - 1
-			done()
+		if not stack or not bankOpen or ns.inCombat() then
+			settleFetch(want, left, stacks, moved, taken, false)
 			return
 		end
-		local need = left[m.id] or 0
+		local need = left[stack.id] or 0
 		if need <= 0 then
+			moved = moved + 1
 			return step()
 		end
-		if freeBagSlots() == 0 then
-			full, i = true, i - 1
-			done()
+		if freeBagSlots() == 0 or not takeStack(stack, need, left) then
+			settleFetch(want, left, stacks, moved, taken, true)
 			return
 		end
-		if need >= m.n then
-			C_Container.UseContainerItem(m.bag, m.slot)
-			left[m.id] = need - m.n
-		else
-			-- Part of a stack: split it onto the cursor and put it in an empty bag slot.
-			local bag, slot = emptyBagSlot()
-			if not bag then
-				full, i = true, i - 1
-				done()
-				return
-			end
-			C_Container.SplitContainerItem(m.bag, m.slot, need)
-			C_Container.PickupContainerItem(bag, slot)
-			left[m.id] = 0
-		end
-		taken = taken + 1
+		moved, taken = moved + 1, taken + 1
 		C_Timer.After(FETCH_GAP, function()
 			ns.safely("bank fetch", step)
 		end)
@@ -273,6 +292,40 @@ local function sentMoney(read, which)
 	end
 end
 
+-- A tab's items, and whether any slot holds one.
+local function readGuildBankTab(tab)
+	local counts, any = {}, false
+	for slot = 1, SLOTS_PER_TAB do
+		local link = GetGuildBankItemLink(tab, slot)
+		if link then
+			any = true
+			local _, count = GetGuildBankItemInfo(tab, slot)
+			local itemKey = Encode.itemKey(link)
+			if itemKey then
+				counts[itemKey] = (counts[itemKey] or 0) + (count or 1)
+				ns.catalogueItem(itemKey)
+			end
+		end
+	end
+	return counts, any
+end
+
+local function recordGuildBankTab(bank, tab, current)
+	local name, _, viewable, _, withdraw = GetGuildBankTabInfo(tab)
+	if not viewable then
+		return
+	end
+	local counts, any = readGuildBankTab(tab)
+	-- A tab not yet sent by the server reads empty; keep what an earlier visit saw.
+	if any or tab == current then
+		bank.tabs[tab] = { name = name, items = Encode.items(counts), t = ns.now(), withdraw = bank.tabs[tab] and bank.tabs[tab].withdraw }
+	end
+	-- Items a day the rank may take: -1 unlimited, 0 none; a count not given keeps the last known.
+	if bank.tabs[tab] and type(withdraw) == "number" then
+		bank.tabs[tab].withdraw = withdraw
+	end
+end
+
 local function readGuildBank()
 	local me = ns.me()
 	local guild = GetGuildInfo("player")
@@ -285,30 +338,7 @@ local function readGuildBank()
 	banks[key] = bank
 	local current = GetCurrentGuildBankTab and GetCurrentGuildBankTab()
 	for tab = 1, GetNumGuildBankTabs() do
-		local name, _, viewable, _, withdraw = GetGuildBankTabInfo(tab)
-		if viewable then
-			local counts, any = {}, false
-			for slot = 1, SLOTS_PER_TAB do
-				local link = GetGuildBankItemLink(tab, slot)
-				if link then
-					any = true
-					local _, count = GetGuildBankItemInfo(tab, slot)
-					local itemKey = Encode.itemKey(link)
-					if itemKey then
-						counts[itemKey] = (counts[itemKey] or 0) + (count or 1)
-						ns.catalogueItem(itemKey)
-					end
-				end
-			end
-			-- A tab not yet sent by the server reads empty; keep what an earlier visit saw.
-			if any or tab == current then
-				bank.tabs[tab] = { name = name, items = Encode.items(counts), t = ns.now(), withdraw = bank.tabs[tab] and bank.tabs[tab].withdraw }
-			end
-			-- Items a day the rank may take: -1 unlimited, 0 none; a count not given keeps the last known.
-			if bank.tabs[tab] and type(withdraw) == "number" then
-				bank.tabs[tab].withdraw = withdraw
-			end
-		end
+		recordGuildBankTab(bank, tab, current)
 	end
 	bank.money = sentMoney(GetGuildBankMoney, "money") or bank.money
 	bank.moneyWithdraw = sentMoney(GetGuildBankWithdrawMoney, "withdraw") or bank.moneyWithdraw
