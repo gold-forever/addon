@@ -15,6 +15,49 @@ local money = ns.Money.auction
 local PRICE_MODES = { { value = "market", label = "Under market" }, { value = "fixed", label = "Fixed price" }, { value = "pct", label = "% of market" },
 	{ value = "lowest", label = "Lowest, ask over %" } }
 
+-- The chosen list when it is one of the player's own, with its index among them, and their lists.
+local function ownList()
+	local mine, list = lists()
+	for i, l in ipairs(mine) do
+		if l == list then
+			return list, i, mine
+		end
+	end
+	return nil, nil, mine
+end
+
+-- Where an entry's price is kept: the craft queue's by item, others on the entry; a profile's list has none.
+local function priceTarget(s, e, list)
+	if list.queue then
+		s.queuePrices = s.queuePrices or {}
+		s.queuePrices[e.itemId] = s.queuePrices[e.itemId] or {}
+		return s.queuePrices[e.itemId]
+	end
+	return not list.profile and e or nil
+end
+
+-- The price typed for a kind: a fixed price in copper, or a share of the market value in percent.
+local function priceTyped(kind, text)
+	if kind == "fixed" then
+		return ns.Shopping.parseGold(text), nil
+	end
+	if kind == "pct" or kind == "lowest" then
+		local n = tonumber(string.match(text or "", "%d+") or "")
+		return nil, n and n > 0 and math.min(n, 1000) or nil
+	end
+	return nil, nil
+end
+
+-- An entry's most per unit, in the items' table.
+local function priceText(e)
+	return e.maxUnit and money(e.maxUnit) or e.pct and (e.pct .. "% of market") or e.lowest and ("lowest, ask over " .. e.lowest .. "%") or "under market"
+end
+
+-- An entry's number in the price box: gold without trailing zeros, or the share.
+local function amountText(e)
+	return e.maxUnit and (string.gsub(string.format("%.2f", e.maxUnit / 10000), "%.?0+$", "")) or (e.pct or e.lowest) and tostring(e.pct or e.lowest) or ""
+end
+
 local function buildLists(page)
 	local s = settings()
 	local LEFT = 220
@@ -42,17 +85,8 @@ local function buildLists(page)
 	local name = UI.SearchBox(page, "Rename the list", nil)
 	name:SetPoint("TOPLEFT", listTable, "BOTTOMLEFT", 0, -10)
 	name:SetWidth(LEFT)
-	local function own()
-		local mine, list = lists()
-		for i, l in ipairs(mine) do
-			if l == list then
-				return list, i, mine
-			end
-		end
-		return nil, nil, mine
-	end
 	local function renameTo(text)
-		local list = own()
+		local list = ownList()
 		text = string.match((string.gsub(text or "", "|", "")), "^%s*(.-)%s*$")
 		if list and text ~= "" then
 			list.name = string.sub(text, 1, 40)
@@ -75,7 +109,7 @@ local function buildLists(page)
 	end, { width = 70, height = 26 })
 	newList:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
 	local delete = UI.Button(page, "Delete", function(self)
-		local list, i, mine = own()
+		local list, i, mine = ownList()
 		if not list then
 			return
 		end
@@ -172,7 +206,7 @@ local function buildLists(page)
 	many:SetPoint("LEFT", manyLabel, "RIGHT", 8, 0)
 	many:SetWidth(60)
 	local removeItem = UI.Button(edit, "Remove", function()
-		local list = own()
+		local list = ownList()
 		if not list then
 			return
 		end
@@ -254,27 +288,13 @@ local function buildLists(page)
 		end
 		return nil, list
 	end
-	local function priceTarget(e, list)
-		if list.queue then
-			s.queuePrices = s.queuePrices or {}
-			s.queuePrices[e.itemId] = s.queuePrices[e.itemId] or {}
-			return s.queuePrices[e.itemId]
-		end
-		return not list.profile and e or nil
-	end
 	function setPrice(kind, text)
 		local e, list = chosenEntry()
-		local t = e and priceTarget(e, list)
+		local t = e and priceTarget(s, e, list)
 		if not t then
 			return
 		end
-		local maxUnit, share
-		if kind == "fixed" then
-			maxUnit = ns.Shopping.parseGold(text)
-		elseif kind == "pct" or kind == "lowest" then
-			local n = tonumber(string.match(text or "", "%d+") or "")
-			share = n and n > 0 and math.min(n, 1000) or nil
-		end
+		local maxUnit, share = priceTyped(kind, text)
 		if kind ~= "market" and not maxUnit and not share then
 			say(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter."
 				or kind == "lowest" and "Type the share of the market value to ask over, as 120, then Enter." or "Type a share of the market value, as 80, then Enter.") .. "|r")
@@ -311,7 +331,7 @@ local function buildLists(page)
 
 	-- Adds an item to the chosen list (one of the player's own).
 	local function add(id)
-		local list = own()
+		local list = ownList()
 		if not id then
 			return
 		end
@@ -352,7 +372,7 @@ local function buildLists(page)
 			rows[i] = { index = i, name = l.name, n = #l.entries, generated = l.profile }
 		end
 		listTable:SetRows(rows, true)
-		local mine = own()
+		local mine = ownList()
 		name:SetText(mine and mine.name or "")
 		name:SetShown(mine ~= nil)
 		delete:SetShown(mine ~= nil)
@@ -374,8 +394,7 @@ local function buildLists(page)
 		local entries = {}
 		for i, e in ipairs(list.entries) do
 			local quality = ns.price.itemInfo(e.itemId)
-			entries[i] = { itemId = e.itemId, name = ns.itemName(e.itemId), quality = quality or 1,
-				price = e.maxUnit and money(e.maxUnit) or e.pct and (e.pct .. "% of market") or e.lowest and ("lowest, ask over " .. e.lowest .. "%") or "under market",
+			entries[i] = { itemId = e.itemId, name = ns.itemName(e.itemId), quality = quality or 1, price = priceText(e),
 				many = e.upTo and tostring(e.upTo) or "any" }
 		end
 		items:SetRows(entries, true)
@@ -387,7 +406,7 @@ local function buildLists(page)
 			local kind = pending and pending.id == e.itemId and pending.kind or e.maxUnit and "fixed" or e.pct and "pct" or e.lowest and "lowest" or "market"
 			mode:Set(kind)
 			amount:SetShown(kind ~= "market")
-			amount:SetText(e.maxUnit and (string.gsub(string.format("%.2f", e.maxUnit / 10000), "%.?0+$", "")) or (e.pct or e.lowest) and tostring(e.pct or e.lowest) or "")
+			amount:SetText(amountText(e))
 			amount.hint:SetText(kind == "fixed" and "gold" or "%")
 			many:SetText(e.upTo and tostring(e.upTo) or "")
 			-- The craft queue's numbers come from the queue.
