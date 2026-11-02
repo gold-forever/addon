@@ -211,6 +211,12 @@ local function finish(s, buckets, n)
 	encode()
 end
 
+-- The client's item functions, for Encode.itemRow.
+local function itemApis()
+	local instant = C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
+	return instant, C_Item and C_Item.GetItemMaxStackSizeByID
+end
+
 local READ_MS = 6 -- a full scan's reading, per frame
 
 local function read()
@@ -224,7 +230,7 @@ local function read()
 	local buckets, i = {}, 0
 	-- On retail, each distinct item's class and stack size, read now: the catalogue loads in the
 	-- background and a /reload can come first.
-	local instant, stack = ns.Realms.itemApis()
+	local instant, stack = itemApis()
 	local timeLeft = C_AuctionHouse.GetReplicateItemTimeLeft
 	if ns.retail then
 		s.items = {}

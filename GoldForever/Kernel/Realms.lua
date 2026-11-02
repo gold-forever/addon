@@ -44,9 +44,3 @@ function Realms.connected()
 	end
 	return GetAutoCompleteRealms and GetAutoCompleteRealms() or nil
 end
-
--- The client's item functions, for Encode.itemRow.
-function Realms.itemApis()
-	local instant = C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
-	return instant, C_Item and C_Item.GetItemMaxStackSizeByID
-end
