@@ -46,6 +46,17 @@ local function described(unit, stored)
 	return classification or (stored and stored[4]) or nil, kind and Encode.name(kind) or (stored and stored[5]) or nil
 end
 
+-- A unit whose level reads "??" (too far above the player to show, or a boss): the range stays as it
+-- was, the rest is written.
+local function recordUnlevelled(unit, id, stored, name, named)
+	local classification, kind = described(unit, stored)
+	if not (stored or name or classification or kind) then
+		return
+	end
+	ns.db().catalogue.npcs[id] = Encode.row(name and Encode.name(name) or named or "", stored and stored[2], stored and stored[3],
+		classification, kind)
+end
+
 local function seeUnit(unit)
 	if not UnitExists(unit) or UnitIsPlayer(unit) then
 		return
@@ -66,13 +77,7 @@ local function seeUnit(unit)
 	end
 	local level = ns.readable(UnitLevel(unit))
 	if type(level) ~= "number" or level <= 0 then
-		-- "??": too far above the player to show, or a boss; the range stays as it was, the rest is written.
-		local classification, kind = described(unit, stored)
-		if not (stored or name or classification or kind) then
-			return
-		end
-		npcs[id] = Encode.row(name and Encode.name(name) or named or "", stored and stored[2], stored and stored[3],
-			classification, kind)
+		recordUnlevelled(unit, id, stored, name, named)
 		return
 	end
 	local range = levels[id]
@@ -505,6 +510,51 @@ end
 local MAP_IDS = 3000 -- uiMapIDs searched; Classic's are well under it
 local MAP_BATCH = 100
 
+local CONTINENT = Enum and Enum.UIMapType and Enum.UIMapType.Continent or 2
+
+local function continentOf(map)
+	for _ = 1, 10 do
+		local info = C_Map.GetMapInfo(map)
+		if not info then
+			return nil
+		end
+		if info.mapType == CONTINENT then
+			return map
+		end
+		map = info.parentMapID
+	end
+end
+
+-- The map's art ("layerWidth,layerHeight,tileWidth,tileHeight;id+id+…") and where it lies on its
+-- continent; nil for a map with no art.
+local function mapArt(map)
+	local layers = C_Map.GetMapInfo(map) and C_Map.GetMapArtLayers(map)
+	local layer = layers and layers[1]
+	local textures = layer and C_Map.GetMapArtLayerTextures(map, 1)
+	if not (textures and #textures > 0) then
+		return nil
+	end
+	local art = string.format("%d,%d,%d,%d;%s", layer.layerWidth, layer.layerHeight, layer.tileWidth, layer.tileHeight,
+		table.concat(textures, "+"))
+	local continent = C_Map.GetMapRectOnMap and continentOf(map)
+	if not continent or continent == map then
+		return art
+	end
+	local left, right, top, bottom = C_Map.GetMapRectOnMap(map, continent)
+	if left and right and right > left then
+		return art, string.format("%d,%.5f,%.5f,%.5f,%.5f", continent, left, right, top, bottom)
+	end
+	return art
+end
+
+local function mapArtRecorded(maps)
+	local n = 0
+	for _ in pairs(maps) do
+		n = n + 1
+	end
+	ns.say(string.format("map art of %d maps recorded; /reload to write it.", n))
+end
+
 local function readMapArt(manual)
 	local db = ns.db()
 	local build = db.client and db.client.build
@@ -516,49 +566,19 @@ local function readMapArt(manual)
 	end
 	local maps, rects = {}, {}
 	local id = 0
-	local CONTINENT = Enum and Enum.UIMapType and Enum.UIMapType.Continent or 2
-	local function continentOf(map)
-		for _ = 1, 10 do
-			local info = C_Map.GetMapInfo(map)
-			if not info then
-				return nil
-			end
-			if info.mapType == CONTINENT then
-				return map
-			end
-			map = info.parentMapID
-		end
-	end
 	local function step()
 		local last = math.min(MAP_IDS, id + MAP_BATCH)
 		for map = id + 1, last do
-			local layers = C_Map.GetMapInfo(map) and C_Map.GetMapArtLayers(map)
-			local layer = layers and layers[1]
-			local textures = layer and C_Map.GetMapArtLayerTextures(map, 1)
-			if textures and #textures > 0 then
-				maps[map] = string.format("%d,%d,%d,%d;%s", layer.layerWidth, layer.layerHeight, layer.tileWidth, layer.tileHeight,
-					table.concat(textures, "+"))
-				local continent = C_Map.GetMapRectOnMap and continentOf(map)
-				if continent and continent ~= map then
-					local left, right, top, bottom = C_Map.GetMapRectOnMap(map, continent)
-					if left and right and right > left then
-						rects[map] = string.format("%d,%.5f,%.5f,%.5f,%.5f", continent, left, right, top, bottom)
-					end
-				end
-			end
+			maps[map], rects[map] = mapArt(map)
 		end
 		id = last
 		if id < MAP_IDS then
 			ns.after(0.05, "map art", step)
-		else
-			db.mapArt = { build = build, t = ns.now(), maps = maps, rects = rects }
-			if manual then
-				local n = 0
-				for _ in pairs(maps) do
-					n = n + 1
-				end
-				ns.say(string.format("map art of %d maps recorded; /reload to write it.", n))
-			end
+			return
+		end
+		db.mapArt = { build = build, t = ns.now(), maps = maps, rects = rects }
+		if manual then
+			mapArtRecorded(maps)
 		end
 	end
 	step()
