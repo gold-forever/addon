@@ -92,57 +92,6 @@ local function refresh()
 	d.empty:SetShown(#ranked == 0)
 end
 
--- A small movable window with a title, a close button and a text body; its position is kept in
--- [store].
-function ns.makeWindow(name, title, store, point, onClose)
-	local f = CreateFrame("Frame", name, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-	f:SetSize(260, 120)
-	if store.point then
-		f:SetPoint(store.point[1], UIParent, store.point[2], store.point[3], store.point[4])
-	else
-		f:SetPoint(point[1], UIParent, point[1], point[2], point[3])
-	end
-	if f.SetBackdrop then
-		f:SetBackdrop({
-			bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-			edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-			edgeSize = 12,
-			insets = { left = 3, right = 3, top = 3, bottom = 3 },
-		})
-		f:SetBackdropColor(0, 0, 0, 0.85)
-	end
-	f:SetClampedToScreen(true)
-	f:SetMovable(true)
-	f:EnableMouse(true)
-	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		local p, _, rel, x, y = self:GetPoint()
-		store.point = { p, rel, x, y }
-	end)
-
-	local heading = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	heading:SetPoint("TOPLEFT", 10, -9)
-	heading:SetText(title)
-
-	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-	close:SetPoint("TOPRIGHT", 2, 2)
-	close:SetScript("OnClick", function()
-		f:Hide()
-		if onClose then
-			onClose()
-		end
-	end)
-
-	local text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	text:SetPoint("TOPLEFT", 10, -28)
-	text:SetWidth(240)
-	text:SetJustifyH("LEFT")
-	text:SetSpacing(2)
-	return f, text
-end
-
 local ROWS = { "Coin", "Loot, at what it sells for", "Total", "XP", "Kills", "Bags" }
 local TOP_LOOT = 5
 
