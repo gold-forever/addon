@@ -36,6 +36,42 @@ local function letGo()
 	ah.buying, ah.purchase = nil, nil
 end
 
+-- The second press on a commodity: confirm the quote the client gave (as its own Buy button does).
+local function confirmQuote(note)
+	local p = ah.purchase
+	ah.purchase = nil
+	C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
+	ah.buying = { id = p.itemId, n = p.quantity }
+	await("shop", "shop:" .. p.itemId, note, letGo)
+	note:SetText("Buying...")
+end
+
+-- Over a lowest entry's share of market: said first, bought on the next press. True while it waits for it.
+local function waitsForOverPress(e, deal, note)
+	if not deal.over or ah.overArmed == e.itemId then
+		return false
+	end
+	ah.overArmed = e.itemId
+	local market = ns.Prices.value(e.itemId)
+	note:SetText(Theme.escape(Theme.color.warning) .. string.format("Over your %d%% of market: %d for %s (up to %s each%s). Press again to buy, or choose something else.",
+		deal.share or 0, deal.quantity, money(deal.total), money(deal.topUnit), market and (", market " .. money(market)) or "") .. "|r")
+	return true
+end
+
+-- The cheapest auction by someone else at or under the limit: one a press.
+local function buyOneAuction(e, deal, book, note)
+	for _, a in ipairs(book.levels) do
+		if a.own == 0 and a.unitPrice <= deal.limit and a.auctionID then
+			C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
+			ah.buying = { id = e.itemId, n = a.quantity or 1 }
+			await("shop", "shop:" .. e.itemId, note, letGo)
+			note:SetText("Buying one for " .. money(a.buyout) .. "...")
+			return
+		end
+	end
+	note:SetText("Nothing at or under your price now.")
+end
+
 -- One press of Buy next.
 local function buyNext()
 	local e = ah.shopChosen
@@ -45,13 +81,7 @@ local function buyNext()
 	local deal, book = shopDeal(e)
 	local note = ah.panel.shop.note
 	if ah.purchase and ah.purchase.itemId == e.itemId and ah.purchase.quoted then
-		-- The second press: confirm the quote the client gave (as its own Buy button does).
-		local p = ah.purchase
-		ah.purchase = nil
-		C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
-		ah.buying = { id = p.itemId, n = p.quantity }
-		await("shop", "shop:" .. p.itemId, note, letGo)
-		note:SetText("Buying...")
+		confirmQuote(note)
 		return
 	end
 	if not deal then
@@ -59,32 +89,17 @@ local function buyNext()
 		searchEntry(e)
 		return
 	end
-	-- Over a lowest entry's share of market: said first, bought on the next press.
-	if deal.over and ah.overArmed ~= e.itemId then
-		ah.overArmed = e.itemId
-		local market = ns.Prices.value(e.itemId)
-		note:SetText(Theme.escape(Theme.color.warning) .. string.format("Over your %d%% of market: %d for %s (up to %s each%s). Press again to buy, or choose something else.",
-			deal.share or 0, deal.quantity, money(deal.total), money(deal.topUnit), market and (", market " .. money(market)) or "") .. "|r")
+	if waitsForOverPress(e, deal, note) then
 		return
 	end
 	ah.overArmed = nil
-	if book.commodity then
-		ah.purchase = { itemId = e.itemId, quantity = deal.quantity, expected = deal.total }
-		C_AuctionHouse.StartCommoditiesPurchase(e.itemId, deal.quantity)
-		note:SetText("Asking the auction house for a price...")
-	else
-		-- The cheapest auction by someone else at or under the limit: one a press.
-		for _, a in ipairs(book.levels) do
-			if a.own == 0 and a.unitPrice <= deal.limit and a.auctionID then
-				C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
-				ah.buying = { id = e.itemId, n = a.quantity or 1 }
-				await("shop", "shop:" .. e.itemId, note, letGo)
-				note:SetText("Buying one for " .. money(a.buyout) .. "...")
-				return
-			end
-		end
-		note:SetText("Nothing at or under your price now.")
+	if not book.commodity then
+		buyOneAuction(e, deal, book, note)
+		return
 	end
+	ah.purchase = { itemId = e.itemId, quantity = deal.quantity, expected = deal.total }
+	C_AuctionHouse.StartCommoditiesPurchase(e.itemId, deal.quantity)
+	note:SetText("Asking the auction house for a price...")
 end
 
 ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
