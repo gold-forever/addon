@@ -77,13 +77,40 @@ function ns.sessionItem(id)
 	return quality, name
 end
 
+-- XP, and when the next level comes at this pace; nil at the level cap (no XP to gain).
+local function xpLine(sum, session, xpSeen)
+	if not (sum.xp > 0 and xpSeen and xpSeen.max > 0) then
+		return nil
+	end
+	local r = sum.rates
+	local line = "XP: " .. number(sum.xp)
+	if r.rated then
+		line = line .. " · " .. number(r.xpPerHour) .. "/h · level " .. sum.nextLevel .. " in " .. Encode.duration(r.dingIn or 0)
+	end
+	if (session.xpKills or 0) > 0 and session.killXp > 0 then
+		line = line .. string.format(" (~%s kills)", number(r.killsToLevel or 0))
+	end
+	return line
+end
+
+-- Free slots, and when they run out at the rate they have been filling.
+local function bagsLine(sum)
+	if sum.bagFree == 0 then
+		return "|cffff5555Bags full|r"
+	end
+	local bags = "Bags: " .. sum.bagFree .. " free"
+	if sum.fullIn then
+		bags = bags .. " · full in ~" .. Encode.duration(sum.fullIn)
+	end
+	return bags
+end
+
 -- The session in words, from its figures (ns.sessionSummary).
 local function text()
 	local sum = ns.sessionSummary()
 	if not sum then
 		return Session.automatic() and "Loot something to start a session." or "Press Start on the HUD to start a session."
 	end
-	local session, xpSeen = Session.get(), Session.xpBar()
 	local elapsed, r = sum.elapsed, sum.rates
 	local lines = {
 		string.format("%s%d:%02d", sum.ended and "Ended after " or "Farming ", math.floor(elapsed / 60), math.floor(elapsed % 60)),
@@ -96,25 +123,11 @@ local function text()
 	else
 		table.insert(lines, "|cff999999Per hour: after a minute|r")
 	end
-	-- XP, and when the next level comes at this pace (not at the level cap: no XP to gain).
-	if sum.xp > 0 and xpSeen and xpSeen.max > 0 then
-		local line = "XP: " .. number(sum.xp)
-		if r.rated then
-			line = line .. " · " .. number(r.xpPerHour) .. "/h · level " .. sum.nextLevel .. " in " .. Encode.duration(r.dingIn or 0)
-		end
-		if (session.xpKills or 0) > 0 and session.killXp > 0 then
-			line = line .. string.format(" (~%s kills)", number(r.killsToLevel or 0))
-		end
-		table.insert(lines, line)
+	local xp = xpLine(sum, Session.get(), Session.xpBar())
+	if xp then
+		table.insert(lines, xp)
 	end
-	-- Bags: free slots, and when they run out at the rate they have been filling.
-	local bags = "Bags: " .. sum.bagFree .. " free"
-	if sum.bagFree == 0 then
-		bags = "|cffff5555Bags full|r"
-	elseif sum.fullIn then
-		bags = bags .. " · full in ~" .. Encode.duration(sum.fullIn)
-	end
-	table.insert(lines, bags)
+	table.insert(lines, bagsLine(sum))
 	-- The most valuable items so far.
 	for i = 1, math.min(TOP_ITEMS, #sum.ranked) do
 		local item = sum.ranked[i]
