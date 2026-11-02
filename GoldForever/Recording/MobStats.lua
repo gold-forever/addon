@@ -54,6 +54,37 @@ end)
 -- weeks of loot, too much for one frame.
 local ROWS_A_FRAME = 250
 local mobCountWaiters = {} -- what to call once the counts are in
+-- Every saved loot chunk, as the build starts: rows written meanwhile come through the listener.
+local function savedLootChunks(db)
+	local chunks = {}
+	for _, bucket in pairs(db.events) do
+		for _, chunk in ipairs(bucket.loot or {}) do
+			chunks[#chunks + 1] = chunk
+		end
+	end
+	return chunks
+end
+
+local function countSavedRow(row, columns)
+	local values = { strsplit(",", row) }
+	local id = Encode.npcOf(values[columns.src])
+	if id then
+		countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]))
+	end
+end
+
+-- The loot that came while the build ran, then whoever waited for the counts.
+local function countingDone()
+	for _, rows in ipairs(countingRows) do
+		countRows(rows)
+	end
+	countingRows = nil
+	for _, fn in ipairs(mobCountWaiters) do
+		ns.safely("mob counts", fn)
+	end
+	mobCountWaiters = {}
+end
+
 local function buildMobs()
 	if countingRows then
 		return
@@ -64,25 +95,17 @@ local function buildMobs()
 		mobs = {}
 		return
 	end
-	local chunks = {}
-	for _, bucket in pairs(db.events) do
-		for _, chunk in ipairs(bucket.loot or {}) do
-			chunks[#chunks + 1] = chunk
-		end
-	end
+	local chunks = savedLootChunks(db)
 	countingRows = {}
 	local counted, i, pos = {}, 1, 1 -- the chunk and the place in it the next row starts
 	local step
 	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
 	-- them again, rather than showing part of them for the session.
-	local function failed(err)
-		mobs, countingRows, mobCountWaiters = nil, nil, {}
-		ns.fail("mob counts", err)
-	end
 	local function guarded()
 		local ok, err = pcall(step)
 		if not ok then
-			failed(err)
+			mobs, countingRows, mobCountWaiters = nil, nil, {}
+			ns.fail("mob counts", err)
 		end
 	end
 	step = function()
@@ -99,11 +122,7 @@ local function buildMobs()
 				i, pos = i + 1, 1
 			end
 			if row ~= "" then
-				local values = { strsplit(",", row) }
-				local id = Encode.npcOf(values[columns.src])
-				if id then
-					countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]))
-				end
+				countSavedRow(row, columns)
 			end
 			rows = rows + 1
 			if ns.frameSpent(started, rows, ROWS_A_FRAME) then
@@ -115,14 +134,7 @@ local function buildMobs()
 			C_Timer.After(0, guarded)
 			return
 		end
-		for _, rows in ipairs(countingRows) do
-			countRows(rows)
-		end
-		countingRows = nil
-		for _, fn in ipairs(mobCountWaiters) do
-			ns.safely("mob counts", fn)
-		end
-		mobCountWaiters = {}
+		countingDone()
 	end
 	guarded()
 end
