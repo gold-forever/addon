@@ -144,7 +144,7 @@ layers below it; a lower file tells the ones above what happened by an event (`n
    `CraftPlanner` (the craft quotes and queue), `Holdings`, `Lists`, `AuctionSettings`.
 5. **UI kit:** `UIDraw`, `UIControls`, `UIData`, `UIWindows` (`UI.perLook`, `UI.Dialog`), `Looks`,
    `HubKit`, `HubWindow`.
-6. **Surfaces:** `Hud`, `Tooltips`, `Advisor`, `CraftQueue`, `CraftingStrip`, `MailHelper`, `FirstRun`,
+6. **Surfaces:** `Hud`, `BigDrops`, `Tooltips`, `Advisor`, `CraftQueue`, `CraftingStrip`, `MailHelper`, `FirstRun`,
    `Minimap`, `ExportFrame`; the auction panel, `AuctionPanel` with `AuctionWaits`, `AuctionBlizzard`,
    `AuctionBooks` and a file a tab (`AuctionScanTab`, `AuctionSell`, `AuctionBuy`, `AuctionCancel`,
    `AuctionBank`); the hub's pages, a file each (`HubHome`, `HubLedger`, `HubSession`, `HubCrafting`,
