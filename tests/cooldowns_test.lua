@@ -66,7 +66,7 @@ local function wait()
 		fn()
 	end
 end
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Professions.lua"], "@Professions.lua"))("GoldForever", ns)
 assert(load(SOURCES["Cooldowns.lua"], "@Cooldowns.lua"))("GoldForever", ns)
 

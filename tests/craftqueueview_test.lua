@@ -16,7 +16,7 @@ local ns = {
 	db = function() return save end,
 	market = function(side) return "EU-Realm-" .. side end,
 }
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end

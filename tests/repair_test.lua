@@ -63,7 +63,7 @@ local function spend(copper)
 	purse = purse - copper
 	fire("PLAYER_MONEY")
 end
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Ledger.lua"], "@Ledger.lua"))("GoldForever", ns)
 assert(load(SOURCES["Trade.lua"], "@Trade.lua"))("GoldForever", ns)
 

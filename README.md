@@ -132,7 +132,7 @@ game API is tested in game. The `tests` folder sits beside `GoldForever`, so it 
 layers below it; a lower file tells the ones above what happened by an event (`ns.emit`, heard with
 `ns.listen`): `ready`, `queueChanged`, `pricesReady` and `lookChanged`.
 
-1. **Pure** (no game API, unit tested): `Encode`, `Money`, `Scans`, `Export`, `Realms`, `Views`, `Post`,
+1. **Pure** (no game API, unit tested): `Encode` (the facade, with `EncodeIds`, `EncodeText`, `EncodeAmounts`), `Money`, `Scans`, `Export`, `Realms`, `Views`, `Post`,
    `SalePlan`, `Shopping`, `Crafting`, `Disenchant`, `Theme`, `UILayout`.
 2. **Runtime:** `Core`: the saved table, the game's events (`ns.on`), the addon's own, `ns.safely`, the
    settings and their defaults (`ns.DEFAULTS`).

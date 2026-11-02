@@ -3,7 +3,7 @@
 -- and no error.
 
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do

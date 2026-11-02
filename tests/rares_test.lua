@@ -53,7 +53,7 @@ local function marker(vignette, guid, name)
 	end
 end
 
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Combat.lua"], "@Combat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
 assert(load(SOURCES["Rares.lua"], "@Rares.lua"))("GoldForever", ns)

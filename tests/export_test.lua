@@ -1,7 +1,7 @@
 -- Export.lua: the in-game export string of design 005 (GF1: base64 of deflated Lua table text).
 
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Export.lua"], "@Export.lua"))("GoldForever", ns)
 local X = ns.Export
 

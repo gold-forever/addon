@@ -115,7 +115,7 @@ function UnitCreatureType()
 	return unit.kind
 end
 
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Combat.lua"], "@Combat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Knowledge.lua"], "@Knowledge.lua"))("GoldForever", ns)
 

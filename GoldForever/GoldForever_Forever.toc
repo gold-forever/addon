@@ -12,6 +12,9 @@
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
 Store\Encode.lua
+Store\EncodeIds.lua
+Store\EncodeText.lua
+Store\EncodeAmounts.lua
 Kernel\Money.lua
 Store\Scans.lua
 Store\Export.lua

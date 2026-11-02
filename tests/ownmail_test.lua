@@ -71,7 +71,7 @@ local function fire(event, ...)
 		fn(...)
 	end
 end
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
 assert(load(SOURCES["Ledger.lua"], "@Ledger.lua"))("GoldForever", ns)
 assert(load(SOURCES["Mail.lua"], "@Mail.lua"))("GoldForever", ns)

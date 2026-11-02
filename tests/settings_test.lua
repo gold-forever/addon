@@ -11,7 +11,7 @@ function CreateFrame()
 end
 SlashCmdList = {}
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Realms.lua"], "@Realms.lua"))("GoldForever", ns)
 assert(load(SOURCES["Modules.lua"], "@Modules.lua"))("GoldForever", ns)
 for _, file in ipairs({ "Errors.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua" }) do

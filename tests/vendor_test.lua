@@ -28,7 +28,7 @@ local ns = {
 	position = function() return 2393, 0.5, 0.5 end,
 	catalogueItem = function(id) catalogued[#catalogued + 1] = id end,
 }
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Market.lua"], "@Market.lua"))("GoldForever", ns)
 
 handlers.MERCHANT_SHOW()

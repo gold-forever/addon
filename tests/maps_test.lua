@@ -73,7 +73,7 @@ C_Map = {
 	end,
 }
 
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 -- The real message bus; game events still come from the test.
 local on = ns.on
 assert(load(SOURCES["Events.lua"], "@Events.lua"))("GoldForever", ns)

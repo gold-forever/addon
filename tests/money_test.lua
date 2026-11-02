@@ -3,7 +3,7 @@
 -- as it reads, character for character.
 
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", ns)
 assert(load(SOURCES["UILayout.lua"], "@UILayout.lua"))("GoldForever", ns)

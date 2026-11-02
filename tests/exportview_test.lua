@@ -1,7 +1,7 @@
 -- ExportView.lua: the export over the save, from the last export on or everything again.
 
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 local day = ns.Encode.day
 local T = 1000000
 local save = {

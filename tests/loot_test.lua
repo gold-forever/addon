@@ -35,7 +35,7 @@ local ns = {
 	end,
 	catalogueItem = function() end,
 }
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 function hooksecurefunc() end
 function GetTime()
 	return clock

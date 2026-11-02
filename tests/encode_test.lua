@@ -1,7 +1,7 @@
 -- Encode.lua: the compact row format of design 002.
 
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", ns)
 local E = ns.Encode
 

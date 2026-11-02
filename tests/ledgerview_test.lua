@@ -16,7 +16,7 @@ local save = {
 	},
 }
 local ns = { db = function() return save end, me = function() return me end }
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 for _, file in ipairs({ "Views.lua", "ViewsMoney.lua", "ViewsSession.lua", "ViewsItems.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end

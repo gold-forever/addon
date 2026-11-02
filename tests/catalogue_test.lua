@@ -56,7 +56,7 @@ local function session(db, lean)
 			end
 		end,
 	}
-	assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+	loadEncode(ns)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Catalogue.lua"], "@Catalogue.lua"))("GoldForever", ns)

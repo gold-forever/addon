@@ -1,7 +1,7 @@
 -- Shopping.lua: the playground's shopping.test.ts cases, in Lua.
 
 local ns = {}
-assert(load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+loadEncode(ns)
 assert(load(SOURCES["Shopping.lua"], "@Shopping.lua"))("GoldForever", ns)
 local S, E = ns.Shopping, ns.Encode
 

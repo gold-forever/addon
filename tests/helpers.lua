@@ -19,3 +19,11 @@ end
 function checks()
 	return count
 end
+
+-- The Encode facade's files in the TOC's order: ns.Encode is all of them (Store/Encode.lua).
+local loadChunk = load
+function loadEncode(ns)
+	for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua" }) do
+		assert(loadChunk(SOURCES[file], "@" .. file))("GoldForever", ns)
+	end
+end

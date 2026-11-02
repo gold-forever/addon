@@ -95,7 +95,7 @@ local function load(withJunkButton)
 			timers[#timers + 1] = fn
 		end,
 	}
-	assert(_G.load(SOURCES["Encode.lua"], "@Encode.lua"))("GoldForever", ns)
+	loadEncode(ns)
 	assert(_G.load(SOURCES["Trade.lua"], "@Trade.lua"))("GoldForever", ns)
 	return handlers, rows
 end
