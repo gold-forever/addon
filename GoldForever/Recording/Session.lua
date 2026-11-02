@@ -126,7 +126,7 @@ ns.on("PLAYER_REGEN_DISABLED", "session fights", function()
 	end)
 end)
 
-table.insert(ns.xpListeners, function(gained, kind)
+ns.listen("xpGained", "xp listener", function(gained, kind)
 	local s = current()
 	if not s then
 		return

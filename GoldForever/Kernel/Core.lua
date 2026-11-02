@@ -55,10 +55,6 @@ function ns.copy(value)
 	return out
 end
 
--- Called with (gained, kind) for every XP gain once Levelling.lua knows what earned it (`quest`,
--- `boss`, `kill`, `explore`, `other`), a few seconds after the gain: the session listens (Session.lua).
-ns.xpListeners = {}
-
 -- On a real logout the client has already cleared money, XP and bags when PLAYER_LOGOUT fires
 -- (a /reload has not), so values read then are zeros, not the character's state.
 function ns.tornDown()

@@ -254,9 +254,7 @@ local function xpChanged()
 			local rested = i == #split and restedLeft or math.floor(row.rested * xp / gained)
 			restedLeft = restedLeft - rested
 			ns.record("xp", { t = row.t, char = me.ref, xp = xp, kind = kind, rested = rested > 0 and rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y, mob = share.mob })
-			for _, listener in ipairs(ns.xpListeners) do
-				ns.safely("xp listener", listener, xp, kind)
-			end
+			ns.emit("xpGained", xp, kind)
 		end
 	end)
 end

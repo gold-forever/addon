@@ -35,6 +35,8 @@ end)
 --   "itemChosen"   an item clicked in the hub's Inventory, with its id: the auction panel chooses it in Post;
 --   "mailBatch"    the mail helper's batch started or ended, with what the panel beside the mailbox says
 --                  (MailHelper.lua);
+--   "xpGained"     an XP gain, with (gained, kind) once Levelling.lua knows what earned it (`quest`, `boss`,
+--                  `kill`, `explore`, `gather`, `other`), a few seconds after the gain: the session counts it;
 --   "checked"      /gf check ran, with its lines as plain text (Characters.lua): a box shows them to copy;
 --   "lookChanged"  the look or accent changed (Looks.lua): the panels outside the hub redraw while they
 --                  show (manual test run 001: the crafting strip stayed arcane after a switch to classic).
