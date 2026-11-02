@@ -32,6 +32,7 @@ Kernel\Chat.lua
 Kernel\Commands.lua
 Store\Save.lua
 Store\Characters.lua
+Store\Diagnostics.lua
 Kernel\Core.lua
 Store\Schema.lua
 Store\Migrations.lua

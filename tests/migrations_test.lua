@@ -22,7 +22,7 @@ SlashCmdList = {}
 local function load(schema, migrations)
 	handler = nil
 	local ns = {}
-	for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
+	for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Diagnostics.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
 		assert(_G.load(SOURCES[file], "@" .. file))("GoldForever", ns)
 	end
 	if schema then

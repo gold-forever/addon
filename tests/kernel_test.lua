@@ -21,7 +21,7 @@ local errorHandler = function(err) shown[#shown + 1] = err end
 function geterrorhandler() return errorHandler end
 function seterrorhandler(fn) errorHandler = fn end
 local ns = {}
-for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
+for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Diagnostics.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
 
