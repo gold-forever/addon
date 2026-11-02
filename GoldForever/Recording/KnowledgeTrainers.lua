@@ -8,13 +8,8 @@ local Encode = ns.Encode
 
 local FILTERS = { "available", "unavailable", "used" }
 
--- Everything the trainer teaches, with cost and requirements, keyed by trainer NPC. Every filter
--- is switched on while reading, then put back as the player had it.
-local function readTrainerNow()
-	local id = Encode.npcId(ns.readable(UnitGUID("npc")))
-	if not id or not GetNumTrainerServices then
-		return
-	end
+-- Every filter switched on, and how the player had them, to put back.
+local function showAllServices()
 	local saved = {}
 	if GetTrainerServiceTypeFilter and SetTrainerServiceTypeFilter then
 		for _, f in ipairs(FILTERS) do
@@ -22,35 +17,61 @@ local function readTrainerNow()
 			SetTrainerServiceTypeFilter(f, true)
 		end
 	end
-	local rows = {}
-	local classSpells = false -- spells with a level and no profession skill: a class trainer
-	for i = 1, GetNumTrainerServices() do
-		local name, category, icon = GetTrainerServiceInfo(i)
-		if name and category ~= "header" then
-			local skill, skillRank = nil, nil
-			if GetTrainerServiceSkillReq then
-				skill, skillRank = GetTrainerServiceSkillReq(i)
-			end
-			local level = GetTrainerServiceLevelReq and GetTrainerServiceLevelReq(i)
-			local cost = GetTrainerServiceCost and GetTrainerServiceCost(i)
-			classSpells = classSpells or (not skill and (level or 0) > 0)
-			rows[#rows + 1] = Encode.row(Encode.name(name), category, icon, cost,
-				skill and Encode.name(skill) or nil, skillRank, level)
-		end
-	end
+	return saved
+end
+
+local function restoreFilters(saved)
 	for f, on in pairs(saved) do
 		SetTrainerServiceTypeFilter(f, on and true or false)
 	end
+end
+
+-- The service's catalogue row, and whether it is a class spell (a level and no profession skill); nil for a
+-- header.
+local function serviceRow(i)
+	local name, category, icon = GetTrainerServiceInfo(i)
+	if not name or category == "header" then
+		return nil
+	end
+	local skill, skillRank = nil, nil
+	if GetTrainerServiceSkillReq then
+		skill, skillRank = GetTrainerServiceSkillReq(i)
+	end
+	local level = GetTrainerServiceLevelReq and GetTrainerServiceLevelReq(i)
+	local cost = GetTrainerServiceCost and GetTrainerServiceCost(i)
+	return Encode.row(Encode.name(name), category, icon, cost, skill and Encode.name(skill) or nil, skillRank, level),
+		not skill and (level or 0) > 0
+end
+
+-- Everything the trainer teaches, with cost and requirements, keyed by trainer NPC. Every filter
+-- is switched on while reading, then put back as the player had it.
+local function readTrainerNow()
+	local id = Encode.npcId(ns.readable(UnitGUID("npc")))
+	if not id or not GetNumTrainerServices then
+		return
+	end
+	local saved = showAllServices()
+	local rows = {}
+	local classSpells = false -- spells with a level and no profession skill: a class trainer
+	for i = 1, GetNumTrainerServices() do
+		local row, classSpell = serviceRow(i)
+		if row then
+			rows[#rows + 1] = row
+			classSpells = classSpells or classSpell
+		end
+	end
+	restoreFilters(saved)
 	-- One string per trainer, rows joined by ";" like a stream chunk. An empty read is the window gone
 	-- before it was read, not a trainer with nothing to teach: the stored list stays.
-	if #rows > 0 then
-		local catalogue = ns.db().catalogue
-		catalogue.trainers[id] = table.concat(rows, ";")
-		-- A class trainer teaches only the visitor's class: kept, for the training ahead at a level-up.
-		if classSpells then
-			catalogue.trainerClasses = catalogue.trainerClasses or {}
-			catalogue.trainerClasses[id] = select(2, UnitClass("player"))
-		end
+	if #rows == 0 then
+		return
+	end
+	local catalogue = ns.db().catalogue
+	catalogue.trainers[id] = table.concat(rows, ";")
+	-- A class trainer teaches only the visitor's class: kept, for the training ahead at a level-up.
+	if classSpells then
+		catalogue.trainerClasses = catalogue.trainerClasses or {}
+		catalogue.trainerClasses[id] = select(2, UnitClass("player"))
 	end
 end
 

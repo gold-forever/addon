@@ -30,6 +30,45 @@ local text = Encode.text
 local trees = { [TREE] = true }
 local CURRENCY = 4225
 
+-- A node's catalogue row, from the perk its active (or first) entry defines; nil when it defines none.
+local function perkRow(config, tree, info)
+	local entry = info.activeEntry and info.activeEntry.entryID or (info.entryIDs and info.entryIDs[1])
+	local entryInfo = entry and C_Traits.GetEntryInfo(config, entry)
+	local definition = entryInfo and entryInfo.definitionID and C_Traits.GetDefinitionInfo(entryInfo.definitionID)
+	if not definition then
+		return nil
+	end
+	local name, spell, description = perkText(definition)
+	return Encode.row(text(name), info.maxRanks, spell, text(description), tree, info.posX, info.posY)
+end
+
+local function treeCurrency(config, tree)
+	local summary = { config = config }
+	for _, c in ipairs(C_Traits.GetTreeCurrencyInfo(config, tree, false) or {}) do
+		summary.currency = c.traitCurrencyID
+		summary.available = c.quantity
+		summary.spent = c.spent
+		summary.spentInTree = c.spentInTree
+		summary.earned = c.maxQuantity
+	end
+	return summary
+end
+
+-- The first tree paid in Legacy's currency gives the character's currency totals.
+local function takeCurrency(legacy, summary, config)
+	if summary.currency ~= CURRENCY or legacy.currency then
+		return
+	end
+	legacy.currency = summary.currency
+	legacy.available = summary.available
+	legacy.spent = summary.spent
+	legacy.earned = summary.earned
+	legacy.config = config
+	if C_Traits.GetMaxAvailableTraitCurrency then
+		legacy.possible = C_Traits.GetMaxAvailableTraitCurrency(summary.currency, false)
+	end
+end
+
 local function readTree(tree, legacy, ranks)
 	local config = C_Traits.GetConfigIDByTreeID(tree)
 	if not config then
@@ -42,34 +81,15 @@ local function readTree(tree, legacy, ranks)
 			local rank = math.max(info.activeRank or 0, info.currentRank or 0, info.ranksPurchased or 0,
 				info.activeEntry and info.activeEntry.rank or 0)
 			ranks[#ranks + 1] = node .. ":" .. rank
-			local entry = info.activeEntry and info.activeEntry.entryID or (info.entryIDs and info.entryIDs[1])
-			local entryInfo = entry and C_Traits.GetEntryInfo(config, entry)
-			local definition = entryInfo and entryInfo.definitionID and C_Traits.GetDefinitionInfo(entryInfo.definitionID)
-			if definition then
-				local name, spell, description = perkText(definition)
-				catalogue[node] = Encode.row(text(name), info.maxRanks, spell, text(description), tree, info.posX, info.posY)
+			local row = perkRow(config, tree, info)
+			if row then
+				catalogue[node] = row
 			end
 		end
 	end
-	local summary = { config = config }
-	for _, c in ipairs(C_Traits.GetTreeCurrencyInfo(config, tree, false) or {}) do
-		summary.currency = c.traitCurrencyID
-		summary.available = c.quantity
-		summary.spent = c.spent
-		summary.spentInTree = c.spentInTree
-		summary.earned = c.maxQuantity
-	end
+	local summary = treeCurrency(config, tree)
 	legacy.trees[tree] = summary
-	if summary.currency == CURRENCY and not legacy.currency then
-		legacy.currency = summary.currency
-		legacy.available = summary.available
-		legacy.spent = summary.spent
-		legacy.earned = summary.earned
-		legacy.config = config
-		if C_Traits.GetMaxAvailableTraitCurrency then
-			legacy.possible = C_Traits.GetMaxAvailableTraitCurrency(summary.currency, false)
-		end
-	end
+	takeCurrency(legacy, summary, config)
 	-- The configuration may name its other trees.
 	local configInfo = C_Traits.GetConfigInfo and C_Traits.GetConfigInfo(config)
 	for _, other in ipairs(configInfo and configInfo.treeIDs or {}) do
