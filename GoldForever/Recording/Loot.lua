@@ -80,6 +80,40 @@ local function addSource(w, guid)
 	end
 end
 
+-- A loot slot as the window holds it: its item, its sources and their amounts, and whether it is coin.
+local function readSlot(w, slot)
+	local kind = GetLootSlotType(slot)
+	local _, _, quantity, _, _, _, _, questID = GetLootSlotInfo(slot)
+	local info = { sources = {} }
+	if kind == ITEM_SLOT then
+		info.key = Encode.itemKey(GetLootSlotLink(slot))
+		-- An item that starts a quest: kept by item, for the mob tooltips and the loot alert.
+		local item = Encode.itemId(info.key)
+		if item and questID and questID > 0 then
+			ns.db().catalogue.questStarters[item] = questID
+		end
+	end
+	local list = { GetLootSourceInfo(slot) }
+	for i = 1, #list, 2 do
+		local guid = list[i]
+		if guid then
+			addSource(w, guid)
+			info.sources[#info.sources + 1] = { guid = guid, n = list[i + 1] or quantity }
+		end
+	end
+	if #info.sources == 0 then
+		addSource(w, "?")
+		info.sources[1] = { guid = "?", n = quantity }
+	end
+	if kind == MONEY_SLOT then
+		info.money = true
+		for _, s in ipairs(info.sources) do
+			w.coinFrom[s.guid] = (w.coinFrom[s.guid] or 0) + (tonumber(s.n) or 0)
+		end
+	end
+	return info
+end
+
 ns.on("LOOT_READY", "loot", function()
 	if window then
 		return -- LOOT_READY can fire twice for one window
@@ -88,36 +122,7 @@ ns.on("LOOT_READY", "loot", function()
 	w.map, w.x, w.y = ns.position()
 	w.fish = IsFishingLoot and IsFishingLoot() or nil
 	for slot = 1, GetNumLootItems() do
-		local kind = GetLootSlotType(slot)
-		local _, _, quantity, _, _, _, _, questID = GetLootSlotInfo(slot)
-		local info = { sources = {} }
-		if kind == ITEM_SLOT then
-			info.key = Encode.itemKey(GetLootSlotLink(slot))
-			-- An item that starts a quest: kept by item, for the mob tooltips and the loot alert.
-			local item = Encode.itemId(info.key)
-			if item and questID and questID > 0 then
-				ns.db().catalogue.questStarters[item] = questID
-			end
-		end
-		local list = { GetLootSourceInfo(slot) }
-		for i = 1, #list, 2 do
-			local guid = list[i]
-			if guid then
-				addSource(w, guid)
-				info.sources[#info.sources + 1] = { guid = guid, n = list[i + 1] or quantity }
-			end
-		end
-		if #info.sources == 0 then
-			addSource(w, "?")
-			info.sources[1] = { guid = "?", n = quantity }
-		end
-		if kind == MONEY_SLOT then
-			info.money = true
-			for _, s in ipairs(info.sources) do
-				w.coinFrom[s.guid] = (w.coinFrom[s.guid] or 0) + (tonumber(s.n) or 0)
-			end
-		end
-		w.slots[slot] = info
+		w.slots[slot] = readSlot(w, slot)
 	end
 	-- Resolve item and unknown sources now, while the container is in the bags and the window open.
 	for _, guid in ipairs(w.order) do
@@ -218,18 +223,17 @@ local SETTLE_SECONDS = 1
 local COIN_WAIT_SECONDS = 5
 local closing = {} -- windows closed and not written yet, oldest first
 
-local function finish(w)
+local function stopAwaiting(w)
 	for i, waiting in ipairs(awaitingCoin) do
 		if waiting == w then
 			table.remove(awaitingCoin, i)
-			break
+			return
 		end
 	end
-	local me = ns.me()
-	if not me then
-		return
-	end
-	local coin = w.coin or 0
+end
+
+-- The window's coin by source: to the money slot's sources by their amounts, else evenly to every source.
+local function coinShares(w, coin)
 	local takers, weights = {}, {}
 	for _, guid in ipairs(w.order) do
 		if w.coinFrom[guid] then
@@ -248,15 +252,41 @@ local function finish(w)
 			shares[takers[i]] = part
 		end
 	end
+	return shares
+end
+
+-- Whether this is the first loot of a spawn; an item opened or a source unknown always is.
+local function firstLoot(guid)
+	if guid == "?" or string.find(guid, "^Item%-") then
+		return true
+	end
+	local first = not seen[guid] or nil
+	seen[guid] = true
+	return first
+end
+
+-- Every item the window gave, from all its sources.
+local function itemsTaken(w)
+	local taken = {}
+	for _, guid in ipairs(w.order) do
+		for key, n in pairs(w.sources[guid].items) do
+			taken[key] = (taken[key] or 0) + n
+		end
+	end
+	return taken
+end
+
+local function finish(w)
+	stopAwaiting(w)
+	local me = ns.me()
+	if not me then
+		return
+	end
+	local coin = w.coin or 0
+	local shares = coinShares(w, coin)
 	local rows = {}
 	for _, guid in ipairs(w.order) do
-		local first = nil
-		if guid ~= "?" and not string.find(guid, "^Item%-") then
-			first = not seen[guid] or nil
-			seen[guid] = true
-		else
-			first = true
-		end
+		local first = firstLoot(guid)
 		local items = w.sources[guid].items
 		for key in pairs(items) do
 			ns.catalogueItem(key)
@@ -268,12 +298,7 @@ local function finish(w)
 	end
 	lastLoot = GetTime()
 	-- The loot window as a whole, for whoever listens (the appraiser): coin and every item taken.
-	local taken = {}
-	for _, guid in ipairs(w.order) do
-		for key, n in pairs(w.sources[guid].items) do
-			taken[key] = (taken[key] or 0) + n
-		end
-	end
+	local taken = itemsTaken(w)
 	for _, listener in ipairs(ns.lootListeners) do
 		ns.safely("loot listener", listener, coin, taken, rows)
 	end
