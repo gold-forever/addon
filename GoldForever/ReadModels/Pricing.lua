@@ -67,51 +67,48 @@ local function pricesReady()
 	end
 end
 
-local function buildPrices()
-	local version = ns.scanVersion or 0
-	local latest = latestScan()
-	local chunks = latest and latest.rows or {}
-	if #chunks <= SYNC_CHUNKS then
-		local listings, newPrices, newLow = {}, {}, {}
-		for _, chunk in ipairs(chunks) do
-			readChunk(chunk, listings)
-		end
-		for id, l in pairs(listings) do
-			priceItem(id, l, newPrices, newLow)
-		end
-		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest and latest.t
-		pricesReady()
-		return
+-- A small scan's prices, read at once.
+local function buildAtOnce(chunks, version, t)
+	local listings, newPrices, newLow = {}, {}, {}
+	for _, chunk in ipairs(chunks) do
+		readChunk(chunk, listings)
 	end
-	if building == version then
-		return
+	for id, l in pairs(listings) do
+		priceItem(id, l, newPrices, newLow)
 	end
+	prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, t
+	pricesReady()
+end
+
+-- A big scan's prices, read over several frames: first its chunks, then its items, each frame's share
+-- within the frame budget.
+local function buildOverFrames(chunks, version, t)
 	building = version
 	prices, cheapestPrices = prices or {}, cheapestPrices or {}
 	local listings, newPrices, newLow, i = {}, {}, {}, 0
 	local ids, j
 	local rows = Encode.ROWS_PER_CHUNK
-	-- One frame's share; true when the build is done.
-	local function share()
-		local started, done = ns.frameStart(), 0
-		if i < #chunks then
-			-- Counted in rows, so the budget is looked at after every chunk.
-			while i < #chunks do
-				i = i + 1
-				readChunk(chunks[i], listings)
-				done = done + rows
-				if ns.frameSpent(started, done, CHUNKS_PER_FRAME * rows) then
-					break
-				end
+	-- Counted in rows, so the budget is looked at after every chunk.
+	local function readShare(started)
+		local done = 0
+		while i < #chunks do
+			i = i + 1
+			readChunk(chunks[i], listings)
+			done = done + rows
+			if ns.frameSpent(started, done, CHUNKS_PER_FRAME * rows) then
+				return
 			end
-			return false
 		end
+	end
+	-- True when every item is priced.
+	local function priceShare(started)
 		if not ids then
 			ids, j = {}, 0
 			for id in pairs(listings) do
 				ids[#ids + 1] = id
 			end
 		end
+		local done = 0
 		while j < #ids do
 			j = j + 1
 			priceItem(ids[j], listings[ids[j]], newPrices, newLow)
@@ -120,10 +117,19 @@ local function buildPrices()
 				break
 			end
 		end
-		if j < #ids then
+		return j >= #ids
+	end
+	-- One frame's share; true when the build is done.
+	local function share()
+		local started = ns.frameStart()
+		if i < #chunks then
+			readShare(started)
 			return false
 		end
-		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, latest.t
+		if not priceShare(started) then
+			return false
+		end
+		prices, cheapestPrices, pricedFrom, pricedAt = newPrices, newLow, version, t
 		building = nil
 		pricesReady()
 		return true
@@ -144,6 +150,21 @@ local function buildPrices()
 		end
 	end
 	step()
+end
+
+local function buildPrices()
+	local version = ns.scanVersion or 0
+	local latest = latestScan()
+	local chunks = latest and latest.rows or {}
+	local t = latest and latest.t
+	if #chunks <= SYNC_CHUNKS then
+		buildAtOnce(chunks, version, t)
+		return
+	end
+	if building == version then
+		return
+	end
+	buildOverFrames(chunks, version, t)
 end
 
 -- The own scan's market value: the cheapest 15% of the units listed, so an item with one listing is
