@@ -135,56 +135,65 @@ local function quantity(r)
 	return math.max(1, math.min(r.count, picked or default))
 end
 
--- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
-local function post()
-	local r = ah.chosen
-	if not r or busy() or not r.suggestion then
-		return
+local function posting(r)
+	await("post", r.key, ah.panel.post.note)
+	ah.panel.post.note:SetText("Posting...")
+end
+
+-- The unit price to post at, and whether it is forced: held under the floor, Post anyway posts at the
+-- undercut price on a second press; nil when there is none yet.
+local function unitToPost(r)
+	local unit = r.suggestion.unit
+	if unit or not r.anyway then
+		return unit, false
 	end
-	local unit, forced = r.suggestion.unit, false
-	-- Held under the floor: Post anyway posts at the undercut price on a second press.
-	if not unit and r.anyway then
-		if ah.armed ~= r.key .. ":anyway" then
-			ah.armed = r.key .. ":anyway"
-			ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. string.format("%s is under your floor of %s. Press again to post anyway.",
-				money(r.anyway), money(r.suggestion.floor)) .. "|r")
-			return
-		end
-		unit, forced = r.anyway, true
+	if ah.armed ~= r.key .. ":anyway" then
+		ah.armed = r.key .. ":anyway"
+		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. string.format("%s is under your floor of %s. Press again to post anyway.",
+			money(r.anyway), money(r.suggestion.floor)) .. "|r")
+		return nil
 	end
-	if not unit then
-		return
-	end
-	-- The client warned about this post: the press confirms it, as its own window's button does.
-	-- Only for what was warned about: the price or quantity changed since, and the press posts afresh.
+	return r.anyway, true
+end
+
+-- The client warned about this post: the press confirms it, as its own window's button does. Only for
+-- what was warned about: the price or quantity changed since, and the press posts afresh. True when
+-- confirmed.
+local function confirmWarned(r, unit)
 	local args = ah.confirm and ah.confirm.key == r.key and ah.confirm.args
-	if args and args[3] == quantity(r) and (r.commodity and args[4] or args[5] / quantity(r)) == unit then
-		ah.confirm = nil
-		-- The arguments as posted, a nil bid included (unpack stops at a hole without the count).
-		if r.commodity and C_AuctionHouse.ConfirmPostCommodity then
-			C_AuctionHouse.ConfirmPostCommodity(unpack(args, 1, args.n))
-		elseif C_AuctionHouse.ConfirmPostItem then
-			C_AuctionHouse.ConfirmPostItem(unpack(args, 1, args.n))
-		end
-		await("post", r.key, ah.panel.post.note)
-		ah.panel.post.note:SetText("Posting...")
-		return
+	if not (args and args[3] == quantity(r) and (r.commodity and args[4] or args[5] / quantity(r)) == unit) then
+		return false
 	end
 	ah.confirm = nil
+	-- The arguments as posted, a nil bid included (unpack stops at a hole without the count).
+	if r.commodity and C_AuctionHouse.ConfirmPostCommodity then
+		C_AuctionHouse.ConfirmPostCommodity(unpack(args, 1, args.n))
+	elseif C_AuctionHouse.ConfirmPostItem then
+		C_AuctionHouse.ConfirmPostItem(unpack(args, 1, args.n))
+	end
+	posting(r)
+	return true
+end
+
+-- A price the panel warns about takes a second press; true while it waits for it.
+local function waitsForSecondPress(r, unit, forced)
 	local warning = not forced and (Post.check(unit, r.market, r.vendor, ns.price.cut)
 		or (r.suggestion.ask and "at the plan's fixed price though the market moved"))
-	if warning and ah.armed ~= r.key then
-		ah.armed = r.key
-		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "Press again to post " .. warning .. ".|r")
-		return
+	if not warning or ah.armed == r.key then
+		return false
 	end
-	ah.armed = nil
+	ah.armed = r.key
+	ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "Press again to post " .. warning .. ".|r")
+	return true
+end
+
+-- The client says at once whether the post needs confirming (a price far from the going one); then the
+-- next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
+local function send(r, unit)
 	local duration = durationOf(r)
 	local loc = r.locations[1]
 	local q = quantity(r)
 	Blizzard.clearSell()
-	-- The client says at once whether the post needs confirming (a price far from the going one); then
-	-- the next press confirms it, as Blizzard's own sell window does, and no answer is waited for.
 	local needs
 	postedAt = GetTime()
 	if r.commodity then
@@ -199,8 +208,25 @@ local function post()
 		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
 		return
 	end
-	await("post", r.key, ah.panel.post.note)
-	ah.panel.post.note:SetText("Posting...")
+	posting(r)
+end
+
+-- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
+local function post()
+	local r = ah.chosen
+	if not r or busy() or not r.suggestion then
+		return
+	end
+	local unit, forced = unitToPost(r)
+	if not unit or confirmWarned(r, unit) then
+		return
+	end
+	ah.confirm = nil
+	if waitsForSecondPress(r, unit, forced) then
+		return
+	end
+	ah.armed = nil
+	send(r, unit)
 end
 
 local function posted()
