@@ -119,18 +119,19 @@ ns.sys = sys -- for the session's Start and Stop (Session.lua)
 
 -- Which of the APIs design 002 depends on exist on this client. Booleans only, so the file
 -- answers the checklist without recording anything personal.
+local function has(path)
+	local value = _G
+	for part in string.gmatch(path, "[^.]+") do
+		if type(value) ~= "table" then
+			return false
+		end
+		value = value[part]
+	end
+	return value ~= nil
+end
+
 local function diagnose()
 	local db = ns.db()
-	local function has(path)
-		local value = _G
-		for part in string.gmatch(path, "[^.]+") do
-			if type(value) ~= "table" then
-				return false
-			end
-			value = value[part]
-		end
-		return value ~= nil
-	end
 	local position = false
 	if has("C_Map.GetPlayerMapPosition") then
 		local map = C_Map.GetBestMapForUnit("player")
