@@ -53,6 +53,236 @@ local function settingsCard(page, title, y, rows)
 	return card
 end
 
+local function fillGeneral(page, prefs)
+	local window, appraiser, rares, minimap = prefs.window, prefs.appraiser, prefs.rares, prefs.minimap
+	-- General: only settings the addon has, each changed at once.
+	local g = page.general
+	local lookOptions = {}
+	for _, name in ipairs(Theme.order) do
+		lookOptions[#lookOptions + 1] = { value = name, label = Theme.skins[name].label }
+	end
+	-- The controls, each set again from the settings at every refresh (a command may have changed one).
+	local c = {}
+	local function bigDrop()
+		return math.floor((appraiser.bigDrop or ns.BIG_DROP) / 10000)
+	end
+	settingsCard(g, "Display", 0, {
+		{ side = 0, row = 0, label = "Look", full = true, make = function(cell)
+			c.look = UI.Dropdown(cell, lookOptions, ns.currentLook(), function(v)
+				ns.commands.look(v)
+			end)
+			return c.look
+		end },
+		{ side = 0, row = 1, label = "Accent colour", make = function(cell)
+			local row = CreateFrame("Frame", nil, cell)
+			row:SetSize(#Theme.accents * 30 - 6, 24)
+			c.swatches = {}
+			for k, a in ipairs(Theme.accents) do
+				local sw = UI.Swatch(row, a.hex, function()
+					ns.commands.accent(window.accent == a.hex and "" or a.hex)
+				end)
+				sw:SetPoint("LEFT", (k - 1) * 30, 0)
+				sw:SetOn(window.accent == a.hex)
+				c.swatches[k] = sw
+			end
+			return row
+		end },
+		{ side = 1, row = 0, label = "Minimap button", make = function(cell)
+			c.minimap = UI.Switch(cell, not minimap.hidden, function(on)
+				minimap.hidden = not on
+				ns.refreshMinimap()
+			end)
+			return c.minimap
+		end },
+		{ side = 1, row = 1, label = "Window size", full = true, make = function(cell)
+			c.scale = UI.Slider(cell, 70, 130, 5, math.floor((window.scale or 1) * 100 + 0.5), function(v)
+				window.scale = v / 100
+				local open = ns.hubWindow()
+				if open then
+					open:SetScale(window.scale)
+				end
+			end, function(v)
+				return v .. "%"
+			end, { onRelease = true })
+			return c.scale
+		end },
+	})
+	settingsCard(g, "Alerts", -146, {
+		{ side = 0, row = 0, label = "Hide the HUD in combat", make = function(cell)
+			c.hideInCombat = UI.Switch(cell, appraiser.hideInCombat, function(on)
+				appraiser.hideInCombat = on
+			end)
+			return c.hideInCombat
+		end },
+		{ side = 0, row = 2, label = "Start and stop sessions by themselves", make = function(cell)
+			c.autoSession = UI.Switch(cell, ns.Session.automatic(), function(on)
+				ns.Session.setAutomatic(on)
+			end)
+			return c.autoSession
+		end },
+		{ side = 0, row = 1, label = "Mark rares with a skull", make = function(cell)
+			c.mark = UI.Switch(cell, rares.mark, function(on)
+				rares.mark = on
+			end)
+			if isRetail then
+				c.mark:Disable()
+				c.mark:SetAlpha(0.5)
+			end
+			return c.mark
+		end },
+		{ side = 1, row = 1, label = "Tell my party about rares", make = function(cell)
+			c.party = UI.Switch(cell, rares.party == true, function(on)
+				rares.party = on
+			end)
+			if isRetail then
+				c.party:Disable()
+				c.party:SetAlpha(0.5)
+			end
+			return c.party
+		end },
+		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
+			c.bigDrop = UI.Slider(cell, 0, 50, 1, bigDrop(), function(v)
+				appraiser.bigDrop = v * 10000
+			end, function(v)
+				return v == 0 and "rares" or (v .. "g")
+			end)
+			return c.bigDrop
+		end },
+	})
+	function g:Refresh()
+		c.look:Set(ns.currentLook())
+		for k, a in ipairs(Theme.accents) do
+			c.swatches[k]:SetOn(window.accent == a.hex)
+		end
+		c.minimap:Set(not minimap.hidden)
+		c.scale:Set(math.floor((window.scale or 1) * 100 + 0.5))
+		c.hideInCombat:Set(appraiser.hideInCombat)
+		c.autoSession:Set(ns.Session.automatic())
+		c.mark:Set(rares.mark)
+		c.party:Set(rares.party == true)
+		c.bigDrop:Set(bigDrop())
+	end
+end
+
+local function fillModules(page, prefs)
+	local appraiser, rares = prefs.appraiser, prefs.rares
+	-- Modules: each part of the addon a player sees, on or off at once, no reload. The recorder is not
+	-- one: what the save records stays the same whatever is switched off.
+	local m = page.modules
+	local auction = ns.settings("auction")
+	local prices = ns.settings("prices")
+	local crafting = ns.settings("crafting")
+	local mail = ns.settings("mail")
+	local MODULES = {
+		{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
+			on = function() return appraiser.shown end,
+			set = function(on)
+				ns.setHud(on)
+			end },
+		{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
+			on = function() return not auction.hidden end,
+			set = function(on) auction.hidden = not on end },
+		{ icon = "tag", name = "Prices in tooltips", blurb = "Everyone's price, or your own scan's, under every item.",
+			on = function() return prices.tooltip ~= false end,
+			set = function(on) prices.tooltip = on end },
+		{ icon = "users", name = "Held counts in tooltips", blurb = "How many each of your characters holds, in bags, bank and mail.",
+			on = function() return prices.held ~= false end,
+			set = function(on) prices.held = on end },
+		{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
+			on = function() return auction.dealsAlert ~= false end,
+			set = function(on) auction.dealsAlert = on end },
+		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
+			on = function() return mail.helper ~= false end,
+			set = function(on) mail.helper = on end },
+		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
+			on = function() return crafting.strip ~= false end,
+			set = function(on) crafting.strip = on end },
+		{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
+			on = function() return rares.announce end,
+			set = function(on) rares.announce = on end, disabled = isRetail },
+	}
+	local list = UI.Panel(m, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	list:SetPoint("TOPLEFT")
+	list:SetPoint("RIGHT", m, "RIGHT")
+	-- 38 a row: nine modules and the note fit the page (manual test run 001: at 52 the list ran past it).
+	local ROW = 38
+	list:SetHeight(#MODULES * ROW + 8)
+	-- Each row painted from its setting: when drawn, and at every refresh (/gf hud may have changed one).
+	m.rows = {}
+	local function paint(row, on)
+		row.icon:SetTone(on and "accent" or "faint")
+		row.name:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
+	end
+	for i, mod in ipairs(MODULES) do
+		local row = CreateFrame("Frame", nil, list)
+		row:SetHeight(ROW)
+		row:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW)
+		row:SetPoint("RIGHT", list, "RIGHT")
+		if i > 1 then
+			local rule = UI.solid(row, "BORDER", Theme.color.border)
+			rule:SetPoint("TOPLEFT", 16, 0)
+			rule:SetPoint("TOPRIGHT", -16, 0)
+			rule:SetHeight(UI.pixel())
+		end
+		local icon = UI.Icon(row, mod.icon, 20, mod.on() and "accent" or "faint")
+		icon:SetPoint("LEFT", 20, 0)
+		local name = UI.Text(row, mod.name, { size = "sm", medium = true, tone = mod.on() and "text" or "muted" })
+		name:SetPoint("TOPLEFT", 56, -5)
+		local blurb = UI.Text(row, mod.blurb, { size = "xs", tone = "faint" })
+		blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
+		blurb:SetPoint("RIGHT", row, "RIGHT", -80, 0)
+		row.icon, row.name, row.mod = icon, name, mod
+		row.switch = UI.Switch(row, mod.on(), function(on)
+			mod.set(on)
+			paint(row, on)
+		end)
+		row.switch:SetPoint("RIGHT", -20, 0)
+		if mod.disabled then
+			row.switch:Disable()
+			row.switch:SetAlpha(0.5)
+		end
+		m.rows[i] = row
+	end
+	function m:Refresh()
+		for _, row in ipairs(self.rows) do
+			local on = row.mod.on() and true or false
+			row.switch:Set(on)
+			paint(row, on)
+		end
+	end
+	local note = UI.Text(m, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
+	note:SetPoint("RIGHT", m, "RIGHT")
+end
+
+local function fillLooks(page)
+	-- Looks: a card per look; a click switches every window to it, no reload.
+	local l = page.looks
+	for i, name in ipairs(Theme.order) do
+		local skin = Theme.skins[name]
+		local on = name == Theme.skin.name
+		local card = CreateFrame("Button", nil, l)
+		card:SetSize(212, 86)
+		card:SetPoint("TOPLEFT", (i - 1) * 228, 0)
+		UI.surface(card, Theme.color.surfaceRaised, 1, on and Theme.color.accent or Theme.color.border, Theme.skin.radius and Theme.skin.radius.card or 0)
+		local icon = UI.Icon(card, on and "check" or "palette", 18, on and "accent" or "muted")
+		icon:SetPoint("TOPLEFT", 16, -16)
+		local label = UI.Text(card, skin.label, { size = "md", medium = true, tone = on and "accent" or "text" })
+		label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
+		local line = UI.Text(card, on and "In use. Every window draws in it." or "Click to switch: no reload.", { size = "xs", tone = "faint", wrap = true })
+		line:SetPoint("TOPLEFT", 16, -46)
+		line:SetWidth(180)
+		card:SetScript("OnClick", function()
+			ns.commands.look(name)
+		end)
+	end
+	local note = UI.Text(l, "The accent colour (General) goes over any look. Panels opened before a change keep their colours until /reload.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", 0, -106)
+	note:SetPoint("RIGHT", l, "RIGHT")
+end
+-- Each tab drawn the first time it is chosen (General when the page opens).
+local FILLS = { general = fillGeneral, modules = fillModules, looks = fillLooks }
+
 local function buildSettings(page)
 	local window = settings()
 	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "looks", label = "Looks" } }, function(key)
@@ -76,239 +306,12 @@ local function buildSettings(page)
 	page.modules:SetAllPoints(page.general)
 	page.modules:Hide()
 
-	local appraiser = ns.settings("appraiser")
-	local rares = ns.settings("rares")
-	local minimap = ns.settings("minimap")
-	-- Each tab drawn the first time it is chosen (General when the page opens).
-	local fills = {}
-	fills.general = function()
-		-- General: only settings the addon has, each changed at once.
-		local g = page.general
-		local lookOptions = {}
-		for _, name in ipairs(Theme.order) do
-			lookOptions[#lookOptions + 1] = { value = name, label = Theme.skins[name].label }
-		end
-		-- The controls, each set again from the settings at every refresh (a command may have changed one).
-		local c = {}
-		local function bigDrop()
-			return math.floor((appraiser.bigDrop or ns.BIG_DROP) / 10000)
-		end
-		settingsCard(g, "Display", 0, {
-			{ side = 0, row = 0, label = "Look", full = true, make = function(cell)
-				c.look = UI.Dropdown(cell, lookOptions, ns.currentLook(), function(v)
-					ns.commands.look(v)
-				end)
-				return c.look
-			end },
-			{ side = 0, row = 1, label = "Accent colour", make = function(cell)
-				local row = CreateFrame("Frame", nil, cell)
-				row:SetSize(#Theme.accents * 30 - 6, 24)
-				c.swatches = {}
-				for k, a in ipairs(Theme.accents) do
-					local sw = UI.Swatch(row, a.hex, function()
-						ns.commands.accent(window.accent == a.hex and "" or a.hex)
-					end)
-					sw:SetPoint("LEFT", (k - 1) * 30, 0)
-					sw:SetOn(window.accent == a.hex)
-					c.swatches[k] = sw
-				end
-				return row
-			end },
-			{ side = 1, row = 0, label = "Minimap button", make = function(cell)
-				c.minimap = UI.Switch(cell, not minimap.hidden, function(on)
-					minimap.hidden = not on
-					ns.refreshMinimap()
-				end)
-				return c.minimap
-			end },
-			{ side = 1, row = 1, label = "Window size", full = true, make = function(cell)
-				c.scale = UI.Slider(cell, 70, 130, 5, math.floor((window.scale or 1) * 100 + 0.5), function(v)
-					window.scale = v / 100
-					local open = ns.hubWindow()
-					if open then
-						open:SetScale(window.scale)
-					end
-				end, function(v)
-					return v .. "%"
-				end, { onRelease = true })
-				return c.scale
-			end },
-		})
-		settingsCard(g, "Alerts", -146, {
-			{ side = 0, row = 0, label = "Hide the HUD in combat", make = function(cell)
-				c.hideInCombat = UI.Switch(cell, appraiser.hideInCombat, function(on)
-					appraiser.hideInCombat = on
-				end)
-				return c.hideInCombat
-			end },
-			{ side = 0, row = 2, label = "Start and stop sessions by themselves", make = function(cell)
-				c.autoSession = UI.Switch(cell, ns.Session.automatic(), function(on)
-					ns.Session.setAutomatic(on)
-				end)
-				return c.autoSession
-			end },
-			{ side = 0, row = 1, label = "Mark rares with a skull", make = function(cell)
-				c.mark = UI.Switch(cell, rares.mark, function(on)
-					rares.mark = on
-				end)
-				if isRetail then
-					c.mark:Disable()
-					c.mark:SetAlpha(0.5)
-				end
-				return c.mark
-			end },
-			{ side = 1, row = 1, label = "Tell my party about rares", make = function(cell)
-				c.party = UI.Switch(cell, rares.party == true, function(on)
-					rares.party = on
-				end)
-				if isRetail then
-					c.party:Disable()
-					c.party:SetAlpha(0.5)
-				end
-				return c.party
-			end },
-			{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
-				c.bigDrop = UI.Slider(cell, 0, 50, 1, bigDrop(), function(v)
-					appraiser.bigDrop = v * 10000
-				end, function(v)
-					return v == 0 and "rares" or (v .. "g")
-				end)
-				return c.bigDrop
-			end },
-		})
-		function g:Refresh()
-			c.look:Set(ns.currentLook())
-			for k, a in ipairs(Theme.accents) do
-				c.swatches[k]:SetOn(window.accent == a.hex)
-			end
-			c.minimap:Set(not minimap.hidden)
-			c.scale:Set(math.floor((window.scale or 1) * 100 + 0.5))
-			c.hideInCombat:Set(appraiser.hideInCombat)
-			c.autoSession:Set(ns.Session.automatic())
-			c.mark:Set(rares.mark)
-			c.party:Set(rares.party == true)
-			c.bigDrop:Set(bigDrop())
-		end
-	end
-	fills.modules = function()
-		-- Modules: each part of the addon a player sees, on or off at once, no reload. The recorder is not
-		-- one: what the save records stays the same whatever is switched off.
-		local m = page.modules
-		local auction = ns.settings("auction")
-		local prices = ns.settings("prices")
-		local crafting = ns.settings("crafting")
-		local mail = ns.settings("mail")
-		local MODULES = {
-			{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
-				on = function() return appraiser.shown end,
-				set = function(on)
-					ns.setHud(on)
-				end },
-			{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
-				on = function() return not auction.hidden end,
-				set = function(on) auction.hidden = not on end },
-			{ icon = "tag", name = "Prices in tooltips", blurb = "Everyone's price, or your own scan's, under every item.",
-				on = function() return prices.tooltip ~= false end,
-				set = function(on) prices.tooltip = on end },
-			{ icon = "users", name = "Held counts in tooltips", blurb = "How many each of your characters holds, in bags, bank and mail.",
-				on = function() return prices.held ~= false end,
-				set = function(on) prices.held = on end },
-			{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
-				on = function() return auction.dealsAlert ~= false end,
-				set = function(on) auction.dealsAlert = on end },
-			{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
-				on = function() return mail.helper ~= false end,
-				set = function(on) mail.helper = on end },
-			{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
-				on = function() return crafting.strip ~= false end,
-				set = function(on) crafting.strip = on end },
-			{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
-				on = function() return rares.announce end,
-				set = function(on) rares.announce = on end, disabled = isRetail },
-		}
-		local list = UI.Panel(m, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
-		list:SetPoint("TOPLEFT")
-		list:SetPoint("RIGHT", m, "RIGHT")
-		-- 38 a row: nine modules and the note fit the page (manual test run 001: at 52 the list ran past it).
-		local ROW = 38
-		list:SetHeight(#MODULES * ROW + 8)
-		-- Each row painted from its setting: when drawn, and at every refresh (/gf hud may have changed one).
-		m.rows = {}
-		local function paint(row, on)
-			row.icon:SetTone(on and "accent" or "faint")
-			row.name:SetTextColor(Theme.rgb(on and Theme.color.text or Theme.color.textMuted))
-		end
-		for i, mod in ipairs(MODULES) do
-			local row = CreateFrame("Frame", nil, list)
-			row:SetHeight(ROW)
-			row:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW)
-			row:SetPoint("RIGHT", list, "RIGHT")
-			if i > 1 then
-				local rule = UI.solid(row, "BORDER", Theme.color.border)
-				rule:SetPoint("TOPLEFT", 16, 0)
-				rule:SetPoint("TOPRIGHT", -16, 0)
-				rule:SetHeight(UI.pixel())
-			end
-			local icon = UI.Icon(row, mod.icon, 20, mod.on() and "accent" or "faint")
-			icon:SetPoint("LEFT", 20, 0)
-			local name = UI.Text(row, mod.name, { size = "sm", medium = true, tone = mod.on() and "text" or "muted" })
-			name:SetPoint("TOPLEFT", 56, -5)
-			local blurb = UI.Text(row, mod.blurb, { size = "xs", tone = "faint" })
-			blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
-			blurb:SetPoint("RIGHT", row, "RIGHT", -80, 0)
-			row.icon, row.name, row.mod = icon, name, mod
-			row.switch = UI.Switch(row, mod.on(), function(on)
-				mod.set(on)
-				paint(row, on)
-			end)
-			row.switch:SetPoint("RIGHT", -20, 0)
-			if mod.disabled then
-				row.switch:Disable()
-				row.switch:SetAlpha(0.5)
-			end
-			m.rows[i] = row
-		end
-		function m:Refresh()
-			for _, row in ipairs(self.rows) do
-				local on = row.mod.on() and true or false
-				row.switch:Set(on)
-				paint(row, on)
-			end
-		end
-		local note = UI.Text(m, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
-		note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
-		note:SetPoint("RIGHT", m, "RIGHT")
-	end
-	fills.looks = function()
-		-- Looks: a card per look; a click switches every window to it, no reload.
-		local l = page.looks
-		for i, name in ipairs(Theme.order) do
-			local skin = Theme.skins[name]
-			local on = name == Theme.skin.name
-			local card = CreateFrame("Button", nil, l)
-			card:SetSize(212, 86)
-			card:SetPoint("TOPLEFT", (i - 1) * 228, 0)
-			UI.surface(card, Theme.color.surfaceRaised, 1, on and Theme.color.accent or Theme.color.border, Theme.skin.radius and Theme.skin.radius.card or 0)
-			local icon = UI.Icon(card, on and "check" or "palette", 18, on and "accent" or "muted")
-			icon:SetPoint("TOPLEFT", 16, -16)
-			local label = UI.Text(card, skin.label, { size = "md", medium = true, tone = on and "accent" or "text" })
-			label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
-			local line = UI.Text(card, on and "In use. Every window draws in it." or "Click to switch: no reload.", { size = "xs", tone = "faint", wrap = true })
-			line:SetPoint("TOPLEFT", 16, -46)
-			line:SetWidth(180)
-			card:SetScript("OnClick", function()
-				ns.commands.look(name)
-			end)
-		end
-		local note = UI.Text(l, "The accent colour (General) goes over any look. Panels opened before a change keep their colours until /reload.", { size = "xs", tone = "faint", wrap = true })
-		note:SetPoint("TOPLEFT", 0, -106)
-		note:SetPoint("RIGHT", l, "RIGHT")
-	end
+	local prefs = { window = window, appraiser = ns.settings("appraiser"), rares = ns.settings("rares"), minimap = ns.settings("minimap") }
 	function page.ensure(key)
 		local f = page[key]
 		if f and not f.built then
 			f.built = true
-			fills[key]()
+			FILLS[key](page, prefs)
 		end
 	end
 	page.ensure("general")
