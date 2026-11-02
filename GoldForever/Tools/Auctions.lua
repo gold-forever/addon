@@ -148,6 +148,56 @@ end
 -- mail seen again is not a second sale, and two alike mails are two.
 local SAME_EXPIRY = 300 -- seconds: the days left are read at slightly different moments
 
+-- Whether a mail with this content and expiry was seen before, by an expiry close enough that no other
+-- mail in this read matched; a new one is remembered. Either way it is matched now.
+local function seenBefore(seen, matched, content, expiry, now)
+	for at in pairs(seen) do
+		if math.abs(at - expiry) <= SAME_EXPIRY and not matched[content .. "@" .. at] then
+			matched[content .. "@" .. at] = true
+			return true
+		end
+	end
+	seen[expiry] = now
+	matched[content .. "@" .. expiry] = true
+	return false
+end
+
+-- Mails live 30 days: an expiry a day past can go.
+local function forgetPast(seen, now)
+	for at in pairs(seen) do
+		if at < now - 86400 then
+			seen[at] = nil
+		end
+	end
+end
+
+local function readSale(i, me, db, now, matched)
+	-- invoiceType, itemName, playerName (the buyer: not kept), bid, buyout, deposit, consignment,
+	-- moneyDelay, etherealTime, count, commerceAuction
+	local invoice, itemName, _, bid, buyout, deposit, cut, _, _, count = GetInboxInvoiceInfo(i)
+	if invoice ~= "seller" or not itemName then
+		return
+	end
+	-- The client gives 0 here: an unknown count is left empty, for the web app to work out from the post.
+	count = tonumber(count)
+	count = count and count > 0 and count or nil
+	local price = (bid and bid > 0) and bid or buyout
+	local daysLeft = select(7, GetInboxHeaderInfo(i)) or 0
+	local expiry = now + daysLeft * 86400
+	local content = table.concat({ me.ref, itemName, price or 0, deposit or 0, count or "" }, "|")
+	local seen = db.salesSeen[content]
+	if type(seen) ~= "table" then
+		seen = {}
+		db.salesSeen[content] = seen
+	end
+	if seenBefore(seen, matched, content, expiry, now) then
+		return
+	end
+	-- No free text in a stream: commas and semicolons out of the item name.
+	local name = (Encode.name(itemName):gsub(";", "."))
+	ns.append("sale", Encode.row(now, me.ref, name, count, price, deposit, cut))
+end
+
 local function readInbox()
 	local me = ns.me()
 	if not me or not GetInboxNumItems or not GetInboxInvoiceInfo then
@@ -158,48 +208,12 @@ local function readInbox()
 	local now = ns.now()
 	local matched = {} -- expiries matched in this read, so alike mails each match their own
 	for i = 1, GetInboxNumItems() do
-		-- invoiceType, itemName, playerName (the buyer: not kept), bid, buyout, deposit, consignment,
-		-- moneyDelay, etherealTime, count, commerceAuction
-		local invoice, itemName, _, bid, buyout, deposit, cut, _, _, count = GetInboxInvoiceInfo(i)
-		if invoice == "seller" and itemName then
-			-- The client gives 0 here: an unknown count is left empty, for the web app to work out from the post.
-			count = tonumber(count)
-			count = count and count > 0 and count or nil
-			local price = (bid and bid > 0) and bid or buyout
-			local daysLeft = select(7, GetInboxHeaderInfo(i)) or 0
-			local expiry = now + daysLeft * 86400
-			local content = table.concat({ me.ref, itemName, price or 0, deposit or 0, count or "" }, "|")
-			local seen = db.salesSeen[content]
-			if type(seen) ~= "table" then
-				seen = {}
-				db.salesSeen[content] = seen
-			end
-			local known
-			for at in pairs(seen) do
-				if math.abs(at - expiry) <= SAME_EXPIRY and not matched[content .. "@" .. at] then
-					known = at
-					break
-				end
-			end
-			if known then
-				matched[content .. "@" .. known] = true
-			else
-				seen[expiry] = now
-				matched[content .. "@" .. expiry] = true
-				-- No free text in a stream: commas and semicolons out of the item name.
-				local name = (Encode.name(itemName):gsub(";", "."))
-				ns.append("sale", Encode.row(now, me.ref, name, count, price, deposit, cut))
-			end
-		end
+		readSale(i, me, db, now, matched)
 	end
-	-- Mails live 30 days; expired ones can go, and so can the keys of the old format.
+	-- The keys of the old format can go too.
 	for content, seen in pairs(db.salesSeen) do
 		if type(seen) == "table" then
-			for at in pairs(seen) do
-				if at < now - 86400 then
-					seen[at] = nil
-				end
-			end
+			forgetPast(seen, now)
 		end
 		if type(seen) ~= "table" or next(seen) == nil then
 			db.salesSeen[content] = nil
@@ -217,6 +231,27 @@ local function expiredPrefix()
 	return (string.match(format, "^(.-)%%s") or format):gsub("[:%s]+$", "")
 end
 
+local function readExpiredMail(i, me, db, now, matched, prefix)
+	local _, _, _, subject, _, _, daysLeft = GetInboxHeaderInfo(i)
+	if type(subject) ~= "string" or prefix == "" or string.sub(subject, 1, #prefix) ~= prefix then
+		return
+	end
+	local _, itemID, _, count = GetInboxItem(i, 1)
+	local key = Encode.itemKey(GetInboxItemLink and GetInboxItemLink(i, 1)) or (itemID and tostring(itemID))
+	if not key then
+		return
+	end
+	local expiry = now + (daysLeft or 0) * 86400
+	local content = table.concat({ me.ref, key, count or "" }, "|")
+	local seen = db.endsSeen[content] or {}
+	db.endsSeen[content] = seen
+	if seenBefore(seen, matched, content, expiry, now) then
+		return
+	end
+	ns.append("auctionEnd", Encode.row(now, me.ref, key, count, nil, "expired"))
+	ns.catalogueItem(key)
+end
+
 local function readExpired()
 	local me = ns.me()
 	if not me or not GetInboxNumItems or not GetInboxHeaderInfo or not GetInboxItem then
@@ -228,40 +263,10 @@ local function readExpired()
 	local now = ns.now()
 	local matched = {}
 	for i = 1, GetInboxNumItems() do
-		local _, _, _, subject, _, _, daysLeft = GetInboxHeaderInfo(i)
-		if type(subject) == "string" and prefix ~= "" and string.sub(subject, 1, #prefix) == prefix then
-			local _, itemID, _, count = GetInboxItem(i, 1)
-			local key = Encode.itemKey(GetInboxItemLink and GetInboxItemLink(i, 1)) or (itemID and tostring(itemID))
-			if key then
-				local expiry = now + (daysLeft or 0) * 86400
-				local content = table.concat({ me.ref, key, count or "" }, "|")
-				local seen = db.endsSeen[content] or {}
-				db.endsSeen[content] = seen
-				local known
-				for at in pairs(seen) do
-					if math.abs(at - expiry) <= SAME_EXPIRY and not matched[content .. "@" .. at] then
-						known = at
-						break
-					end
-				end
-				if known then
-					matched[content .. "@" .. known] = true
-				else
-					seen[expiry] = now
-					matched[content .. "@" .. expiry] = true
-					ns.append("auctionEnd", Encode.row(now, me.ref, key, count, nil, "expired"))
-					ns.catalogueItem(key)
-				end
-			end
-		end
+		readExpiredMail(i, me, db, now, matched, prefix)
 	end
-	-- An expiry mail lives 30 days; a day after its expiry the key can go.
 	for content, seen in pairs(db.endsSeen) do
-		for at in pairs(seen) do
-			if at < now - 86400 then
-				seen[at] = nil
-			end
-		end
+		forgetPast(seen, now)
 		if next(seen) == nil then
 			db.endsSeen[content] = nil
 		end
