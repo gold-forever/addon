@@ -77,6 +77,48 @@ local function countStopped(name)
 	db.stopped[name] = e
 end
 
+-- The catalogue's sections, each made when missing.
+local CATALOGUE = {
+	"items", "recipes", "vendor", "questNames", "taxiNodes", "tooltips", "npcs", "objects", "maps", "trainers",
+	"merchants", "currencies", "factions", "legacyPerks", "questStarters", "legacyRewards", "achievements",
+	"statistics",
+}
+
+-- Every part of the save a module writes into, made when missing; a lean save drops what only Forever keeps.
+local function addMissingParts()
+	db.fields = db.fields or {}
+	for name, columns in pairs(ns.FIELDS) do
+		db.fields[name] = columns -- columns only ever grow (design 002, rule 2)
+	end
+	db.characters = db.characters or {}
+	db.events = db.events or {}
+	db.scans = db.scans or {}
+	db.guildBanks = db.guildBanks or {}
+	db.catalogue = db.catalogue or {}
+	for _, section in ipairs(CATALOGUE) do
+		db.catalogue[section] = db.catalogue[section] or {}
+	end
+	if ns.lean then
+		db.catalogue.tooltips = {}
+		db.catalogue.achievements = {}
+		db.mapArt = nil
+	end
+	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
+	db.errors = db.errors or {}
+end
+
+local function clientInfo()
+	local version, build, _, interface = GetBuildInfo()
+	return {
+		build = version .. "." .. build,
+		interface = interface,
+		locale = GetLocale(),
+		region = region(),
+		regionId = GetCurrentRegion and GetCurrentRegion() or nil,
+		portal = GetCVar and GetCVar("portal") or nil,
+	}
+end
+
 -- Creates or upgrades the saved table: its migrations first (Migrations.lua), then only missing parts are
 -- added. A save that cannot be upgraded, or one from a newer version, is left as it is and not loaded.
 local function init()
@@ -94,51 +136,9 @@ local function init()
 		db.errors, db.stopped = nil, nil
 	end
 	db.addon = ns.VERSION
-	db.fields = db.fields or {}
-	for name, columns in pairs(ns.FIELDS) do
-		db.fields[name] = columns -- columns only ever grow (design 002, rule 2)
-	end
-	db.characters = db.characters or {}
-	db.events = db.events or {}
-	db.scans = db.scans or {}
-	db.guildBanks = db.guildBanks or {}
-	db.catalogue = db.catalogue or {}
-	db.catalogue.items = db.catalogue.items or {}
-	db.catalogue.recipes = db.catalogue.recipes or {}
-	db.catalogue.vendor = db.catalogue.vendor or {}
-	db.catalogue.questNames = db.catalogue.questNames or {}
-	db.catalogue.taxiNodes = db.catalogue.taxiNodes or {}
-	db.catalogue.tooltips = db.catalogue.tooltips or {}
-	db.catalogue.npcs = db.catalogue.npcs or {}
-	db.catalogue.objects = db.catalogue.objects or {}
-	db.catalogue.maps = db.catalogue.maps or {}
-	db.catalogue.trainers = db.catalogue.trainers or {}
-	db.catalogue.merchants = db.catalogue.merchants or {}
-	db.catalogue.currencies = db.catalogue.currencies or {}
-	db.catalogue.factions = db.catalogue.factions or {}
-	db.catalogue.legacyPerks = db.catalogue.legacyPerks or {}
-	db.catalogue.questStarters = db.catalogue.questStarters or {}
-	db.catalogue.legacyRewards = db.catalogue.legacyRewards or {}
-	db.catalogue.achievements = db.catalogue.achievements or {}
-	db.catalogue.statistics = db.catalogue.statistics or {}
-	if ns.lean then
-		db.catalogue.tooltips = {}
-		db.catalogue.achievements = {}
-		db.mapArt = nil
-	end
-	db.settings = db.settings or { retentionDays = 14, sampleSeconds = 5, share = false }
-	db.errors = db.errors or {}
+	addMissingParts()
 	ns.recordErrorsIn(db.errors, countStopped)
-
-	local version, build, _, interface = GetBuildInfo()
-	db.client = {
-		build = version .. "." .. build,
-		interface = interface,
-		locale = GetLocale(),
-		region = region(),
-		regionId = GetCurrentRegion and GetCurrentRegion() or nil,
-		portal = GetCVar and GetCVar("portal") or nil,
-	}
+	db.client = clientInfo()
 end
 
 -- Drops event days older than the retention window (design 002, Retention). A player who exports keeps
