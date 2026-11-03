@@ -1,5 +1,15 @@
 # Gold Forever
 
+## Unreleased
+
+- **The wide Sell tab, laid out again.** The list and the chosen item each take half the page. Beside
+  the list is where you decide and post: the price in large type with its reason and why, your floor,
+  the typical price and the cheapest other listing, quantity, 12h · 24h · 48h, a full-width Post button,
+  and the deposit. Under it, the item's listings as a table: price, stack and count for gear, price and
+  quantity for commodities, yours marked; the wheel scrolls it. Prices show in full (6g 98s 99c). Held
+  under your floor, the price reads Held and the plain Post anyway button asks for a second press.
+  The narrow layout is unchanged.
+
 ## 0.17.0 (2026-11-04)
 
 - **Coin looted fast is kept.** With auto-loot, looting several corpses in a row could leave a corpse's

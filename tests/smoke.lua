@@ -1438,14 +1438,16 @@ do
       assert(width(AP.panel()) == 420 and pg.table.size == 5, what .. ": narrow, the panel's own width and five rows: " .. tostring(width(AP.panel())) .. " " .. tostring(pg.table.size))
       local top = anchor(pg.detail, "TOPLEFT")
       assert(top and top[2] == pg.table and top[3] == "BOTTOMLEFT", what .. ": narrow, the box under the list")
+      assert(pg.detail:IsShown() and not pg.box:IsShown(), what .. ": narrow, the narrow box as before")
     end
     local function wideShown(what, w)
       local pg = page()
       assert(width(AP.panel()) == w and pg.table.size == 13, what .. ": wide, " .. w .. " and thirteen rows: " .. tostring(width(AP.panel())) .. " " .. tostring(pg.table.size))
-      local top, right = anchor(pg.detail, "TOPRIGHT"), anchor(pg.table, "RIGHT")
-      assert(top and top[2] == pg and width(pg.detail) == 330, what .. ": wide, the box a column at the page's right")
-      assert(right and right[2] == pg.detail and right[3] == "LEFT", what .. ": wide, the list up to the box")
-      assert(not anchor(pg.detail, "TOPLEFT"), what .. ": wide, the box no longer under the list")
+      -- Two halves (addon#91): the box 416 wide, the page's full height, the list up to it 12 away.
+      local top, bottom, right = anchor(pg.box, "TOPRIGHT"), anchor(pg.box, "BOTTOMRIGHT"), anchor(pg.table, "RIGHT")
+      assert(top and top[2] == pg and bottom and bottom[2] == pg and width(pg.box) == 416, what .. ": wide, the box half the page at its right")
+      assert(right and right[2] == pg.box and right[3] == "LEFT" and right[4] == -12, what .. ": wide, the list up to the box")
+      assert(pg.box:IsShown() and not pg.detail:IsShown(), what .. ": wide, the wide box, not the narrow one")
     end
     assert(not auction.sellWide, "the Sell tab narrow at first")
     narrowShown("at first")
@@ -1455,6 +1457,56 @@ do
     assert(auction.sellWide == true, "wide is saved")
     wideShown("toggled", 880)
     assert(page().layoutButton.label.text:upper() == "NARROW", "the toggle offers narrow")
+    -- The wide box (addon#91): the item, the price and why, the facts, Post, and the listings as a table:
+    -- the bags' 7 Linen against own 5 at 30s and 20 at 42s 50c.
+    do
+      local pg = page()
+      local box = pg.box
+      box.GetHeight = function() return 436 end -- as its anchors make it at the auction house's height
+      fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+      pg:Refresh()
+      local _, chosen = AP.state()
+      assert(box.name.text:find(chosen.name, 1, true), "the item's name: " .. tostring(box.name.text))
+      assert(box.sub.text == "7 in bags · all at one price", "how many, and how they post: " .. tostring(box.sub.text))
+      assert(box.cheapest.text == ns.Money.format(4250, "colour"), "the cheapest other, own left out, in full: " .. tostring(box.cheapest.text))
+      assert(box.post:IsShown() and not box.anyway:IsShown(), "a price: the primary Post")
+      assert(box.listings.heading.text == "LISTINGS · 2 PRICES · 25 FOR SALE", "the listings counted: " .. tostring(box.listings.heading.text))
+      assert(box.listings.heads.mid.text == "QUANTITY" and box.listings.heads.right.text == "", "a commodity: price and quantity")
+      local rows = box.listings.rows
+      assert(rows[1].yours.text == "yours" and rows[2].yours.text == "", "the player's own marked")
+      assert(rows[2].mid.text == "20" and rows[2].price.text == ns.Money.format(4250, "colour"), "a line a price, its quantity")
+      assert(#rows == 6 and rows[3].price.text == "", "six rows at the panel's size, the rest empty")
+      assert(box.durations[2].primary:IsShown() and not box.durations[2].ghost:IsShown() and box.durations[1].ghost:IsShown(), "the chosen duration primary")
+      assert(pg.count.text == #AP.state() .. " item in your bags" or pg.count.text:find("items in your bags", 1, true), "how many under the list: " .. tostring(pg.count.text))
+      -- Held under the floor: Held, the plain button, the first press asks, another row disarms, two posts.
+      local _, row = AP.state()
+      local inner, sent = C_AuctionHouse.PostCommodity, nil
+      C_AuctionHouse.PostCommodity = function(_, _, _, unit) sent = unit end
+      local function hold()
+        row.suggestion = { reason = "hold", floor = 9000 }
+        row.anyway = 4200
+        pg:Refresh()
+      end
+      hold()
+      assert(box.price.text:find("Held", 1, true) and box.badge.label == "Hold", "held: Held, the badge Hold")
+      assert(box.anyway:IsShown() and not box.post:IsShown(), "held: the plain button")
+      assert(box.anyway.label.text:upper():find("POST ANYWAY: ", 1, true), "held: Post anyway: " .. tostring(box.anyway.label.text))
+      AP.post()
+      pg:Refresh()
+      assert(sent == nil and pg.note:GetText():find("Under your floor of", 1, true), "the first press only warns: " .. tostring(pg.note:GetText()))
+      assert(box.anyway.label.text:upper():find("PRESS AGAIN: POST ", 1, true), "armed: press again: " .. tostring(box.anyway.label.text))
+      local line = pg.table.lines[1]
+      line.scripts.OnClick(line)
+      hold()
+      assert(pg.note:GetText() == "", "another row: the warning gone")
+      assert(box.anyway.label.text:upper():find("POST ANYWAY: ", 1, true), "another row disarms: " .. tostring(box.anyway.label.text))
+      AP.post()
+      AP.post()
+      assert(sent == 4200, "the second press posts at the undercut price: " .. tostring(sent))
+      C_AuctionHouse.PostCommodity = inner
+      fire("AUCTION_HOUSE_SHOW_ERROR", 2) -- let the wait go
+      pg.note:SetText("")
+    end
     -- Previous / Next under the wide list, bottom right (addon#86): hidden with one page; with more, the
     -- page of how many, each off at its end; the buttons and the wheel page alike.
     do

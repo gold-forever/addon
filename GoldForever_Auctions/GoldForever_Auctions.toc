@@ -13,6 +13,7 @@ Surfaces\AuctionWaits.lua
 Tools\AuctionBlizzard.lua
 Tools\AuctionBooks.lua
 Surfaces\AuctionScanTab.lua
+Surfaces\AuctionSellWide.lua
 Surfaces\AuctionSell.lua
 Surfaces\AuctionBuy.lua
 Surfaces\AuctionCancel.lua

@@ -13,6 +13,7 @@ local settings, activeProfile = ns.auctionSettings, ns.activeProfile
 local heldHere = ns.Holdings.heldHere
 local bookKey, search, LISTED = Books.bookKey, Books.search, Books.LISTED
 local await, busy, money = ah.await, ah.busy, ns.Money.auction
+local Wide = ns.AuctionSellWide
 
 local DURATIONS = { { value = 1, label = "12 hours" }, { value = 2, label = "24 hours" }, { value = 3, label = "48 hours" } }
 
@@ -149,8 +150,10 @@ local function unitToPost(r)
 	end
 	if ah.armed ~= r.key .. ":anyway" then
 		ah.armed = r.key .. ":anyway"
-		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. string.format("%s is under your floor of %s. Press again to post anyway.",
-			money(r.anyway), money(r.suggestion.floor)) .. "|r")
+		-- Wide, the button itself asks for the second press (addon#91).
+		local text = ah.panel.post.wide and Wide.underFloor(r) or string.format("%s is under your floor of %s. Press again to post anyway.",
+			money(r.anyway), money(r.suggestion.floor))
+		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. text .. "|r")
 		return nil
 	end
 	return r.anyway, true
@@ -284,8 +287,8 @@ end)
 -- list taller and wider, the box a column beside it. Wide takes only the room the screen has beside the
 -- auction house; with too little for a list beside the box it stays narrow (`cramped`).
 local PAD = 36 -- the page's inset in the panel, left and right
-local GAP = 10 -- between the list and the box
-local COLUMN = 330 -- the box's width beside the list
+local GAP = 12 -- between the list and the box
+local COLUMN = 416 -- the box beside the list: half the page at 880 (addon#91); with less room the list takes the cut
 local WIDE = 880 -- the wide panel's width, room allowing
 local MIN_LIST = 260 -- the narrowest list worth putting beside the box
 local ROWS = { narrow = 5, wide = 13 }
@@ -327,14 +330,40 @@ local function roomBeside(panel)
 	return px / panel:GetEffectiveScale() - DOCK - MARGIN
 end
 
+-- The deposit the client takes for posting `q` of the row for duration `d`, where it says; else nil.
+local function deposit(r, d, q)
+	local AH = C_AuctionHouse
+	if r.commodity then
+		return AH.CalculateCommodityDeposit and AH.CalculateCommodityDeposit(r.id, d, q) or nil
+	end
+	return AH.CalculateItemDeposit and r.locations[1] and AH.CalculateItemDeposit(r.locations[1], d, q) or nil
+end
+
+-- The list's columns, narrow and wide: wide, the item's icon before its name and money in full (6g 98s
+-- 99c), a held item's price "hold" (addon#91). A cell is its column's width less 16.
+local COLUMNS = { narrow = { typical = 84, post = 92 }, wide = { typical = 100, post = 104 } }
+
 local function buildPost(page)
+	local wideNow = false
+	local function cash(copper)
+		return wideNow and ns.Money.format(copper, "colour") or money(copper)
+	end
+	local function itemName(r)
+		local icon = wideNow and r.icon and ("|T" .. r.icon .. ":18:18|t ") or ""
+		return icon .. r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.count .. "|r"
+	end
+	local function postAt(r)
+		local sug = r.suggestion
+		if sug and sug.unit then
+			return cash(sug.unit)
+		end
+		return wideNow and sug and (Theme.escape(Theme.color.textFaint) .. "hold|r") or "-"
+	end
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 3, text = function(r) return r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.count .. "|r" end,
-			color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "name", title = "Item", flex = 3, text = itemName, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		-- The typical price, what selling is priced against; the tooltip's "Market" is the day's value (addon#21).
-		{ key = "typical", title = "Typical", width = 84, align = "RIGHT", text = function(r) return r.typical and money(r.typical) or "-" end, sort = function(r) return r.typical or 0 end },
-		{ key = "post", title = "Post at", width = 92, align = "RIGHT", text = function(r) return r.suggestion and r.suggestion.unit and money(r.suggestion.unit) or "-" end,
-			sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
+		{ key = "typical", title = "Typical", width = COLUMNS.narrow.typical, align = "RIGHT", text = function(r) return r.typical and cash(r.typical) or "-" end, sort = function(r) return r.typical or 0 end },
+		{ key = "post", title = "Post at", width = COLUMNS.narrow.post, align = "RIGHT", text = postAt, sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
 		pageSize = 5,
 		rowHeight = 24,
@@ -342,6 +371,10 @@ local function buildPost(page)
 		itemId = function(r) return r.id end,
 		isSelected = function(r) return ah.chosen and r.key == ah.chosen.key end,
 		onRowClick = function(r)
+			-- Another row disarms a pressed Post anyway; wide, its warning goes with it.
+			if wideNow and ah.armed then
+				page.note:SetText("")
+			end
 			ah.chosen, ah.armed, ah.confirm = r, nil, nil
 			search(r, true)
 			ah.refresh()
@@ -355,21 +388,23 @@ local function buildPost(page)
 	name:SetPoint("TOPLEFT", 14, -12)
 	name:SetPoint("RIGHT", detail, "RIGHT", -166, 0)
 	-- The selling rules live in the hub: this opens them on a rule for the item in view.
-	local ruleButton = UI.Button(detail, "Rule >", function()
+	local function openRule()
 		ns.openPage("rules")
 		if ns.rulesPage and ah.chosen then
 			ns.rulesPage.chooseScope("add-item")
 		end
-	end, { width = 72, height = 24 })
+	end
+	local ruleButton = UI.Button(detail, "Rule >", openRule, { width = 72, height = 24 })
 	ruleButton:SetPoint("TOPRIGHT", -10, -8)
 	page.ruleButton = ruleButton
 	-- Wide or narrow, saved in the settings; the label offers the other.
-	local layoutButton = UI.Button(detail, "Wide", function()
+	local function toggleLayout()
 		local s = settings()
 		s.sellWide = not s.sellWide
 		page.applyLayout()
 		ah.refresh()
-	end, { kind = "ghost", width = 64, height = 24 })
+	end
+	local layoutButton = UI.Button(detail, "Wide", toggleLayout, { kind = "ghost", width = 64, height = 24 })
 	layoutButton:SetPoint("RIGHT", ruleButton, "LEFT", -6, 0)
 	page.layoutButton = layoutButton
 	local reason = UI.Text(detail, "", { size = "sm" })
@@ -416,12 +451,35 @@ local function buildPost(page)
 	qty:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
 	page.quantity = qty
 	duration:SetWidth(110)
-	local button = UI.Button(detail, "Post", function()
+	local function press()
 		ns.safely("auction post", post)
 		ah.refresh()
-	end, { kind = "primary", width = 240, height = 30 })
+	end
+	local button = UI.Button(detail, "Post", press, { kind = "primary", width = 240, height = 30 })
 	page.button = button
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
+
+	-- Wide, the box beside the list (addon#91); quantity and duration remembered for the item as narrow's.
+	local box = Wide.build(page, {
+		post = press, rule = openRule, toggle = toggleLayout,
+		quantity = function(v)
+			if ah.chosen then
+				settings().quantities[ah.chosen.key] = v
+				ah.refresh()
+			end
+		end,
+		duration = function(v)
+			if ah.chosen then
+				settings().durations[ah.chosen.key] = v
+			else
+				settings().duration = v
+			end
+			ah.refresh()
+		end,
+	})
+	box:Hide()
+	page.box = box
+	page.count = UI.Text(page, "", { size = "xs", tone = "faint" })
 
 	-- Under the wide list at its right: Previous, the page of how many, Next; the wheel still pages.
 	local paging = CreateFrame("Frame", nil, page)
@@ -440,7 +498,6 @@ local function buildPost(page)
 	paging.text:SetWidth(48)
 	paging.previous:SetPoint("RIGHT", paging.text, "LEFT", -6, 0)
 	page.pager = paging
-	local wideNow = false
 	local drawTable = tbl.Refresh
 	-- Every redraw of the list (rows, a click, the wheel, a resize) sets the pager to the page shown.
 	function tbl:Refresh()
@@ -460,22 +517,31 @@ local function buildPost(page)
 		local panel = page:GetParent()
 		panel:SetWidth(plan.width)
 		wideNow = plan.wide
+		page.wide = plan.wide
+		local widths = COLUMNS[plan.wide and "wide" or "narrow"]
+		tbl.columns[2].width, tbl.columns[3].width = widths.typical, widths.post
 		tbl.size = plan.rows
 		tbl:ClearAllPoints()
 		detail:ClearAllPoints()
 		duration:ClearAllPoints()
 		qtyLabel:ClearAllPoints()
 		button:ClearAllPoints()
+		box:ClearAllPoints()
+		page.note:ClearAllPoints()
 		tbl:SetPoint("TOPLEFT")
+		detail:SetShown(not plan.wide)
+		box:SetShown(plan.wide)
+		page.count:SetShown(plan.wide)
+		page.layoutButton = plan.wide and box.layoutButton or layoutButton
 		if plan.wide then
-			detail:SetPoint("TOPRIGHT", page, "TOPRIGHT")
-			detail:SetWidth(plan.column)
-			detail:SetHeight(tbl:GetHeight())
-			tbl:SetPoint("RIGHT", detail, "LEFT", -plan.gap, 0)
-			button:SetPoint("BOTTOMLEFT", 14, 11)
-			button:SetPoint("BOTTOMRIGHT", -14, 11)
-			duration:SetPoint("BOTTOMLEFT", 14, 50)
-			qtyLabel:SetPoint("BOTTOMLEFT", 14, 92)
+			-- Two halves: the list, and the box the page's full height.
+			box:SetPoint("TOPRIGHT", page, "TOPRIGHT")
+			box:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT")
+			box:SetWidth(plan.column)
+			tbl:SetPoint("RIGHT", box, "LEFT", -plan.gap, 0)
+			box.placeNote(page.note)
+			page.count:ClearAllPoints()
+			page.count:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
 		else
 			tbl:SetPoint("RIGHT", page, "RIGHT")
 			detail:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
@@ -485,12 +551,13 @@ local function buildPost(page)
 			button:SetWidth(240)
 			duration:SetPoint("BOTTOMLEFT", 14, 12)
 			qtyLabel:SetPoint("BOTTOMLEFT", 14, 56)
+			page.note:SetParent(page)
+			page.note:SetPoint("TOPLEFT", detail, "BOTTOMLEFT", 0, -8)
+			page.note:SetPoint("RIGHT", page, "RIGHT")
+			page.note:SetWordWrap(true)
 		end
 		paging:ClearAllPoints()
 		paging:SetPoint("TOPRIGHT", tbl, "BOTTOMRIGHT", 0, -6)
-		page.note:ClearAllPoints()
-		page.note:SetPoint("TOPLEFT", detail, "BOTTOMLEFT", 0, -8)
-		page.note:SetPoint("RIGHT", plan.wide and detail or page, "RIGHT")
 		tbl:Refresh()
 	end
 	-- The layout chosen, as far as the room beside the auction house allows: on showing, and on a toggle.
@@ -499,6 +566,7 @@ local function buildPost(page)
 		local plan = layout(wide, wide and roomBeside(page:GetParent()) or nil)
 		place(plan)
 		layoutButton:SetLabel(wide and "Narrow" or "Wide")
+		box.layoutButton:SetLabel("Narrow")
 		if plan.cramped then
 			page.note:SetText("Too little room beside the auction house for the wide layout at this UI scale.")
 		end
@@ -510,8 +578,29 @@ local function buildPost(page)
 		page:GetParent():SetWidth(ah.WIDTH)
 	end)
 
+	-- Wide: the box drawn from the chosen row, its book and what posting it would take.
+	local function drawWide()
+		local r = ah.chosen
+		page.count:SetText(string.format("%d %s in your bags", #ah.rows, #ah.rows == 1 and "item" or "items"))
+		if not r then
+			box:Draw({ note = page.note:GetText() })
+			return
+		end
+		local live = ah.live[r.key]
+		local book = r.commodity and live or (r.itemKey and ah.live[bookKey(r.id, false, r.itemKey.itemLevel)])
+		local q, d = quantity(r), durationOf(r)
+		box:Draw({
+			r = r, quantity = q, duration = d, live = live, levels = live and book and book.levels or nil,
+			armed = ah.armed == r.key .. ":anyway", busy = busy(), deposit = deposit(r, d, q), note = page.note:GetText(),
+		})
+	end
+
 	function page:Refresh()
 		local faint = Theme.escape(Theme.color.textFaint)
+		if wideNow then
+			drawWide()
+			return
+		end
 		if not ah.chosen then
 			name:SetText(faint .. "Choose an item.|r")
 			reason:SetText("")
