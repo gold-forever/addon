@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.17.0 (2026-11-04)
 
 - **Coin looted fast is kept.** With auto-loot, looting several corpses in a row could leave a corpse's
   loot with no coin while the money still arrived. A coin rise no loot window took is now given to the
