@@ -8,6 +8,7 @@
 ## AddonCompartmentFuncOnEnter: GoldForever_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: GoldForever_OnAddonCompartmentLeave
 ## OptionalDeps: GoldForever_Data
+## X-Curse-Project-ID: 1782328
 
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
