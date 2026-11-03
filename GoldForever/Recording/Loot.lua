@@ -120,6 +120,9 @@ ns.on("LOOT_READY", "loot", function()
 	end
 	local w = { t = ns.now(), slots = {}, sources = {}, order = {}, coinFrom = {} }
 	w.map, w.x, w.y = ns.position()
+	if not w.map then
+		w.instanceId = ns.instanceId() -- old raids (Molten Core) have no map: the instance names the place
+	end
 	w.fish = IsFishingLoot and IsFishingLoot() or nil
 	for slot = 1, GetNumLootItems() do
 		w.slots[slot] = readSlot(w, slot)
@@ -338,7 +341,7 @@ local function finish(w)
 			ns.catalogueItem(key)
 		end
 		local src = w.sources[guid].src or sourceOf(guid)
-		ns.record("loot", { t = w.t, char = me.ref, map = w.map, x = w.x, y = w.y, src = src, first = first, coin = shares[guid] or 0, items = Encode.items(items), fish = w.fish })
+		ns.record("loot", { t = w.t, char = me.ref, map = w.map, x = w.x, y = w.y, src = src, first = first, coin = shares[guid] or 0, items = Encode.items(items), fish = w.fish, instanceId = w.instanceId })
 		-- guid and first stay in memory, for the session HUD's kill count; the row saved is the one above.
 		rows[#rows + 1] = { src = src, coin = shares[guid] or 0, items = items, guid = guid, first = first }
 	end

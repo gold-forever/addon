@@ -7,6 +7,7 @@ local handlers = {}
 local rows = {} -- the loot rows recorded
 local clock = 100
 local timers = {} -- { at, fn }, run by wait()
+local LOOT_COLUMNS -- Schema.lua's loot columns, by name (below)
 local ns = {
 	FIELDS = {},
 	db = function()
@@ -30,12 +31,20 @@ local ns = {
 	end,
 	record = function(stream, row)
 		if stream == "loot" then
+			for name in pairs(row) do
+				eq(LOOT_COLUMNS[name] ~= nil, true, "the loot row's column " .. name .. " is in the schema")
+			end
 			rows[#rows + 1] = row
 		end
 	end,
 	catalogueItem = function() end,
+	instanceId = function() end, -- Levelling.lua's: outside an instance until set below
 }
 loadEncode(ns)
+-- The loot stream's columns as Schema.lua declares them: ns.record refuses a row with any other.
+local schema = { Encode = ns.Encode }
+assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", schema)
+LOOT_COLUMNS = ns.Encode.columns(schema.FIELDS.loot)
 function hooksecurefunc() end
 function GetTime()
 	return clock
@@ -295,5 +304,21 @@ earn(200)
 handlers.LOOT_CLOSED()
 wait(5)
 eq(coins(rows), "100 200", "a rise claimed once: the next window's money slot does not take it again")
+
+-- Where the game gives no map (old raids such as Molten Core), the loot row names the instance instead
+-- (Levelling.lua's ns.instanceId, which catalogues it); with a map it is left empty.
+ns.instanceId = function()
+	return 409
+end
+slots = { { item = 242639, qty = 1, sources = { A, 1 } } }
+got = lootAll()
+eq(got[1].map, nil, "no map in an old raid")
+eq(got[1].instanceId, 409, "the loot row names the instance instead")
+C_Map.GetBestMapForUnit = function()
+	return 1429
+end
+C_Map.GetPlayerMapPosition = function() end
+got = lootAll()
+eq(got[1].map .. " " .. tostring(got[1].instanceId), "1429 nil", "with a map, no instance")
 
 return checks()

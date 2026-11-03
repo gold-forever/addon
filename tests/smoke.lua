@@ -2845,7 +2845,7 @@ money = money + 30; fireNow("PLAYER_MONEY")
 fireNow("LOOT_SLOT_CLEARED", 1) fireNow("LOOT_CLOSED")
 money = money + 20; fireNow("PLAYER_MONEY")
 wait(3)
-seen("BACK TO BACK ", string.sub(table.concat(coinDay.loot, ";"), before + 1), ";1792517535,1,1429,412,679,n299,1,30,,;1792517535,1,1429,412,679,n299,1,20,,")
+seen("BACK TO BACK ", string.sub(table.concat(coinDay.loot, ";"), before + 1), ";1792517535,1,1429,412,679,n299,1,30,,,;1792517535,1,1429,412,679,n299,1,20,,,")
 
 -- A class trainer: spells by level, no profession skill. Tagged with the visitor's class; at the
 -- level-up below, what is new there comes up in chat.

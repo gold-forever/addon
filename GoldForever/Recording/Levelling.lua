@@ -17,7 +17,7 @@ local function instance()
 end
 
 -- The instance the player is in (its ID, with its name kept in the catalogue), nil outside one.
-local function instanceId()
+function ns.instanceId()
 	if not instance() or not GetInstanceInfo then
 		return nil
 	end
@@ -29,6 +29,7 @@ local function instanceId()
 	end
 	return id
 end
+local instanceId = ns.instanceId
 
 local function map()
 	return C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player") or nil

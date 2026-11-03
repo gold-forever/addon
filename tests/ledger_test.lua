@@ -27,6 +27,7 @@ local ns = {
 	now = function() return 1793175968 end,
 	tornDown = function() return false end,
 	catalogueItem = function() end,
+	instanceId = function() end, -- Levelling.lua's, outside an instance
 	record = function(stream, row)
 		if stream == "money" then
 			money[#money + 1] = row.delta .. "," .. row.ctx

@@ -5,6 +5,8 @@
 - **Coin looted fast is kept.** With auto-loot, looting several corpses in a row could leave a corpse's
   loot with no coin while the money still arrived. A coin rise no loot window took is now given to the
   window whose coin it is, if it comes within two seconds; no rise is counted twice.
+  Loot in old raids where the game gives no map, such as Molten Core, now records the instance it
+  was looted in.
 
 - **The mail panel no longer covers an opened mail.** The Gold Forever box at the mailbox now sits under
   the inbox, or to its left when there is no room below, never where the opened mail shows. When a mail
