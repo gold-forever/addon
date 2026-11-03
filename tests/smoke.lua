@@ -2435,6 +2435,30 @@ do
   auction.profiles, auction.profile = keepProfiles, keepProfile
   GoldForever_Prices = prices
 end
+-- The mailbox's frames as the client places them: a box (left, bottom, width, height in the frame's own
+-- units) at an effective scale; hooks chain as the client's do. A mail addon moves one by changing its
+-- box, then calling SetPoint. The screen is UIParent: 768 pixels high, 16:9, at `scale`.
+local function mailFrame(l, b, w, h, scale)
+  local f = widget({ hooks = {}, shown = true, at = { l = l, b = b, w = w, h = h }, scale = scale or 1 })
+  function f:GetLeft() return self.at.l end
+  function f:GetBottom() return self.at.b end
+  function f:GetRight() return self.at.l + self.at.w end
+  function f:GetTop() return self.at.b + self.at.h end
+  function f:GetEffectiveScale() return self.scale end
+  function f:IsShown() return self.shown end
+  function f:SetPoint() end
+  function f:HookScript(name, fn) local was = self.hooks[name]; self.hooks[name] = function(...) if was then was(...) end fn(...) end end
+  return f
+end
+local function mailScreen(scale)
+  if not scale then
+    UIParent.GetLeft, UIParent.GetBottom, UIParent.GetRight, UIParent.GetTop, UIParent.GetEffectiveScale = nil, nil, nil, nil, nil
+    return
+  end
+  UIParent.GetLeft, UIParent.GetBottom = function() return 0 end, function() return 0 end
+  UIParent.GetRight, UIParent.GetTop = function() return 1365 / scale end, function() return 768 / scale end
+  UIParent.GetEffectiveScale = function() return scale end
+end
 -- The mail helper: one press opens the auction mails in turn (a player's letter and a COD mail stay),
 -- the next when the inbox has changed.
 do
@@ -2451,8 +2475,8 @@ do
   function GetInboxInvoiceInfo() return nil end
   local opened = {}
   function AutoLootMailItem(i) opened[#opened + 1] = inbox[i][2]; table.remove(inbox, i) end
-  MailFrame = widget({ hooks = {} })
-  function MailFrame:HookScript(name, fn) self.hooks[name] = fn end
+  mailScreen(1)
+  MailFrame = mailFrame(16, 240, 338, 424)
   fire("MAIL_SHOW")
   assert(ns.Mail.panel():IsShown(), "the panel shows beside the mailbox")
   -- The inbox closed without MAIL_CLOSED (its close button, Escape): the panel goes with it.
@@ -2515,6 +2539,102 @@ do
   fire("MAIL_CLOSED")
   GetInboxNumItems, GetInboxHeaderInfo, GetInboxInvoiceInfo, AutoLootMailItem = keep[1], keep[2], keep[3], keep[4]
   MailFrame = nil
+  mailScreen()
+end
+-- The panel never covers an opened mail (addon#89): under the inbox where there is room, else to its
+-- left, else beside the open mail; placed again when a mail opens or a mail addon moves the frames; at
+-- the usual UI scales, in both clients' frame sizes, in every look.
+do
+  -- The panel's box in screen pixels, from its one anchor and the box of the frame it is anchored to.
+  local function panelBox(p)
+    local a = anchor(p, "TOPLEFT") or anchor(p, "TOPRIGHT")
+    local to, ps = a[2], p:GetEffectiveScale()
+    local x = (a[3]:find("LEFT") and to.at.l or to.at.l + to.at.w) * to.scale + a[4] * ps
+    local y = (a[3]:find("TOP") and to.at.b + to.at.h or to.at.b) * to.scale + a[5] * ps
+    local w, h = p:GetWidth() * ps, p:GetHeight() * ps
+    local l = a[1]:find("LEFT") and x or x - w
+    return { l = l, r = l + w, t = y, b = y - h }
+  end
+  local function boxOf(f)
+    local s = f.scale
+    return { l = f.at.l * s, b = f.at.b * s, r = (f.at.l + f.at.w) * s, t = (f.at.b + f.at.h) * s }
+  end
+  local function meet(a, b) return a.l < b.r and b.l < a.r and a.b < b.t and b.b < a.t end
+  local function clear(what, scale)
+    local p = ns.Mail.panel()
+    local box, open, inbox = panelBox(p), boxOf(OpenMailFrame), boxOf(MailFrame)
+    local where = string.format("%s: panel %d,%d-%d,%d, open mail %d,%d-%d,%d", what, box.l, box.b, box.r, box.t, open.l, open.b, open.r, open.t)
+    assert(not meet(box, open), where .. ": the panel covers the open mail")
+    assert(not meet(box, inbox), where .. ": the panel covers the inbox")
+    assert(box.l >= 0 and box.b >= 0 and box.r <= 1365 and box.t <= 768, where .. ": the panel off the screen")
+    return anchor(p, "TOPLEFT") or anchor(p, "TOPRIGHT")
+  end
+  -- The panel as drawn: 260 by 150 at the UI's scale.
+  local function sized(scale)
+    local p = ns.Mail.panel()
+    p.GetWidth, p.GetHeight, p.GetEffectiveScale = function() return 260 end, function() return 150 end, function() return scale end
+  end
+  -- Inbox open, then a mail opened: the open mail right of the inbox, as both clients place it.
+  local function openMail(scale, w, h, inboxScale)
+    mailScreen(scale)
+    local top = 768 / scale - 104
+    MailFrame = mailFrame(16, top - h, w, h, inboxScale or scale)
+    OpenMailFrame = mailFrame(16 + w, top - h, w, h, inboxScale or scale)
+    OpenMailFrame.shown = false
+    fire("MAIL_SHOW")
+    sized(scale)
+    OpenMailFrame.shown = true
+    if OpenMailFrame.hooks.OnShow then OpenMailFrame.hooks.OnShow(OpenMailFrame) end
+    wait(0.1)
+  end
+  local function close()
+    if MailFrame.hooks.OnHide then MailFrame.hooks.OnHide(MailFrame) end
+    fire("MAIL_CLOSED")
+  end
+  -- A mail opened at the usual UI scales, in the retail inbox's size and the classic one's.
+  for _, scale in ipairs({ 0.64, 0.8, 1, 1.15 }) do
+    for _, size in ipairs({ { 338, 424 }, { 384, 512 } }) do
+      local what = string.format("scale %.2f, inbox %dx%d", scale, size[1], size[2])
+      openMail(scale, size[1], size[2])
+      clear(what, scale)
+      close()
+    end
+  end
+  -- Room below the inbox: the panel under it, the mail open or not.
+  openMail(1, 338, 424)
+  local at = clear("room below", 1)
+  assert(at[1] == "TOPLEFT" and at[2] == MailFrame and at[3] == "BOTTOMLEFT", "room below: under the inbox: " .. tostring(at[3]))
+  -- A mail addon puts the open mail under the inbox, where the panel was: it moves out of the way.
+  OpenMailFrame.at.l, OpenMailFrame.at.b = 16, MailFrame.at.b - 6 - 424
+  OpenMailFrame:SetPoint("TOPLEFT", MailFrame, "BOTTOMLEFT", 0, -6)
+  wait(0.1)
+  at = clear("open mail moved under the inbox", 1)
+  assert(at[2] ~= MailFrame or at[3] ~= "BOTTOMLEFT", "moved off the open mail")
+  close()
+  -- No room below (an addon moved the inbox down and right): left of the inbox.
+  openMail(1, 338, 424)
+  MailFrame.at.l, MailFrame.at.b = 400, 40
+  OpenMailFrame.at.l, OpenMailFrame.at.b = 738, 40
+  MailFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 400, 40)
+  wait(0.1)
+  at = clear("no room below", 1)
+  assert(at[1] == "TOPRIGHT" and at[2] == MailFrame and at[3] == "TOPLEFT", "no room below: left of the inbox: " .. tostring(at[3]))
+  close()
+  -- An addon scales the mail frames down (0.8) at UI scale 1.
+  openMail(1, 384, 512, 0.8)
+  clear("mail frames at 0.8", 1)
+  close()
+  -- Every look: the panel drawn again in it, a mail opened, still clear.
+  local keepLook = ns.currentLook()
+  for _, look in ipairs({ "web", "classic", "arcane" }) do
+    SlashCmdList.GOLDFOREVER("look " .. look)
+    openMail(1.15, 384, 512)
+    clear(look, 1.15)
+    close()
+  end
+  SlashCmdList.GOLDFOREVER("look " .. keepLook)
+  MailFrame, OpenMailFrame = nil, nil
+  mailScreen()
 end
 seen("RARE ROWS ", tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB.events["2026-10-20"].rare and GoldForeverDB.events["2026-10-20"].rare[1]), "1792517415,1,947,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate;1792517415,1,61234,1429,412,679,nameplate;1792517415,1,947,1429,412,679,nameplate", "nil")
 seen("APPRAISER\n", tostring(ns.test.sessionText and ns.test.sessionText()), "Loot something to start a session.")

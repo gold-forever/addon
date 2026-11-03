@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The mail panel no longer covers an opened mail.** The Gold Forever box at the mailbox now sits under
+  the inbox, or to its left when there is no room below, never where the opened mail shows. When a mail
+  opens, closes or is moved by another mail addon, the box moves out of its way, at any UI scale.
+
 - **Mobs whose tooltip the game hides are no longer looked up every session (retail).** Retail hides
   the tooltip of a mob looted in a delve or dungeon, even after the loading screen out of it. Such a mob
   is now left alone for 10 sessions, or until you loot it outside an instance. Where the tooltip can be

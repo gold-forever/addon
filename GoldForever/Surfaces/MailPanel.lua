@@ -47,12 +47,101 @@ local function build()
 	return p
 end
 
--- Beside the mailbox.
+-- Where the panel may sit, first that fits: under the inbox, to its left, then beside or under the open
+-- mail; never on the inbox or the open mail (the client puts it right of the inbox, an addon anywhere).
+local GAP = 6
+local SPOTS = {
+	{ "TOPLEFT", "MailFrame", "BOTTOMLEFT", 0, -GAP },
+	{ "TOPRIGHT", "MailFrame", "TOPLEFT", -GAP, 0 },
+	{ "TOPLEFT", "OpenMailFrame", "TOPRIGHT", GAP, 0 },
+	{ "TOPLEFT", "OpenMailFrame", "BOTTOMLEFT", 0, -GAP },
+}
+
+-- A placed frame's box in screen pixels, or nil.
+local function box(f)
+	local left, bottom = f and f:GetLeft(), f and f:GetBottom()
+	if not left or not bottom then
+		return nil
+	end
+	local s = f:GetEffectiveScale()
+	return { l = left * s, b = bottom * s, r = f:GetRight() * s, t = f:GetTop() * s }
+end
+
+local function meets(a, b)
+	return a.l < b.r and b.l < a.r and a.b < b.t and b.b < a.t
+end
+
+-- The panel's box at `spot` beside `to`, the box of the frame it is anchored to.
+local function boxAt(p, spot, to)
+	local s = p:GetEffectiveScale()
+	local w, h = p:GetWidth() * s, p:GetHeight() * s
+	local x = (spot[3]:find("LEFT") and to.l or to.r) + spot[4] * s
+	local y = (spot[3]:find("TOP") and to.t or to.b) + spot[5] * s
+	local l = spot[1]:find("LEFT") and x or x - w
+	return { l = l, r = l + w, t = y, b = y - h }
+end
+
+local function onScreen(a)
+	local screen = box(UIParent)
+	return not screen or (a.l >= screen.l and a.r <= screen.r and a.b >= screen.b and a.t <= screen.t)
+end
+
+local function covers(a)
+	for _, name in ipairs({ "MailFrame", "OpenMailFrame" }) do
+		local other = box(_G[name])
+		if other and meets(a, other) then
+			return true
+		end
+	end
+	return false
+end
+
+-- The first spot on screen clear of both frames, else the first clear of them, else under the inbox.
+local function spot(p)
+	local clear
+	for _, at in ipairs(SPOTS) do
+		local to = box(_G[at[2]])
+		local a = to and boxAt(p, at, to)
+		local free = a and not covers(a)
+		if free and onScreen(a) then
+			return at
+		end
+		clear = clear or (free and at)
+	end
+	return clear or SPOTS[1]
+end
+
 local function dock(p)
+	local at = spot(p)
 	p:ClearAllPoints()
-	p:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
+	p:SetPoint(at[1], _G[at[2]], at[3], at[4], at[5])
 end
 panels = UI.perLook(build, dock)
+
+-- The open mail shown, hidden or moved (by the client or a mail addon): the panel placed again, at once
+-- and once the frame has settled.
+local function redock()
+	local panel = panels.frame
+	if panel and panel:IsShown() then
+		dock(panel)
+	end
+end
+local function redockSoon()
+	ns.safely("mail helper", redock)
+	C_Timer.After(0, function()
+		ns.safely("mail helper", redock)
+	end)
+end
+local watched = {}
+local function watch(frame)
+	if not frame or watched[frame] or not frame.HookScript then
+		return
+	end
+	watched[frame] = true
+	frame:HookScript("OnShow", redockSoon)
+	frame:HookScript("OnHide", redockSoon)
+	hooksecurefunc(frame, "SetPoint", redockSoon)
+end
 
 local function close()
 	Mail.stop()
@@ -78,6 +167,8 @@ ns.on("MAIL_SHOW", "mail helper", function()
 	if not panel or panels.key ~= ns.Theme.key then
 		panel = panels:get()
 	end
+	watch(MailFrame)
+	watch(OpenMailFrame)
 	dock(panel)
 	panel:Show()
 	refresh()
