@@ -8,7 +8,7 @@ enable-nolib-creation: no
 
 # Written for players, not generated from the commit log.
 manual-changelog:
-  filename: GoldForever/CHANGELOG.md
+  filename: CHANGELOG.md
   markup-type: markdown
 
 move-folders:
