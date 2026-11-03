@@ -1,6 +1,6 @@
 # A tag addon-v<version> (addon-v0.13.1) tests the addon, packages GoldForever/ and GoldForever_Auctions/
-# with the BigWigs packager (.pkgmeta), attests the zip's build provenance, and publishes GoldForever-<version>.zip: to a
-# GitHub release always, and to
+# with the BigWigs packager (.pkgmeta), checks the zip holds both folders, attests the zip's build provenance, and
+# publishes GoldForever-<version>.zip and its SHA256SUMS: to a GitHub release always, and the zip to
 # CurseForge and Wago when their project ids are in the TOC (X-Curse-Project-ID, X-Wago-ID) and their
 # tokens are repository secrets (CF_API_KEY, WAGO_API_TOKEN). Without them the packager skips that site
 # and says so in the log; the release on GitHub still happens.
@@ -65,6 +65,26 @@ jobs:
           else
             echo "Wago: SKIPPED (project id in the TOC: ${wago_id:-none}, WAGO_API_TOKEN set: $HAS_WAGO_TOKEN)"
           fi
+      # A build without uploading, so a zip that lacks an addon folder stops the release before anything is
+      # published. The packager uploads only a zip it built in the same run, so the next step builds it again
+      # from the same tree and .pkgmeta.
+      - uses: BigWigsMods/packager@v2
+        with:
+          args: -d -n "{package-name}-${{ steps.plan.outputs.version }}:${{ steps.plan.outputs.version }}"
+          pandoc: "false"
+      - name: The zip holds GoldForever/ and GoldForever_Auctions/
+        env:
+          ZIP: .release/GoldForever-${{ steps.plan.outputs.version }}.zip
+        run: |
+          entries=$(unzip -Z1 "$ZIP")
+          echo "Entries per top-level folder of $ZIP:"
+          cut -d/ -f1 <<< "$entries" | sort | uniq -c
+          for folder in GoldForever GoldForever_Auctions; do
+            if ! grep -qx "$folder/$folder.toc" <<< "$entries"; then
+              echo "::error::$ZIP has no $folder/$folder.toc: the game would not load $folder (.pkgmeta move-folders)"
+              exit 1
+            fi
+          done
       - uses: BigWigsMods/packager@v2
         with:
           args: -n "{package-name}-${{ steps.plan.outputs.version }}:${{ steps.plan.outputs.version }}"
@@ -78,3 +98,12 @@ jobs:
       - uses: actions/attest-build-provenance@v4
         with:
           subject-path: .release/GoldForever-${{ steps.plan.outputs.version }}.zip
+      # The companion checks a download against this file, without GitHub's API digest field.
+      - name: Publish SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_NAME: GoldForever-${{ steps.plan.outputs.version }}.zip
+        run: |
+          cd .release
+          sha256sum -- "$ZIP_NAME" | tee SHA256SUMS
+          gh release upload "$GITHUB_REF_NAME" SHA256SUMS --repo "$GITHUB_REPOSITORY"

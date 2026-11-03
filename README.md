@@ -173,10 +173,11 @@ The game writes it only at logout, exit and `/reload`; a crash writes nothing. I
 previous version as `GoldForever.lua.bak`.
 
 **Releasing:** a tag `addon-v<version>` runs `.github/workflows/addon-release.yml`. The tag must
-match the three TOCs' `## Version` and Core.lua's `VERSION` (a test keeps those four, and the TOCs'
-file lists, the same). It tests, packages with the BigWigs packager (`.pkgmeta`), attests the
-zip, and publishes it to this repository's releases (and to CurseForge and Wago once their project
-ids and tokens are set).
+match the `## Version` in each addon's three TOCs and Core.lua's `VERSION` (a test keeps those, and
+the TOCs' file lists, the same). It tests, packages `GoldForever/` and `GoldForever_Auctions/` with
+the BigWigs packager (`.pkgmeta`), stops when the zip lacks either folder, attests the zip, and
+publishes it with its `SHA256SUMS` to this repository's releases (and the zip to CurseForge and
+Wago once their project ids and tokens are set).
 
 ## Licence
 
