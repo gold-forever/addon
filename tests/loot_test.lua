@@ -223,4 +223,77 @@ handlers.LOOT_CLOSED()
 wait(5)
 eq(coins(rows), "30 50", "group shares: each window its own, in the order they closed")
 
+-- Fast auto-loot of coin-only windows (addon#90). The money slot's LOOT_SLOT_CLEARED can come after
+-- LOOT_CLOSED, when the window is gone: the rise, before or after the close, is still its coin.
+slots = { { coin = true, qty = 0, sources = { A, 400 } } }
+rows = {}
+handlers.LOOT_READY()
+earn(400)
+handlers.LOOT_CLOSED()
+handlers.LOOT_SLOT_CLEARED(1)
+wait(5)
+eq(coins(rows), "400", "slot cleared after the close, the rise before it: the window's coin")
+
+slots = { { coin = true, qty = 0, sources = { A, 600 } } }
+rows = {}
+handlers.LOOT_READY()
+handlers.LOOT_CLOSED()
+handlers.LOOT_SLOT_CLEARED(1)
+wait(0.4)
+earn(600)
+wait(5)
+eq(coins(rows), "600", "slot cleared after the close, the rise after it: the window's coin")
+
+-- The rise comes more than a second before the money slot clears.
+slots = { { coin = true, qty = 0, sources = { A, 800 } } }
+rows = {}
+handlers.LOOT_READY()
+earn(800)
+wait(1.5)
+handlers.LOOT_SLOT_CLEARED(1)
+handlers.LOOT_CLOSED()
+wait(5)
+eq(coins(rows), "800", "a rise 1.5 s before the money slot clears: the window's coin")
+
+-- Three corpses at once, each window's slot clearing after its close: each its own rise, none twice.
+local got3 = {}
+for i, copper in ipairs({ 110, 220, 330 }) do
+	slots = { { coin = true, qty = 0, sources = { corpses[i], copper } } }
+	rows = {}
+	handlers.LOOT_READY()
+	handlers.LOOT_CLOSED()
+	handlers.LOOT_SLOT_CLEARED(1)
+	earn(copper)
+	wait(0.2)
+end
+rows = {}
+wait(5)
+eq(coins(rows), "110 220 330", "three corpses looted fast: each window its own rise, none given twice")
+
+-- A window closed with its coin left on the corpse takes no rise long after it.
+slots = { { coin = true, qty = 0, sources = { A, 900 } } }
+rows = {}
+handlers.LOOT_READY()
+handlers.LOOT_CLOSED()
+wait(3)
+earn(900)
+wait(5)
+eq(coins(rows), "0", "a rise 3 s after a window closed with its coin untaken is not its coin")
+
+-- A rise claimed by a window closed with its money slot showing is not claimed again by the next window's
+-- money slot.
+slots = { { coin = true, qty = 0, sources = { A, 100 } } }
+rows = {}
+handlers.LOOT_READY()
+earn(100)
+handlers.LOOT_CLOSED()
+handlers.LOOT_SLOT_CLEARED(1)
+slots = { { coin = true, qty = 0, sources = { B, 200 } } }
+handlers.LOOT_READY()
+handlers.LOOT_SLOT_CLEARED(1)
+earn(200)
+handlers.LOOT_CLOSED()
+wait(5)
+eq(coins(rows), "100 200", "a rise claimed once: the next window's money slot does not take it again")
+
 return checks()

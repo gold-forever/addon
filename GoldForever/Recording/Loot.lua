@@ -147,19 +147,41 @@ local purse -- GetMoney() at the last money change
 -- its coin come before the slot cleared.
 local early
 local EARLY_SECONDS = 1
+-- A rise given to no window is claimed by a money slot cleared, or a window closed with its money slot
+-- still showing, up to this long after it: fast auto-loot clears the slot after the close, or late.
+local CLAIM_SECONDS = 2
 
 -- Whether a rise now would be taken as a loot window's coin, for the money row's context (Ledger.lua).
 function ns.lootCoinDue()
 	return #awaitingCoin > 0
 end
 
+-- Whether a window closed with its money slot showing has waited too long for a rise to be its coin.
+local function claimOver(w)
+	return w.claimUntil and not w.coinAt and GetTime() > w.claimUntil
+end
+
 local function coinFor()
+	local newest
 	for _, w in ipairs(awaitingCoin) do
-		if not w.coinAt then
-			return w
+		if not claimOver(w) then
+			if not w.coinAt then
+				return w
+			end
+			newest = w
 		end
 	end
-	return awaitingCoin[#awaitingCoin]
+	return newest
+end
+
+-- The rise given to no window, if it came at most `seconds` ago; it is then no longer unclaimed.
+local function claimUnclaimed(seconds)
+	if not (early and not early.from and GetTime() - early.at <= seconds) then
+		return nil
+	end
+	local rise = early
+	early = nil
+	return rise
 end
 
 ns.on("PLAYER_MONEY", "loot coin", function()
@@ -191,7 +213,10 @@ ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)
 	end
 	if info.money then
 		info.taken = true
-		if early and GetTime() - early.at <= EARLY_SECONDS then
+		local unclaimed = claimUnclaimed(CLAIM_SECONDS)
+		if unclaimed then
+			window.coin, window.coinAt = (window.coin or 0) + unclaimed.amount, unclaimed.at
+		elseif early and GetTime() - early.at <= EARLY_SECONDS then
 			if early.from then
 				early.from.coin = early.from.coin - early.amount
 			end
@@ -222,6 +247,27 @@ end)
 local SETTLE_SECONDS = 1
 local COIN_WAIT_SECONDS = 5
 local closing = {} -- windows closed and not written yet, oldest first
+
+-- A window closed with its money slot showing: fast auto-loot clears it after the close, so the rise
+-- given to no window just before is its coin, else the next one within CLAIM_SECONDS.
+local function awaitLateCoin(w)
+	local unclaimed = claimUnclaimed(CLAIM_SECONDS)
+	if unclaimed then
+		w.coin, w.coinAt = unclaimed.amount, unclaimed.at
+	end
+	w.claimUntil = GetTime() + CLAIM_SECONDS
+	w.awaiting = true
+	awaitingCoin[#awaitingCoin + 1] = w
+end
+
+local function moneyShowing(w)
+	for _, info in pairs(w.slots) do
+		if info.money and not info.taken then
+			return true
+		end
+	end
+	return false
+end
 
 local function stopAwaiting(w)
 	for i, waiting in ipairs(awaitingCoin) do
@@ -311,11 +357,14 @@ ns.on("LOOT_CLOSED", "loot", function()
 	if not w then
 		return
 	end
+	if not w.awaiting and moneyShowing(w) then
+		awaitLateCoin(w)
+	end
 	closing[#closing + 1] = w
 	local closed = GetTime()
 	local function settle()
 		local now = GetTime()
-		local coinDue = w.awaiting and not w.coinAt and now - closed < COIN_WAIT_SECONDS
+		local coinDue = w.awaiting and not w.coinAt and not claimOver(w) and now - closed < COIN_WAIT_SECONDS
 		local coinComing = w.coinAt and now - w.coinAt < SETTLE_SECONDS
 		if coinDue or coinComing then
 			ns.after(SETTLE_SECONDS, "loot", settle)
