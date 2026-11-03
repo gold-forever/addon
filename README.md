@@ -179,6 +179,14 @@ the BigWigs packager (`.pkgmeta`), stops when the zip lacks either folder, attes
 publishes it with its `SHA256SUMS` to this repository's releases (and the zip to CurseForge and
 Wago once their project ids and tokens are set).
 
+**Snapshot of main:** every push to `main` runs `.github/workflows/addon-snapshot.yml`: the same
+tests, then the same package and folder check, and publishes the zip with its `SHA256SUMS` to the
+pre-release [`addon-snapshot`](https://github.com/gold-forever/addon/releases/tag/addon-snapshot),
+whose tag it moves to that commit and whose files it replaces. Its version, in the TOCs and in `/gf`,
+is `<last release>-snapshot.<commit time, UTC yyyymmddHHMM>.<short sha>` (for example
+`0.16.1-snapshot.202611031529.2ceabf9`). It is an untested build of main, never marked latest, and
+goes only to GitHub, not to CurseForge or Wago.
+
 ## Licence
 
 **Source-available, all rights reserved** (not open source): the code is published so anyone can

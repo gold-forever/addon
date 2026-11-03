@@ -1,0 +1,104 @@
+# Every push to main publishes a rolling snapshot of the addon, so main can be tried without a tagged
+# release: the pre-release addon-snapshot, its tag moved to the pushed commit, holding
+# GoldForever-<version>.zip (both addon folders) and its SHA256SUMS, as a release does
+# (addon-release.yml). It is never marked latest, so the releases page and the companion's stable
+# channel keep pointing at the last tagged release.
+#
+# <version> is <last release>-snapshot.<commit time, UTC yyyymmddHHMM>.<short sha>, for example
+# 0.16.1-snapshot.202611031530.2ceabf9; it is stamped into the six TOCs and Core.lua's VERSION before
+# packaging, so the game, /gf and an export say which build is running.
+name: addon snapshot
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One snapshot at a time: a push while one publishes waits, and only the newest waiting push runs.
+concurrency:
+  group: addon-snapshot
+  cancel-in-progress: false
+
+jobs:
+  # The same gate as every push and every release (ci.yml).
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  snapshot:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: addon-snapshot
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Snapshot version
+        id: plan
+        run: |
+          last=$(git tag --list 'addon-v*' --merged HEAD --sort=-v:refname | head -n 1)
+          last="${last#addon-v}"
+          stamp=$(TZ=UTC git show -s --format=%cd --date=format-local:%Y%m%d%H%M HEAD)
+          version="${last:-0.0.0}-snapshot.$stamp.$(git rev-parse --short=7 HEAD)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Snapshot $version of $GITHUB_SHA"
+      - name: Stamp the version into the TOCs and Core.lua
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          for toc in GoldForever/GoldForever{,_Mainline,_Forever}.toc GoldForever_Auctions/GoldForever_Auctions{,_Mainline,_Forever}.toc; do
+            sed -i "s/^## Version:.*/## Version: $VERSION/" "$toc"
+            grep -qx "## Version: $VERSION" <(tr -d '\r' < "$toc") || { echo "::error::$toc has no ## Version line"; exit 1; }
+          done
+          sed -i "s/^local VERSION = \".*\"/local VERSION = \"$VERSION\"/" GoldForever/Kernel/Core.lua
+          grep -q "^local VERSION = \"$VERSION\"" GoldForever/Kernel/Core.lua || { echo "::error::Core.lua has no local VERSION line"; exit 1; }
+      # Built without uploading: the snapshot goes to GitHub only, never to CurseForge or Wago.
+      - uses: BigWigsMods/packager@v2
+        with:
+          args: -d -n "{package-name}-${{ steps.plan.outputs.version }}:${{ steps.plan.outputs.version }}"
+          pandoc: "false"
+      # The same check as the release's (addon-release.yml).
+      - name: The zip holds GoldForever/ and GoldForever_Auctions/
+        env:
+          ZIP: .release/GoldForever-${{ steps.plan.outputs.version }}.zip
+        run: |
+          entries=$(unzip -Z1 "$ZIP")
+          echo "Entries per top-level folder of $ZIP:"
+          cut -d/ -f1 <<< "$entries" | sort | uniq -c
+          for folder in GoldForever GoldForever_Auctions; do
+            if ! grep -qx "$folder/$folder.toc" <<< "$entries"; then
+              echo "::error::$ZIP has no $folder/$folder.toc: the game would not load $folder (.pkgmeta move-folders)"
+              exit 1
+            fi
+          done
+      # The pre-release is made once and then kept: its tag moves to this commit and its assets are
+      # replaced, so its URL stays the same for anyone following main. The new zip is uploaded before the
+      # old one is deleted, so the pre-release never lacks one.
+      - name: Publish the addon-snapshot pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          ZIP_NAME: GoldForever-${{ steps.plan.outputs.version }}.zip
+        run: |
+          cd .release
+          sha256sum -- "$ZIP_NAME" | tee SHA256SUMS
+          notes="An untested build of main, not a release: $VERSION, from $GITHUB_SHA. It is replaced on every push to main. For the tested addon, take the latest release."
+          git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+              --title "Snapshot $VERSION" --notes "$notes"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --latest=false \
+              --title "Snapshot $VERSION" --notes "$notes"
+          fi
+          gh release upload "$TAG" "$ZIP_NAME" SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
+            while read -r asset; do
+              if [[ "$asset" != "$ZIP_NAME" && "$asset" != SHA256SUMS ]]; then
+                gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done
