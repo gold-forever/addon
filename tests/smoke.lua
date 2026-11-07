@@ -1240,6 +1240,10 @@ do
   ns.CraftingStrip.select(2963)
   local title = ns.CraftingStrip.shown()
   assert(title and title:find("Bolt of Linen Cloth", 1, true), "the strip names the recipe's item: " .. tostring(title))
+  -- Docked right of the window, clear of the buttons that stick out past its edge (addon#93).
+  local dock = anchor(ns.CraftingStrip.frame(), "TOPLEFT")
+  assert(dock and dock[2] == ProfessionsFrame and dock[3] == "TOPRIGHT" and dock[4] >= 46 and dock[5] == 0,
+    "the strip docks clear of the window's right edge: " .. tostring(dock and dock[4]))
   assert(ns.CraftingStrip.row(3) ~= "" and not ns.CraftingStrip.row(2):find("random", 1, true), "a fixed result keeps its sale and profit: " .. ns.CraftingStrip.row(2))
   -- A random result (Wild Experimentation): its output is a recipe item of its own name, never priced.
   -- It says so instead of an unknown sale and profit, and still costs its reagents.

@@ -65,10 +65,15 @@ local function build()
 	return f
 end
 
+-- The space between the profession window's right edge and the strip: Blizzard's buttons stick out past
+-- that edge, and a narrower gap covered them (addon#93). Which frame they are is not known here, so the
+-- gap is fixed; the owner checks it in game.
+local GAP = 46
+
 -- Beside the profession window.
 local function dock(f)
 	f:ClearAllPoints()
-	f:SetPoint("TOPLEFT", host(), "TOPRIGHT", 6, 0)
+	f:SetPoint("TOPLEFT", host(), "TOPRIGHT", GAP, 0)
 end
 
 -- One strip per look and accent.
@@ -204,6 +209,10 @@ ns.CraftingStrip = {
 	end,
 	open = function()
 		show()
+	end,
+	-- The strip itself, to read where it docks.
+	frame = function()
+		return strips.frame
 	end,
 	shown = function()
 		local strip = strips.frame
