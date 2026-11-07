@@ -3327,6 +3327,48 @@ do
   for i = 1, #items do _G["ContainerFrame1Item" .. i] = nil end
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem = keep[1], keep[2], keep[3], keep[4]
 end
+-- A loot roll's value (addon#97): on START_LOOT_ROLL each shown roll frame gets one line under the item's
+-- name, "AH … · vendor …", by the addon's prices; an unknown price reads "?"; no roll is made;
+-- Settings turns it off. Linen Cloth x2 on the first frame, an item never scanned on the second.
+do
+  local rolls = { [7] = { link = "|Hitem:2589::::::::30|h[Linen Cloth]|h", n = 2 }, [8] = { link = "|Hitem:999999::::::::30|h[Nothing]|h", n = 1 } }
+  local rolled = 0
+  function GetLootRollItemInfo(id) local r = rolls[id]; if r then return "icon", "Item", r.n, 2, false, true, true end end
+  function GetLootRollItemLink(id) return rolls[id] and rolls[id].link end
+  function RollOnLoot() rolled = rolled + 1 end
+  local made = {}
+  for i = 1, 2 do
+    local f = CreateFrame("Frame", "GroupLootFrame" .. i)
+    f.Name = CreateFrame("Frame", nil, f)
+    function f:CreateFontString() local fs = CreateFrame("Frame", nil, self); made[self] = fs; return fs end
+    f.rollID = 6 + i
+    _G["GroupLootFrame" .. i] = f
+  end
+  local function line(i) local fs = made[_G["GroupLootFrame" .. i]]; return fs and fs:IsShown() and ns.plainText(fs:GetText()) or nil end
+  fire("START_LOOT_ROLL", 7, 60000)
+  local auction, vendor = ns.price.market(2589), ns.price.vendor(2589)
+  local want = "AH " .. (auction and ns.plainText(ns.Money.auction(auction * 2)) or "?") .. " · vendor " .. (vendor and ns.plainText(ns.Money.auction(vendor * 2)) or "?")
+  assert(auction and vendor, "Linen Cloth has both prices in the smoke save")
+  assert(line(1) == want, "the roll frame's value line: " .. tostring(line(1)) .. " for " .. want)
+  assert(not ns.price.market(999999), "the second item was never scanned")
+  assert(line(2) == "AH ? · vendor " .. ns.plainText(ns.Money.auction(ns.price.vendor(999999))), "no auction price: unknown: " .. tostring(line(2)))
+  assert(rolled == 0, "the roll stays the player's")
+  _G.GroupLootFrame1:Hide()
+  _G.GroupLootFrame2.rollID = 7
+  fire("START_LOOT_ROLL", 7, 60000)
+  assert(line(2) == want, "a frame reused for another roll shows that roll's value")
+  _G.GroupLootFrame1:Show()
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Loot roll value" then row = r end end
+  assert(row and row.switch.on == true, "Loot roll value is on by default in Settings")
+  row.mod.set(false)
+  fire("START_LOOT_ROLL", 7, 60000)
+  assert(line(1) == nil and line(2) == nil, "off: no line")
+  row.mod.set(true)
+  GoldForeverDB.settings.prices.rollValue = nil
+  GroupLootFrame1, GroupLootFrame2, GetLootRollItemInfo, GetLootRollItemLink, RollOnLoot = nil, nil, nil, nil, nil
+end
 -- A Horde character on a realm whose only full scan is an Alliance alt's (review C-2): Home and the Scan
 -- tab speak of the character's own market's scans. On Forever each side's auction house is its own, so
 -- there is none; on retail one auction house serves both sides, so the alt's scan is the market's.

@@ -203,6 +203,9 @@ local function fillModules(page, prefs)
 				prices.bagMark = on
 				ns.BagMark.refresh()
 			end },
+		{ icon = "coins", name = "Loot roll value", blurb = "Under the item on a Need/Greed roll: its auction and vendor value.",
+			on = function() return prices.rollValue ~= false end,
+			set = function(on) prices.rollValue = on end },
 		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
 			on = function() return mail.helper ~= false end,
 			set = function(on) mail.helper = on end },

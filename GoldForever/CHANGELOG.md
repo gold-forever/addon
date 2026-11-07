@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **A loot roll shows what the item is worth.** On a Need/Greed roll, a small line under the item's name
+  gives its auction and vendor value, for example "AH 1g 20s · vendor 15s", so you can choose Greed or
+  pass without hovering. A price the addon does not know shows as "?". It never rolls for you. Turn it
+  off under Settings, Modules, Loot roll value.
 - **The quest reward worth the most to sell is marked.** When a quest offers a choice of rewards, the
   one worth the most carries a small gold coin in its corner, so you can take the gold without hovering
   each one. Its tooltip says what it is worth, for example "Best to sell: 1g 20s", the better of the
