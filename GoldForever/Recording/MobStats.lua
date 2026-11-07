@@ -5,11 +5,12 @@ local _, ns = ...
 local Encode = ns.Encode
 
 local mobs -- npc ID -> { loots, coin, items = { [id] = { dropped, units } } }; built once, then kept up per loot
+local mine -- character ref -> npc ID -> the same counts, and the map and time of that character's last loot of it
 
--- One loot row counted in: by the full build and by every loot after it.
-local function countLoot(npc, coin, items)
-	local m = mobs[npc] or { loots = 0, coin = 0, items = {} }
-	mobs[npc] = m
+local function counts()
+	return { loots = 0, coin = 0, items = {} }
+end
+local function add(m, coin, items)
 	m.loots = m.loots + 1
 	m.coin = m.coin + coin
 	for item, n in pairs(items) do
@@ -20,10 +21,30 @@ local function countLoot(npc, coin, items)
 	end
 end
 
+-- One loot row counted in: by the full build and by every loot after it. `char`, `map` and `t` are the
+-- row's (nil when unknown): the character's own counts, for the best farm (BestFarm.lua).
+local function countLoot(npc, coin, items, char, map, t)
+	mobs[npc] = mobs[npc] or counts()
+	add(mobs[npc], coin, items)
+	if not char then
+		return
+	end
+	mine[char] = mine[char] or {}
+	local c = mine[char][npc] or counts()
+	mine[char][npc] = c
+	add(c, coin, items)
+	if map and (t or 0) >= (c.t or 0) then
+		c.map, c.t = map, t or 0
+	end
+end
+
 -- New loot updates the counts in place, rather than reading every loot row again at the next
 -- tooltip (two weeks of rows, in the tooltip's own frame).
 local countingRows -- loot rows that came while the counts were being built, counted in after them
+-- A loot just taken is the logged-in character's, on the map the player is on now.
 local function countRows(rows)
+	local me = ns.me and ns.me()
+	local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
 	for _, row in ipairs(rows or {}) do
 		local npc = Encode.npcOf(row.src)
 		if npc then
@@ -34,7 +55,7 @@ local function countRows(rows)
 					items[id] = (items[id] or 0) + n
 				end
 			end
-			countLoot(npc, row.coin or 0, items)
+			countLoot(npc, row.coin or 0, items, me and me.ref, map, ns.now())
 		end
 	end
 end
@@ -69,7 +90,8 @@ local function countSavedRow(row, columns)
 	local values = { strsplit(",", row) }
 	local id = Encode.npcOf(values[columns.src])
 	if id then
-		countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]))
+		countLoot(id, tonumber(values[columns.coin]) or 0, Encode.parseItems(values[columns.items]),
+			tonumber(values[columns.char]), tonumber(values[columns.map]), tonumber(values[columns.t]))
 	end
 end
 
@@ -92,25 +114,25 @@ local function buildMobs()
 	local db = ns.db()
 	local columns = Encode.columns(db.fields and db.fields.loot)
 	if not (columns.src and columns.coin and columns.items) then
-		mobs = {}
+		mobs, mine = {}, {}
 		return
 	end
 	local chunks = savedLootChunks(db)
 	countingRows = {}
-	local counted, i, pos = {}, 1, 1 -- the chunk and the place in it the next row starts
+	local counted, countedMine, i, pos = {}, {}, 1, 1 -- the chunk and the place in it the next row starts
 	local step
 	-- A step that fails (a malformed row) drops the half-built counts: the next tooltip or page builds
 	-- them again, rather than showing part of them for the session.
 	local function guarded()
 		local ok, err = pcall(step)
 		if not ok then
-			mobs, countingRows, mobCountWaiters = nil, nil, {}
+			mobs, mine, countingRows, mobCountWaiters = nil, nil, nil, {}
 			ns.fail("mob counts", err)
 		end
 	end
 	step = function()
-		local saved = mobs
-		mobs = counted
+		local saved, savedMine = mobs, mine
+		mobs, mine = counted, countedMine
 		local started, rows = ns.frameStart(), 0
 		while chunks[i] do
 			local chunk = chunks[i]
@@ -130,7 +152,7 @@ local function buildMobs()
 			end
 		end
 		if chunks[i] then
-			mobs = saved
+			mobs, mine = saved, savedMine
 			C_Timer.After(0, guarded)
 			return
 		end
@@ -159,4 +181,11 @@ function ns.mobStats(whenBuilt)
 		buildMobs()
 	end
 	return mobs
+end
+
+-- One character's counts by NPC (`char` its ref), the same shape with `map` and `t` of its last loot of
+-- each; {} for a character that never looted, nil while the counts are built (`whenBuilt` as above).
+function ns.charMobStats(char, whenBuilt)
+	local all = ns.mobStats(whenBuilt)
+	return all and (mine[char] or {})
 end

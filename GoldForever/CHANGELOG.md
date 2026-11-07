@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Hear when your best farm changes.** Turn on Settings, Modules, Best farm changed, and after new prices
+  (at login, with the companion's prices, and after a full scan) the addon picks the mob this character has
+  looted at least 10 times whose loot is worth the most. When that is another mob than before, one chat line
+  says so, for example "best farm now Bristleback Quilboar (Barrens), about 24s a loot (was Kolkar
+  Centaur)". The first check says nothing; it only remembers the mob. Off by default.
 - **Choose which tooltip lines show, and when.** Settings has a new Tooltip tab listing every line the
   addon adds to a tooltip: auction prices, your scan, held counts, disenchant value, mob loot, quest
   starters, best quest reward and cheapest in your bags. Set each to Off, With Shift or Always. With

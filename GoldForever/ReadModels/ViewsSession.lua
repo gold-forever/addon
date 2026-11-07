@@ -43,6 +43,24 @@ function Views.mobValue(m, worth)
 	return value / m.loots
 end
 
+-- The best farm (addon#99): of one character's counts by NPC (ns.charMobStats), the NPC whose loot is worth
+-- the most (Views.mobValue at `worth`) among those looted at least BEST_FARM_LOOTS times, so a lucky drop
+-- is not a farm. Returns { npc, value, map } or nil; a tie goes to the lower NPC ID, so the pick is steady.
+Views.BEST_FARM_LOOTS = 10
+
+function Views.bestFarm(byNpc, worth)
+	local best
+	for npc, m in pairs(byNpc or {}) do
+		if m.loots >= Views.BEST_FARM_LOOTS then
+			local value = Views.mobValue(m, worth)
+			if not best or value > best.value or (value == best.value and npc < best.npc) then
+				best = { npc = npc, value = value, map = m.map }
+			end
+		end
+	end
+	return best
+end
+
 -- The rares seen, one row each from the rare stream's rows ({ t, npc, map, x, y, how }): how often, the
 -- last sighting's time, place and how it was seen; the latest first.
 function Views.rares(rows)

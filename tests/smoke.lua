@@ -3465,6 +3465,24 @@ do
   GoldForeverDB.settings.prices.rollValue = nil
   GroupLootFrame1, GroupLootFrame2, GetLootRollItemInfo, GetLootRollItemLink, RollOnLoot = nil, nil, nil, nil, nil
 end
+-- The best farm (addon#99): off by default in Settings, Modules; on, a check after new prices saves this
+-- character's best and, the first time, says nothing.
+do
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Best farm changed" then row = r end end
+  assert(row and row.switch.on == false, "Best farm changed is off by default in Settings")
+  local said, print0 = 0, print
+  print = function(text) if tostring(text):find("best farm") then said = said + 1 end print0(text) end
+  ns.emit("pricesReady")
+  assert(GoldForeverDB.settings.prices.bestFarmBy == nil, "off: nothing saved")
+  row.mod.set(true)
+  ns.emit("pricesReady")
+  assert(said == 0, "the first check says no best-farm line")
+  print = print0
+  row.mod.set(false)
+  GoldForeverDB.settings.prices.bestFarm, GoldForeverDB.settings.prices.bestFarmBy = nil, nil
+end
 -- A Horde character on a realm whose only full scan is an Alliance alt's (review C-2): Home and the Scan
 -- tab speak of the character's own market's scans. On Forever each side's auction house is its own, so
 -- there is none; on retail one auction house serves both sides, so the alt's scan is the market's.

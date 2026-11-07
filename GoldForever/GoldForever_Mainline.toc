@@ -101,6 +101,7 @@ Tools\AuctionSettings.lua
 Tools\Holdings.lua
 Tools\Lists.lua
 Tools\SoldAlert.lua
+Tools\BestFarm.lua
 Surfaces\BagMark.lua
 Tools\AuctionState.lua
 Surfaces\SellingRulesPage.lua

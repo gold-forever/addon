@@ -54,12 +54,23 @@ GoldForeverDB.events["2026-10-22"] = nil
 local mobs = ns.mobStats()
 eq(mobs and mobs[1922] and mobs[1922].loots, 2, "the counts are built 20 seconds after a loading screen")
 eq(mobs[1922].coin, 80, "from every loot row")
+local mine = ns.charMobStats(1)
+eq(mine and mine[1922] and mine[1922].loots, 2, "each character's own counts, from its loot rows (BestFarm.lua)")
+eq(mine[1922].map, 1429, "with the map of its last loot")
+eq(next(ns.charMobStats(2)), nil, "a character that never looted has none")
+-- A loot just taken: the logged-in character's, on the map the player is on.
+C_Map = { GetBestMapForUnit = function() return 1430 end }
+local ref = 7
+ns.me = function() return { ref = ref } end
+ns.lootListeners[1](0, {}, { { src = "n1922", coin = 10, items = {} } })
+eq(ns.charMobStats(ref)[1922].map, 1430, "a new loot is counted for the logged-in character, on the player's map")
+eq(ns.mobStats()[1922].loots, 3, "and in the counts of every character")
 
 -- Built already: the next loading screen leaves them as they are.
 loots.loot[1] = loots.loot[1] .. ";1761148802,1,1429,0.5,0.5,n1922,,20,,"
 GoldForeverDB.events["2026-10-22"] = loots
 handler(nil, "PLAYER_ENTERING_WORLD", false, false)
 wait(20)
-eq(ns.mobStats()[1922].loots, 2, "counts already built are not built again at the next loading screen")
+eq(ns.mobStats()[1922].loots, 3, "counts already built are not built again at the next loading screen")
 
 return checks()
