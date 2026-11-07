@@ -97,6 +97,7 @@ Tools\AuctionSettings.lua
 Tools\Holdings.lua
 Tools\Lists.lua
 Tools\SoldAlert.lua
+Surfaces\BagMark.lua
 Tools\AuctionState.lua
 Surfaces\SellingRulesPage.lua
 Surfaces\ShoppingListsPage.lua

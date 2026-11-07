@@ -3250,6 +3250,83 @@ do
   GoldForeverDB.settings.prices.bestReward = nil
   questShown, QuestInfoRewardsFrame = nil, frame
 end
+-- Bags full (addon#96): the stack worth least in all carries a copper coin on its slot in Blizzard's bag frame
+-- and one tooltip line; a free slot, or the switch in Settings, takes it away. Nothing is moved or deleted,
+-- nothing recorded (the bag frame is shown and refreshed by hand, so no bag event re-reads the bags).
+do
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem }
+  local free, touched = 0, 0
+  local items = { { itemID = 2589, stackCount = 7 }, { itemID = 2589, stackCount = 1 }, { itemID = 2592, stackCount = 1, isBound = true } }
+  C_Container.GetContainerNumSlots = function(b) return b == 0 and #items or 0 end
+  C_Container.GetContainerItemInfo = function(b, s) return b == 0 and items[s] or nil end
+  C_Container.GetContainerNumFreeSlots = function(b) return b == 0 and free or 0, 0 end
+  C_Container.PickupContainerItem = function() touched = touched + 1 end
+  -- Blizzard's first bag frame, as the classic client numbers it: Item1 is the bag's last slot.
+  local frame = CreateFrame("Frame", "ContainerFrame1", UIParent)
+  ContainerFrame1, frame.size = frame, #items
+  frame.GetID = function() return 0 end
+  frame:Hide()
+  local coins = {}
+  for i = 1, #items do
+    local b = CreateFrame("Button", nil, frame)
+    local slot = #items + 1 - i
+    b.GetID = function() return slot end
+    b.CreateTexture = function() local t = CreateFrame("Frame") coins[slot] = t return t end
+    _G["ContainerFrame1Item" .. i] = b
+  end
+  local function on(slot) return coins[slot] ~= nil and coins[slot]:IsShown() end
+  -- Linen x7, Linen x1 and a soulbound Wool Cloth worth less than either: the single Linen is the one.
+  local cheapest, total = 2, ns.price.worth(2589)
+  assert(ns.price.worth(2592) < total, "the soulbound stack would be the cheapest")
+  ns.BagMark.refresh()
+  wait(0)
+  assert(not on(1) and not on(2), "bags closed: no mark")
+  frame:Show()
+  wait(0)
+  assert(on(cheapest) and not on(1) and not on(3), "full: the coin on the stack worth least, never the soulbound one")
+  local function tip(slot)
+    GameTooltip.lines = {}
+    GameTooltip.GetOwner = function() return _G["ContainerFrame1Item" .. (#items + 1 - slot)] end
+    for _, hook in ipairs(itemTooltipHooks) do hook(GameTooltip, { id = items[slot].itemID }) end
+    for _, line in ipairs(GameTooltip.lines) do if line:find("Cheapest in your bags", 1, true) then return line end end
+  end
+  assert(tip(cheapest) and tip(cheapest):find("Cheapest in your bags: " .. ns.price.coins(total), 1, true), "its tooltip line: " .. tostring(tip(cheapest)))
+  assert(tip(1) == nil, "no line on another slot, though the same item")
+  C_Container.GetContainerItemQuestInfo = function(b, s) return { isQuestItem = b == 0 and s == 2 } end
+  ns.BagMark.refresh()
+  wait(0)
+  assert(on(1) and not on(2), "a quest item is never it: the next cheapest")
+  C_Container.GetContainerItemQuestInfo = nil
+  ns.BagMark.refresh()
+  wait(0)
+  free = 1
+  ns.BagMark.refresh()
+  wait(0)
+  assert(not on(cheapest), "a free slot: the mark goes")
+  assert(tip(cheapest) == nil, "and its line")
+  free = 0
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Cheapest in full bags" then row = r end end
+  assert(row and row.switch.on == true, "on by default in Settings, Modules")
+  -- Eleven modules and more run past the page's ~400 px (11 × 38): the list hangs in a body that scrolls.
+  assert(row:GetParent():GetParent() == p.modules.body and p.modules.body:GetParent():GetParent() == p.modules, "the Modules list scrolls")
+  ns.BagMark.refresh()
+  wait(0)
+  assert(on(cheapest), "full again: the mark is back")
+  row.mod.set(false)
+  wait(0)
+  assert(not on(cheapest), "switched off: no mark")
+  row.mod.set(true)
+  wait(0)
+  assert(on(cheapest), "switched on: the mark")
+  assert(touched == 0, "nothing picked up, moved or deleted")
+  frame:Hide()
+  GoldForeverDB.settings.prices.bagMark = nil
+  ContainerFrame1, GameTooltip.GetOwner, GameTooltip.lines = nil, nil, {}
+  for i = 1, #items do _G["ContainerFrame1Item" .. i] = nil end
+  C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem = keep[1], keep[2], keep[3], keep[4]
+end
 -- A Horde character on a realm whose only full scan is an Alliance alt's (review C-2): Home and the Scan
 -- tab speak of the character's own market's scans. On Forever each side's auction house is its own, so
 -- there is none; on retail one auction house serves both sides, so the alt's scan is the market's.

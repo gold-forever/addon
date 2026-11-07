@@ -8,6 +8,12 @@
   auction price after the cut and the vendor price, times how many the quest gives. A reward without a
   price is left out and counted: "(1 reward unpriced)". Turn it off under Settings, Modules, Best quest
   reward.
+- **With your bags full, a copper coin marks what to drop.** When no bag slot is free, the stack worth least
+  in all (by the addon's prices: the better of the auction after the cut and the vendor) gets a small copper
+  coin in its slot's corner, and its tooltip says "Cheapest in your bags" with what it is worth. Soulbound and
+  quest items, and items with no price, are never marked. Free a slot and the coin goes. The addon never
+  moves or deletes anything. Blizzard's own bags only for now. Turn it off under Settings, Modules,
+  Cheapest in full bags. The Modules list now scrolls with the mouse wheel, as it has grown past the page.
 - **A sound and a chat line when one of your auctions sells.** While you are logged in, a sale plays
   the coin sound and says what sold and what you will get after the auction house's cut, for example
   "sold Linen Cloth x20 for 1g 20s (arrives by mail)"; when the addon did not see the post, the line

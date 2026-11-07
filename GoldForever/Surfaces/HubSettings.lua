@@ -197,6 +197,12 @@ local function fillModules(page, prefs)
 		{ icon = "coins", name = "Best quest reward", blurb = "A gold coin on the quest reward worth the most to sell.",
 			on = function() return prices.bestReward ~= false end,
 			set = function(on) prices.bestReward = on end },
+		{ icon = "backpack", name = "Cheapest in full bags", blurb = "With your bags full, a copper coin on the stack worth least, to make room.",
+			on = function() return prices.bagMark ~= false end,
+			set = function(on)
+				prices.bagMark = on
+				ns.BagMark.refresh()
+			end },
 		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
 			on = function() return mail.helper ~= false end,
 			set = function(on) mail.helper = on end },
@@ -207,11 +213,14 @@ local function fillModules(page, prefs)
 			on = function() return rares.announce end,
 			set = function(on) rares.announce = on end, disabled = isRetail },
 	}
-	local list = UI.Panel(m, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
-	list:SetPoint("TOPLEFT")
-	list:SetPoint("RIGHT", m, "RIGHT")
-	-- 38 a row: nine modules and the note fit the page (manual test run 001: at 52 the list ran past it).
+	-- 38 a row (manual test run 001: at 52 the list ran past it). The page holds about ten rows and the note,
+	-- so the list scrolls with the wheel, as the Guide does (Kit.scrollBody).
 	local ROW = 38
+	local NOTE = 40 -- the note under the list, wrapped to two lines, and its gap
+	m.body = Kit.scrollBody(m, m:GetWidth(), #MODULES * ROW + 8 + NOTE)
+	local list = UI.Panel(m.body, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	list:SetPoint("TOPLEFT")
+	list:SetPoint("RIGHT", m.body, "RIGHT")
 	list:SetHeight(#MODULES * ROW + 8)
 	-- Each row painted from its setting: when drawn, and at every refresh (/gf hud may have changed one).
 	m.rows = {}
@@ -256,9 +265,9 @@ local function fillModules(page, prefs)
 			paint(row, on)
 		end
 	end
-	local note = UI.Text(m, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(m.body, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
-	note:SetPoint("RIGHT", m, "RIGHT")
+	note:SetPoint("RIGHT", m.body, "RIGHT")
 end
 
 local function fillLooks(page)
