@@ -82,7 +82,9 @@ ns.FIELDS = {
 	-- kind: quest, boss, explore, kill, gather (a herb, vein or corpse gathered, from schema 8) or other.
 	-- mob: the name of the mob a kill's XP came from, as its combat XP message told it (Encode.text);
 	-- empty for XP that is no kill's, a kill the client kept secret, and rows written before it.
-	xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob",
+	-- instanceId: the ID from ns.instanceId() where the XP was earned (catalogue.instances); empty outside
+	-- an instance and in rows written before it.
+	xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob,instanceId",
 	zone = "t,char,map,instance,instanceId",
 	boss = "t,char,encounter,name,difficulty,size,success,map,instanceId",
 	instance = "name,type",

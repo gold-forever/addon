@@ -99,7 +99,7 @@ eq(lv.levels[3].seconds, 4200 - 3599, "level 5")
 eq(lv.levels[1].money, 1200, "gold when reached")
 
 local xpRows = V.rows({
-	fields = { xp = "t,char,xp,kind,rested,instance,map,level,x,y" },
+	fields = { xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob,instanceId" },
 	events = { d = { xp = { "0,1,100,kill,50;300,1,200,quest;600,1,100,kill;5000,1,300,kill;5300,1,50,explore;9,2,999,kill" } } },
 }, "xp")
 lv = V.levelling({}, xpRows, 1)

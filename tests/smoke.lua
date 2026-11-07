@@ -2945,8 +2945,9 @@ fire("ENCOUNTER_END", 1443, "Taragaman the Hungerer", 1, 5, 1)
 -- The rested pool's fall reported before the XP itself: still rested XP spent.
 GetXPExhaustion = function() return 800 end; fire("UPDATE_EXHAUSTION")
 xpcur = 3700; fire("PLAYER_XP_UPDATE")
-wait(10)
+-- Out of the dungeon before the XP row is written: it keeps the instance it was earned in.
 inDungeon = false
+wait(10)
 wait(10)
 xpcur = 4200; fire("PLAYER_XP_UPDATE")
 wait(1)
@@ -2994,7 +2995,7 @@ fire("PLAYER_XP_UPDATE") fire("PLAYER_LEVEL_UP", 31)
 wait(15)
 seen("MAP RECT ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.rects[1429]), "1415,0.40000,0.60000,0.30000,0.50000", "nil")
 seen("MAP ART ", tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.maps[1411]) .. " | maps " .. tostring(GoldForeverDB.mapArt and GoldForeverDB.mapArt.build), "1002,668,256,256;768730+768731+768732+768733 | maps 1.60.1.70450", "nil | maps nil")
-seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679,;1792517415,1,400,other,,,1429,30,412,679,;1792517535,1,300,kill,100,party,1429,30,412,679,;1792517535,1,100,boss,100,party,1429,30,412,679,;1792517535,1,500,quest,,,1429,30,412,679,;1792517535,1,55,explore,,,1429,30,412,679,;1792517535,1,40,gather,,,1429,30,412,679,;1792517535,1,60,gather,,,1429,30,412,679,;1792517535,1,10,gather,,,1429,30,412,679,;1792517535,1,5,other,,,1429,30,412,679,;1792517535,1,20,kill,,,1429,30,412,679,;1792517535,1,25,kill,,,1429,30,412,679,Kobold;1792517535,1,55,explore,,,1429,30,412,679,;1792517535,1,42530,other,,,1429,30,412,679,;1792517535,1,700,kill,,,1429,30,412,679,")
+seen("XP ROWS ", tostring(lday.xp and lday.xp[1]), "1792517415,1,330,other,,,1429,30,412,679,,;1792517415,1,400,other,,,1429,30,412,679,,;1792517535,1,300,kill,100,party,1429,30,412,679,,389;1792517535,1,100,boss,100,party,1429,30,412,679,,389;1792517535,1,500,quest,,,1429,30,412,679,,;1792517535,1,55,explore,,,1429,30,412,679,,;1792517535,1,40,gather,,,1429,30,412,679,,;1792517535,1,60,gather,,,1429,30,412,679,,;1792517535,1,10,gather,,,1429,30,412,679,,;1792517535,1,5,other,,,1429,30,412,679,,;1792517535,1,20,kill,,,1429,30,412,679,,;1792517535,1,25,kill,,,1429,30,412,679,Kobold,;1792517535,1,55,explore,,,1429,30,412,679,,;1792517535,1,42530,other,,,1429,30,412,679,,;1792517535,1,700,kill,,,1429,30,412,679,,")
 seen("LEVEL ROWS ", tostring(lday.level and lday.level[1]) .. " | chat listens " .. tostring(ChatFrame1.registered.TIME_PLAYED_MSG), "1792517410,1,login,30,86400,600,79098,1429,412,679;1792517535,1,up,31,90000,0,79450,1429,412,679 | chat listens true")
 seen("ZONE ROWS ", tostring(lday.zone and lday.zone[1]), "1792517410,1,1429,,;1792517535,1,1446,,;1792517535,1,1429,,;1792517535,1,1429,party,389", "1792517410,1,1429,,;1792517535,1,1429,party,389")
 seen("BOSS ROWS ", tostring(lday.boss and lday.boss[1]) .. " | instance " .. tostring(GoldForeverDB.catalogue.instances and GoldForeverDB.catalogue.instances[389]), "1792517535,1,1443,Taragaman the Hungerer,1,5,,1429,389;1792517535,1,1443,Taragaman the Hungerer,1,5,1,1429,389 | instance Ragefire Chasm,party")
@@ -3859,7 +3860,7 @@ do
     local out = {}
     for _, chunk in ipairs((GoldForeverDB.events[ns2.Encode.day(GetServerTime())] or {}).xp or {}) do
       for row in chunk:gmatch("[^;]+") do
-        out[#out + 1] = row:match("^[^,]*,[^,]*,([^,]*,[^,]*,[^,]*)") .. "|" .. row:match("([^,]*)$")
+        out[#out + 1] = row:match("^[^,]*,[^,]*,([^,]*,[^,]*,[^,]*)") .. "|" .. row:match("^" .. ("[^,]*,"):rep(10) .. "([^,]*)") -- mob
       end
     end
     return out

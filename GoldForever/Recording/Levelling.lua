@@ -242,7 +242,7 @@ local function xpChanged()
 		return
 	end
 	local at, fighting = GetTime(), UnitAffectingCombat("player")
-	local row = { t = ns.now(), rested = math.max(0, before.rested - now.rested), instance = instance(), level = UnitLevel("player") }
+	local row = { t = ns.now(), rested = math.max(0, before.rested - now.rested), instance = instance(), instanceId = instanceId(), level = UnitLevel("player") }
 	row.map, row.x, row.y = ns.position() -- where it was earned (no coordinates in instances)
 	-- What earned it may come just after the XP (a quest's event follows its XP), so wait a moment.
 	ns.after(WINDOW, "xp", function()
@@ -254,7 +254,7 @@ local function xpChanged()
 			-- The rested XP spent, shared in proportion to each kill's XP.
 			local rested = i == #split and restedLeft or math.floor(row.rested * xp / gained)
 			restedLeft = restedLeft - rested
-			ns.record("xp", { t = row.t, char = me.ref, xp = xp, kind = kind, rested = rested > 0 and rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y, mob = share.mob })
+			ns.record("xp", { t = row.t, char = me.ref, xp = xp, kind = kind, rested = rested > 0 and rested or nil, instance = row.instance, map = row.map, level = row.level, x = row.x, y = row.y, mob = share.mob, instanceId = row.instanceId })
 			ns.emit("xpGained", xp, kind)
 		end
 	end)

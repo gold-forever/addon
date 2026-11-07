@@ -2,7 +2,7 @@
 
 local me = { ref = 1, name = "Testchar", class = "MAGE", level = 12, xp = { cur = 300, max = 1000, rested = 200, resting = 1, t = 0 } }
 local save = {
-	fields = { level = "t,char,kind,level,played,levelPlayed,money,map,x,y", xp = "t,char,xp,kind,rested,instance,map,level,x,y" },
+	fields = { level = "t,char,kind,level,played,levelPlayed,money,map,x,y", xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob,instanceId" },
 	events = {
 		["2026-10-20"] = {
 			level = { "1000,1,up,12,5000,0,4200,1429,,;1100,2,up,30,9000,0,9,1429,," },
