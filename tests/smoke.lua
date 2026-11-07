@@ -3223,6 +3223,50 @@ do
   ledger.Refresh = ledgerRefresh
   home.Refresh = refresh
 end
+-- Home's goal line (addon#48): set, the goal and an X, which cancels on a second press within 5
+-- seconds; unset, the amount, the days and Set, and nothing more on the line than the gold now.
+do
+  local settings = GoldForeverDB.settings.window
+  local keep = settings.goal
+  settings.goal = { gold = 10000000, by = now + 10 * 86400 }
+  SlashCmdList.GOLDFOREVER("ui home")
+  local goal = ns.hubWindow().pages.home.goal
+  local function formShown()
+    for _, c in ipairs(goal.form) do if not c:IsShown() then return false end end
+    return true
+  end
+  local function formHidden()
+    for _, c in ipairs(goal.form) do if c:IsShown() then return false end end
+    return true
+  end
+  assert(goal.cancel:IsShown() and formHidden(), "a goal set: its X, no field, days or Set")
+  assert(ns.UI.layout.plain(goal.text:GetText()):find("^Goal 1,000g: 7g now"), "the goal shows: " .. goal.text:GetText())
+  -- The presses' timers held here and run as 6 seconds pass, then the clock put back: the session's own
+  -- times stay as they were.
+  local after, held = C_Timer.After, {}
+  C_Timer.After = function(_, fn) held[#held + 1] = fn end
+  goal.cancel.scripts.OnClick(goal.cancel)
+  assert(settings.goal, "the first press on the X only asks")
+  assert(goal.text:GetText():find("press X again to cancel the goal", 1, true), "and says so: " .. goal.text:GetText())
+  clock = clock + 6
+  assert(#held == 1, "one timer for the question: " .. #held)
+  table.remove(held)()
+  assert(not goal.text:GetText():find("press X again", 1, true), "the question goes after 5 seconds")
+  goal.cancel.scripts.OnClick(goal.cancel)
+  assert(settings.goal, "a press after the wait asks again")
+  goal.cancel.scripts.OnClick(goal.cancel)
+  assert(settings.goal == nil, "the second press cancels the goal")
+  assert(not goal.cancel:IsShown() and formShown(), "no goal: the field, the days and Set, no X")
+  assert(not goal.bar:IsShown(), "no goal: no bar")
+  assert(not goal.text:GetText():find("Goal", 1, true) and goal.text:GetText():find("across your characters", 1, true), "no goal: the gold now: " .. goal.text:GetText())
+  -- Set from there: the goal back, with its X.
+  local field, set = goal.form[1], goal.form[3]
+  field:SetText("2,000")
+  set.scripts.OnClick(set)
+  assert(settings.goal and settings.goal.gold == 20000000 and goal.cancel:IsShown() and formHidden(), "Set: the goal and its X")
+  C_Timer.After, clock = after, clock - 6
+  settings.goal = keep
+end
 -- A window opened for the first time (a new accent builds one) straight onto This session: the tab's
 -- once-a-second refresh and the footer's 10-second memory reading run at once, and stop when it closes.
 do

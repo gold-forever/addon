@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Home's goal line reads cleanly.** With a goal set, the line shows the goal, how far you are and an
+  X that cancels it: the first press asks, a second within 5 seconds cancels. Without a goal, it shows
+  your gold across your characters, the amount field, the days and Set.
 - **The wide Sell tab, laid out again.** The list and the chosen item each take half the page. Beside
   the list is where you decide and post: the price in large type with its reason and why, your floor,
   the typical price and the cheapest other listing, quantity, 12h · 24h · 48h, a full-width Post button,

@@ -107,6 +107,10 @@ local function column(page, half, x, title, rows, rowH)
 end
 
 -- A gold goal (owner's answer, 2026-10-24): gold across all characters against an amount and a date.
+-- Set, the strip shows the goal and an X that cancels it on a second press; unset, the amount field, the
+-- days and Set (addon#48).
+local CANCEL_ARMED = 5 -- seconds the first press on the X waits for the second
+
 local function buildGoal(page)
 	local goalStrip = CreateFrame("Frame", nil, page)
 	goalStrip:SetPoint("TOPLEFT", 0, -86)
@@ -114,9 +118,11 @@ local function buildGoal(page)
 	goalStrip:SetHeight(42)
 	local goalText = UI.Text(goalStrip, "", { size = "sm" })
 	goalText:SetPoint("TOPLEFT")
+	goalText:SetWordWrap(false)
 	local goalBar = UI.Bar(goalStrip, 100, {}, 6)
 	goalBar:SetPoint("TOPLEFT", goalText, "BOTTOMLEFT", 0, -8)
-	goalBar:SetPoint("RIGHT", goalStrip, "RIGHT", -310, 0)
+	goalBar:SetPoint("RIGHT", goalStrip, "RIGHT", -40, 0)
+	local strip = { text = goalText, bar = goalBar }
 	-- The field groups the digits as they are typed ("3,000,000"); Set reads the digits alone.
 	local goalGold
 	goalGold = UI.SearchBox(goalStrip, "Goal in gold", function(text)
@@ -137,18 +143,37 @@ local function buildGoal(page)
 	goalDays:SetWidth(106)
 	local goalSet = UI.Button(goalStrip, "Set", function()
 		local gold = tonumber((string.gsub(goalGold:GetText() or "", "%D", "")))
-		local s = settings()
-		if gold and gold > 0 then
-			s.goal = { gold = math.floor(gold * 10000), by = ns.now() + (goalDays.value or 30) * 86400 }
-		else
-			s.goal = nil -- an empty field clears it
+		if not gold or gold <= 0 then
+			return
 		end
+		settings().goal = { gold = math.floor(gold * 10000), by = ns.now() + (goalDays.value or 30) * 86400 }
 		goalGold:SetText("")
 		goalGold:ClearFocus()
 		page:Refresh()
 	end, { kind = "ghost", width = 76, height = 28 })
 	goalSet:SetPoint("TOPRIGHT", 0, 2)
-	return { text = goalText, bar = goalBar }
+	strip.form = { goalGold, goalDays, goalSet }
+	-- The X: the first press asks, the second within CANCEL_ARMED seconds cancels.
+	local cancel = UI.Button(goalStrip, "", function()
+		if strip.armedAt and GetTime() - strip.armedAt < CANCEL_ARMED then
+			strip.armedAt = nil
+			settings().goal = nil
+		else
+			strip.armedAt = GetTime()
+			C_Timer.After(CANCEL_ARMED, function()
+				if page:IsVisible() then
+					page:Refresh()
+				end
+			end)
+		end
+		page:Refresh()
+	end, { kind = "ghost", width = 28, height = 28 })
+	local x = UI.Icon(cancel, "x", 16, "muted")
+	x:SetPoint("CENTER")
+	cancel:SetPoint("TOPRIGHT", 0, 2)
+	strip.cancel = cancel
+	page.goal = strip
+	return strip
 end
 
 local function fillGoal(goalStrip, home, now)
@@ -156,17 +181,33 @@ local function fillGoal(goalStrip, home, now)
 	local faint = Theme.escape(Theme.color.textFaint)
 	local gold = home.gold
 	local goal = settings().goal
-	if goal then
-		local g = Views.goal(now, gold, goal)
-		goalText:SetText(string.format("Goal %s: %s now, %d%%%s", UI.layout.money(goal.gold, "gold"), UI.layout.money(gold, "gold"), g.pct,
-			g.reached and Theme.escape(Theme.color.success) .. " · reached|r" or g.late and (faint .. " · the date has passed|r")
-			or (faint .. string.format(" · %s a day for %d more %s", "|r" .. UI.layout.money(g.perDay, "gold") .. faint, g.daysLeft, g.daysLeft == 1 and "day" or "days") .. "|r")))
-		goalBar:Set(100, { { value = g.pct, color = g.reached and Theme.color.success or Theme.color.accent } })
-		goalBar:Show()
-	else
-		goalText:SetText(faint .. "A gold goal: an amount and a date, and Home shows how far there is to go. " .. "|r" .. UI.layout.money(gold, "gold") .. faint .. " across your characters now.|r")
-		goalBar:Hide()
+	goalStrip.cancel:SetShown(goal ~= nil)
+	for _, control in ipairs(goalStrip.form) do
+		control:SetShown(goal == nil)
 	end
+	if not goal then
+		goalStrip.armedAt = nil
+		goalText:SetPoint("RIGHT", goalStrip, "RIGHT", -310, 0)
+		goalText:SetText(UI.layout.money(gold, "gold") .. faint .. " across your characters|r")
+		goalBar:Hide()
+		return
+	end
+	local armed = goalStrip.armedAt and GetTime() - goalStrip.armedAt < CANCEL_ARMED
+	local g = Views.goal(now, gold, goal)
+	local line = string.format("Goal %s: %s now, %d%%", UI.layout.money(goal.gold, "gold"), UI.layout.money(gold, "gold"), g.pct)
+	if armed then
+		line = line .. Theme.escape(Theme.color.warning) .. " · press X again to cancel the goal|r"
+	elseif g.reached then
+		line = line .. Theme.escape(Theme.color.success) .. " · reached|r"
+	elseif g.late then
+		line = line .. faint .. " · the date has passed|r"
+	else
+		line = line .. faint .. string.format(" · %s a day for %d more %s", "|r" .. UI.layout.money(g.perDay, "gold") .. faint, g.daysLeft, g.daysLeft == 1 and "day" or "days") .. "|r"
+	end
+	goalText:SetText(line)
+	goalText:SetPoint("RIGHT", goalStrip, "RIGHT", -40, 0)
+	goalBar:Set(100, { { value = g.pct, color = g.reached and Theme.color.success or Theme.color.accent } })
+	goalBar:Show()
 end
 
 -- Today's money for this character, by where it came from.
