@@ -5,13 +5,13 @@ assert(load(SOURCES["FirstRun.lua"], "@FirstRun.lua"))("GoldForever", ns)
 local F = ns.FirstRun
 
 local function tables()
-	return { prices = { tooltip = true }, auction = { hidden = false }, crafting = { strip = true }, shop = { shown = true },
+	return { tooltip = { price = "always" }, auction = { hidden = false }, crafting = { strip = true }, shop = { shown = true },
 		appraiser = { shown = true } }
 end
 
 local s = tables()
 eq(F.apply("prices", s), true, "a known preset")
-eq(s.prices.tooltip, true, "prices only: the tooltip")
+eq(s.tooltip.price, "always", "prices only: the price line")
 eq(s.auction.hidden, true, "no auction panel")
 eq(s.crafting.strip, false, "no crafting strip")
 eq(s.appraiser.shown, false, "no HUD")
@@ -24,7 +24,7 @@ eq(s.appraiser.shown, false, "no HUD")
 
 s = tables()
 F.apply("everything", s)
-eq(s.appraiser.shown and s.crafting.strip and not s.auction.hidden and s.prices.tooltip, true, "everything on")
+eq(s.appraiser.shown and s.crafting.strip and not s.auction.hidden and s.tooltip.price == "always", true, "everything on")
 
 for _, p in ipairs(F.PRESETS) do
 	eq(p.on.advice, nil, p.id .. ": no bag advice")

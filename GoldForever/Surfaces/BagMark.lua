@@ -157,7 +157,8 @@ end
 -- The marked slot's tooltip: one line with what the stack is worth in all.
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	local function markTooltip(tooltip, data)
-		if tooltip ~= GameTooltip or not marked or not data or data.id ~= marked.id or tooltip:GetOwner() ~= marked.button then
+		if tooltip ~= GameTooltip or not marked or not data or data.id ~= marked.id or tooltip:GetOwner() ~= marked.button
+			or not ns.tipLine("bagMark") then
 			return
 		end
 		tooltip:AddLine(ns.tipPrefix(tooltip) .. "Cheapest in your bags: " .. ns.price.coins(marked.total), 1, 1, 1)

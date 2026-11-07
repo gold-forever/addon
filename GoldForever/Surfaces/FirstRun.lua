@@ -32,7 +32,7 @@ function FirstRun.apply(id, s)
 		return false
 	end
 	local on = preset.on
-	s.prices.tooltip = on.tooltip == true
+	s.tooltip.price = on.tooltip and "always" or "off"
 	s.auction.hidden = not on.auction
 	s.crafting.strip = on.strip == true
 	s.appraiser.shown = on.hud == true
@@ -47,7 +47,7 @@ local Theme, UI = ns.Theme, ns.UI
 
 local function settingsTables()
 	return {
-		prices = ns.settings("prices"),
+		tooltip = ns.settings("tooltip"),
 		auction = ns.settings("auction"),
 		crafting = ns.settings("crafting"),
 		appraiser = ns.settings("appraiser"),

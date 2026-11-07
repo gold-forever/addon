@@ -32,6 +32,10 @@ function TakeInboxMoney() end
 function HandleModifiedItemClick() end
 ChatFrameUtil = { InsertLink = function() return false end }
 function TakeTaxiNode(slot) end
+-- Shift, which the tooltip lines on Shift wait for (Tooltips.lua): held, so the checks below read every line;
+-- the tooltip modes' check lets it go.
+shiftDown = true
+function IsShiftKeyDown() return shiftDown end
 tooltipHooks = {}
 itemTooltipHooks, unitTooltipHooks = {}, {}
 TooltipDataProcessor = { AllTypes = "ALL", AddTooltipPostCall = function(kind, fn)
@@ -2743,13 +2747,13 @@ local function poolLine(id, label)
   end
 end
 assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
--- Held: how many each character holds, from the saved bags, bank and mail; Settings → Modules switches it.
+-- Held: how many each character holds, from the saved bags, bank and mail; its mode in Settings → Tooltip.
 do
   local line = poolLine(2589, "Held ")
   assert(line and line:find("Held %d+: Testchar %d+ %(") , "the character's Linen in the tooltip: " .. tostring(line))
-  GoldForeverDB.settings.prices.held = false
+  GoldForeverDB.settings.tooltip.held = "off"
   assert(poolLine(2589, "Held ") == nil, "switched off, no line")
-  GoldForeverDB.settings.prices.held = nil
+  GoldForeverDB.settings.tooltip.held = "shift"
   assert(poolLine(999999, "Held ") == nil, "nobody holds it, no line")
 end
 -- /gf prices without a file.
@@ -2827,13 +2831,13 @@ if INTERFACE < 110000 then
   fire("ZONE_CHANGED_NEW_AREA")
   GoldForever_Prices.markets[neutralKey] = nil
 end
--- Settings → Modules: prices in tooltips off takes the line away at once, and back.
+-- Settings → Tooltip: the price line Off takes it away at once, and back.
 do
   local before = poolLine(2589)
-  GoldForeverDB.settings.prices = { tooltip = false }
-  assert(poolLine(2589) == nil, "no pool line with the module off")
-  GoldForeverDB.settings.prices = { tooltip = true }
-  assert(poolLine(2589) == before, "and back as it was with it on")
+  GoldForeverDB.settings.tooltip.price = "off"
+  assert(poolLine(2589) == nil, "no pool line with it Off")
+  GoldForeverDB.settings.tooltip.price = "always"
+  assert(poolLine(2589) == before, "and back as it was with it Always")
 end
 if INTERFACE < 110000 then
   -- Older than three days: greyed, the words kept.
@@ -3113,7 +3117,7 @@ do
   assert(hudSet == false, "prices only: the HUD on screen goes too")
   SlashCmdList.GOLDFOREVER("look web")
   assert(GoldForeverDB.settings.firstRun.done == true and not card:IsShown(), "done, and closed")
-  assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.prices.tooltip == true, "prices only: the tooltip, no auction panel")
+  assert(GoldForeverDB.settings.auction.hidden == true and GoldForeverDB.settings.tooltip.price == "always", "prices only: the price line, no auction panel")
   -- Asked for in combat: shown when the fight ends.
   InCombatLockdown = function() return true end
   SlashCmdList.GOLDFOREVER("welcome")
@@ -3124,7 +3128,7 @@ do
   ns.FirstRun.card():Hide()
   GoldForeverDB.settings.firstRun.done = true
   -- Back to everything on, for the rest of the run.
-  ns.FirstRun.apply("everything", { prices = GoldForeverDB.settings.prices, auction = GoldForeverDB.settings.auction,
+  ns.FirstRun.apply("everything", { tooltip = GoldForeverDB.settings.tooltip, auction = GoldForeverDB.settings.auction,
     crafting = ns.settings("crafting", { strip = true }), appraiser = GoldForeverDB.settings.appraiser,
     advisor = GoldForeverDB.settings.advisor })
 end
@@ -3232,6 +3236,18 @@ do
   local value = ns.plainText(ns.Money.auction(ns.price.worth(2589) * 20)) -- 7s 60c on Forever, 19s on retail
   assert(line and line:find("Best to sell: " .. value .. " (1 reward unpriced)", 1, true), "its tooltip line: " .. tostring(line))
   assert(hover(buttons[2]) == nil, "no line on another reward")
+  shiftDown = false
+  assert(hover(buttons[1]) == nil, "on Shift by default: Shift up, no line")
+  shiftDown = true
+  -- Drawn from tooltip data (the reward's own tooltip, or a redraw on Shift): the line once, not again on OnEnter.
+  GameTooltip.lines, GameTooltip.GetOwner = {}, function() return buttons[1] end
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
+  buttons[1].scripts.OnEnter(buttons[1])
+  local best = 0
+  for _, l in ipairs(GameTooltip.lines) do if l:find("Best to sell", 1, true) then best = best + 1 end end
+  assert(best == 1, "the line once from the tooltip's data: " .. best)
+  GameTooltip.GetOwner = nil
+  assert(hover(buttons[1]), "hovered again without it: OnEnter adds it")
   fire("QUEST_FINISHED")
   assert(not coin(buttons[1]), "the window closed: the coin goes")
   questShown.choice = { { link = "|Hitem:2589::::::::30|h[Linen Cloth]|h", n = 1 }, { link = "|Hitem:2592::::::::30|h[Wool Cloth]|h", n = 100 } }
@@ -3292,6 +3308,9 @@ do
   end
   assert(tip(cheapest) and tip(cheapest):find("Cheapest in your bags: " .. ns.price.coins(total), 1, true), "its tooltip line: " .. tostring(tip(cheapest)))
   assert(tip(1) == nil, "no line on another slot, though the same item")
+  shiftDown = false
+  assert(tip(cheapest) == nil, "on Shift by default: Shift up, no line")
+  shiftDown = true
   C_Container.GetContainerItemQuestInfo = function(b, s) return { isQuestItem = b == 0 and s == 2 } end
   ns.BagMark.refresh()
   wait(0)
@@ -3326,6 +3345,83 @@ do
   ContainerFrame1, GameTooltip.GetOwner, GameTooltip.lines = nil, nil, {}
   for i = 1, #items do _G["ContainerFrame1Item" .. i] = nil end
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem = keep[1], keep[2], keep[3], keep[4]
+end
+-- Tooltip lines (addon#98): each Off, with Shift or Always, the price lines Always and the rest on Shift by
+-- default; Shift pressed or let go draws the open tooltip again; Settings → Tooltip sets each with a picker,
+-- and Modules no longer lists the tooltip switches.
+do
+  local modes = GoldForeverDB.settings.tooltip
+  GameTooltip.GetOwner = function() return UIParent end -- the bag mark's slot is not the owner here
+  local function held()
+    GameTooltip.lines = {}
+    for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
+    for _, l in ipairs(GameTooltip.lines) do if l:find("Held ", 1, true) then return l end end
+  end
+  assert(modes.price == "always" and modes.scan == "always" and modes.held == "shift" and modes.mob == "shift", "the defaults")
+  shiftDown = false
+  assert(held() == nil, "held counts on Shift, Shift up: no line")
+  shiftDown = true
+  assert(held(), "Shift held: the line")
+  modes.held = "always"
+  shiftDown = false
+  assert(held(), "Always: the line without Shift")
+  modes.held = "off"
+  shiftDown = true
+  assert(held() == nil, "Off: no line, Shift or not")
+  modes.held = "shift"
+  -- A mob's lines and the disenchant value wait for Shift too; quest starters show with the mob's lines Off.
+  local function lines(hooks, data)
+    GameTooltip.lines = {}
+    for _, h in ipairs(hooks) do h(GameTooltip, data) end
+    return table.concat(GameTooltip.lines, " | ")
+  end
+  local mob = { guid = "Creature-0-4620-0-12-1922-000F" }
+  shiftDown = false
+  assert(lines(unitTooltipHooks, mob) == "", "a mob, Shift up: no line")
+  assert(not lines(itemTooltipHooks, { id = 251962 }):find("Disenchant", 1, true), "Shift up: no disenchant value")
+  shiftDown = true
+  if INTERFACE < 110000 then
+    assert(lines(itemTooltipHooks, { id = 251962 }):find("Disenchant", 1, true), "Shift held: the disenchant value")
+  end
+  modes.mob = "off"
+  local starter = lines(unitTooltipHooks, mob)
+  assert(starter:find("Drops a quest starter", 1, true) and not starter:find("looted", 1, true), "mob lines Off: the starter alone: " .. starter)
+  modes.mob = "shift"
+  -- Shift pressed and let go over an open tooltip: drawn again each time; another key, or no line on Shift: not.
+  local redrawn = 0
+  GameTooltip.RefreshData = function() redrawn = redrawn + 1 end
+  GameTooltip:Show()
+  fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+  fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+  fire("MODIFIER_STATE_CHANGED", "LALT", 1)
+  assert(redrawn == 2, "Shift down and up redraw the tooltip: " .. redrawn)
+  local saved = {}
+  for k, v in pairs(modes) do saved[k] = v; modes[k] = v == "shift" and "always" or v end
+  fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+  assert(redrawn == 2, "no line on Shift: no redraw")
+  for k, v in pairs(saved) do modes[k] = v end
+  GameTooltip.RefreshData = nil
+  GameTooltip:Hide()
+  -- Settings → Tooltip: a row a line, each picker on its mode; a pick sets it at once.
+  local p = ns.hubWindow().pages.settings
+  p.ensure("tooltip")
+  assert(#p.tooltip.rows == #ns.TOOLTIP_LINES, "a row for every tooltip line")
+  local row
+  for _, r in ipairs(p.tooltip.rows) do if r.line.key == "held" then row = r end end
+  assert(row and row.picker.selected == "shift", "the held counts' picker on With Shift")
+  for _, b in ipairs(row.picker.buttons) do if b.key == "always" then b.scripts.OnClick(b) end end
+  assert(modes.held == "always" and row.picker.selected == "always", "Always picked: set at once")
+  shiftDown = false
+  assert(held(), "and the line shows without Shift")
+  shiftDown = true
+  modes.held = "shift"
+  p:Refresh()
+  assert(row.picker.selected == "shift", "opened again: the picker shows the setting")
+  assert(row:GetParent():GetParent() == p.tooltip.body, "the list scrolls in its body")
+  for _, r in ipairs(p.modules.rows) do
+    assert(r.mod.name ~= "Prices in tooltips" and r.mod.name ~= "Held counts in tooltips", "no tooltip switch in Modules: " .. r.mod.name)
+  end
+  GameTooltip.GetOwner = nil
 end
 -- A loot roll's value (addon#97): on START_LOOT_ROLL each shown roll frame gets one line under the item's
 -- name, "AH … · vendor …", by the addon's prices; an unknown price reads "?"; no roll is made;

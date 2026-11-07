@@ -19,7 +19,11 @@ ns.DEFAULTS = {
 	crafting = { strip = true }, -- the crafting strip, and the craft queue's recipes
 	craftQueue = { closed = false },
 	scan = { auto = false },
-	prices = { tooltip = true },
+	prices = {},
+	-- Each tooltip line's mode, "off", "shift" (shown while Shift is held) or "always" (Tooltips.lua,
+	-- addon#98): the prices always, the rest on Shift.
+	tooltip = { price = "always", scan = "always", held = "shift", disenchant = "shift", mob = "shift", starter = "shift",
+		bestReward = "shift", bagMark = "shift" },
 	auction = { rule = {}, duration = 2, sellWide = false }, -- sellWide: the Sell tab's wide layout (addon#84)
 	mail = { helper = true },
 	minimap = { angle = 225, hidden = false },
@@ -27,12 +31,33 @@ ns.DEFAULTS = {
 	fetch = {},
 }
 
+-- The price and held-count lines' old on/off switches (prices.tooltip, prices.held) become their modes in
+-- settings.tooltip (addon#98): on is Always, off is Off, and the switch goes. A settings change, not a
+-- schema one: the server never reads settings. Run at every read, it finds nothing to do after the first.
+local CARRIED = { tooltip = "price", held = "held" }
+local function carryTooltipSwitches(s)
+	local prices = s.prices
+	if not prices or (prices.tooltip == nil and prices.held == nil) then
+		return
+	end
+	s.tooltip = s.tooltip or {}
+	for from, line in pairs(CARRIED) do
+		if prices[from] ~= nil then
+			s.tooltip[line] = prices[from] and "always" or "off"
+			prices[from] = nil
+		end
+	end
+end
+
 -- A feature's settings table in the saved file, made with its defaults the first time (ns.DEFAULTS
 -- unless others are given). A default added in a later version reaches a table saved before it; what the
 -- player set stays.
 function ns.settings(name, defaults)
 	defaults = defaults or ns.DEFAULTS[name]
 	local s = ns.db().settings
+	if name == "tooltip" then
+		carryTooltipSwitches(s)
+	end
 	if not s[name] then
 		s[name] = ns.copy(defaults)
 	elseif defaults then

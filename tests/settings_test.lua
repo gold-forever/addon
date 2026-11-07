@@ -44,7 +44,8 @@ local PINNED = {
 	crafting = "{ strip = true }",
 	craftQueue = "{ closed = false }",
 	scan = "{ auto = false }",
-	prices = "{ tooltip = true }",
+	prices = "{  }",
+	tooltip = "{ bagMark = shift, bestReward = shift, disenchant = shift, held = shift, mob = shift, price = always, scan = always, starter = shift }",
 	auction = "{ duration = 2, rule = {  }, sellWide = false }",
 	mail = "{ helper = true }",
 	minimap = "{ angle = 225, hidden = false }",
@@ -76,6 +77,24 @@ for name in pairs(ns.DEFAULTS) do
 	ns.settings(name)
 end
 eq(show(ns.db().settings.advisor), "{ shown = false }", "an old save's advisor section is left alone")
+
+-- The tooltip lines' old on/off switches (addon#98) become their modes at the first read, on is Always and
+-- off is Off, and leave prices; a line never switched takes its default; a second read changes nothing.
+local function carried(prices)
+	ns.db().settings.prices, ns.db().settings.tooltip = prices, nil
+	ns.settings("tooltip")
+	local p = ns.db().settings.prices
+	local t = ns.settings("tooltip")
+	return tostring(t.price) .. " " .. tostring(t.held) .. " " .. tostring(p.tooltip) .. " " .. tostring(p.held)
+end
+eq(carried({ tooltip = true, held = true }), "always always nil nil", "both on: Always")
+eq(carried({ tooltip = false, held = false }), "off off nil nil", "both off: Off")
+eq(carried({ tooltip = true }), "always shift nil nil", "held never switched: its default")
+eq(carried({ bagMark = false }), "always shift nil nil", "neither switched: the defaults")
+eq(ns.db().settings.prices.bagMark, false, "the other prices settings stay")
+ns.db().settings.tooltip.held = "always"
+ns.settings("tooltip")
+eq(ns.db().settings.tooltip.held, "always", "read again: a mode set since stays")
 
 -- Defaults given still win over ns.DEFAULTS (a section the tests make).
 eq(show(ns.settings("smoke", { a = 1 })), "{ a = 1 }", "defaults given")

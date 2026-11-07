@@ -10,6 +10,66 @@ local SaveView = ns.SaveView
 local price = ns.price
 local ownMarket, worth, disenchantWorth, enchanting, coins = price.own, price.worth, price.disenchant, price.enchanting, price.coins
 
+-- Tooltip lines -----------------------------------------------------------------------------------------------
+
+-- Every line the addon adds to a tooltip, in Settings' order; each is Off, shown with Shift, or Always
+-- (settings.tooltip, its defaults in Save.lua; addon#98).
+ns.TOOLTIP_LINES = {
+	{ key = "price", name = "Auction prices", blurb = "Everyone's price from the companion's file, under every item." },
+	{ key = "scan", name = "Your scan", blurb = "The price your own auction house scan found." },
+	{ key = "held", name = "Held counts", blurb = "How many each of your characters holds, in bags, bank and mail." },
+	{ key = "disenchant", name = "Disenchant value", blurb = "What disenchanting it gives, and whether that beats selling." },
+	{ key = "mob", name = "Mob loot", blurb = "On a mob you have looted: what a loot is worth and its likeliest drops." },
+	{ key = "starter", name = "Quest starters", blurb = "On a mob: the quest-starting items it drops, and whether you did the quest." },
+	{ key = "bestReward", name = "Best quest reward", blurb = "On the quest reward worth the most: what it sells for." },
+	{ key = "bagMark", name = "Cheapest in your bags", blurb = "On the marked stack in full bags: what it is worth in all." },
+}
+
+local function shiftHeld()
+	return IsShiftKeyDown and IsShiftKeyDown() or false
+end
+
+-- Whether the line `key` shows in a tooltip drawn now.
+function ns.tipLine(key)
+	local mode = ns.settings("tooltip")[key]
+	return mode == "always" or (mode == "shift" and shiftHeld())
+end
+
+local function anyOnShift()
+	for _, mode in pairs(ns.settings("tooltip")) do
+		if mode == "shift" then
+			return true
+		end
+	end
+	return false
+end
+
+-- An open tooltip drawn again, so lines on Shift come and go with the key: its data asked for again, or,
+-- on a tooltip without, its owner's OnEnter run again.
+local function redraw(tooltip)
+	if not tooltip or not tooltip.IsShown or not tooltip:IsShown() then
+		return
+	end
+	if tooltip.RefreshData then
+		tooltip:RefreshData()
+		return
+	end
+	local owner = tooltip.GetOwner and tooltip:GetOwner()
+	local onEnter = owner and owner.GetScript and owner:GetScript("OnEnter")
+	if onEnter then
+		onEnter(owner)
+	end
+end
+
+local SHIFT = { LSHIFT = true, RSHIFT = true }
+ns.on("MODIFIER_STATE_CHANGED", "tooltip lines", function(key)
+	if not SHIFT[key] or not SaveView.loaded() or not anyOnShift() then
+		return
+	end
+	redraw(GameTooltip)
+	redraw(ItemRefTooltip)
+end)
+
 local function itemName(id)
 	return Catalogue.name("item", id) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or ("item " .. id)
 end
@@ -69,14 +129,17 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			return
 		end
 		local summary, drops, starters = mobLines(npc)
-		if summary then
+		if not summary then
+			return
+		end
+		if ns.tipLine("mob") then
 			tooltip:AddLine(ns.tipPrefix(tooltip) .. summary, 1, 1, 1)
 			if drops then
 				tooltip:AddLine(drops, 0.7, 0.7, 0.7, true)
 			end
-			if starters then
-				tooltip:AddLine(starters, 1, 0.82, 0, true)
-			end
+		end
+		if starters and ns.tipLine("starter") then
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. starters, 1, 0.82, 0, true)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
@@ -93,7 +156,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not SaveView.loaded() then
 			return
 		end
-		if ns.settings("prices").held == false then
+		if not ns.tipLine("held") then
 			return
 		end
 		local line = ns.HeldView.line(data.id)
@@ -112,9 +175,12 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not SaveView.loaded() then
 			return
 		end
-		local m = ownMarket(data.id) -- the own scan's line; the pool has its own
+		local m = ns.tipLine("scan") and ownMarket(data.id) -- the own scan's line; the pool has its own
 		if m then
 			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. "Your scan", coins(m), 1, 1, 1, 1, 1, 1)
+		end
+		if not ns.tipLine("disenchant") then
+			return
 		end
 		local de, skill = disenchantWorth(data.id)
 		if de and de > 0 then
@@ -147,8 +213,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
 			return
 		end
-		-- Settings → Modules can switch the line off.
-		if ns.settings("prices").tooltip == false then
+		if not ns.tipLine("price") then
 			return
 		end
 		local Prices = ns.Prices -- loaded after this file

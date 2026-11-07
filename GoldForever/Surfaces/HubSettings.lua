@@ -1,4 +1,4 @@
--- Gold Forever: the hub's Settings page: General, Modules and Looks.
+-- Gold Forever: the hub's Settings page: General, Modules, Tooltip and Looks.
 
 local _, ns = ...
 local Theme, UI = ns.Theme, ns.UI
@@ -182,12 +182,6 @@ local function fillModules(page, prefs)
 		{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
 			on = function() return not auction.hidden end,
 			set = function(on) auction.hidden = not on end },
-		{ icon = "tag", name = "Prices in tooltips", blurb = "Everyone's price, or your own scan's, under every item.",
-			on = function() return prices.tooltip ~= false end,
-			set = function(on) prices.tooltip = on end },
-		{ icon = "users", name = "Held counts in tooltips", blurb = "How many each of your characters holds, in bags, bank and mail.",
-			on = function() return prices.held ~= false end,
-			set = function(on) prices.held = on end },
 		{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
 			on = function() return auction.dealsAlert ~= false end,
 			set = function(on) auction.dealsAlert = on end },
@@ -273,6 +267,55 @@ local function fillModules(page, prefs)
 	note:SetPoint("RIGHT", m.body, "RIGHT")
 end
 
+-- Tooltip: each line the addon adds to a tooltip (Tooltips.lua) with a three-way picker, Off, With Shift or
+-- Always, changed at once; a tooltip open with Shift held shows the Shift lines.
+local MODES = { { key = "off", label = "Off" }, { key = "shift", label = "With Shift" }, { key = "always", label = "Always" } }
+local function fillTooltip(page)
+	local t = page.tooltip
+	local modes = ns.settings("tooltip")
+	local lines = ns.TOOLTIP_LINES
+	local ROW = 44
+	local NOTE = 40
+	t.body = Kit.scrollBody(t, t:GetWidth(), #lines * ROW + 8 + NOTE)
+	local list = UI.Panel(t.body, { color = Theme.color.surfaceRaised, borderColor = Theme.color.border })
+	list:SetPoint("TOPLEFT")
+	list:SetPoint("RIGHT", t.body, "RIGHT")
+	list:SetHeight(#lines * ROW + 8)
+	t.rows = {}
+	for i, line in ipairs(lines) do
+		local row = CreateFrame("Frame", nil, list)
+		row:SetHeight(ROW)
+		row:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW)
+		row:SetPoint("RIGHT", list, "RIGHT")
+		if i > 1 then
+			local rule = UI.solid(row, "BORDER", Theme.color.border)
+			rule:SetPoint("TOPLEFT", 16, 0)
+			rule:SetPoint("TOPRIGHT", -16, 0)
+			rule:SetHeight(UI.pixel())
+		end
+		local name = UI.Text(row, line.name, { size = "sm", medium = true })
+		name:SetPoint("TOPLEFT", 20, -7)
+		local blurb = UI.Text(row, line.blurb, { size = "xs", tone = "faint" })
+		blurb:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
+		row.picker = UI.TabBar(row, MODES, function(mode)
+			modes[line.key] = mode
+		end)
+		row.picker:SetPoint("RIGHT", -20, 0)
+		blurb:SetPoint("RIGHT", row.picker, "LEFT", -12, 0)
+		row.picker:Select(modes[line.key])
+		row.line = line
+		t.rows[i] = row
+	end
+	function t:Refresh()
+		for _, row in ipairs(self.rows) do
+			row.picker:Select(modes[row.line.key])
+		end
+	end
+	local note = UI.Text(t.body, "With Shift: the line shows while you hold Shift over the item or mob.", { size = "xs", tone = "faint", wrap = true })
+	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
+	note:SetPoint("RIGHT", t.body, "RIGHT")
+end
+
 local function fillLooks(page)
 	-- Looks: a card per look; a click switches every window to it, no reload.
 	local l = page.looks
@@ -299,15 +342,17 @@ local function fillLooks(page)
 	note:SetPoint("RIGHT", l, "RIGHT")
 end
 -- Each tab drawn the first time it is chosen (General when the page opens).
-local FILLS = { general = fillGeneral, modules = fillModules, looks = fillLooks }
+local FILLS = { general = fillGeneral, modules = fillModules, tooltip = fillTooltip, looks = fillLooks }
+local TABS = { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "tooltip", label = "Tooltip" },
+	{ key = "looks", label = "Looks" } }
 
 local function buildSettings(page)
 	local window = settings()
-	local tabs = UI.TabBar(page, { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "looks", label = "Looks" } }, function(key)
+	local tabs = UI.TabBar(page, TABS, function(key)
 		page.ensure(key)
-		page.general:SetShown(key == "general")
-		page.modules:SetShown(key == "modules")
-		page.looks:SetShown(key == "looks")
+		for _, tab in ipairs(TABS) do
+			page[tab.key]:SetShown(key == tab.key)
+		end
 		if page[key].Refresh then
 			page[key]:Refresh()
 		end
@@ -323,6 +368,9 @@ local function buildSettings(page)
 	page.modules = CreateFrame("Frame", nil, page)
 	page.modules:SetAllPoints(page.general)
 	page.modules:Hide()
+	page.tooltip = CreateFrame("Frame", nil, page)
+	page.tooltip:SetAllPoints(page.general)
+	page.tooltip:Hide()
 
 	local prefs = { window = window, appraiser = ns.settings("appraiser"), rares = ns.settings("rares"), minimap = ns.settings("minimap") }
 	function page.ensure(key)
@@ -335,7 +383,7 @@ local function buildSettings(page)
 	page.ensure("general")
 	-- Opened again: every tab drawn shows the settings as they are now.
 	function page:Refresh()
-		for _, key in ipairs({ "general", "modules" }) do
+		for _, key in ipairs({ "general", "modules", "tooltip" }) do
 			local f = self[key]
 			if f.built and f.Refresh then
 				f:Refresh()

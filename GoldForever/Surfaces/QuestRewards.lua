@@ -60,8 +60,32 @@ local function choiceButton(i)
 	return _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
 end
 
+local function marked(button)
+	return shownLine and button and marks[button] and marks[button]:IsShown() and ns.tipLine("bestReward")
+end
+
+-- The line is added as the reward's tooltip is drawn, so a redraw (Shift, Tooltips.lua) keeps it; on a
+-- client whose quest tooltip is not drawn from tooltip data, the button's OnEnter adds it instead.
+local drawn -- the button whose tooltip the post call gave the line
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	local function rewardTooltip(tooltip)
+		local owner = tooltip == GameTooltip and tooltip.GetOwner and tooltip:GetOwner()
+		if marked(owner) then
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. shownLine, 1, 0.82, 0)
+			drawn = owner
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip)
+		ns.safely("quest reward tooltip", rewardTooltip, tooltip)
+	end)
+end
+
 local function onEnter(button)
-	if shownLine and marks[button] and marks[button]:IsShown() and GameTooltip then
+	if drawn == button then
+		drawn = nil
+		return
+	end
+	if marked(button) and GameTooltip then
 		GameTooltip:AddLine(ns.tipPrefix(GameTooltip) .. shownLine, 1, 0.82, 0)
 		GameTooltip:Show()
 	end

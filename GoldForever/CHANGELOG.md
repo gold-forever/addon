@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Choose which tooltip lines show, and when.** Settings has a new Tooltip tab listing every line the
+  addon adds to a tooltip: auction prices, your scan, held counts, disenchant value, mob loot, quest
+  starters, best quest reward and cheapest in your bags. Set each to Off, With Shift or Always. With
+  Shift, the line appears while you hold Shift over the item or mob, and the open tooltip updates as you
+  press or let go. By default the prices show always and the rest with Shift, so tooltips stay short. If
+  you had switched off prices or held counts in tooltips, they stay off; if you had switched them on, they
+  show always. Those two switches have moved from Modules to the Tooltip tab.
 - **A loot roll shows what the item is worth.** On a Need/Greed roll, a small line under the item's name
   gives its auction and vendor value, for example "AH 1g 20s · vendor 15s", so you can choose Greed or
   pass without hovering. A price the addon does not know shows as "?". It never rolls for you. Turn it
