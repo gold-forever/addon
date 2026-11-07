@@ -48,3 +48,11 @@ function ns.tipPrefix(tooltip)
 	end
 	return ns.PREFIX .. " "
 end
+
+-- A built-in sound kit on the Master channel, only when the game's sound is on (a player who turned it all
+-- off hears nothing from the addon either).
+function ns.chime(kit)
+	if PlaySound and kit and GetCVar and GetCVar("Sound_EnableAllSound") == "1" then
+		PlaySound(kit, "Master")
+	end
+end

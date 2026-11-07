@@ -98,6 +98,7 @@ Tools\SalePlan.lua
 Tools\AuctionSettings.lua
 Tools\Holdings.lua
 Tools\Lists.lua
+Tools\SoldAlert.lua
 Tools\AuctionState.lua
 Surfaces\SellingRulesPage.lua
 Surfaces\ShoppingListsPage.lua

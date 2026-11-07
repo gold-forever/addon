@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **A sound and a chat line when one of your auctions sells.** While you are logged in, a sale plays
+  the coin sound and says what sold and what you will get after the auction house's cut, for example
+  "sold Linen Cloth x20 for 1g 20s (arrives by mail)"; when the addon did not see the post, the line
+  names the item only. The sound plays only when the game's sound is on. Turn it off under Settings,
+  Modules, Sale alert. The sale is still recorded from the mail, as before.
 - **The crafting strip reads more recipes right.** A recipe with a random result (Wild Experimentation)
   no longer shows a count in its title: the 20 was the herbs it takes. The To buy lines wrap instead of
   being cut off, and the strip grows to fit them.

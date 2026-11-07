@@ -3175,6 +3175,33 @@ do
   SlashCmdList.GOLDFOREVER("ui settings")
   assert(p.modules.rows[1].switch.on == true, "and back")
 end
+-- A sale while logged in (addon#94): the client's sold message, one coin sound and one chat line with what
+-- arrives after the cut, from the character's own posts (the Wool Cloth posted above); Settings turns it off.
+-- Nothing is recorded: the golden saves hold the same rows.
+do
+  local said, sounds = {}, {}
+  local chat, playSound, getCVar = print, PlaySound, GetCVar
+  print = function(...) local line = table.concat({ ... }, " ") if line:find(": sold ", 1, true) then said[#said + 1] = ns.plainText(line) end chat(...) end
+  PlaySound = function(kit, channel) sounds[#sounds + 1] = tostring(kit) .. " " .. tostring(channel) end
+  GetCVar = function(name) if name == "Sound_EnableAllSound" then return "1" end return getCVar(name) end
+  local wool = ns.itemName(2592)
+  local function sold(name) fire("CHAT_MSG_SYSTEM", "A buyer has been found for your auction of " .. name .. ".") end
+  sold(wool)
+  assert(said[1] == "Gold Forever: sold " .. wool .. " x20 for 18s 5c (arrives by mail)", "the sale's line, after the cut: " .. tostring(said[1]))
+  assert(#sounds == 1 and sounds[1]:find(" Master$"), "one sound, on Master: " .. tostring(sounds[1]))
+  sold("Copper Bar")
+  assert(said[2] == "Gold Forever: sold Copper Bar (arrives by mail)", "no post of it: the item without an amount")
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Sale alert" then row = r end end
+  assert(row and row.switch.on == true, "Sale alert is on by default in Settings")
+  row.mod.set(false)
+  sold(wool)
+  assert(#said == 2 and #sounds == 2, "off: no line and no sound")
+  row.mod.set(true)
+  GoldForeverDB.settings.auction.soldAlert = nil
+  print, PlaySound, GetCVar = chat, playSound, getCVar
+end
 -- A Horde character on a realm whose only full scan is an Alliance alt's (review C-2): Home and the Scan
 -- tab speak of the character's own market's scans. On Forever each side's auction house is its own, so
 -- there is none; on retail one auction house serves both sides, so the alt's scan is the market's.
