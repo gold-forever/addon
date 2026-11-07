@@ -3202,6 +3202,54 @@ do
   GoldForeverDB.settings.auction.soldAlert = nil
   print, PlaySound, GetCVar = chat, playSound, getCVar
 end
+-- The quest reward worth the most to sell (addon#95): at the reward choice a gold coin on its button and a
+-- tooltip line with its value and the rewards unpriced; nothing on the others; gone when the window closes;
+-- Settings turns it off. Linen Cloth x20 beats Wool Cloth x5; the third has no item to price.
+do
+  local frame = QuestInfoRewardsFrame
+  QuestInfoRewardsFrame = CreateFrame("Frame")
+  local buttons = {}
+  for i = 1, 3 do
+    local b = CreateFrame("Button", nil, QuestInfoRewardsFrame)
+    b.type = "choice"
+    function b:GetID() return i end
+    function b:CreateTexture() local t = CreateFrame("Frame", nil, self) function t:SetTexture(path) self.path = path end return t end
+    buttons[i] = b
+  end
+  QuestInfoRewardsFrame.RewardButtons = buttons
+  local function coin(b) for _, c in ipairs(b.children) do if c.path and c:IsShown() then return c.path end end end
+  local function hover(b)
+    GameTooltip.lines = {}
+    if b.scripts.OnEnter then b.scripts.OnEnter(b) end
+    for _, line in ipairs(GameTooltip.lines) do if line:find("Best to sell", 1, true) then return ns.plainText(line) end end
+  end
+  questShown = { id = 64, reward = {}, choice = { { link = "|Hitem:2589::::::::30|h[Linen Cloth]|h", n = 20 },
+    { link = "|Hitem:2592::::::::30|h[Wool Cloth]|h", n = 5 }, { n = 1 } } }
+  fire("QUEST_COMPLETE")
+  assert(coin(buttons[1]) == "Interface\\MoneyFrame\\UI-GoldIcon", "the best reward carries the gold coin")
+  assert(not coin(buttons[2]) and not coin(buttons[3]), "the others carry none")
+  local line = hover(buttons[1])
+  local value = ns.plainText(ns.Money.auction(ns.price.worth(2589) * 20)) -- 7s 60c on Forever, 19s on retail
+  assert(line and line:find("Best to sell: " .. value .. " (1 reward unpriced)", 1, true), "its tooltip line: " .. tostring(line))
+  assert(hover(buttons[2]) == nil, "no line on another reward")
+  fire("QUEST_FINISHED")
+  assert(not coin(buttons[1]), "the window closed: the coin goes")
+  questShown.choice = { { link = "|Hitem:2589::::::::30|h[Linen Cloth]|h", n = 1 }, { link = "|Hitem:2592::::::::30|h[Wool Cloth]|h", n = 100 } }
+  fire("QUEST_COMPLETE")
+  assert(coin(buttons[2]) and not coin(buttons[1]), "another quest: its own best is marked")
+  assert(hover(buttons[1]) == nil and hover(buttons[2]), "the line on its best only, not on one marked before")
+  fire("QUEST_FINISHED")
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Best quest reward" then row = r end end
+  assert(row and row.switch.on == true, "Best quest reward is on by default in Settings")
+  row.mod.set(false)
+  fire("QUEST_COMPLETE")
+  assert(not coin(buttons[1]) and hover(buttons[1]) == nil, "off: no coin and no line")
+  row.mod.set(true)
+  GoldForeverDB.settings.prices.bestReward = nil
+  questShown, QuestInfoRewardsFrame = nil, frame
+end
 -- A Horde character on a realm whose only full scan is an Alliance alt's (review C-2): Home and the Scan
 -- tab speak of the character's own market's scans. On Forever each side's auction house is its own, so
 -- there is none; on retail one auction house serves both sides, so the alt's scan is the market's.

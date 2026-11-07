@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The quest reward worth the most to sell is marked.** When a quest offers a choice of rewards, the
+  one worth the most carries a small gold coin in its corner, so you can take the gold without hovering
+  each one. Its tooltip says what it is worth, for example "Best to sell: 1g 20s", the better of the
+  auction price after the cut and the vendor price, times how many the quest gives. A reward without a
+  price is left out and counted: "(1 reward unpriced)". Turn it off under Settings, Modules, Best quest
+  reward.
 - **A sound and a chat line when one of your auctions sells.** While you are logged in, a sale plays
   the coin sound and says what sold and what you will get after the auction house's cut, for example
   "sold Linen Cloth x20 for 1g 20s (arrives by mail)"; when the addon did not see the post, the line

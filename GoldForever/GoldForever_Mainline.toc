@@ -84,6 +84,7 @@ Surfaces\BigDrops.lua
 Surfaces\Hud.lua
 Recording\MobStats.lua
 Surfaces\Tooltips.lua
+Surfaces\QuestRewards.lua
 ReadModels\DataFormat.lua
 ReadModels\Prices.lua
 ReadModels\PricesMarkets.lua
