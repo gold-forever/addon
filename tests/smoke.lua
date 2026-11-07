@@ -104,8 +104,12 @@ function shown(start)
     if type(fs.text) == "string" and fs.text:sub(1, #start) == start then return fs.text end
   end
 end
+-- Every widget made, so SetPoint can refuse an anchor that is no frame, as the client does.
+local widgets = setmetatable({}, { __mode = "k" })
 local function widget(t)
-  return setmetatable(t or {}, { __index = function(_, k)
+  t = t or {}
+  widgets[t] = true
+  return setmetatable(t, { __index = function(_, k)
     if NUMBERS[k] then return function() return NUMBERS[k] end end
     if k == "GetText" then return function(self) return texts[self] or "" end end
     if k == "SetText" and METHODS[FLAVOUR][k] then
@@ -116,6 +120,10 @@ local function widget(t)
     if k == "SetSize" and METHODS[FLAVOUR][k] then return function(self, w, h) widths[self], heights[self] = w, h end end
     if k == "SetPoint" and METHODS[FLAVOUR][k] then
       return function(self, ...)
+        local relative = select(2, ...)
+        if type(relative) == "table" and not widgets[relative] then
+          error("SetPoint(): Wrong object type for function", 2)
+        end
         points[self] = points[self] or {}
         table.insert(points[self], { ... })
       end

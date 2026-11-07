@@ -122,7 +122,7 @@ local function buildGoal(page)
 	local goalBar = UI.Bar(goalStrip, 100, {}, 6)
 	goalBar:SetPoint("TOPLEFT", goalText, "BOTTOMLEFT", 0, -8)
 	goalBar:SetPoint("RIGHT", goalStrip, "RIGHT", -40, 0)
-	local strip = { text = goalText, bar = goalBar }
+	local strip = { frame = goalStrip, text = goalText, bar = goalBar }
 	-- The field groups the digits as they are typed ("3,000,000"); Set reads the digits alone.
 	local goalGold
 	goalGold = UI.SearchBox(goalStrip, "Goal in gold", function(text)
@@ -187,7 +187,7 @@ local function fillGoal(goalStrip, home, now)
 	end
 	if not goal then
 		goalStrip.armedAt = nil
-		goalText:SetPoint("RIGHT", goalStrip, "RIGHT", -310, 0)
+		goalText:SetPoint("RIGHT", goalStrip.frame, "RIGHT", -310, 0)
 		goalText:SetText(UI.layout.money(gold, "gold") .. faint .. " across your characters|r")
 		goalBar:Hide()
 		return
@@ -205,7 +205,7 @@ local function fillGoal(goalStrip, home, now)
 		line = line .. faint .. string.format(" · %s a day for %d more %s", "|r" .. UI.layout.money(g.perDay, "gold") .. faint, g.daysLeft, g.daysLeft == 1 and "day" or "days") .. "|r"
 	end
 	goalText:SetText(line)
-	goalText:SetPoint("RIGHT", goalStrip, "RIGHT", -40, 0)
+	goalText:SetPoint("RIGHT", goalStrip.frame, "RIGHT", -40, 0)
 	goalBar:Set(100, { { value = g.pct, color = g.reached and Theme.color.success or Theme.color.accent } })
 	goalBar:Show()
 end
