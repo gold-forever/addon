@@ -1249,7 +1249,9 @@ do
   -- It says so instead of an unknown sale and profit, and still costs its reagents.
   do
     local values = { strsplit(",", GoldForeverDB.catalogue.recipes[2963]) }
-    values[ns.Encode.columns(GoldForeverDB.fields.recipe).output] = "99995"
+    local cols = ns.Encode.columns(GoldForeverDB.fields.recipe)
+    -- The client gives the 20 herbs it takes as the count (addon#65): never the title's.
+    values[cols.output], values[cols.min], values[cols.max] = "99995", "20", "20"
     GoldForeverDB.catalogue.recipes[99996] = table.concat(values, ",")
     GoldForeverDB.catalogue.items[99995] = "Wild Experimentation,3,1,9,6,1,0,0,413574"
     ns.CraftingStrip.select(99996)
@@ -1257,6 +1259,33 @@ do
     assert(sale:find("random", 1, true) and not sale:find("unknown", 1, true), "the sale says the result is random: " .. sale)
     assert(ns.CraftingStrip.row(3) == "" and ns.CraftingStrip.row(4) == "", "no profit or margin: " .. ns.CraftingStrip.row(3))
     assert(not ns.CraftingStrip.row(1):find("unknown", 1, true), "the reagents' cost: " .. ns.CraftingStrip.row(1))
+    local title = ns.CraftingStrip.shown()
+    assert(title:find("Wild Experimentation", 1, true) and not title:find("20x", 1, true), "no count on a random result: " .. title)
+    -- A slot of your choice of reagent (any of several herbs): one line, "any of", the cheapest first and
+    -- priced at it. The catalogue does not record the choices yet, so the quote is made here with them.
+    local quoteRecipe = ns.quoteRecipe
+    local function choice(held)
+      ns.quoteRecipe = function(id)
+        local q = quoteRecipe(id)
+        local r = { output = q.recipe.output, yield = q.recipe.yield, reagents = { { options = { 2934, 2589 }, count = 20 } } }
+        local c = ns.Crafting.quote(r, ns.price, function() return held end, ns.price.cut)
+        c.recipe, c.random = q.recipe, q.random
+        return c
+      end
+      ns.CraftingStrip.select(99996)
+    end
+    choice(0)
+    local line = ns.CraftingStrip.line(1)
+    assert(line:sub(1, #("20x any of: " .. ns.itemName(2589) .. ", ")) == "20x any of: " .. ns.itemName(2589) .. ", " and ns.CraftingStrip.line(2) == "", "one line for the choice, cheapest first: " .. line)
+    assert(ns.CraftingStrip.frame().lines[1].value:GetText():find("AH", 1, true), "priced at the auction house")
+    -- The lines wrap at the strip's width, each below the last; one without a price spans the strip.
+    local strip = ns.CraftingStrip.frame()
+    local below = anchor(strip.lines[2].name, "TOPLEFT")
+    assert(below and below[2] == strip.lines[1].name and below[3] == "BOTTOMLEFT", "a line sits below the one before it")
+    choice(99)
+    assert(ns.CraftingStrip.line(1):find("Nothing: your bags and bank hold it all.", 1, true), "nothing to buy: " .. ns.CraftingStrip.line(1))
+    assert(width(strip.lines[1].name) == width(strip.note), "the line without a price spans the strip: " .. tostring(width(strip.lines[1].name)))
+    ns.quoteRecipe = quoteRecipe
     GoldForeverDB.catalogue.recipes[99996], GoldForeverDB.catalogue.items[99995] = nil, nil
   end
   fire("TRADE_SKILL_CLOSE")

@@ -71,4 +71,35 @@ eq(C.randomResult(9, 5000), false, "a recipe item that sells: a real output")
 eq(C.randomResult(7, nil), false, "an unpriced trade good: unknown, not random")
 eq(C.randomResult(nil, nil), false, "an item not read yet: unknown, not random")
 
+-- A slot you fill with your choice of reagent (Wild Experimentation: any of several herbs): one line,
+-- priced at the cheapest choice you hold or can buy, its options kept for the strip's "any of".
+local herbs = { [101] = 50, [102] = 30, [103] = nil }
+local choicePrice = {
+	market = function(id) return herbs[id] end,
+	buy = function(id) return herbs[id] end,
+	vendorBuy = function() return nil end,
+}
+local wild = { output = 9, yield = 1, reagents = { { options = { 101, 102, 103 }, count = 20 }, { id = 2320, count = 1 } } }
+q = C.quote(wild, choicePrice, function() return 0 end, 0.05)
+eq(#q.lines, 2, "the choice slot is one line, the fixed reagent another")
+eq(q.lines[1].id, 102, "the cheapest choice to buy")
+eq(q.lines[1].unit, 30, "priced at it")
+eq(#q.lines[1].options, 3, "every choice kept")
+eq(q.lines[1].toBuy, 20, "all 20 to buy")
+eq(q.lines[2].options, nil, "a fixed reagent has no choices")
+-- Held herbs count at the lower of buying and selling them (47.5c here), so a cheaper herb to buy wins.
+q = C.quote(wild, choicePrice, function(id) return id == 101 and 20 or 0 end, 0.05)
+eq(q.lines[1].id, 102, "held at 47 each still dearer than buying at 30")
+q = C.quote(wild, choicePrice, function(id) return id == 103 and 20 or 0 end, 0.05)
+eq(q.lines[1].id, 102, "a held choice of unknown value is not cheapest")
+local cheapHeld = { [101] = 50, [102] = 30, [103] = 10 }
+q = C.quote(wild, { market = function(id) return cheapHeld[id] end, buy = function() return nil end, vendorBuy = function() return nil end },
+	function(id) return id == 101 and 20 or 0 end, 0.05)
+eq(q.lines[1].id, 101, "only the held choice is known: it")
+eq(q.lines[1].toBuy, 0, "nothing to buy")
+q = C.quote(wild, { market = function() return nil end, buy = function() return nil end, vendorBuy = function() return nil end },
+	function() return 0 end, 0.05)
+eq(q.lines[1].id, 101, "no choice priced: the first, unknown")
+eq(q.spend, nil, "and the cost unknown")
+
 return checks()

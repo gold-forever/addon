@@ -12,6 +12,9 @@ local _, ns = ...
 local Theme, UI = ns.Theme, ns.UI
 
 local W, LINES = 280, 6
+-- The To buy lines: a name beside its price, or across the strip without one; each wraps (addon#65).
+local NAME_W, FULL_W, LINE_GAP = W - 110, W - 28, 4
+local TOP_OF_LINES = 80 + 4 * 20 + 26
 
 local function settings()
 	return ns.settings("crafting")
@@ -43,11 +46,16 @@ local function build()
 	lh:SetPoint("TOPLEFT", 14, -80 - 4 * 20 - 10)
 	f.lines = {}
 	for i = 1, LINES do
-		local l = UI.Text(f, "", { size = "xs" })
-		l:SetPoint("TOPLEFT", 14, -80 - 4 * 20 - 26 - (i - 1) * 18)
-		l:SetWidth(W - 110)
+		local l = UI.Text(f, "", { size = "xs", wrap = true })
+		if i == 1 then
+			l:SetPoint("TOPLEFT", 14, -TOP_OF_LINES)
+		else
+			l:SetPoint("TOPLEFT", f.lines[i - 1].name, "BOTTOMLEFT", 0, -LINE_GAP)
+		end
+		l:SetWidth(NAME_W)
 		local v = UI.Text(f, "", { size = "xs", align = "RIGHT", tone = "muted" })
-		v:SetPoint("TOPRIGHT", -14, -80 - 4 * 20 - 26 - (i - 1) * 18)
+		v:SetPoint("TOP", l, "TOP")
+		v:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 		v:SetWidth(96)
 		f.lines[i] = { name = l, value = v }
 	end
@@ -74,6 +82,38 @@ local GAP = 46
 local function dock(f)
 	f:ClearAllPoints()
 	f:SetPoint("TOPLEFT", host(), "TOPRIGHT", GAP, 0)
+end
+
+-- One To buy line: its name, and its price if it has one (else the name takes the strip's width).
+local function setLine(l, name, value)
+	l.name:SetWidth(value ~= "" and NAME_W or FULL_W)
+	l.name:SetText(name)
+	l.value:SetText(value)
+end
+
+-- The strip as tall as its wrapped lines and note.
+local function fit(strip)
+	local h = TOP_OF_LINES
+	for _, l in ipairs(strip.lines) do
+		if l.name:GetText() ~= "" then
+			h = h + (l.name:GetStringHeight() or 0) + LINE_GAP
+		end
+	end
+	strip:SetHeight(h + 12 + (strip.note:GetStringHeight() or 0) + 12)
+end
+
+-- A reagent's name; a slot of the player's choice as "any of", the cheapest choice first.
+local function reagentName(line)
+	if not line.options then
+		return ns.itemName(line.id)
+	end
+	local names = { ns.itemName(line.id) }
+	for _, id in ipairs(line.options) do
+		if id ~= line.id then
+			names[#names + 1] = ns.itemName(id)
+		end
+	end
+	return "any of: " .. table.concat(names, ", ")
 end
 
 -- One strip per look and accent.
@@ -118,15 +158,17 @@ local function refresh()
 			v:SetText("")
 		end
 		for _, l in ipairs(strip.lines) do
-			l.name:SetText("")
-			l.value:SetText("")
+			setLine(l, "", "")
 		end
 		strip.note:SetText("")
+		fit(strip)
 		return
 	end
 	local r = q.recipe
 	local quality = ns.price.itemInfo(r.output) or 1
-	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. (r.yield ~= 1 and (r.yield .. "x ") or "") .. ns.itemName(r.output) .. "|r")
+	-- A random result's count is what the client gives as its reagents', not what it makes (addon#65).
+	local count = not q.random and r.yield ~= 1 and (r.yield .. "x ") or ""
+	strip.title:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. count .. ns.itemName(r.output) .. "|r")
 	strip.rows[1]:SetText(q.spend and money(q.spend) or dash)
 	local gear = not q.random and ns.isGear(r.output)
 	saleRows(strip, q, gear, money, faint, dash)
@@ -139,22 +181,21 @@ local function refresh()
 	-- More than the lines hold: the last says how many more, not cut off silently.
 	local shown = #toBuy > LINES and LINES - 1 or #toBuy
 	for i = 1, shown do
-		local line, l = toBuy[i], strip.lines[i]
-		l.name:SetText(line.toBuy .. "x " .. ns.itemName(line.id))
-		l.value:SetText(line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
+		local line = toBuy[i]
+		setLine(strip.lines[i], line.toBuy .. "x " .. reagentName(line),
+			line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
 	end
 	if shown < #toBuy then
 		shown = shown + 1
-		strip.lines[shown].name:SetText(faint .. string.format("+%d more", #toBuy - shown + 1) .. "|r")
-		strip.lines[shown].value:SetText("")
+		setLine(strip.lines[shown], faint .. string.format("+%d more", #toBuy - shown + 1) .. "|r", "")
 	end
 	for i = shown + 1, LINES do
-		strip.lines[i].name:SetText(i == 1 and (faint .. "Nothing: your bags and bank hold it all.|r") or "")
-		strip.lines[i].value:SetText("")
+		setLine(strip.lines[i], i == 1 and (faint .. "Nothing: your bags and bank hold it all.|r") or "", "")
 	end
 	strip.note:SetText(q.random and "Its result is random, and it can fail: no sale price or profit to show."
 		or gear and "Gear has one price for every quality and item level: check the auction house for the quality you craft."
 		or "Reagents at the cheaper of the auction house and a vendor; what you hold counts at the lower of buying and selling it.")
+	fit(strip)
 end
 
 -- The recipe the profession window shows now, read from its schematic form where it has one.

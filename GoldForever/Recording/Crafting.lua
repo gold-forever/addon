@@ -36,30 +36,54 @@ local function lower(a, b)
 	return math.min(a, b)
 end
 
--- recipe: { output = itemId, yield = n, reagents = { { id, count }, … } }
+-- One reagent's line: where it is bought and at what, and how many are held and still to buy; spend is
+-- what it adds to the craft's cost (nil when unknown).
+local function reagentLine(id, count, price, stock, cut)
+	local vendor, auction = price.vendorBuy(id), price.buy(id)
+	local from, unit
+	if vendor and (not auction or vendor <= auction) then
+		from, unit = "vendor", vendor
+	elseif auction then
+		from, unit = "auction", auction
+	end
+	local market = price.market(id)
+	local sell = market and market * (1 - cut)
+	local owned = math.min(count, stock(id) or 0)
+	local line = { id = id, needed = count, owned = owned, toBuy = count - owned, unit = unit, from = from }
+	line.cash, line.ownedValue = times(line.toBuy, unit), times(owned, lower(unit, sell))
+	line.spend = plus(line.cash, line.ownedValue)
+	return line
+end
+
+-- A slot filled with the player's choice of reagent (retail: any of several herbs): the choice that costs
+-- least, held or bought; with none priced, the first.
+local function choiceLine(r, price, stock, cut)
+	local best
+	for _, id in ipairs(r.options) do
+		local line = reagentLine(id, r.count, price, stock, cut)
+		if not best or (line.spend and (not best.spend or line.spend < best.spend)) then
+			best = line
+		end
+	end
+	best.options = r.options
+	return best
+end
+
+-- recipe: { output = itemId, yield = n, reagents = { { id, count } or { options = { id, … }, count }, … } }
 -- price: { market = fn(id), buy = fn(id), vendorBuy = fn(id) }, each a copper value or nil: buy is what
 -- one costs at the auction house
 -- stock: fn(id) → units owned. Returns { revenue, cost, cash, ownedValue, profit, lines = { … } },
--- where profit is "use what I have" and any unknown price makes the sums it touches nil.
+-- where profit is "use what I have" and any unknown price makes the sums it touches nil. A choice slot's
+-- line is its cheapest choice, with options.
 function Crafting.quote(recipe, price, stock, cut)
 	local cost, cash, ownedValue = 0, 0, 0
 	local lines = {}
 	for _, r in ipairs(recipe.reagents) do
-		local vendor, auction = price.vendorBuy(r.id), price.buy(r.id)
-		local from, unit
-		if vendor and (not auction or vendor <= auction) then
-			from, unit = "vendor", vendor
-		elseif auction then
-			from, unit = "auction", auction
-		end
-		local market = price.market(r.id)
-		local sell = market and market * (1 - cut)
-		local owned = math.min(r.count, stock(r.id) or 0)
-		local line = { id = r.id, needed = r.count, owned = owned, toBuy = r.count - owned, unit = unit, from = from }
+		local line = r.options and choiceLine(r, price, stock, cut) or reagentLine(r.id, r.count, price, stock, cut)
 		lines[#lines + 1] = line
-		cost = plus(cost, times(r.count, unit))
-		cash = plus(cash, times(line.toBuy, unit))
-		ownedValue = plus(ownedValue, times(owned, lower(unit, sell)))
+		cost = plus(cost, times(line.needed, line.unit))
+		cash = plus(cash, line.cash)
+		ownedValue = plus(ownedValue, line.ownedValue)
 	end
 	local output = price.market(recipe.output)
 	local revenue = output and math.floor(output * recipe.yield * (1 - cut) + 0.5) or nil

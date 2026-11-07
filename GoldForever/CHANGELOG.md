@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **The crafting strip reads more recipes right.** A recipe with a random result (Wild Experimentation)
+  no longer shows a count in its title: the 20 was the herbs it takes. The To buy lines wrap instead of
+  being cut off, and the strip grows to fit them.
 - **Home's goal line reads cleanly.** With a goal set, the line shows the goal, how far you are and an
   X that cancels it: the first press asks, a second within 5 seconds cancels. Without a goal, it shows
   your gold across your characters, the amount field, the days and Set.
