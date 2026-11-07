@@ -8,6 +8,12 @@ local _, ns = ...
 local loads = {} -- addon -> the function that loads it, made once so a wait in combat queues it once
 local done = {} -- addon -> true once asked to load
 
+-- What the client's refusal means for the player, and what to do; any other reason is an error.
+local TOLD = {
+	DISABLED = "%s is turned off in the AddOns list: turn it on there to use the auction house panel.",
+	MISSING = "the %s folder is not installed: reinstall Gold Forever, or in a developer install link both folders into AddOns.",
+}
+
 local function loader(addon)
 	return function()
 		if done[addon] then
@@ -21,8 +27,11 @@ local function loader(addon)
 		if not ok then
 			ns.fail("load " .. addon, loaded)
 		elseif loaded then
+			ns.forgetError("load " .. addon) -- a MISSING an older version recorded, before the folder was installed
 			ns.startLate()
-		elseif why ~= "DISABLED" then -- one turned off in the AddOns list is the player's choice
+		elseif TOLD[why] then
+			ns.say(string.format(TOLD[why], addon))
+		else
 			ns.fail("load " .. addon, "not loaded: " .. tostring(why))
 		end
 	end

@@ -9,6 +9,10 @@
   quantity for commodities, yours marked; the wheel scrolls it. Prices show in full (6g 98s 99c). Held
   under your floor, the price reads Held and the plain Post anyway button asks for a second press.
   The narrow layout is unchanged.
+- **When the auction house panel cannot load, chat says why.** If the GoldForever_Auctions folder is
+  not installed, the line says so and to reinstall (or, in a developer install, to link both folders);
+  if it is turned off in the AddOns list, it says to turn it on. Once a session, and no longer an error
+  in /gf check; an old MISSING entry there goes once the panel loads.
 
 ## 0.17.0 (2026-11-04)
 

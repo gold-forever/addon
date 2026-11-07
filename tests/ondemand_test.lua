@@ -13,7 +13,8 @@ local function fire(event, ...)
 	handler(nil, event, ...)
 end
 
-local ns = { say = function() end, stopped = function() return false end }
+local said = {}
+local ns = { say = function(text) said[#said + 1] = text end, stopped = function() return false end }
 for _, file in ipairs({ "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Combat.lua", "OnDemand.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
@@ -24,7 +25,7 @@ ns.startModules("enable")
 
 -- The client's loader: GoldForever_Auctions runs its first file (Namespace.lua) and a module of its own.
 local loaded, started = {}, {}
-local refusal = { GoldForever_Off = "DISABLED", GoldForever_Gone = "MISSING" }
+local refusal = { GoldForever_Off = "DISABLED", GoldForever_Gone = "MISSING", GoldForever_Odd = "INCOMPATIBLE" }
 C_AddOns = {
 	LoadAddOn = function(addon)
 		loaded[#loaded + 1] = addon
@@ -55,10 +56,26 @@ eq(#loaded, 1, "not in combat")
 fire("PLAYER_REGEN_ENABLED")
 eq(table.concat(loaded, ", "), "GoldForever_Auctions, GoldForever_Later", "once the fight ends, once however often asked")
 
+said = {}
 ns.loadOnDemand("GoldForever_Off")
-ns.loadOnDemand("GoldForever_Gone")
 eq(errors["load GoldForever_Off"], nil, "one turned off in the AddOns list is not an error")
-eq(errors["load GoldForever_Gone"] and errors["load GoldForever_Gone"].msg, "not loaded: MISSING", "one the client cannot load is recorded")
+eq(said[1], "GoldForever_Off is turned off in the AddOns list: turn it on there to use the auction house panel.", "one turned off is told what to do")
+said = {}
+ns.loadOnDemand("GoldForever_Gone")
+eq(errors["load GoldForever_Gone"], nil, "a missing folder is an install, not an error")
+eq(said[1], "the GoldForever_Gone folder is not installed: reinstall Gold Forever, or in a developer install link both folders into AddOns.", "one not installed is told what to do")
+said = {}
+ns.loadOnDemand("GoldForever_Gone")
+ns.loadOnDemand("GoldForever_Off")
+eq(#said, 0, "told once a session")
+ns.loadOnDemand("GoldForever_Odd")
+eq(errors["load GoldForever_Odd"] and errors["load GoldForever_Odd"].msg, "not loaded: INCOMPATIBLE", "one the client cannot load for another reason is recorded")
+eq(said[1], "load GoldForever_Odd failed: not loaded: INCOMPATIBLE", "and said as before")
+
+-- A MISSING recorded before (by an older version) goes once the addon loads.
+errors["load GoldForever_Fixed"] = { n = 1, msg = "not loaded: MISSING", t = 0 }
+ns.loadOnDemand("GoldForever_Fixed")
+eq(errors["load GoldForever_Fixed"], nil, "a load that works clears its old error")
 
 -- The core needs nothing of GoldForever_Auctions: every name a core file reads on ns is set by a core file.
 local coreSets = {}
