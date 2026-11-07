@@ -36,11 +36,7 @@ local function recipe(id, cols)
 	end
 	local min = tonumber(values[cols.min] or "") or 1
 	local max = tonumber(values[cols.max] or "") or min
-	local reagents = {}
-	for rid, n in pairs(itemList(values[cols.reagents])) do
-		reagents[#reagents + 1] = { id = rid, count = n }
-	end
-	return { id = id, output = output, yield = (min + max) / 2, reagents = reagents }
+	return { id = id, output = output, yield = (min + max) / 2, reagents = Encode.parseReagents(values[cols.reagents]) }
 end
 
 -- Whether a recipe makes gear (a weapon or armor): its price is one for every quality and item level,
@@ -146,9 +142,15 @@ end
 function ns.queueList()
 	return queue()
 end
--- The queue's reagents in all: item ID -> units.
+-- The queue's reagents in all: item ID -> units; a slot of choices as its cheapest choice, as quoted.
 function ns.queueNeeds()
-	return ns.Crafting.queueReagents(queue(), ns.recipeOf)
+	local held = stock()
+	local have = function(id)
+		return held[id] or 0
+	end
+	return ns.Crafting.queueReagents(queue(), ns.recipeOf, function(slot)
+		return ns.Crafting.choice(slot, ns.price, have, ns.price.cut).id
+	end)
 end
 
 -- A recipe from the catalogue (output, yield, reagents), for the craft queue.

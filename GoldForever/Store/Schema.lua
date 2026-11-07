@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 9
+ns.SCHEMA = 10
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
@@ -21,7 +21,9 @@ ns.FIELDS = {
 	loot = "t,char,map,x,y,src,first,coin,items,fish,instanceId",
 	pos = "t,char,map,x,y",
 	-- Professions.lua. name is appended to design 002's columns: it lets the web app show recipes whose
-	-- output is not an item (enchants).
+	-- output is not an item (enchants). reagents: one "item*count" per slot, joined by "+"; from schema 10
+	-- a slot of choices is "a/b/c*count" (Encode.parseReagents). A salvage that makes a recipe item (a
+	-- random result) leaves min and max empty: its quantity is what it takes.
 	recipe = "skillLine,output,min,max,reagents,name",
 	skill = "t,char,line,skill,max,spell,src,map",
 	-- Market.lua. left: the auctions' time-left band (Enum.AuctionHouseTimeLeftBand: 0 under 30 minutes,

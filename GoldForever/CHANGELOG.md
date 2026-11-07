@@ -35,6 +35,11 @@
   "sold Linen Cloth x20 for 1g 20s (arrives by mail)"; when the addon did not see the post, the line
   names the item only. The sound plays only when the game's sound is on. Turn it off under Settings,
   Modules, Sale alert. The sale is still recorded from the mail, as before.
+- **Reagents you choose.** A recipe slot you fill with your choice of reagent (any of several herbs, or a
+  herb's qualities) is recorded with every choice. The crafting strip shows it as one line, "any of: …"
+  with the cheapest first, and prices it at the cheapest choice you hold or can buy; the Crafting page
+  and the Buy tab's Craft queue list use that choice too. Wild Experimentation no longer records the
+  herbs it takes as what it makes. Open each profession window once to record its recipes anew.
 - **The crafting strip reads more recipes right.** A recipe with a random result (Wild Experimentation)
   no longer shows a count in its title: the 20 was the herbs it takes. The To buy lines wrap instead of
   being cut off, and the strip grows to fit them.

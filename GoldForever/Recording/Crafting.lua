@@ -55,9 +55,9 @@ local function reagentLine(id, count, price, stock, cut)
 	return line
 end
 
--- A slot filled with the player's choice of reagent (retail: any of several herbs): the choice that costs
--- least, held or bought; with none priced, the first.
-local function choiceLine(r, price, stock, cut)
+-- A slot filled with the player's choice of reagent (retail: any of several herbs, or a herb's qualities):
+-- the line of the choice that costs least, held or bought; with none priced, the first.
+function Crafting.choice(r, price, stock, cut)
 	local best
 	for _, id in ipairs(r.options) do
 		local line = reagentLine(id, r.count, price, stock, cut)
@@ -79,7 +79,7 @@ function Crafting.quote(recipe, price, stock, cut)
 	local cost, cash, ownedValue = 0, 0, 0
 	local lines = {}
 	for _, r in ipairs(recipe.reagents) do
-		local line = r.options and choiceLine(r, price, stock, cut) or reagentLine(r.id, r.count, price, stock, cut)
+		local line = r.options and Crafting.choice(r, price, stock, cut) or reagentLine(r.id, r.count, price, stock, cut)
 		lines[#lines + 1] = line
 		cost = plus(cost, times(line.needed, line.unit))
 		cash = plus(cash, line.cash)
@@ -117,6 +117,12 @@ function Crafting.randomResult(class, market)
 	return class == RECIPE_CLASS and market == nil
 end
 
+-- Whether an item is a recipe item: a salvage that makes one has a random result, and its count is the
+-- items it takes (Professions.lua).
+function Crafting.recipeItem(class)
+	return class == RECIPE_CLASS
+end
+
 -- Profit with "I have these": what the player holds costs nothing, only what is still to buy does.
 function Crafting.profitHeld(q)
 	if not q or not q.revenue or not q.cash then
@@ -142,13 +148,15 @@ function Crafting.band(margin)
 end
 
 -- The reagents a craft queue needs in all ({ { recipe = id, count = n } }; recipeOf(id) gives the
--- recipe with its reagents): item ID -> units. A recipe the catalogue lacks needs nothing.
-function Crafting.queueReagents(queue, recipeOf)
+-- recipe with its reagents): item ID -> units. A recipe the catalogue lacks needs nothing. A slot of
+-- choices needs the one pick(slot) names (the cheapest: Crafting.choice), else its first.
+function Crafting.queueReagents(queue, recipeOf, pick)
 	local need = {}
 	for _, q in ipairs(queue or {}) do
 		local r = recipeOf(q.recipe)
 		for _, x in ipairs(r and r.reagents or {}) do
-			need[x.id] = (need[x.id] or 0) + x.count * (q.count or 1)
+			local id = x.options and pick and pick(x) or x.id
+			need[id] = (need[id] or 0) + x.count * (q.count or 1)
 		end
 	end
 	return need

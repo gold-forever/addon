@@ -77,6 +77,13 @@ ns.MIGRATIONS = {
 		to = 9,
 		run = function() end,
 	},
+	-- A recipe's reagents may name a slot of choices, "a/b/c*n", and a random result no count
+	-- (Professions.lua); the rows kept read as before, and the profession window rewrites them.
+	{
+		from = 9,
+		to = 10,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

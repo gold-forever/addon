@@ -204,4 +204,15 @@ eq(E.itemRow(2589, instant, function()
 	error("not loaded")
 end), "2589,7,5,", "a stack call that fails is not fatal")
 
+-- A recipe's reagents (addon#65): one per slot, in the row's order; a slot of choices "a/b/c*n" names them
+-- all, the first as its id. Older readers (Encode.parseItems) take that first choice.
+local slots = E.parseReagents("210796/210797/210798*20+2320*1")
+eq(#slots, 2, "two slots")
+eq(slots[1].id .. " " .. slots[1].count .. " " .. table.concat(slots[1].options, ","), "210796 20 210796,210797,210798", "the choice slot")
+eq(slots[2].id .. " " .. slots[2].count .. " " .. tostring(slots[2].options), "2320 1 nil", "a fixed reagent")
+eq(#E.parseReagents(""), 0, "no reagents")
+eq(#E.parseReagents(nil), 0, "nor a row without them")
+eq(E.parseItems("210796/210797*20")[210796], 20, "an older reader takes the first choice")
+eq(E.items({ ["210796/210797"] = 20, ["2320"] = 1 }), "210796/210797*20+2320*1", "written as Encode.items writes any list")
+
 return checks()

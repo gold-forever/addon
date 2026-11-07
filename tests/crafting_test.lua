@@ -63,6 +63,11 @@ local need = C.queueReagents({ { recipe = 1, count = 5 }, { recipe = 2, count = 
 eq(need[2589], 12, "5 × 2 + 2 × 1 Linen")
 eq(need[2320], 6, "2 × 3 thread")
 eq(next(C.queueReagents({}, function() end)), nil, "an empty queue needs nothing")
+-- A choice slot needs the choice the pick makes (the cheapest), not every choice; without a pick, the first.
+recipes[3] = { reagents = { { id = 101, options = { 101, 102 }, count = 20 } } }
+need = C.queueReagents({ { recipe = 3, count = 2 } }, function(id) return recipes[id] end, function(x) return x.options[2] end)
+eq(need[102] .. " " .. tostring(need[101]), "40 nil", "the picked choice, 2 × 20")
+eq(C.queueReagents({ { recipe = 3, count = 1 } }, function(id) return recipes[id] end)[101], 20, "no pick: the first")
 
 -- A random result (Wild Experimentation, a transmutation): the client names a recipe item (class 9) as
 -- its output, which has no price. A priced recipe item is a real sale; anything else is a fixed result.
@@ -101,5 +106,7 @@ q = C.quote(wild, { market = function() return nil end, buy = function() return 
 	function() return 0 end, 0.05)
 eq(q.lines[1].id, 101, "no choice priced: the first, unknown")
 eq(q.spend, nil, "and the cost unknown")
+-- The queue's pick is the quote's: the choice a slot is priced at.
+eq(C.choice({ options = { 101, 102, 103 }, count = 20 }, choicePrice, function() return 0 end, 0.05).id, 102, "the cheapest choice")
 
 return checks()

@@ -1273,20 +1273,16 @@ do
     assert(not ns.CraftingStrip.row(1):find("unknown", 1, true), "the reagents' cost: " .. ns.CraftingStrip.row(1))
     local title = ns.CraftingStrip.shown()
     assert(title:find("Wild Experimentation", 1, true) and not title:find("20x", 1, true), "no count on a random result: " .. title)
-    -- A slot of your choice of reagent (any of several herbs): one line, "any of", the cheapest first and
-    -- priced at it. The catalogue does not record the choices yet, so the quote is made here with them.
-    local quoteRecipe = ns.quoteRecipe
+    -- A slot of your choice of reagent (any of several herbs, "a/b*n" in the catalogue): one line, "any
+    -- of", the cheapest first and priced at it; the queue needs that choice, not every one.
+    values[cols.reagents] = "2934/2589*20"
+    GoldForeverDB.catalogue.recipes[99996] = table.concat(values, ",")
+    local stock = ns.me().bags.items
     local function choice(held)
-      ns.quoteRecipe = function(id)
-        local q = quoteRecipe(id)
-        local r = { output = q.recipe.output, yield = q.recipe.yield, reagents = { { options = { 2934, 2589 }, count = 20 } } }
-        local c = ns.Crafting.quote(r, ns.price, function() return held end, ns.price.cut)
-        c.recipe, c.random = q.recipe, q.random
-        return c
-      end
+      ns.me().bags.items = held and "2589*20+2934*20" or ""
       ns.CraftingStrip.select(99996)
     end
-    choice(0)
+    choice(false)
     local line = ns.CraftingStrip.line(1)
     assert(line:sub(1, #("20x any of: " .. ns.itemName(2589) .. ", ")) == "20x any of: " .. ns.itemName(2589) .. ", " and ns.CraftingStrip.line(2) == "", "one line for the choice, cheapest first: " .. line)
     assert(ns.CraftingStrip.frame().lines[1].value:GetText():find("AH", 1, true), "priced at the auction house")
@@ -1294,10 +1290,15 @@ do
     local strip = ns.CraftingStrip.frame()
     local below = anchor(strip.lines[2].name, "TOPLEFT")
     assert(below and below[2] == strip.lines[1].name and below[3] == "BOTTOMLEFT", "a line sits below the one before it")
-    choice(99)
+    local queue = ns.settings("crafting").queue
+    ns.settings("crafting").queue = { { recipe = 99996, count = 2 } }
+    local needs = ns.queueNeeds()
+    assert(needs[2589] == 40 and needs[2934] == nil, "the queue needs the cheapest choice: " .. tostring(needs[2589]) .. " " .. tostring(needs[2934]))
+    ns.settings("crafting").queue = queue
+    choice(true)
     assert(ns.CraftingStrip.line(1):find("Nothing: your bags and bank hold it all.", 1, true), "nothing to buy: " .. ns.CraftingStrip.line(1))
     assert(width(strip.lines[1].name) == width(strip.note), "the line without a price spans the strip: " .. tostring(width(strip.lines[1].name)))
-    ns.quoteRecipe = quoteRecipe
+    ns.me().bags.items = stock
     GoldForeverDB.catalogue.recipes[99996], GoldForeverDB.catalogue.items[99995] = nil, nil
   end
   fire("TRADE_SKILL_CLOSE")
@@ -1334,7 +1335,8 @@ if INTERFACE >= 110000 then
     GetSalvagableItemIDs = function() return { 223512, 223513 } end }, { __index = api })
   fire("TRADE_SKILL_SHOW")
   wait(3)
-  seen("SALVAGE RECIPE ", tostring(GoldForeverDB.catalogue.recipes[445118]), "185,222738,5,5,223512*5,Portioned Steak")
+  -- Every item the client lists is a choice (addon#65).
+  seen("SALVAGE RECIPE ", tostring(GoldForeverDB.catalogue.recipes[445118]), "185,222738,5,5,223512/223513*5,Portioned Steak")
   -- The refines, shatters, Thaumaturgy and a Hearty Feast: the client lists no salvagable item, or
   -- does not call the recipe a salvage; the reagent is the recipe's first salvage input in the game data.
   local function read(id, line, name, recipeType, output, quantity, salvagable)
@@ -1355,6 +1357,24 @@ if INTERFACE >= 110000 then
   seen("HEARTY FEAST ", read(1232247, 185, "Hearty Feast", SALVAGE, 228721, 10, {}), "185,228721,10,10,242273*10,Hearty Feast")
   -- What the client lists comes first.
   seen("CLIENT SALVAGE ", read(445120, 185, "Hearty Food", SALVAGE, 222693, 5, { 222735 }), "185,222693,5,5,222735*5,Hearty Food")
+  -- Wild Experimentation: a salvage of any of several herbs whose output is a recipe item (a random
+  -- result). Its 20 is the herbs it takes, never what it makes: no count recorded (addon#65).
+  local instant = C_Item.GetItemInfoInstant
+  C_Item.GetItemInfoInstant = function(id) if id == 99995 then return id, "Recipe", "Alchemy", "", 1, 9, 6 end return instant(id) end
+  seen("WILD EXPERIMENTATION ", read(430346, 171, "Wild Experimentation", SALVAGE, 99995, 20, { 210796, 210799, 210802 }),
+    "171,99995,,,210796/210799/210802*20,Wild Experimentation")
+  C_Item.GetItemInfoInstant = instant
+  -- A slot whose reagent you choose (each quality of a herb, or any of several): every choice, in the
+  -- client's order; the currency in it is no item.
+  C_TradeSkillUI = setmetatable({ GetAllRecipeIDs = function() return { 430400 } end,
+    GetRecipeInfo = function() return { learned = false, name = "Algari Potion" } end,
+    GetBaseProfessionInfo = function() return { professionID = 171, professionName = "Alchemy" } end,
+    GetRecipeSchematic = function() return { recipeType = 1, outputItemID = 212239, quantityMin = 1, quantityMax = 1, reagentSlotSchematics = {
+      { reagentType = Enum.CraftingReagentType and Enum.CraftingReagentType.Basic or 1, quantityRequired = 3, reagents = { { itemID = 210805 }, { itemID = 210806 }, { currencyID = 3000 } } },
+      { reagentType = Enum.CraftingReagentType and Enum.CraftingReagentType.Basic or 1, quantityRequired = 1, reagents = { { itemID = 2320 } } } } } end }, { __index = api })
+  fire("TRADE_SKILL_SHOW")
+  wait(3)
+  seen("CHOICE SLOT ", tostring(GoldForeverDB.catalogue.recipes[430400]), "171,212239,1,1,210805/210806*3+2320*1,Algari Potion")
   C_TradeSkillUI = api
 end
 -- "/gf recipeprobe <id>" prints what the client says of one recipe and the row the reader makes of it.
@@ -1375,7 +1395,7 @@ do
       .. " / slot 1: type 0, 1 of 190000, currency 3000 / salvagable: 193222, 193216"
       .. " / row: ,198424,5,5,190000*1+" .. salvage .. "*5,Refine Hides / " .. ns.PREFIX .. ": /gf recipeprobe <recipe ID>"
   end
-  seen("RECIPE PROBE ", table.concat(out, " / "), want(193216), want(193222))
+  seen("RECIPE PROBE ", table.concat(out, " / "), want(193216), want("193222/193216"))
 end
 -- The panel's tests put fakes in place of the posts the addon hooked; the posting check below puts them back.
 local hookedPost, hookedConfirm = C_AuctionHouse.PostCommodity, C_AuctionHouse.ConfirmPostCommodity

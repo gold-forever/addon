@@ -1886,10 +1886,13 @@
 + migrated[8].from = 8
 + migrated[8].t = 1792835263
 + migrated[8].to = 9
++ migrated[9].from = 9
++ migrated[9].t = 1792835263
++ migrated[9].to = 10
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-neutral@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
-+ schema = 9
++ schema = 10
 + settings.appraiser.shown = false
 + settings.auction.duration = 2
 + settings.auction.durations = {}

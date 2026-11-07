@@ -78,7 +78,36 @@ local function readSkills()
 	end
 end
 
--- The recipe's catalogue row: output and basic reagents, from its schematic.
+-- One reagent slot's key in the catalogue's reagents column: its item, or its choices as "a/b/c"
+-- (Encode.parseReagents), each catalogued; nil for a slot with no item.
+local function slotKey(items)
+	local ids = {}
+	for _, item in ipairs(items) do
+		ids[#ids + 1] = tostring(item)
+		ns.catalogueItem(item)
+	end
+	return ids[1] and table.concat(ids, "/") or nil
+end
+
+-- The items a salvage recipe takes, any one of them: those the client lists, else the game data's first.
+local function salvageInputs(id, s)
+	if SALVAGE and s.recipeType == SALVAGE and C_TradeSkillUI.GetSalvagableItemIDs then
+		local listed = C_TradeSkillUI.GetSalvagableItemIDs(id) or {}
+		if listed[1] then
+			return listed
+		end
+	end
+	return { SALVAGE_INPUT[id] }
+end
+
+-- Whether an item is a recipe item, by its class (Crafting.recipeItem); unknown is not.
+local function recipeItem(item)
+	local class = item and C_Item and C_Item.GetItemInfoInstant and select(6, C_Item.GetItemInfoInstant(item))
+	return ns.Crafting.recipeItem(class)
+end
+
+-- The recipe's catalogue row: output and basic reagents, from its schematic. A slot of choices (any of
+-- several herbs, a herb's qualities) records them all (addon#65).
 local function schematic(id, line, name)
 	local s = C_TradeSkillUI.GetRecipeSchematic(id, false)
 	if not s then
@@ -86,27 +115,31 @@ local function schematic(id, line, name)
 	end
 	local reagents = {}
 	for _, slot in ipairs(s.reagentSlotSchematics or {}) do
-		local basic = BASIC == nil or slot.reagentType == BASIC
-		local reagent = slot.reagents and slot.reagents[1]
-		if basic and reagent and reagent.itemID then
-			reagents[tostring(reagent.itemID)] = slot.quantityRequired or 1
-			ns.catalogueItem(reagent.itemID)
+		local items = {}
+		for _, reagent in ipairs((BASIC == nil or slot.reagentType == BASIC) and slot.reagents or {}) do
+			items[#items + 1] = reagent.itemID
+		end
+		local key = slotKey(items)
+		if key then
+			reagents[key] = slot.quantityRequired or 1
 		end
 	end
 	-- A salvage recipe has no reagent slots: it takes any one of its salvagable items, as many as
 	-- quantityMax (the count the client's salvage slot asks for).
-	local item = SALVAGE_INPUT[id]
-	if SALVAGE and s.recipeType == SALVAGE and C_TradeSkillUI.GetSalvagableItemIDs then
-		item = (C_TradeSkillUI.GetSalvagableItemIDs(id) or {})[1] or item
-	end
-	if item then
-		reagents[tostring(item)] = s.quantityMax or 1
-		ns.catalogueItem(item)
+	local salvage = slotKey(salvageInputs(id, s))
+	local min, max = s.quantityMin, s.quantityMax
+	if salvage then
+		reagents[salvage] = s.quantityMax or 1
+		-- One that makes a recipe item (Wild Experimentation) has a random result: its quantity is the
+		-- items it takes, not what it makes.
+		if recipeItem(s.outputItemID) then
+			min, max = nil, nil
+		end
 	end
 	if s.outputItemID then
 		ns.catalogueItem(s.outputItemID)
 	end
-	return Encode.row(line, s.outputItemID, s.quantityMin, s.quantityMax, Encode.items(reagents), name and Encode.name(name))
+	return Encode.row(line, s.outputItemID, min, max, Encode.items(reagents), name and Encode.name(name))
 end
 
 local catalogued = {} -- skill lines whose recipes were catalogued this session

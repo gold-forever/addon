@@ -116,6 +116,23 @@ function Encode.parseItems(text)
 	return out
 end
 
+-- A recipe's reagents (the catalogue's reagents column) as one entry per slot, in the row's order:
+-- { id, count }, or for a slot of choices ("210796/210797*20") { id = the first, options = { … }, count }.
+-- Encode.parseItems reads such a slot as its first choice.
+function Encode.parseReagents(text)
+	local out = {}
+	for key, n in string.gmatch(text or "", "([^+*]+)%*(%d+)") do
+		local options = {}
+		for choice in string.gmatch(key, "[^/]+") do
+			options[#options + 1] = Encode.itemId(choice)
+		end
+		if options[1] then
+			out[#out + 1] = { id = options[1], count = tonumber(n), options = #options > 1 and options or nil }
+		end
+	end
+	return out
+end
+
 -- A 0–1 map coordinate as an integer 0–1000: in-game coordinates to one decimal.
 function Encode.coord(v)
 	if not v then
