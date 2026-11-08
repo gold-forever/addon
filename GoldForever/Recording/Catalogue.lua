@@ -59,42 +59,66 @@ local function tier(id, link)
 	return type(link) == "string" and tonumber(string.match(link, TIER_MARKUP)) or nil
 end
 
--- A retail row catalogued before schema 9 (addon#72) ends without its tier, and an untiered item's row looks
--- the same; such a row is asked for its tier once a session, from the client alone (its info is already in
--- the row). A short row from before minLevel and equipLoc is padded so the tier lands in its column.
-local TIER_AT = TIERED and Encode.columns(ns.FIELDS.item).tier
--- The commas a row lacks before its tier; 0 when it has one or the schema declares none.
-local function tierGap(row)
-	if not TIERED then
-		return 0
+-- A retail item's expansion from GetItemInfo's 15th return; anything the server would not store (the client
+-- docs give 254 on Classic clients) is none.
+local function expansion(value)
+	if TIERED and type(value) == "number" and value >= 0 and value <= 99 and value % 1 == 0 then
+		return value
 	end
-	local _, commas = string.gsub(row, ",", "")
-	return math.max(TIER_AT - 1 - commas, 0)
-end
-local function lacksTier(row)
-	return tierGap(row) > 0
+	return nil
 end
 
-local function fillTier(id)
+-- A retail row may end before its tier (catalogued before schema 9, addon#72) or its expansion, and an item
+-- with neither looks the same; such a row is filled once a session, in place. A short row from before
+-- minLevel and equipLoc is padded so each value lands in its column.
+local TIER_AT = TIERED and Encode.columns(ns.FIELDS.item).tier
+local EXPANSION_AT = TIERED and Encode.columns(ns.FIELDS.item).expansion
+local function commas(row)
+	local _, count = string.gsub(row, ",", "")
+	return count
+end
+local function lacksTier(row)
+	return TIERED and commas(row) < TIER_AT - 1
+end
+local function unfilled(row)
+	return TIERED and commas(row) < EXPANSION_AT - 1
+end
+local function place(row, at, value)
+	return row .. string.rep(",", at - 1 - commas(row)) .. value
+end
+
+local function fill(id)
 	local catalogue = ns.db().catalogue
-	local itemTier = tier(id)
+	local row = catalogue.items[id]
+	local itemTier = lacksTier(row) and tier(id)
 	if itemTier then
-		local row = catalogue.items[id]
-		catalogue.items[id] = row .. string.rep(",", tierGap(row)) .. itemTier
+		row = place(row, TIER_AT, itemTier)
 	end
+	local itemExpansion = expansion((select(15, GetItemInfo(id))))
+	if itemExpansion then
+		row = place(row, EXPANSION_AT, itemExpansion)
+	end
+	catalogue.items[id] = row
 end
 
 local function write(id)
-	local name, link, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind = GetItemInfo(id)
+	local name, link, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind, expansionID = GetItemInfo(id)
 	if not name then
 		return false
 	end
 	local catalogue = ns.db().catalogue
 	local row = Encode.row(Encode.name(name), quality, ilvl, class, subclass, stack, sell, bind, icon, minLevel,
 		equipLoc ~= "" and equipLoc or nil)
-	-- Without a tier the row ends at equipLoc, as every row did before the column.
+	-- Without a tier or an expansion the row ends at equipLoc, as every row did before the columns.
 	local itemTier = tier(id, link)
-	catalogue.items[id] = itemTier and (row .. "," .. itemTier) or row
+	if itemTier then
+		row = place(row, TIER_AT, itemTier)
+	end
+	local itemExpansion = expansion(expansionID)
+	if itemExpansion then
+		row = place(row, EXPANSION_AT, itemExpansion)
+	end
+	catalogue.items[id] = row
 	if not ns.lean then
 		catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
 	end
@@ -151,8 +175,8 @@ local function drain()
 		queued[id] = nil
 		tried[id] = true
 		local row = ns.db().catalogue.items[id]
-		if row and lacksTier(row) then
-			fillTier(id)
+		if row and unfilled(row) then
+			fill(id)
 		elseif not pending[id] then
 			load(id)
 		end
@@ -169,7 +193,7 @@ function ns.catalogueItem(key)
 	local id = Encode.itemId(key)
 	local catalogue = ns.db().catalogue
 	local row = id and catalogue.items[id]
-	if not id or (row and not lacksTier(row) and (ns.lean or catalogue.tooltips[id])) or pending[id] or queued[id] or tried[id] then
+	if not id or (row and not unfilled(row) and (ns.lean or catalogue.tooltips[id])) or pending[id] or queued[id] or tried[id] then
 		return
 	end
 	queued[id] = true
@@ -182,7 +206,7 @@ function ns.catalogueItem(key)
 end
 
 -- Fills in, through the queue once a session: on Forever the tooltips (and the new columns) of items
--- catalogued before 0.4.0, on retail the tiers of rows written without one.
+-- catalogued before 0.4.0, on retail the tiers and expansions of rows written without them.
 ns.module("Catalogue", {
 	requires = { "Store" },
 	enable = function()
@@ -192,7 +216,7 @@ ns.module("Catalogue", {
 		ns.after(5, "catalogue", function()
 			local catalogue = ns.db().catalogue
 			for id, row in pairs(catalogue.items) do
-				if lacksTier(row) or not (ns.lean or catalogue.tooltips[id]) then
+				if unfilled(row) or not (ns.lean or catalogue.tooltips[id]) then
 					ns.catalogueItem(id)
 				end
 			end

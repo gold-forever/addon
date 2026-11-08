@@ -13,8 +13,9 @@ ns.FIELDS = {
 	sys = "t,char,kind",
 	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns. Retail appends tier (from
 	-- schema 9), an item's crafting-quality tier (a reagent's 1–3, a crafted item's 1–5), empty and left off
-	-- the row's end for an untiered item; Forever has no tiers and declares no column.
-	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc" .. (ns.retail and ",tier" or ""),
+	-- the row's end for an untiered item, and expansion, GetItemInfo's expansionID, left off when unknown;
+	-- Forever declares neither column.
+	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc" .. (ns.retail and ",tier,expansion" or ""),
 	-- Loot.lua. fish is appended to design 002's columns: set when the loot is a fishing catch. instanceId:
 	-- GetInstanceInfo()'s instance ID (catalogue.instances), set only where the game gives no map (old
 	-- raids such as Molten Core); empty elsewhere and in rows written before it.

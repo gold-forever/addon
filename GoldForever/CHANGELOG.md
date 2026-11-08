@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Retail items now note their expansion.** The item list in your save records which expansion each retail
+  item belongs to, so the site can pool disenchants by expansion: each has its own dust, essence and shard.
+  Items already in your list get theirs over the first minutes after login. WoW: Forever is unchanged.
 - **Trainers now remember where they stand.** When you open a trainer's window, the addon also notes the
   trainer's map position and your faction, so the site's skill plan can name the nearest trainer for your
   side. Trainers you visited before keep their spell lists and get a place the next time you visit them.
