@@ -39,6 +39,11 @@ local recipes = {
 	[15] = "197," .. SINGLE_OUT .. ",1,1," .. REAGENT .. "*1,Single",
 }
 cheapest[300] = 95 -- Even: 100c after the 5% cut, less 95c
+local GEAR_PATTERN, GEAR_LOSING, GEAR_OUT, GEAR_LOSS = 16, 17, 109, 110
+names[GEAR_PATTERN], names[GEAR_LOSING] = "Plans: Bracers", "Plans: Bad Bracers"
+market[GEAR_PATTERN], market[GEAR_LOSING], market[GEAR_OUT], market[GEAR_LOSS] = 7000, 7000, 1000, 10
+recipes[18] = "164," .. GEAR_OUT .. ",1,1," .. REAGENT .. "*1,Bracers"
+recipes[19] = "164," .. GEAR_LOSS .. ",1,1," .. REAGENT .. "*1,Bad Bracers"
 market[RANDOM + 500] = nil -- a random result: a recipe-class output with no price
 
 local db = {
@@ -48,7 +53,7 @@ local db = {
 
 local shiftDown, modes = false, { payback = "shift" }
 IsShiftKeyDown = function() return shiftDown end
-C_Item = { GetItemInfo = function(id) return names[id] end, IsEquippableItem = function() return false end, GetItemInfoInstant = function() end }
+C_Item = { GetItemInfo = function(id) return names[id] end, IsEquippableItem = function(id) return id == GEAR_OUT or id == GEAR_LOSS end, GetItemInfoInstant = function() end }
 Enum = { TooltipDataType = { Item = 0, Unit = 6 } }
 TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
 	if kind == Enum.TooltipDataType.Item then
@@ -108,6 +113,21 @@ eq(tip(COMMA), "Pays back in 9 crafts at today's margin (820c a craft)", "a name
 -- Twin's two ranks: the lowest recipe ID answers (4750c - 130c), as the same names always pick the same.
 eq(tip(TWIN), "Pays back in 1 craft at today's margin (4620c a craft)", "of two recipes by one name, the lowest ID")
 eq(tip(SOMETIMES), "Pays back in 1 craft at today's margin (820c a craft)", "a lower ID of the name that makes no item is passed over")
+
+-- Gear has one price for every quality: the line is greyed and says so, as the craft planner greys its profit.
+eq(tip(GEAR_PATTERN), "Pays back in 9 crafts at today's margin (820c a craft), gear prices are rough", "gear: says its price is rough")
+eq(tip(GEAR_LOSING), "No profit at today's prices, gear prices are rough", "gear at a loss: says so too")
+local function shade(id)
+	local red
+	GameTooltip.AddLine = function(_, _, r) red = r end
+	GameTooltip.AddDoubleLine = function() end
+	for _, fn in ipairs(postCalls) do
+		fn(GameTooltip, { id = id })
+	end
+	return red
+end
+eq(shade(GEAR_PATTERN), 0.6, "gear: the muted grey")
+eq(shade(PATTERN), 0.8, "not gear: the usual shade")
 
 modes.payback = "off"
 eq(tip(PATTERN), "", "Off: no line")

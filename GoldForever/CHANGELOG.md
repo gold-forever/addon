@@ -5,7 +5,8 @@
 - **See what learning a recipe is worth.** Hold Shift over a pattern, plans, formula or schematic whose recipe
   you have seen in a profession window: "Pays back in 7 crafts at today's margin (2s 10c a craft)", or "No
   profit at today's prices". It uses the vendor's price when a vendor sells it, else the market value, and
-  shows nothing when either is unknown. Choose when the line shows on the Tooltip tab (Recipe payback).
+  shows nothing when either is unknown. A pattern that makes gear is greyed and adds "gear prices are rough".
+  Choose when the line shows on the Tooltip tab (Recipe payback).
 - **Prices from Auctionator when there are no others.** If an item has no price from the companion or your
   own scan and Auctionator is installed, Gold Forever uses Auctionator's price. Tooltips and the Sell tab
   label it "Auctionator". The companion's prices and your scans always come first.

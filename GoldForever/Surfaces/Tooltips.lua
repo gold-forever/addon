@@ -263,9 +263,11 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		if not quote then
 			return
 		end
-		local line = ns.Crafting.paybackLine(ns.Crafting.teachingPrice(data.id, price.market), quote.profit, coins)
+		local gear = ns.isGear(quote.recipe.output)
+		local line = ns.Crafting.paybackLine(ns.Crafting.teachingPrice(data.id, price.market), quote.profit, coins, gear)
 		if line then
-			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
+			local shade = gear and STALE_SHADE or 0.8
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, shade, shade, shade, true)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
