@@ -131,6 +131,62 @@ function Crafting.profitHeld(q)
 	return q.revenue - q.cash
 end
 
+-- What a recipe item teaches, from its name (the site's PATTERN, CatalogueNames.kt); nil for any other item.
+local TEACHING = { Pattern = true, Recipe = true, Formula = true, Plans = true, Schematic = true, Manual = true, Design = true, Technique = true }
+function Crafting.taughtName(itemName)
+	local kind, taught = string.match(itemName, "^(%a+): (.+)$")
+	return TEACHING[kind] and taught or nil
+end
+
+-- Recipe name -> recipe ID, the lowest of a name that makes an item; built at the first recipe item shown
+-- and again once the profession window has added recipes.
+local recipeByName
+function Crafting.forgetRecipeNames()
+	recipeByName = nil
+end
+
+function Crafting.recipeNamed(name)
+	local Encode = ns.Encode
+	if not recipeByName then
+		recipeByName = {}
+		local cols = Encode.columns(ns.db().fields.recipe)
+		for id, row in pairs(ns.db().catalogue.recipes) do
+			local values = { strsplit(",", row) }
+			local key = values[cols.name]
+			if key and values[cols.output] ~= "" and (not recipeByName[key] or id < recipeByName[key]) then
+				recipeByName[key] = id
+			end
+		end
+	end
+	return recipeByName[Encode.name(name)]
+end
+
+-- What a recipe item costs: a vendor's price, limited stock too as a recipe is bought once, else market(id).
+function Crafting.teachingPrice(id, market)
+	local row = ns.db().catalogue.vendor[id]
+	if row then
+		local buy, _, _, qty = strsplit(",", row)
+		buy = tonumber(buy)
+		if buy and buy > 0 then
+			return buy / math.max(1, tonumber(qty) or 1)
+		end
+	end
+	return market(id)
+end
+
+-- What learning a recipe is worth: its item's price over a craft's profit, in whole crafts. Unknown price
+-- or profit: nil. money formats a copper value.
+function Crafting.paybackLine(itemPrice, profit, money)
+	if not itemPrice or itemPrice <= 0 or not profit then
+		return nil
+	end
+	if profit <= 0 then
+		return "No profit at today's prices"
+	end
+	local crafts = math.ceil(itemPrice / profit)
+	return string.format("Pays back in %d craft%s at today's margin (%s a craft)", crafts, crafts == 1 and "" or "s", money(profit))
+end
+
 -- The margin band a profit falls in (design 009, Crafting): "loss" (under 0), "thin" (under 10%), "fair",
 -- "good" (from 30%), or nil when unknown.
 function Crafting.band(margin)

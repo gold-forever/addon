@@ -17,6 +17,7 @@ local ownMarket, worth, disenchantWorth, enchanting, coins = price.own, price.wo
 ns.TOOLTIP_LINES = {
 	{ key = "price", name = "Auction prices", blurb = "Everyone's price from the companion's file, under every item." },
 	{ key = "supply", name = "Supply and post size", blurb = "How many sell a day, how long what is listed lasts, and how many to post." },
+	{ key = "payback", name = "Recipe payback", blurb = "On a recipe item: how many crafts pay back its price at today's margin." },
 	{ key = "scan", name = "Your scan", blurb = "The price your own auction house scan found." },
 	{ key = "held", name = "Held counts", blurb = "How many each of your characters holds, in bags, bank and mail." },
 	{ key = "disenchant", name = "Disenchant value", blurb = "What disenchanting it gives, and whether that beats selling." },
@@ -250,5 +251,24 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("supply tooltip", supplyTooltip, tooltip, data)
+	end)
+	ns.listen("recipesRead", "payback tooltip", ns.Crafting.forgetRecipeNames)
+	local function paybackTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() or not ns.tipLine("payback") then
+			return
+		end
+		local taught = ns.Crafting.taughtName(itemName(data.id))
+		local recipe = taught and ns.Crafting.recipeNamed(taught)
+		local quote = recipe and ns.quoteRecipe(recipe)
+		if not quote then
+			return
+		end
+		local line = ns.Crafting.paybackLine(ns.Crafting.teachingPrice(data.id, price.market), quote.profit, coins)
+		if line then
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("payback tooltip", paybackTooltip, tooltip, data)
 	end)
 end

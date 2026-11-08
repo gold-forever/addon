@@ -117,10 +117,11 @@ local tns = setmetatable({
 	},
 	settings = function() return tipSettings end,
 	on = function() end,
+	listen = function() end,
 	me = function() return {} end,
 	safely = function(_, fn, ...) fn(...) end,
 	tipPrefix = function() return "" end,
-	Encode = {}, Catalogue = {}, SaveView = { loaded = function() return true end },
+	Crafting = {}, Encode = {}, Catalogue = {}, SaveView = { loaded = function() return true end },
 	Prices = { neutralMarkets = function() end, rows = function() end, mine = function() return {} end, supply = function() end, supplyLine = function() end },
 }, { __index = ns })
 assert(load(SOURCES["Tooltips.lua"], "@Tooltips.lua"))("GoldForever", tns)
