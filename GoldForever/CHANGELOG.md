@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Trainers now remember where they stand.** When you open a trainer's window, the addon also notes the
+  trainer's map position and your faction, so the site's skill plan can name the nearest trainer for your
+  side. Trainers you visited before keep their spell lists and get a place the next time you visit them.
 - **Hear when your best farm changes.** Turn on Settings, Modules, Best farm changed, and after new prices
   (at login, with the companion's prices, and after a full scan) the addon picks the mob this character has
   looted at least 10 times whose loot is worth the most. When that is another mob than before, one chat line

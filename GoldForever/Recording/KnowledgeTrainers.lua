@@ -26,6 +26,18 @@ local function restoreFilters(saved)
 	end
 end
 
+local SIDES = { Horde = "H", Alliance = "A" }
+
+-- Where the trainer stands and the visitor's side. A read with no map keeps the place already stored.
+local function recordPlace(catalogue, id)
+	local map, x, y = ns.position()
+	if not map then
+		return
+	end
+	catalogue.trainerPlaces = catalogue.trainerPlaces or {}
+	catalogue.trainerPlaces[id] = Encode.row(map, x, y, SIDES[UnitFactionGroup("player")])
+end
+
 -- The service's catalogue row, and whether it is a class spell (a level and no profession skill); nil for a
 -- header.
 local function serviceRow(i)
@@ -68,6 +80,7 @@ local function readTrainerNow()
 	end
 	local catalogue = ns.db().catalogue
 	catalogue.trainers[id] = table.concat(rows, ";")
+	recordPlace(catalogue, id)
 	-- A class trainer teaches only the visitor's class: kept, for the training ahead at a level-up.
 	if classSpells then
 		catalogue.trainerClasses = catalogue.trainerClasses or {}

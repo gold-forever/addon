@@ -336,6 +336,7 @@
 + fields.statistic = "name,category"
 + fields.sys = "t,char,kind"
 + fields.taxiNode = "name"
++ fields.trainerPlace = "map,x,y,side"
 + fields.trainerService = "name,category,icon,cost,skill,skillRank,level"
 + fields.vendor = "buy,limited,t,qty"
 + fields.xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob,instanceId"

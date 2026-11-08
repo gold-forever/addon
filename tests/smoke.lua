@@ -889,6 +889,8 @@ fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 -- The client may say the trainer changed whenever a filter is switched: the read's own switches start no
 -- read of their own (they did, once a second, while the window stayed open).
 do
+  -- This save has no trainer places yet, and has run until now without them.
+  seen("TRAINER PLACES BEFORE ", tostring(GoldForeverDB.catalogue.trainerPlaces), "nil")
   local reads, set, count = 0, SetTrainerServiceTypeFilter, GetNumTrainerServices
   function SetTrainerServiceTypeFilter(f, on) filters[f] = on fireNow("TRAINER_UPDATE") end
   function GetNumTrainerServices() reads = reads + 1 return count() end
@@ -896,6 +898,7 @@ do
   wait(5)
   SetTrainerServiceTypeFilter, GetNumTrainerServices = set, count
   assert(reads == 1, "the trainer read once: " .. reads)
+  seen("TRAINER PLACE ", tostring(GoldForeverDB.catalogue.trainerPlaces[8661]), "1429,412,679," .. string.sub(SIDE, 1, 1))
 end
 for _, h in ipairs(tooltipHooks) do h(nil, { guid = "GameObject-0-4620-0-12-180682-000D", lines = { { leftText = "Oily Blackmouth School" } } }) end
 fishing = true
