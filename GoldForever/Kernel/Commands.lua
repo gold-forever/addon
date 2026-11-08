@@ -20,7 +20,7 @@ local function help(rest)
 	if rest == "all" then
 		print("  /gf ui <page> - open a page · /gf session - the session in chat · /gf reset - a new session")
 		print("  /gf bigdrop <gold> - big-drop alerts · /gf accent #rrggbb · /gf welcome - the first-run card")
-		print("  /gf prices - the prices file · /gf rares [mark] · /gf claim <code> · /gf export · /gf check - details for a bug report")
+		print("  /gf prices - the prices file · /gf rares [mark] · /gf mark (skull the rare) · /gf claim <code> · /gf export · /gf check - details for a bug report")
 	else
 		print("  More: /gf help all")
 	end

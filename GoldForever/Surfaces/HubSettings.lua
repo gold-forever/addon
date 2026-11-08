@@ -120,7 +120,7 @@ local function fillGeneral(page, prefs)
 			end)
 			return c.autoSession
 		end },
-		{ side = 0, row = 1, label = "Mark rares with a skull", make = function(cell)
+		{ side = 0, row = 1, label = "Offer a skull mark (/gf mark)", make = function(cell)
 			c.mark = UI.Switch(cell, rares.mark, function(on)
 				rares.mark = on
 			end)

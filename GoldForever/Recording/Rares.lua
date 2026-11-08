@@ -1,7 +1,9 @@
 -- Gold Forever: a rare announcer. A rare (or rare elite) NPC seen on a nameplate, as the target or
 -- under the mouse, or as a minimap marker, gets a mid-screen message, a sound and a chat line, once
--- per spawn, and a skull raid mark when the addon may set one. Each sighting is recorded (`rare`
--- stream), so the web app learns where rares spawn.
+-- per spawn. Each sighting is recorded (`rare` stream), so the web app learns where rares spawn.
+-- The skull is set only by "/gf mark": the live client blocks SetRaidTarget from an event handler
+-- ("blocked from an action only available to the Blizzard UI", owner, 2026-11-08), and allows it from
+-- a typed or macro command, which is a key press.
 
 local _, ns = ...
 local Encode = ns.Encode
@@ -11,7 +13,7 @@ local RARE = { rare = true, rareelite = true }
 
 local announced = {} -- spawn GUID -> true, this session; never written
 local vignettes = {} -- minimap marker GUID -> true
-local marked = {} -- spawn GUID -> true once given the skull, this session
+local lastRare -- { unit, guid } of the latest rare seen with a unit, for "/gf mark"
 
 local function settings()
 	return ns.settings("rares")
@@ -63,16 +65,7 @@ local function seeUnit(unit, how)
 	if not guid then
 		return
 	end
-	-- Marked once, when its unit is first seen (a minimap marker has no unit to mark): marking again on
-	-- every mouseover would move the skull back from whatever the group marked since, or between rares.
-	-- The marker it has is compared only where the client lets us read it (a secret value on newer
-	-- clients); otherwise once a spawn is enough.
-	local index = GetRaidTargetIndex(unit)
-	local skulled = not ns.secret(index) and index == SKULL
-	if not marked[guid] and s.mark and mayMark() and not skulled then
-		marked[guid] = true
-		pcall(SetRaidTarget, unit, SKULL)
-	end
+	lastRare = { unit = unit, guid = guid }
 	if announced[guid] then
 		return
 	end
@@ -86,7 +79,8 @@ local function seeUnit(unit, how)
 		local level = UnitLevel(unit)
 		local kind = UnitClassification(unit) == "rareelite" and " elite" or ""
 		local name = ns.readable(UnitName(unit))
-		alert(string.format("Rare: %s (%s%s)%s", not Encode.noName(name) and name or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or ""))
+		local hint = s.mark and mayMark() and " · /gf mark to skull it" or ""
+		alert(string.format("Rare: %s (%s%s)%s%s", not Encode.noName(name) and name or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or "", hint))
 	end
 end
 
@@ -135,7 +129,28 @@ ns.on("VIGNETTE_MINIMAP_UPDATED", "rares", function(vignette, onMinimap)
 	end
 end)
 
--- "/gf rares" turns announcing on or off; "/gf rares mark" the skull.
+-- "/gf mark" puts the skull on the rare: the target or the mouseover when one is a rare, else the latest
+-- rare seen while its unit still is. Typed or from a macro, so the client allows it.
+local function markable(unit)
+	return UnitExists(unit) and not UnitIsPlayer(unit) and not UnitIsDead(unit) and RARE[UnitClassification(unit)]
+end
+ns.commands.mark = function()
+	if not mayMark() then
+		ns.say("only the group's leader or an assistant can mark.")
+		return
+	end
+	local unit = markable("target") and "target" or markable("mouseover") and "mouseover"
+	if not unit and lastRare and markable(lastRare.unit) and ns.readable(UnitGUID(lastRare.unit)) == lastRare.guid then
+		unit = lastRare.unit
+	end
+	if not unit then
+		ns.say("no rare to mark: target it or hold the mouse over it.")
+		return
+	end
+	SetRaidTarget(unit, SKULL)
+end
+
+-- "/gf rares" turns announcing on or off; "/gf rares mark" the "/gf mark" hint.
 ns.commands.rares = function(arg)
 	local s = settings()
 	if arg == "mark" then

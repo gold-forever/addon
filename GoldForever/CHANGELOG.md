@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Finding a rare no longer shows "GoldForever has been blocked from an action only available to the
+  Blizzard UI".** The game now only lets a key press set a raid mark, so the addon no longer puts a skull
+  on a rare by itself. The rare alert ends with "/gf mark to skull it": type it (or put it in a macro on a
+  key) with the rare targeted or under the mouse, or while its nameplate shows. The setting is now "Offer a
+  skull mark (/gf mark)".
 - **See what learning a recipe is worth.** Hold Shift over a pattern, plans, formula or schematic whose recipe
   you have seen in a profession window: "Pays back in 7 crafts at today's margin (2s 10c a craft)", or "No
   profit at today's prices". It uses the vendor's price when a vendor sells it, else the market value, and

@@ -1160,25 +1160,37 @@ do
   assert(not sell:IsShown(), "gone when the merchant closes")
 end
 MerchantFrame, C_MerchantFrame = nil, nil
--- A rare on a nameplate: announced once, recorded, marked with a skull.
+-- A rare on a nameplate: announced once, recorded, never marked by itself: the live client blocks
+-- SetRaidTarget from an event handler (owner, 2026-11-08), so the stand-in refuses it outside a typed
+-- command; "/gf mark" sets the skull.
 raidNotices = {}
 marks = {}
+local typing = false
 function UnitClassification(u) return u == "nameplate3" and "rareelite" or "normal" end
 function UnitIsDead() return false end
 function IsInGroup() return false end
 function GetRaidTargetIndex(u) return marks[u] end
-function SetRaidTarget(u, i) marks[u] = i end
+function SetRaidTarget(u, i)
+  if not typing then error("ADDON_ACTION_BLOCKED: SetRaidTarget outside a key press", 2) end
+  marks[u] = i
+end
 local unitGUID = UnitGUID
 UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC1" end return unitGUID(u) end
 UnitExists = function(u) return u == "npc" or u == "target" or u == "nameplate3" end
 fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
 fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
-seen("RARE ", tostring(raidNotices[1]) .. " | notices " .. #raidNotices .. " | skull " .. tostring(marks.nameplate3), "Rare: Testchar (12 elite) near 41.2, 67.9 | notices 1 | skull 8", "nil | notices 0 | skull nil")
+seen("RARE ", tostring(raidNotices[1]) .. " | notices " .. #raidNotices .. " | skull " .. tostring(marks.nameplate3), "Rare: Testchar (12 elite) near 41.2, 67.9 · /gf mark to skull it | notices 1 | skull nil", "nil | notices 0 | skull nil")
+assert(marks.nameplate3 == nil, "a rare seen is never marked by an event")
 -- Off on retail for now: its cities' minimap markers made the announcer fire on ordinary NPCs (2026-10-22).
 if INTERFACE >= 110000 then
-  assert(#raidNotices == 0 and marks.nameplate3 == nil, "retail: no rare notice and no skull")
+  assert(#raidNotices == 0, "retail: no rare notice")
 else
-  assert(#raidNotices == 1 and marks.nameplate3 == 8, "WoW: Forever: the rare is announced once and marked")
+  assert(#raidNotices == 1, "WoW: Forever: the rare is announced once")
+  -- Typed: the latest rare, still on its nameplate, gets the skull.
+  typing = true
+  SlashCmdList.GOLDFOREVER("mark")
+  typing = false
+  assert(marks.nameplate3 == 8, "/gf mark skulls the rare: " .. tostring(marks.nameplate3))
 end
 -- A value the client keeps secret (newer clients): anything but type() and issecretvalue() on it fails,
 -- as in game: reading it as text, comparing it, indexing it, counting it, doing sums with it.
@@ -1189,7 +1201,7 @@ local function secretValue()
     __add = refuse, __sub = refuse, __mul = refuse, __div = refuse, __mod = refuse, __pow = refuse })
 end
 assert(not pcall(function() return secretValue().find end) and not pcall(function() return secretValue() < 1 end), "a secret refuses use")
--- A marker the client keeps secret: never compared, the rare still marked once.
+-- A marker the client keeps secret: never read; the new spawn is announced and recorded as any other.
 do
   local SECRET = secretValue()
   function issecretvalue(v) return rawequal(v, SECRET) end
@@ -1198,9 +1210,7 @@ do
   UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC9" end return unitGUID(u) end
   marks.nameplate3 = nil
   fire("NAME_PLATE_UNIT_ADDED", "nameplate3")
-  if INTERFACE < 110000 then
-    assert(marks.nameplate3 == 8, "marked without reading the secret marker")
-  end
+  assert(marks.nameplate3 == nil, "never marked by an event")
   GetRaidTargetIndex = index
   issecretvalue = nil
 end
