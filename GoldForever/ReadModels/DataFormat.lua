@@ -41,6 +41,8 @@ local F = {
 	name = "name",
 	markets = "markets",
 	units = "units",
+	sold = "sold",
+	listed = "listed",
 }
 DataFormat.field = F
 
@@ -74,5 +76,7 @@ DataFormat.tables = {
 	},
 	item = {
 		[F.units] = "integer, optional: the units on sale, there only for a thin price",
+		[F.sold] = "integer, optional: the units gone per 7 days; 0 is known, none gone",
+		[F.listed] = "integer, optional: the units in the latest scan; 0 when absent from it",
 	},
 }

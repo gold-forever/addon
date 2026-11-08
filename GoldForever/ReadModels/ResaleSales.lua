@@ -1,5 +1,4 @@
--- Gold Forever: whether an item sells, for the merchant's resale mark (VendorResale.lua, gf#317). The one gate
--- to change when the prices file carries real sales (gf#316).
+-- Gold Forever: whether an item sells, for the merchant's resale mark (VendorResale.lua, gf#317).
 
 local _, ns = ...
 local ResaleSales = {}
@@ -56,9 +55,14 @@ local function seenInOwnScans(id)
 	return held[id]
 end
 
--- Whether the item has sales. The client knows none, so a value that has lasted stands in for them: the
--- pool's typical price (3 days or more), or the item in at least two of the character's own full scans.
+-- Whether the item has sales: what the prices file says it sold (gf#316). A file without it knows none, so a
+-- value that has lasted stands in for them: the pool's typical price (3 days or more), or the item in at least
+-- two of the character's own full scans.
 function ResaleSales.hasSales(id)
+	local sold = ns.Prices.supply(id)
+	if sold then
+		return sold > 0
+	end
 	local _, _, _, week = ns.Prices.value(id)
 	return week ~= nil or seenInOwnScans(id)
 end

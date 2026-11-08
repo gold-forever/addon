@@ -8,10 +8,11 @@ ns.Money.auction = function(copper) return copper .. "c" end
 ns.me = function() return { faction = "Horde" } end
 ns.market = function(side) return "R-" .. side end
 
-local values, weeks = {}, {}
+local values, weeks, solds = {}, {}, {}
 local saved = { scans = {} }
 ns.price = { cut = 0.05, market = function(id) return values[id] end }
-ns.Prices = { value = function(id) return values[id], "pool", nil, weeks[id] end }
+ns.Prices = { value = function(id) return values[id], "pool", nil, weeks[id] end,
+	supply = function(id) return solds[id] end, perDay = function(sold) return string.format("%d", sold / 7) end }
 ns.db = function() return saved end
 assert(load(SOURCES["ResaleSales.lua"], "@ResaleSales.lua"))("GoldForever", ns)
 assert(load(SOURCES["VendorResale.lua"], "@VendorResale.lua"))("GoldForever", ns)
@@ -78,6 +79,20 @@ eq(hasSales(3), false, "kept until a new scan")
 ns.scanVersion = 6
 eq(hasSales(3), true, "a new scan: read again")
 
+-- The prices file says what sold (gf#316): that decides, over the typical price and the scans.
+ns.scanVersion = 8
+values[4], weeks[4], solds[4] = 5000, 4900, 0
+eq(hasSales(4), false, "sold 0: no sales, a typical price or not")
+eq(V.offer(sold(4, 100)), nil, "sold 0: nothing")
+weeks[4], solds[4] = nil, 21
+eq(hasSales(4), true, "sold > 0: sales, without a typical price")
+eq(V.offer(sold(4, 100)).rate, "3", "and the offer says how many a day")
+solds[4] = nil
+eq(hasSales(4), false, "no sold, no typical price, no scans: today's gate")
+weeks[4] = 4900
+eq(hasSales(4), true, "no sold, a typical price: today's gate")
+eq(V.offer(sold(4, 100)).rate, nil, "no sold: no rate")
+
 -- Before a character is known: no sales, no error.
 ns.me = function() return nil end
 ns.scanVersion = 7
@@ -87,6 +102,7 @@ ns.me = function() return { faction = "Horde" } end
 -- The line and the limited flag.
 eq(V.line({ value = 49800, gain = 38310 }), "Resell: 49800c on the AH · +38310c after the cut", "the line")
 eq(V.line({ value = 49800, gain = 38310, limited = true }), "Resell: 49800c on the AH · +38310c after the cut (limited)", "limited")
+eq(V.line({ value = 49800, gain = 38310, rate = "3" }), "Resell: 49800c on the AH (3 a day) · +38310c after the cut", "with its sales a day")
 eq(V.offer(sold(1, 950, 1, { available = 3 })).limited, true, "stock left: limited")
 eq(V.offer(sold(1, 950, 1, { available = 0 })).limited, true, "sold out for now: limited")
 eq(V.offer(sold(1, 950)).limited, false, "-1: unlimited")

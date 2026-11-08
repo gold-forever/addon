@@ -16,6 +16,7 @@ local ownMarket, worth, disenchantWorth, enchanting, coins = price.own, price.wo
 -- (settings.tooltip, its defaults in Save.lua; addon#98).
 ns.TOOLTIP_LINES = {
 	{ key = "price", name = "Auction prices", blurb = "Everyone's price from the companion's file, under every item." },
+	{ key = "supply", name = "Supply and post size", blurb = "How many sell a day, how long what is listed lasts, and how many to post." },
 	{ key = "scan", name = "Your scan", blurb = "The price your own auction house scan found." },
 	{ key = "held", name = "Held counts", blurb = "How many each of your characters holds, in bags, bank and mail." },
 	{ key = "disenchant", name = "Disenchant value", blurb = "What disenchanting it gives, and whether that beats selling." },
@@ -228,5 +229,21 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("pool tooltip", poolTooltip, tooltip, data)
+	end)
+	-- How fast it sells and how many to post (gf#316), its own line: nothing without the file's sold.
+	local function supplyTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() or not ns.tipLine("supply") then
+			return
+		end
+		local Prices = ns.Prices -- loaded after this file
+		local sold, listed = Prices.supply(data.id)
+		local held = C_Item and C_Item.GetItemCount and C_Item.GetItemCount(data.id) or 0
+		local line = Prices.supplyLine(sold, listed, held)
+		if line then
+			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
+		end
+	end
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+		ns.safely("supply tooltip", supplyTooltip, tooltip, data)
 	end)
 end

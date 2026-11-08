@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **See how fast an item sells and how many to post.** With a companion that carries sales, the Post screen
+  says, for example, "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12", and Post's
+  quantity starts at that size: about two days of sales, at most what you hold. A number you chose for an
+  item, or a sale plan's quantity, still wins. Hold Shift over an item to see the same line in its tooltip,
+  or change that on the Tooltip tab (Supply and post size). The merchant's resale line now says how many
+  sell a day, and an item the prices say did not sell in the last week is no longer marked.
 - **See what a merchant sells for less than the auction house pays.** At a merchant, a small gold coin marks
   items whose auction price after the 5% cut beats the vendor's price by at least 20%, and the tooltip says
   "Resell: 4g 98s on the AH · +3g 83s after the cut". Only items with a lasting price count: a typical price

@@ -1,5 +1,5 @@
 -- Gold Forever: at a merchant, an item that fetches more on the auction house than the vendor asks carries a
--- small coin in the merchant's list and a tooltip line "Resell: 4g 98s on the AH · +3g 83s after the cut"
+-- small coin in the merchant's list and a tooltip line "Resell: 4g 98s on the AH (3 a day) · +3g 83s after the cut"
 -- (gf#317): only with sales, only with the market value after the cut at least 20% over the vendor's price
 -- of one, and only for gold. Nothing is recorded.
 
@@ -27,11 +27,13 @@ function VendorResale.offer(item)
 	if net * stack * 100 < item.price * MARGIN_PERCENT or not ns.ResaleSales.hasSales(item.id) then
 		return nil
 	end
-	return { value = value, gain = net - item.price / stack, limited = (item.available or -1) >= 0 }
+	local sold = ns.Prices.supply(item.id)
+	return { value = value, gain = net - item.price / stack, limited = (item.available or -1) >= 0, rate = sold and ns.Prices.perDay(sold) or nil }
 end
 
 function VendorResale.line(offer)
-	return "Resell: " .. ns.Money.auction(offer.value) .. " on the AH · +" .. ns.Money.auction(offer.gain) .. " after the cut"
+	local rate = offer.rate and (" (" .. offer.rate .. " a day)") or ""
+	return "Resell: " .. ns.Money.auction(offer.value) .. " on the AH" .. rate .. " · +" .. ns.Money.auction(offer.gain) .. " after the cut"
 		.. (offer.limited and " (limited)" or "")
 end
 

@@ -130,6 +130,93 @@ function Prices.rows(data, markets, id, now, label)
 	return rows, stale
 end
 
+-- The item's sold and listed from the first market with a valid entry: each nil when missing or unusable,
+-- 0 kept (sold 0 is known, none gone).
+function Prices.supplyOf(data, markets, id)
+	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
+		return nil, nil
+	end
+	for _, market in ipairs(markets) do
+		local e = field(field(field(data, F.markets), market), id)
+		if e and amount(e[ITEM.value]) and amount(e[ITEM.minBuyout]) and amount(e[ITEM.players]) and amount(e[ITEM.scannedAt]) then
+			return amount(e[F.sold]) and e[F.sold] or nil, amount(e[F.listed]) and e[F.listed] or nil
+		end
+	end
+	return nil, nil
+end
+
+local SOLD_DAYS = 7 -- the days the file's sold covers
+local POST_DAYS = 2 -- the post size: about this many days of sales
+
+local function rounded(x)
+	return math.floor(x + 0.5)
+end
+
+local function grouped(n)
+	local text = string.reverse(string.format("%d", n))
+	return (string.gsub(string.reverse((string.gsub(text, "(%d%d%d)", "%1,"))), "^,", ""))
+end
+
+-- Sales a day for a line: "6", "under 1" when they round to none; sold must be above 0 to mean anything.
+function Prices.perDay(sold)
+	local n = rounded(sold / SOLD_DAYS)
+	return n < 1 and "under 1" or grouped(n)
+end
+
+-- About two days of sales, at least 1 and at most what is held; nil without sold or with nothing held.
+function Prices.postSize(sold, held)
+	if not sold or not held or held < 1 then
+		return nil
+	end
+	return math.min(held, math.max(1, rounded(sold * POST_DAYS / SOLD_DAYS)))
+end
+
+local function saleRate(sold)
+	if sold <= 0 then
+		return "none sold in the last week"
+	end
+	local rate = Prices.perDay(sold)
+	if rate == "1" or rate == "under 1" then
+		return (rate == "1" and "about 1" or rate) .. " sells a day"
+	end
+	return "about " .. rate .. " sell a day"
+end
+
+local function daysOfSupply(sold, listed)
+	local days = rounded(listed * SOLD_DAYS / sold)
+	if days < 1 then
+		return "under a day of supply"
+	end
+	return string.format("about %s %s of supply", grouped(days), days == 1 and "day" or "days")
+end
+
+local function listedPart(sold, listed)
+	if listed == 0 then
+		return "none listed"
+	end
+	if sold <= 0 then
+		return grouped(listed) .. " listed"
+	end
+	return grouped(listed) .. " listed: " .. daysOfSupply(sold, listed)
+end
+
+-- "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12"; nil without sold. A part the
+-- file or the bags cannot say is left out (gf#316).
+function Prices.supplyLine(sold, listed, held)
+	if not sold then
+		return nil
+	end
+	local parts = { saleRate(sold) }
+	if listed then
+		parts[#parts + 1] = listedPart(sold, listed)
+	end
+	local size = Prices.postSize(sold, held)
+	if size then
+		parts[#parts + 1] = "post up to " .. grouped(size)
+	end
+	return table.concat(parts, " · ")
+end
+
 -- The player's own latest scan (the appraiser's prices), for an item the file lacks.
 function Prices.ownLine(value, cheapest, scannedAt, now)
 	if not value or not scannedAt then
@@ -226,6 +313,11 @@ function Prices.value(id)
 	if own then
 		return own, "scan"
 	end
+end
+
+-- The item's sold and listed in the character's market (Prices.supplyOf).
+function Prices.supply(id)
+	return Prices.supplyOf(GoldForever_Prices, mine(), id)
 end
 
 -- What buying one costs at the auction house: the pool's minimum buyout, picked against the own scan's

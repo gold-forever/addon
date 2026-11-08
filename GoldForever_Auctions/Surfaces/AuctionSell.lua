@@ -99,6 +99,8 @@ local function price(r, s)
 		r.cheapest, r.cheapestFrom = ns.price.cheapest(r.id), "scan"
 	end
 	r.vendor = ns.price.vendor(r.id)
+	local sold, listed = ns.Prices.supply(r.id)
+	r.postSize, r.supplyLine = ns.Prices.postSize(sold, r.count), ns.Prices.supplyLine(sold, listed, r.count)
 	local rule = ns.SalePlan.ruleFor(activeProfile(s), r.id)
 	if rule then
 		r.suggestion = planned(r, rule, market)
@@ -124,15 +126,15 @@ local function durationOf(r)
 	return r and s.durations[r.key] or s.duration
 end
 
--- How many to post: of a commodity, the number chosen for it (all at first), never more than held;
--- other items one at a time.
+-- How many to post: of a commodity, the number chosen for it (at first the suggested size, or all without
+-- one), never more than held; other items one at a time.
 local function quantity(r)
 	if not r.commodity then
 		return 1
 	end
 	local picked = settings().quantities[r.key]
 	-- A sale plan's quantity (what is over its keep) unless the player chose a number.
-	local default = r.suggestion and r.suggestion.quantity or r.count
+	local default = r.suggestion and r.suggestion.quantity or r.postSize or r.count
 	return math.max(1, math.min(r.count, picked or default))
 end
 
@@ -635,7 +637,7 @@ local function buildPost(page)
 		local base = r.typical and ("typical " .. money(r.typical))
 			or ("market " .. (r.market and money(r.market) or "-") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
 		facts:SetText(string.format("Cheapest other %s · %s%s · floor %s · normal %s", cheapest, base, trend,
-			sug and money(sug.floor) or "-", sug and money(sug.normal) or "-"))
+			sug and money(sug.floor) or "-", sug and money(sug.normal) or "-") .. (r.supplyLine and ("\n" .. r.supplyLine) or ""))
 		local l = ah.live[r.key]
 		for i, line in ipairs(listed) do
 			local x = l and l.list and l.list[i]

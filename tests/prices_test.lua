@@ -365,4 +365,50 @@ more.future = { anything = true }
 more.markets[MARKET].future = "x"
 eq(line(more, { MARKET }, 2589, NOW), line(known, { MARKET }, 2589, NOW), "an unknown field and a sixth figure change nothing")
 eq(P.status(more, { MARKET }, NOW).state, "ok", "and the file is read")
+
+-- The item's sold and listed fields (gf#316): keyed beside the figures, absent when missing or unusable, 0 kept.
+local function supply(fields)
+	local e = { 1234, 1100, 3, NOW }
+	for k, v in pairs(fields) do e[k] = v end
+	return P.supplyOf(data(e), { MARKET }, 2589)
+end
+local function both(fields)
+	local sold, listed = supply(fields)
+	return tostring(sold) .. " " .. tostring(listed)
+end
+eq(both({ sold = 42, listed = 84 }), "42 84", "sold and listed read")
+eq(both({ sold = 0, listed = 0 }), "0 0", "0 is known, not absent")
+eq(both({}), "nil nil", "a file without them: absent")
+eq(both({ listed = 5 }), "nil 5", "each read on its own")
+eq(both({ sold = "x", listed = -1 }), "nil nil", "another type or a negative: absent")
+eq(both({ sold = 42, [1] = "x" }), "nil nil", "an item whose price is unusable: absent")
+eq(tostring(P.supplyOf(nil, { MARKET }, 2589)), "nil", "no file: absent")
+eq(tostring(P.supplyOf({ v = 2, markets = {} }, { MARKET }, 2589)), "nil", "another version: absent")
+local withSupply = { 1234, 1100, 3, NOW - 3 * 3600, sold = 42, listed = 84 }
+eq(line(data(withSupply), { MARKET }, 2589, NOW), line(data(good), { MARKET }, 2589, NOW), "the price rows do not change")
+
+-- Two days of sales, at least 1, at most what is held; nil without a rate or with nothing held.
+eq(P.postSize(42, 100), 12, "two days of 6 a day")
+eq(P.postSize(42, 5), 5, "at most what is held")
+eq(P.postSize(0, 100), 1, "none gone: at least 1")
+eq(P.postSize(1, 100), 1, "a slow item: at least 1")
+eq(P.postSize(11, 100), 3, "rounded: 22 / 7")
+eq(P.postSize(nil, 100), nil, "no sold: no size")
+eq(P.postSize(42, 0), nil, "nothing held: no size")
+
+eq(P.perDay(42), "6", "per day")
+eq(P.perDay(2), "under 1", "under a half a day")
+eq(P.perDay(4), "1", "rounded to one")
+
+eq(P.supplyLine(42, 84, 100), "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12", "the line")
+eq(P.supplyLine(42, 5133, 5), "about 6 sell a day · 5,133 listed: about 856 days of supply · post up to 5", "grouped, capped by what is held")
+eq(P.supplyLine(1400000, 1234567, 1), "about 200,000 sell a day · 1,234,567 listed: about 6 days of supply · post up to 1", "millions grouped")
+eq(P.supplyLine(42, 84, 0), "about 6 sell a day · 84 listed: about 14 days of supply", "nothing held: no post size")
+eq(P.supplyLine(7, 1, 3), "about 1 sells a day · 1 listed: about 1 day of supply · post up to 2", "one, singular")
+eq(P.supplyLine(2, 30, 3), "under 1 sells a day · 30 listed: about 105 days of supply · post up to 1", "under one a day")
+eq(P.supplyLine(700, 10, 3), "about 100 sell a day · 10 listed: under a day of supply · post up to 3", "under a day of supply")
+eq(P.supplyLine(0, 30, 3), "none sold in the last week · 30 listed · post up to 1", "none gone: no days of supply")
+eq(P.supplyLine(42, 0, 3), "about 6 sell a day · none listed · post up to 3", "none listed")
+eq(P.supplyLine(42, nil, 3), "about 6 sell a day · post up to 3", "listed unknown")
+eq(P.supplyLine(nil, 84, 3), nil, "no sold: no line")
 return checks()

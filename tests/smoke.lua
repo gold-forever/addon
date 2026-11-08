@@ -36,6 +36,15 @@ function TakeTaxiNode(slot) end
 -- the tooltip modes' check lets it go.
 shiftDown = true
 function IsShiftKeyDown() return shiftDown end
+-- The number a page's redraw sets on a quantity slider (the fake slider keeps none).
+function drawnQuantity(slider, page)
+  local seen
+  local set = slider.Set
+  slider.Set = function(self, v) seen = v return set(self, v) end
+  page:Refresh()
+  slider.Set = set
+  return seen
+end
 tooltipHooks = {}
 itemTooltipHooks, unitTooltipHooks = {}, {}
 TooltipDataProcessor = { AllTypes = "ALL", AddTooltipPostCall = function(kind, fn)
@@ -1482,6 +1491,22 @@ do
     assert(cell(typical) == ns.Money.auction(5000), "the column shows the typical price, not the market value: " .. tostring(cell(typical)))
     local facts = AP.panel().post.facts.text
     assert(facts:find("typical " .. ns.Money.auction(5000), 1, true) and not facts:find("market", 1, true), "the details name it the typical price: " .. facts)
+    assert(not facts:find("sell a day", 1, true), "no sold in the file: no supply line: " .. facts)
+    assert(drawnQuantity(AP.panel().post.quantity, AP.panel().post) == 7, "no sold in the file: all of them by default: " .. tostring(drawnQuantity(AP.panel().post.quantity, AP.panel().post)))
+    -- gf#316: 14 sold in the week is 2 a day; two days of sales out of the 7 held.
+    GoldForever_Prices.markets[ns.Prices.mine()[1]][2589].sold = 14
+    GoldForever_Prices.markets[ns.Prices.mine()[1]][2589].listed = 20
+    AP.tab("scan")
+    AP.tab("post")
+    facts = AP.panel().post.facts.text
+    assert(facts:find("about 2 sell a day · 20 listed: about 10 days of supply · post up to 4", 1, true), "the supply line on Post: " .. facts)
+    assert(drawnQuantity(AP.panel().post.quantity, AP.panel().post) == 4, "Post's default is the suggested size: " .. tostring(drawnQuantity(AP.panel().post.quantity, AP.panel().post)))
+    local supplyRow = select(2, AP.state())
+    GoldForeverDB.settings.auction.quantities[supplyRow.key] = 6
+    AP.tab("scan")
+    AP.tab("post")
+    assert(drawnQuantity(AP.panel().post.quantity, AP.panel().post) == 6, "a number the player chose stays: " .. tostring(drawnQuantity(AP.panel().post.quantity, AP.panel().post)))
+    GoldForeverDB.settings.auction.quantities[supplyRow.key] = nil
     GoldForever_Prices = keep
     AP.tab("scan")
     AP.tab("post")
@@ -1550,6 +1575,16 @@ do
       local _, chosen = AP.state()
       assert(box.name.text:find(chosen.name, 1, true), "the item's name: " .. tostring(box.name.text))
       assert(box.sub.text == "7 in bags · all at one price", "how many, and how they post: " .. tostring(box.sub.text))
+      assert(box.supply.text == "", "no sold in the file: no supply line in the wide box: " .. tostring(box.supply.text))
+      local supplyFile = GoldForever_Prices
+      GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = { [2589] = { 9000, 8000, 3, now, 5000, sold = 14, listed = 20 } } } }
+      AP.tab("scan")
+      AP.tab("post")
+      assert(box.supply.text == "about 2 sell a day · 20 listed: about 10 days of supply · post up to 4", "the supply line in the wide box: " .. tostring(box.supply.text))
+      assert(drawnQuantity(box.quantity, pg) == 4, "wide: Post's default is the suggested size: " .. tostring(drawnQuantity(box.quantity, pg)))
+      GoldForever_Prices = supplyFile
+      AP.tab("scan")
+      AP.tab("post")
       assert(box.cheapest.text == ns.Money.format(4250, "colour"), "the cheapest other, own left out, in full: " .. tostring(box.cheapest.text))
       assert(box.post:IsShown() and not box.anyway:IsShown(), "a price: the primary Post")
       assert(box.listings.heading.text == "LISTINGS · 2 PRICES · 25 FOR SALE", "the listings counted: " .. tostring(box.listings.heading.text))
@@ -2792,6 +2827,26 @@ local function poolLine(id, label)
   end
 end
 assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
+-- gf#316: the supply line, its own Tooltip mode, With Shift by default; none with no sold.
+do
+  local keep, shiftWas, count = GoldForever_Prices, shiftDown, C_Item.GetItemCount
+  C_Item.GetItemCount = function(id) return id == 2589 and 7 or 0 end
+  GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = {
+    [2589] = { 1234, 1100, 3, now, nil, sold = 14, listed = 20 }, [2590] = { 1234, 1100, 3, now } } } }
+  shiftDown = false
+  assert(poolLine(2589, "sell a day") == nil, "With Shift by default, Shift up: no supply line")
+  shiftDown = true
+  local line = poolLine(2589, "sell a day")
+  assert(line and line:find("about 2 sell a day · 20 listed: about 10 days of supply · post up to 4", 1, true), "the supply line: " .. tostring(line))
+  assert(poolLine(2590, "sell a day") == nil and poolLine(2590, "post up to") == nil, "no sold: no line")
+  GoldForeverDB.settings.tooltip.supply = "off"
+  assert(poolLine(2589, "sell a day") == nil, "Off: no line")
+  GoldForeverDB.settings.tooltip.supply = "always"
+  shiftDown = false
+  assert(poolLine(2589, "sell a day"), "Always: the line without Shift")
+  GoldForeverDB.settings.tooltip.supply = "shift"
+  GoldForever_Prices, shiftDown, C_Item.GetItemCount = keep, shiftWas, count
+end
 -- Held: how many each character holds, from the saved bags, bank and mail; its mode in Settings → Tooltip.
 do
   local line = poolLine(2589, "Held ")
@@ -3319,9 +3374,10 @@ do
   local mine = ns.Prices.mine()[1]
   GoldForever_Prices = { v = 1, at = now, markets = { [mine] = {
     [90001] = { 49800, 40000, 3, now, 49000 }, [90002] = { 49800, 40000, 3, now },
-    [90003] = { 1000, 900, 3, now, 1000 }, [90004] = { 49800, 40000, 3, now, 49000 }, [90005] = { 49800, 40000, 3, now, 49000 } } } }
+    [90003] = { 1000, 900, 3, now, 1000 }, [90004] = { 49800, 40000, 3, now, 49000 }, [90005] = { 49800, 40000, 3, now, 49000 },
+    [90006] = { 49800, 40000, 3, now, 49000, sold = 21, listed = 9 }, [90007] = { 49800, 40000, 3, now, 49000, sold = 0, listed = 9 } } } }
   local goods = { { 90001, 9000, 1, -1, false }, { 90002, 9000, 1, -1, false }, { 90003, 900, 1, -1, false },
-    { 90004, 9000, 1, 2, false }, { 90005, 9000, 1, -1, true } }
+    { 90004, 9000, 1, 2, false }, { 90005, 9000, 1, -1, true }, { 90006, 9000, 1, -1, false }, { 90007, 9000, 1, -1, false } }
   GetMerchantNumItems = function() return #goods end
   GetMerchantItemID = function(i) return goods[i][1] end
   GetMerchantItemInfo = function(i) local g = goods[i]; return "Good", 0, g[2], g[3], g[4], true, true, g[5] end
@@ -3350,6 +3406,9 @@ do
     assert(line and line:find("on the AH", 1, true) and line:find("after the cut", 1, true) and not line:find("limited", 1, true), how .. ": the line: " .. tostring(line))
     assert(hover(buttons[2]) == nil, how .. ": no line without the coin")
     assert(hover(buttons[4]):find("(limited)", 1, true), how .. ": limited stock says so")
+    assert(not hover(buttons[1]):find(" a day)", 1, true), how .. ": no sold in the file, no rate")
+    assert(hover(buttons[6]):find("on the AH (3 a day) · +", 1, true), how .. ": sold in the file, the rate: " .. tostring(hover(buttons[6])))
+    assert(not coin(buttons[7]), how .. ": sold 0, no coin though a typical price")
   end
   C_MerchantFrame = nil
   check("GetMerchantItemInfo")

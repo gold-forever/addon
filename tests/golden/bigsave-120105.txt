@@ -23179,6 +23179,7 @@
 + settings.tooltip.price = "always"
 + settings.tooltip.scan = "always"
 + settings.tooltip.starter = "shift"
++ settings.tooltip.supply = "shift"
 + settings.tooltip.vendorResale = "always"
 + settings.window.look = "arcane"
 + settings.window.page = "rules"
