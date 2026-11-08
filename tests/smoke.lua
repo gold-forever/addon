@@ -342,6 +342,8 @@ function GetNumQuestRewards() return questShown and #questShown.reward or 0 end
 function GetNumQuestChoices() return questShown and #questShown.choice or 0 end
 function GetQuestItemLink(kind, i) local it = questShown and questShown[kind][i]; return it and it.link end
 function GetQuestItemInfo(kind, i) local it = questShown and questShown[kind][i]; if it then return "Reward", 0, it.n, 2, true, it.id end end
+function MerchantFrame_UpdateMerchantInfo() end
+function MerchantFrame_UpdateBuybackInfo() end
 function GetMerchantItemLink() return "|Hitem:159::::::::30|h[Water]|h" end
 function GetBuybackItemInfo(i) return "Linen", 0, 91, 7 end
 function GetBuybackItemLink(i) return "|Hitem:2589::::::::30|h[Linen]|h" end
@@ -3308,6 +3310,90 @@ do
   row.mod.set(true)
   GoldForeverDB.settings.prices.bestReward = nil
   questShown, QuestInfoRewardsFrame = nil, frame
+end
+-- At a merchant (gf#317): an item that resells carries the coin and the tooltip line, Always by default; one with
+-- no sales, a thin margin or a token cost gets nothing; limited stock says so; the buyback tab and the switch in
+-- Settings take the coin away. Both ways of reading the merchant are driven.
+do
+  local keep = { GetMerchantNumItems, GetMerchantItemID, GetMerchantItemInfo, C_MerchantFrame, GoldForever_Prices }
+  local mine = ns.Prices.mine()[1]
+  GoldForever_Prices = { v = 1, at = now, markets = { [mine] = {
+    [90001] = { 49800, 40000, 3, now, 49000 }, [90002] = { 49800, 40000, 3, now },
+    [90003] = { 1000, 900, 3, now, 1000 }, [90004] = { 49800, 40000, 3, now, 49000 }, [90005] = { 49800, 40000, 3, now, 49000 } } } }
+  local goods = { { 90001, 9000, 1, -1, false }, { 90002, 9000, 1, -1, false }, { 90003, 900, 1, -1, false },
+    { 90004, 9000, 1, 2, false }, { 90005, 9000, 1, -1, true } }
+  GetMerchantNumItems = function() return #goods end
+  GetMerchantItemID = function(i) return goods[i][1] end
+  GetMerchantItemInfo = function(i) local g = goods[i]; return "Good", 0, g[2], g[3], g[4], true, true, g[5] end
+  local buttons = {}
+  for i = 1, #goods do
+    local b = CreateFrame("Button", nil, UIParent)
+    function b:GetID() return i end
+    function b:IsShown() return true end
+    function b:CreateTexture() local t = CreateFrame("Frame", nil, self) function t:SetTexture(path) self.path = path end return t end
+    buttons[i] = b
+    _G["MerchantItem" .. i .. "ItemButton"] = b
+  end
+  local function coin(b) for _, c in ipairs(b.children) do if c.path and c:IsShown() then return c.path end end end
+  local function hover(b)
+    GameTooltip.lines = {}
+    if b.scripts.OnEnter then b.scripts.OnEnter(b) end
+    for _, line in ipairs(GameTooltip.lines) do if line:find("Resell", 1, true) then return ns.plainText(line) end end
+  end
+  local function check(how)
+    MerchantFrame_UpdateMerchantInfo()
+    assert(coin(buttons[1]) == "Interface\\MoneyFrame\\UI-GoldIcon", how .. ": the coin on a resale")
+    assert(not coin(buttons[2]), how .. ": no sales, no coin")
+    assert(not coin(buttons[3]), how .. ": below the margin, no coin")
+    assert(not coin(buttons[5]), how .. ": a token cost, no coin")
+    local line = hover(buttons[1])
+    assert(line and line:find("on the AH", 1, true) and line:find("after the cut", 1, true) and not line:find("limited", 1, true), how .. ": the line: " .. tostring(line))
+    assert(hover(buttons[2]) == nil, how .. ": no line without the coin")
+    assert(hover(buttons[4]):find("(limited)", 1, true), how .. ": limited stock says so")
+  end
+  C_MerchantFrame = nil
+  check("GetMerchantItemInfo")
+  C_MerchantFrame = { GetItemInfo = function(i) local g = goods[i]; return { price = g[2], stackCount = g[3], numAvailable = g[4], hasExtendedCost = g[5] } end }
+  check("C_MerchantFrame.GetItemInfo")
+  local shiftWas = shiftDown
+  shiftDown = false
+  assert(hover(buttons[1]), "Always by default: shown without Shift")
+  GoldForeverDB.settings.tooltip.vendorResale = "shift"
+  assert(hover(buttons[1]) == nil, "With Shift, Shift up: no line")
+  shiftDown = true
+  assert(hover(buttons[1]), "With Shift, Shift held: the line")
+  shiftDown = false
+  GoldForeverDB.settings.tooltip.vendorResale = "off"
+  assert(hover(buttons[1]) == nil, "Off: no line")
+  assert(coin(buttons[1]), "Off: the coin stays")
+  GoldForeverDB.settings.tooltip.vendorResale = "always"
+  shiftDown = shiftWas
+  local recorded = tostring(GoldForeverDB.catalogue.vendor[90001])
+  assert(recorded == "nil", "nothing recorded: " .. recorded)
+  -- Drawn from tooltip data: the line once, not again on OnEnter.
+  GameTooltip.lines, GameTooltip.GetOwner = {}, function() return buttons[1] end
+  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 90001 }) end
+  buttons[1].scripts.OnEnter(buttons[1])
+  local shown = 0
+  for _, l in ipairs(GameTooltip.lines) do if l:find("Resell", 1, true) then shown = shown + 1 end end
+  assert(shown == 1, "the line once from the tooltip's data: " .. shown)
+  GameTooltip.GetOwner = nil
+  MerchantFrame_UpdateBuybackInfo()
+  assert(not coin(buttons[1]) and hover(buttons[1]) == nil, "the buyback tab: no coin and no line")
+  MerchantFrame_UpdateMerchantInfo()
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Vendor resale" then row = r end end
+  assert(row and row.switch.on == true, "Vendor resale is on by default in Settings")
+  row.mod.set(false)
+  MerchantFrame_UpdateMerchantInfo()
+  assert(not coin(buttons[1]) and hover(buttons[1]) == nil, "off: no coin and no line")
+  row.mod.set(true)
+  GoldForeverDB.settings.prices.vendorResale = nil
+  MerchantFrame_UpdateMerchantInfo()
+  print("VENDOR RESALE coin " .. tostring(coin(buttons[1])) .. ", line: " .. tostring(hover(buttons[1])))
+  for i = 1, #goods do _G["MerchantItem" .. i .. "ItemButton"] = nil end
+  GetMerchantNumItems, GetMerchantItemID, GetMerchantItemInfo, C_MerchantFrame, GoldForever_Prices = keep[1], keep[2], keep[3], keep[4], keep[5]
 end
 -- Bags full (addon#96): the stack worth least in all carries a copper coin on its slot in Blizzard's bag frame
 -- and one tooltip line; a free slot, or the switch in Settings, takes it away. Nothing is moved or deleted,

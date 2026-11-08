@@ -191,6 +191,9 @@ local function fillModules(page, prefs)
 		{ icon = "coins", name = "Best quest reward", blurb = "A gold coin on the quest reward worth the most to sell.",
 			on = function() return prices.bestReward ~= false end,
 			set = function(on) prices.bestReward = on end },
+		{ icon = "coins", name = "Vendor resale", blurb = "At a merchant, a gold coin on items that sell for more on the auction house.",
+			on = function() return prices.vendorResale ~= false end,
+			set = function(on) prices.vendorResale = on end },
 		{ icon = "backpack", name = "Cheapest in full bags", blurb = "With your bags full, a copper coin on the stack worth least, to make room.",
 			on = function() return prices.bagMark ~= false end,
 			set = function(on)

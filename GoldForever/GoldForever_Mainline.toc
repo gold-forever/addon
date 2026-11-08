@@ -85,9 +85,11 @@ Surfaces\Hud.lua
 Recording\MobStats.lua
 Surfaces\Tooltips.lua
 Surfaces\QuestRewards.lua
+Surfaces\VendorResale.lua
 Surfaces\RollValue.lua
 ReadModels\DataFormat.lua
 ReadModels\Prices.lua
+ReadModels\ResaleSales.lua
 ReadModels\PricesMarkets.lua
 Surfaces\SellJunk.lua
 Recording\Rares.lua

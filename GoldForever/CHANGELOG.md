@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **See what a merchant sells for less than the auction house pays.** At a merchant, a small gold coin marks
+  items whose auction price after the 5% cut beats the vendor's price by at least 20%, and the tooltip says
+  "Resell: 4g 98s on the AH · +3g 83s after the cut". Only items with a lasting price count: a typical price
+  from the companion's prices, or seen in at least two of your own full scans. Limited stock says "(limited)";
+  items costing tokens or honour are never marked. Turn it off under Settings, Modules, Vendor resale, and
+  choose when the line shows on the Tooltip tab.
 - **Retail items now note their expansion.** The item list in your save records which expansion each retail
   item belongs to, so the site can pool disenchants by expansion: each has its own dust, essence and shard.
   Items already in your list get theirs over the first minutes after login. WoW: Forever is unchanged.
