@@ -24,6 +24,12 @@ for (const addon of addons) {
       addonOf[f] = addon
     }
   }
+  // A file beside the TOCs, in no layer: the public API.
+  for (const f of fs.readdirSync(path.join(repo, addon)).filter((f) => f.endsWith('.lua'))) {
+    if (addonPaths[f]) throw new Error(`${f} is in two folders`)
+    addonPaths[f] = f
+    addonOf[f] = addon
+  }
 }
 const addonFiles = Object.keys(addonPaths)
 const source = (name) => fs.readFileSync(path.join(repo, addonOf[name], ...addonPaths[name].split('\\')), 'utf8')

@@ -2871,6 +2871,21 @@ local POOL_MINE, POOL_OTHER = "forever-EU-normal-" .. side, "forever-EU-normal-"
 GoldForever_Prices = { v = 1, at = now, markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
 local pool = poolLine(2589)
 seen("POOL ", tostring(pool), "Market → 12s 34c / Min → 11s 0c", "nil")
+do -- The public API on the running addon, each call on both clients.
+  local function got(...) return table.concat({ tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)) }, " ") end
+  local value, source = ns.Prices.value(2589)
+  assert(source == "scan" and got(GoldForeverAPI.GetPrice(2589)):find("^" .. value .. " scan %d+ 1$"), "GetPrice from the own scan: " .. got(GoldForeverAPI.GetPrice(2589)))
+  if INTERFACE < 110000 then
+    GoldForever_Prices.markets[POOL_MINE][2593] = { 1500, 1400, 2, now - 60 }
+    assert(got(GoldForeverAPI.GetPrice(2593)) == "1500 pool 60 2", "GetPrice from the pool: " .. got(GoldForeverAPI.GetPrice(2593)))
+    GoldForever_Prices.markets[POOL_MINE][2593] = nil
+  end
+  assert(GoldForeverAPI.GetPrice(999999) == nil, "GetPrice of an unknown item")
+  assert(GoldForeverAPI.GetVendorPrice(2589) == ns.price.vendor(2589), "GetVendorPrice is what a vendor pays")
+  local de = GoldForeverAPI.GetDisenchantValue(251962)
+  assert(de == nil or type(de) == "number", "GetDisenchantValue: " .. tostring(de))
+  assert(GoldForeverAPI.version == 1, "the API's version")
+end
 if INTERFACE < 110000 then
   assert(pool and pool:find("Market → 12s 34c / Min → 11s 0c", 1, true), "the pool line")
   -- A reagent with no own listing costs the pool's minimum, so a craft from it shows its profit.
@@ -2887,6 +2902,13 @@ else
     ["retail-EU"] = { [2589] = { 500, 490, 9, now }, [2590] = { 200, 190, 4, now } } }
   assert((poolLine(2589) or ""):find("Market → 1s 0c / Min → 90c", 1, true), "retail: the group's price first")
   assert((poolLine(2590) or ""):find("Market → 2s 0c / Min → 1s 90c", 1, true), "retail: the region's commodity price")
+  do -- The API's players and age are those of the entry the price came from, past a malformed one.
+    GoldForever_Prices.markets["retail-EU-AnotherRealm"][2594] = { "x", 1, 1, 1 }
+    GoldForever_Prices.markets["retail-EU"][2594] = { 300, 290, 7, now - 5 }
+    local value, source, age, players = GoldForeverAPI.GetPrice(2594)
+    assert(value == 300 and source == "pool" and age == 5 and players == 7, "GetPrice past a malformed entry: " .. tostring(value) .. " " .. tostring(age) .. " " .. tostring(players))
+    GoldForever_Prices.markets["retail-EU-AnotherRealm"][2594], GoldForever_Prices.markets["retail-EU"][2594] = nil, nil
+  end
   assert(poolLine(2591) == nil, "retail: neither market has it")
   -- A thin price says so on its Market line, a normal one says nothing extra.
   GoldForever_Prices.markets["retail-EU"][2590].units = 2

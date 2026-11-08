@@ -9,8 +9,10 @@ local rank = {}
 for i, layer in ipairs(LAYERS) do
 	rank[layer] = i
 end
+-- The public API sits beside the TOCs, above every layer: it reads them and nothing reads it.
+local ABOVE_ALL = { ["API.lua"] = #LAYERS + 1 }
 local function layerOf(file)
-	return rank[PATHS[file]:match("^([^\\]+)\\")]
+	return ABOVE_ALL[file] or rank[PATHS[file]:match("^([^\\]+)\\")]
 end
 local layers = 0
 for file in pairs(SOURCES) do

@@ -88,6 +88,7 @@ ReadModels\DataFormat.lua
 ReadModels\Prices.lua
 ReadModels\ResaleSales.lua
 ReadModels\PricesMarkets.lua
+API.lua
 Surfaces\SellJunk.lua
 Recording\Rares.lua
 Tools\CraftPlanner.lua
