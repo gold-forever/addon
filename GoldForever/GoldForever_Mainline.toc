@@ -106,6 +106,7 @@ Tools\Lists.lua
 Tools\SoldAlert.lua
 Tools\BestFarm.lua
 Surfaces\BagMark.lua
+Surfaces\BagVerdict.lua
 Tools\AuctionState.lua
 Surfaces\SellingRulesPage.lua
 Surfaces\ShoppingListsPage.lua

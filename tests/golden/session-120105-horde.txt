@@ -27598,6 +27598,7 @@ settings.sampleSeconds = 5
 settings.scan.auto = true
 settings.share = false
 settings.tooltip.bagMark = "shift"
+settings.tooltip.bagVerdict = "shift"
 settings.tooltip.bestReward = "shift"
 settings.tooltip.disenchant = "shift"
 settings.tooltip.held = "shift"

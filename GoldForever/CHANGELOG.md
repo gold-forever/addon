@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **See what to do with each bag item.** A small mark on items in your bags and bank says post on the auction
+  house, sell to a vendor, or disenchant; items to keep have none. Hold Shift over an item for the same word
+  and why, for example "Verdict: post (AH 1g 20s after the cut, vendor 15s)". Items on a shopping list or in
+  the craft queue, soulbound gear and quest items are always keep. Nothing is moved or sold. Turn it off under
+  Settings, Modules, Bag verdicts, and choose when the line shows on the Tooltip tab.
 - **See how fast an item sells and how many to post.** With a companion that carries sales, the Post screen
   says, for example, "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12", and Post's
   quantity starts at that size: about two days of sales, at most what you hold. A number you chose for an

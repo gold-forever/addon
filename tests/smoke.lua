@@ -3497,7 +3497,12 @@ do
     local b = CreateFrame("Button", nil, frame)
     local slot = #items + 1 - i
     b.GetID = function() return slot end
-    b.CreateTexture = function() local t = CreateFrame("Frame") coins[slot] = t return t end
+    -- Only the copper coin counts here: a bag verdict's mark is another texture on the same button.
+    b.CreateTexture = function()
+      local t = CreateFrame("Frame")
+      t.SetTexture = function(_, path) if path:find("CopperIcon", 1, true) then coins[slot] = t end end
+      return t
+    end
     _G["ContainerFrame1Item" .. i] = b
   end
   local function on(slot) return coins[slot] ~= nil and coins[slot]:IsShown() end
@@ -3555,6 +3560,140 @@ do
   ContainerFrame1, GameTooltip.GetOwner, GameTooltip.lines = nil, nil, {}
   for i = 1, #items do _G["ContainerFrame1Item" .. i] = nil end
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem = keep[1], keep[2], keep[3], keep[4]
+end
+-- Bag verdicts (gf#319): each bag and bank item carries post, vendor or disenchant, keep has no mark, and the
+-- tooltip says the word; the coin keeps its corner, combat draws nothing, the switch takes it all away.
+do
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem, C_Container.UseContainerItem, ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds }
+  local started = clock -- set back at the end, so the session's timers fall where they did
+  local POST, VENDOR, DE, LISTED, QUEUED, GEAR, QUEST, BANKED = 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008
+  local items = { { itemID = POST }, { itemID = VENDOR }, { itemID = DE }, { itemID = LISTED }, { itemID = QUEUED }, { itemID = GEAR, isBound = true }, { itemID = QUEST } }
+  local touched, free = 0, 1
+  C_Container.GetContainerNumSlots = function(b) return b == 0 and #items or 0 end
+  C_Container.GetContainerItemInfo = function(b, s) if b == -1 then return s == 1 and { itemID = BANKED } or nil end return b == 0 and items[s] or nil end
+  C_Container.GetContainerNumFreeSlots = function(b) return b == 0 and free or 0, 0 end
+  C_Container.PickupContainerItem = function() touched = touched + 1 end
+  C_Container.UseContainerItem = C_Container.PickupContainerItem
+  C_Container.GetContainerItemQuestInfo = function(_, s) return { isQuestItem = s == 7 } end
+  ns.price.worth = function(id) if id == VENDOR then return 15, "vendor" end return 120, "auction" end
+  ns.price.vendor = function() return 15 end
+  ns.price.disenchant = function(id) if id == DE then return 500, 25 end end
+  ns.price.enchanting = function() return 300 end
+  ns.price.itemInfo = function(id) return 2, 20, id == GEAR and 4 or 7 end
+  ns.queueNeeds = function() return { [QUEUED] = 2 } end
+  local auction = ns.auctionSettings()
+  local listsWere = auction.lists
+  auction.lists = { { name = "Verdict test", entries = { { itemId = LISTED } } } }
+  local marks = {}
+  local function button(slot, parent, name)
+    local b = CreateFrame("Button", nil, parent)
+    b.GetID = function() return slot end
+    b.CreateTexture = function()
+      local t = CreateFrame("Frame")
+      t.SetTexture = function(_, path) t.path = path end
+      marks[b] = marks[b] or {}
+      table.insert(marks[b], t)
+      return t
+    end
+    _G[name] = b
+    return b
+  end
+  local frame = CreateFrame("Frame", "ContainerFrame1", UIParent)
+  ContainerFrame1, frame.size = frame, #items
+  frame.GetID = function() return 0 end
+  frame:Hide()
+  local buttons = {}
+  for slot = 1, #items do buttons[slot] = button(slot, frame, "ContainerFrame1Item" .. slot) end
+  local function icon(b)
+    for _, t in ipairs(marks[b] or {}) do if t:IsShown() then return t.path end end
+    return nil
+  end
+  local function redraw() ns.BagVerdict.refresh() wait(1) end
+  frame:Show()
+  wait(1)
+  redraw()
+  assert((icon(buttons[1]) or ""):find("gavel", 1, true), "post's mark: " .. tostring(icon(buttons[1])))
+  assert((icon(buttons[2]) or ""):find("coins", 1, true), "vendor's mark: " .. tostring(icon(buttons[2])))
+  assert((icon(buttons[3]) or ""):find("Disenchant", 1, true), "disenchant's mark: " .. tostring(icon(buttons[3])))
+  for slot = 4, 7 do assert(icon(buttons[slot]) == nil, "keep has no mark: slot " .. slot) end
+  local function tip(b, id)
+    GameTooltip.lines = {}
+    GameTooltip.GetOwner = function() return b end
+    for _, hook in ipairs(itemTooltipHooks) do hook(GameTooltip, { id = id }) end
+    for _, line in ipairs(GameTooltip.lines) do if line:find("Verdict:", 1, true) then return line end end
+    return nil
+  end
+  shiftDown = true
+  assert((tip(buttons[1], POST) or ""):find("Verdict: post (AH", 1, true), "post's line: " .. tostring(tip(buttons[1], POST)))
+  assert((tip(buttons[2], VENDOR) or ""):find("Verdict: vendor (vendor", 1, true), "vendor's line")
+  assert((tip(buttons[3], DE) or ""):find("Verdict: disenchant (~", 1, true), "disenchant's line")
+  assert((tip(buttons[4], LISTED) or ""):find("Verdict: keep (on a shopping list)", 1, true), "listed: keep")
+  assert((tip(buttons[5], QUEUED) or ""):find("Verdict: keep (in the craft queue)", 1, true), "queued: keep")
+  assert((tip(buttons[6], GEAR) or ""):find("Verdict: keep (soulbound gear)", 1, true), "soulbound gear: keep")
+  assert((tip(buttons[7], QUEST) or ""):find("Verdict: keep (a quest item)", 1, true), "quest item: keep")
+  assert(tip(buttons[1], VENDOR) == nil, "another item on the button since the draw: no stale line")
+  shiftDown = false
+  assert(tip(buttons[1], POST) == nil, "on Shift by default: Shift up, no line")
+  shiftDown = true
+  -- Bags full: the coin goes on the cheapest priced stack, and that slot's verdict mark gives way to it.
+  free = 0
+  ns.price.worth = function(id) if id == VENDOR then return 1, "vendor" end return 120, "auction" end
+  ns.BagMark.refresh()
+  wait(1)
+  redraw()
+  local coin
+  for _, t in ipairs(marks[buttons[2]]) do if t:IsShown() then coin = t.path end end
+  assert(coin and coin:find("CopperIcon", 1, true), "the coin wins its corner: " .. tostring(coin))
+  assert(#marks[buttons[2]] == 2 and not marks[buttons[2]][1]:IsShown() ~= not marks[buttons[2]][2]:IsShown(), "one mark on the slot, not two")
+  free = 1
+  ns.BagMark.refresh()
+  wait(1)
+  redraw()
+  ns.price.worth = function(id) if id == VENDOR then return 15, "vendor" end return 120, "auction" end
+  -- The bank's own slots, as the classic client numbers them.
+  local bank = CreateFrame("Frame", "BankFrame", UIParent)
+  BankFrame = bank
+  bank:Hide()
+  local banked = button(1, bank, "BankFrameItem1")
+  bank:Show()
+  redraw()
+  assert((icon(banked) or ""):find("gavel", 1, true), "a bank slot carries its mark: " .. tostring(icon(banked)))
+  bank:Hide()
+  -- Combat: nothing drawn until it ends.
+  items[1] = { itemID = VENDOR }
+  InCombatLockdown = function() return true end
+  local at = clock
+  redraw()
+  clock = at
+  assert((icon(buttons[1]) or ""):find("gavel", 1, true), "in combat the marks stay as they were")
+  InCombatLockdown = nil
+  fire("PLAYER_REGEN_ENABLED")
+  wait(1)
+  assert((icon(buttons[1]) or ""):find("coins", 1, true), "redrawn when the fight ends: " .. tostring(icon(buttons[1])))
+  items[1] = { itemID = POST }
+  -- Settings: on by default, and the switch takes every mark and line away.
+  local p = ns.hubWindow().pages.settings
+  local row
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Bag verdicts" then row = r end end
+  assert(row and row.switch.on == true, "on by default in Settings, Modules")
+  row.mod.set(false)
+  wait(1)
+  assert(icon(buttons[2]) == nil and tip(buttons[2], VENDOR) == nil, "switched off: no mark, no line")
+  row.mod.set(true)
+  wait(1)
+  assert(icon(buttons[2]) ~= nil, "switched on: the mark")
+  assert(touched == 0, "nothing picked up, moved or sold")
+  assert(rawget(GoldForeverDB.settings.tooltip, "bagVerdict") == "shift", "the line's mode, With Shift by default")
+  frame:Hide()
+  redraw()
+  GoldForeverDB.settings.prices.bagVerdict = nil
+  auction.lists = listsWere
+  ContainerFrame1, BankFrame, GameTooltip.GetOwner, GameTooltip.lines, C_Container.GetContainerItemQuestInfo = nil, nil, nil, {}, nil
+  for slot = 1, #items do _G["ContainerFrame1Item" .. slot] = nil end
+  _G["BankFrameItem1"] = nil
+  C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem, C_Container.UseContainerItem = keep[1], keep[2], keep[3], keep[4], keep[5]
+  ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds = keep[6], keep[7], keep[8], keep[9], keep[10], keep[11]
+  clock = started
 end
 -- Tooltip lines (addon#98): each Off, with Shift or Always, the price lines Always and the rest on Shift by
 -- default; Shift pressed or let go draws the open tooltip again; Settings → Tooltip sets each with a picker,

@@ -27,7 +27,7 @@ function BagMark.pick(stacks, worth)
 	return best, least
 end
 
-local function isQuest(bag, slot, id)
+function BagMark.isQuest(bag, slot, id)
 	local info = C_Container.GetContainerItemQuestInfo and C_Container.GetContainerItemQuestInfo(bag, slot)
 	if info and info.isQuestItem then
 		return true
@@ -49,7 +49,7 @@ local function fullBags()
 				local info = C_Container.GetContainerItemInfo(bag, slot)
 				if info and info.itemID then
 					stacks[#stacks + 1] = { bag = bag, slot = slot, id = info.itemID, count = info.stackCount or 1,
-						bound = info.isBound, quest = isQuest(bag, slot, info.itemID) }
+						bound = info.isBound, quest = BagMark.isQuest(bag, slot, info.itemID) }
 				end
 			end
 		end
@@ -68,29 +68,58 @@ local function bagFrames()
 	return list
 end
 
--- The shown item button of bag:slot, or nil.
-local function buttonOf(bag, slot)
+-- The bank's own frames: the classic slots (BankFrameItem1…) and retail's tabbed panel.
+local function addBank(out)
+	if BankPanel and BankPanel:IsShown() and BankPanel.EnumerateValidItems then
+		for b in BankPanel:EnumerateValidItems() do
+			out[#out + 1] = { button = b, bag = b:GetBankTabID(), slot = b:GetContainerSlotID() }
+		end
+	elseif BankFrame and BankFrame:IsShown() then
+		for j = 1, NUM_BANKGENERIC_SLOTS or 28 do
+			local b = _G["BankFrameItem" .. j]
+			if b then
+				out[#out + 1] = { button = b, bag = BANK_CONTAINER or -1, slot = b:GetID() }
+			end
+		end
+	end
+end
+
+-- Every item button showing now, in the bags and the bank: { button, bag, slot }.
+function BagMark.shownButtons()
+	local out = {}
 	for _, f in ipairs(bagFrames()) do
 		local frame = f.frame
 		if frame:IsShown() then
-			local buttons = {}
 			if frame.EnumerateValidItems then
 				for _, b in frame:EnumerateValidItems() do
-					buttons[#buttons + 1] = b
+					out[#out + 1] = { button = b, bag = b.GetBagID and b:GetBagID() or frame:GetID(), slot = b:GetID() }
 				end
 			elseif f.name then
 				for j = 1, frame.size or MAX_CONTAINER_ITEMS or 36 do
-					buttons[#buttons + 1] = _G[f.name .. "Item" .. j]
-				end
-			end
-			for _, b in ipairs(buttons) do
-				local bagOf = b.GetBagID and b:GetBagID() or frame:GetID()
-				if bagOf == bag and b:GetID() == slot then
-					return b
+					local b = _G[f.name .. "Item" .. j]
+					if b then
+						out[#out + 1] = { button = b, bag = b.GetBagID and b:GetBagID() or frame:GetID(), slot = b:GetID() }
+					end
 				end
 			end
 		end
 	end
+	addBank(out)
+	return out
+end
+
+-- The shown item button of bag:slot, or nil.
+local function buttonOf(bag, slot)
+	for _, s in ipairs(BagMark.shownButtons()) do
+		if s.bag == bag and s.slot == slot then
+			return s.button
+		end
+	end
+end
+
+-- Whether the copper coin is on this button: its corner is the coin's, and a bag verdict gives way.
+function BagMark.isMarked(button)
+	return marked ~= nil and marked.button == button
 end
 
 local function coin(button)
@@ -106,7 +135,9 @@ end
 
 local refresh, soon
 local function hookFrames()
-	for _, f in ipairs(bagFrames()) do
+	local frames = bagFrames()
+	frames[#frames + 1] = BankFrame and { frame = BankFrame }
+	for _, f in ipairs(frames) do
 		if not hooked[f.frame] then
 			hooked[f.frame] = true
 			f.frame:HookScript("OnShow", soon)
@@ -114,7 +145,7 @@ local function hookFrames()
 	end
 end
 
-function refresh()
+local function mark()
 	hookFrames()
 	if marked then
 		marks[marked.button]:Hide()
@@ -133,6 +164,11 @@ function refresh()
 		coin(button):Show()
 		marked = { button = button, id = s.id, total = total }
 	end
+end
+
+function refresh()
+	mark()
+	ns.emit("bagMarkDrawn") -- the bag verdicts follow, so the coin keeps its corner
 end
 
 local waiting

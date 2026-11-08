@@ -139,6 +139,30 @@ function SalePlan.buy(rule, held, levels)
 	return { quantity = quantity, topUnit = top, total = total }
 end
 
+-- What to do with one bag item: { word = "post"|"vendor"|"disenchant"|"keep", why (keep), sale, vendor,
+-- disenchant }. item = { worth, where (price.worth), vendor, disenchant, skill, enchanting, quest, listed,
+-- queued, bound, gear }. A soulbound item cannot be posted, so its only sale is the vendor's.
+function SalePlan.verdict(item)
+	local why = (item.quest and "a quest item") or (item.listed and "on a shopping list") or (item.queued and "in the craft queue")
+		or (item.bound and item.gear and "soulbound gear")
+	if why then
+		return { word = "keep", why = why }
+	end
+	local sale, where = item.worth or nil, item.where
+	if item.bound then
+		sale, where = item.vendor or nil, "vendor"
+	end
+	local vendor = item.vendor or nil
+	local de = item.disenchant
+	if de and (item.enchanting or 0) >= (item.skill or 0) and de > (sale or 0) then
+		return { word = "disenchant", disenchant = de, sale = sale }
+	end
+	if not sale then
+		return { word = "keep", why = "no price" }
+	end
+	return { word = where == "vendor" and "vendor" or "post", sale = sale, vendor = vendor }
+end
+
 -- The profile string ----------------------------------------------------------------------------------
 
 SalePlan.PREFIX = "GFP1:"

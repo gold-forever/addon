@@ -23,7 +23,7 @@ ns.DEFAULTS = {
 	-- Each tooltip line's mode, "off", "shift" (shown while Shift is held) or "always" (Tooltips.lua,
 	-- addon#98): the prices and vendor resale always, the rest on Shift.
 	tooltip = { price = "always", scan = "always", held = "shift", disenchant = "shift", mob = "shift", starter = "shift",
-		bestReward = "shift", bagMark = "shift", vendorResale = "always", supply = "shift" },
+		bestReward = "shift", bagMark = "shift", vendorResale = "always", supply = "shift", bagVerdict = "shift" },
 	auction = { rule = {}, duration = 2, sellWide = false }, -- sellWide: the Sell tab's wide layout (addon#84)
 	mail = { helper = true },
 	minimap = { angle = 225, hidden = false },

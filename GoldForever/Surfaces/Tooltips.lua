@@ -24,6 +24,7 @@ ns.TOOLTIP_LINES = {
 	{ key = "starter", name = "Quest starters", blurb = "On a mob: the quest-starting items it drops, and whether you did the quest." },
 	{ key = "bestReward", name = "Best quest reward", blurb = "On the quest reward worth the most: what it sells for." },
 	{ key = "bagMark", name = "Cheapest in your bags", blurb = "On the marked stack in full bags: what it is worth in all." },
+	{ key = "bagVerdict", name = "Bag verdict", blurb = "On a bag or bank item: post, vendor, disenchant or keep, and why." },
 	{ key = "vendorResale", name = "Vendor resale", blurb = "At a merchant, on an item that sells for more on the auction house: what it fetches." },
 }
 

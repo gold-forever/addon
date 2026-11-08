@@ -404,6 +404,7 @@
 + settings.rares.mark = true
 + settings.scan.auto = false
 + settings.tooltip.bagMark = "shift"
++ settings.tooltip.bagVerdict = "shift"
 + settings.tooltip.bestReward = "shift"
 + settings.tooltip.disenchant = "shift"
 + settings.tooltip.held = "shift"

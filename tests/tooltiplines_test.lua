@@ -28,7 +28,7 @@ for _, line in ipairs(ns.TOOLTIP_LINES) do
 	keys[line.key] = true
 	eq(type(line.name) == "string" and type(line.blurb) == "string", true, line.key .. ": name and blurb")
 end
-eq(#ns.TOOLTIP_LINES, 10, "ten lines")
+eq(#ns.TOOLTIP_LINES, 11, "eleven lines")
 
 -- Shift pressed: the open tooltip is drawn again, only when a line is on Shift and only for Shift.
 local refreshed = 0

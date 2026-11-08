@@ -200,6 +200,12 @@ local function fillModules(page, prefs)
 				prices.bagMark = on
 				ns.BagMark.refresh()
 			end },
+		{ icon = "backpack", name = "Bag verdicts", blurb = "A small mark on each bag and bank item: post, vendor or disenchant.",
+			on = function() return prices.bagVerdict ~= false end,
+			set = function(on)
+				prices.bagVerdict = on
+				ns.BagVerdict.refresh()
+			end },
 		{ icon = "coins", name = "Loot roll value", blurb = "Under the item on a Need/Greed roll: its auction and vendor value.",
 			on = function() return prices.rollValue ~= false end,
 			set = function(on) prices.rollValue = on end },
