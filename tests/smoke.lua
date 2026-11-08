@@ -1482,6 +1482,19 @@ do
     for _, c in ipairs(tbl.columns) do assert(c.title ~= "Market", "no Market column on the Sell list") end
     local cell = tbl.columns[col].text
     assert(cell(chosen) == "-", "no typical price without the pool's: " .. tostring(cell(chosen)))
+    -- gf#323: no pool price and no own scan, Auctionator's price, named for its source.
+    do
+      local keptPrices, keptOwn = GoldForever_Prices, ns.ownPrice
+      GoldForever_Prices, ns.ownPrice = nil, function() end
+      Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 3000 end } } }
+      AP.tab("scan")
+      AP.tab("post")
+      local facts = AP.panel().post.facts.text
+      assert(facts:find("market " .. ns.Money.auction(3000), 1, true) and facts:find("(Auctionator)", 1, true), "Post names Auctionator's price: " .. facts)
+      GoldForever_Prices, ns.ownPrice, Auctionator = keptPrices, keptOwn, nil
+      AP.tab("scan")
+      AP.tab("post")
+    end
     local keep = GoldForever_Prices
     -- The pool's entry, scanned after the own scan: value 90s, typical 50s.
     GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = { [2589] = { 9000, 8000, 3, now + 86400, 5000 } } } }

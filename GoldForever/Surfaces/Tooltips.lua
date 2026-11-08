@@ -227,6 +227,10 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			addRows(tooltip, Prices.rows(GoldForever_Prices, neutral, data.id, now, "Neutral AH"))
 		end
 		addRows(tooltip, Prices.rows(GoldForever_Prices, Prices.mine(), data.id, now))
+		local value, from = price.valued(data.id)
+		if from == "auctionator" then
+			addRows(tooltip, { { price.sourceLabel(from), coins(value) } })
+		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("pool tooltip", poolTooltip, tooltip, data)

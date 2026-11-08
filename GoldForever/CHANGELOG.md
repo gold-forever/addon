@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Prices from Auctionator when there are no others.** If an item has no price from the companion or your
+  own scan and Auctionator is installed, Gold Forever uses Auctionator's price. Tooltips and the Sell tab
+  label it "Auctionator". The companion's prices and your scans always come first.
 - **See what a farming session came to.** When a session ends, after 15 minutes without loot or when you press
   Stop, a small card shows its time, the gold looted, what the items are worth, gold an hour, kills and the
   best drop. It waits until combat ends, and closes on a click or after 30 seconds; a Recap button on the HUD

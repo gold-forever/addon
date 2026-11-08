@@ -88,9 +88,9 @@ end
 local function price(r, s)
 	s = s or settings()
 	r.priced = true
-	local value, valueFrom, trend, week = ns.Prices.value(r.id)
+	local value, valueFrom, trend, week = ns.price.valued(r.id)
 	local market, from = ns.Prices.sellBase(value, valueFrom, week)
-	r.market, r.marketFrom, r.trend, r.anyway = market, from, trend, nil
+	r.market, r.marketFrom, r.trend, r.anyway = market, ns.price.sourceLabel(from), trend, nil
 	r.typical = from == "typical price" and market or nil
 	local l = ah.live[r.key]
 	if l then

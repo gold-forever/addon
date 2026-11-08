@@ -176,11 +176,45 @@ local function ownMarket(id)
 	return prices[id]
 end
 
--- An item's market value: the shared pool's (many players' scans, outliers dropped, a jump held until a
--- later scan confirms it), else the own scan's (manual test run 001: Poached Nettlefish "sold for"
--- 47,499g on the Crafting page from a single listing in the own scan).
+local AUCTIONATOR_CALLER = "GoldForever" -- its API wants each caller's name
+
+local function askAuctionator(id)
+	return Auctionator.API.v1.GetAuctionPriceByItemID(AUCTIONATOR_CALLER, id)
+end
+
+-- Auctionator's price (copper), the last source; nil when it is not loaded, fails or answers nonsense.
+local function auctionator(id)
+	if not Auctionator then
+		return nil
+	end
+	local ok, value = pcall(askAuctionator, id)
+	if ok and type(value) == "number" and value > 0 and value <= Encode.MAX_COPPER then
+		return value
+	end
+end
+
+-- An item's market value and its source: the shared pool's (many players' scans, outliers dropped, a jump
+-- held until a later scan confirms it), else the own scan's (manual test run 001: Poached Nettlefish
+-- "sold for" 47,499g on the Crafting page from a single listing in the own scan), else Auctionator's.
+-- Returns as Prices.value does: value, source, and with the pool's its trend and typical price.
+local function valued(id)
+	local value, from, trend, week = ns.Prices.value(id)
+	if value then
+		return value, from, trend, week
+	end
+	value = auctionator(id)
+	if value then
+		return value, "auctionator"
+	end
+end
+
 local function market(id)
-	return (ns.Prices.value(id))
+	return (valued(id))
+end
+
+-- A source as a player reads it.
+local function sourceLabel(from)
+	return from == "auctionator" and "Auctionator" or from
 end
 
 local function cheapest(id)
@@ -189,9 +223,9 @@ local function cheapest(id)
 end
 
 -- What buying one costs at the auction house: the pool's minimum when the prices file has it, picked as
--- the market value is, else the own scan's cheapest (Prices.lua).
+-- the market value is, else the own scan's cheapest (Prices.lua), else Auctionator's price.
 local function buy(id)
-	return ns.Prices.cheapest(id)
+	return ns.Prices.cheapest(id) or auctionator(id)
 end
 
 -- The own scan's market value, cheapest unit and time, for the pool's fallback (Prices.lua).
@@ -318,7 +352,7 @@ end)
 
 -- The same prices and valuation, for every file that prices an item.
 ns.price = {
-	market = market, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
+	market = market, valued = valued, sourceLabel = sourceLabel, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
 	latestScan = latestScan,
 }
