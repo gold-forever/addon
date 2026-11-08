@@ -32,6 +32,12 @@ local function byHand(hud)
 	-- (or Start), which ding leaves empty then.
 	hud.gold:SetWidth(Session.get() and GOLD_W or W - 12 - GOLD_X)
 	hud.details.auto:Set(not manual)
+	-- A closed session too short for the HUD to show has no panel to hold the button, so the line does.
+	local reopen = ns.SessionRecap.available()
+	hud.recap:SetShown(reopen and not Session.get())
+	hud.recap:ClearAllPoints()
+	hud.recap:SetPoint("RIGHT", manual and -(6 + BY_HAND) or -6, 0)
+	hud.details.recap:SetShown(reopen)
 end
 
 local function refresh()
@@ -167,6 +173,7 @@ build = function()
 		Session.stop()
 	end, { kind = "ghost", width = 64, height = 24 })
 	hud.stop:SetPoint("RIGHT", -6, 0)
+	hud.recap = UI.Button(hit, "Recap", ns.SessionRecap.reopen, { kind = "ghost", width = 64, height = 24 })
 
 	-- The session, under the line.
 	local d = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.96, borderColor = Theme.color.borderStrong })
@@ -223,6 +230,8 @@ build = function()
 		ns.commands.reset()
 	end, { kind = "ghost", width = 120, height = 26 })
 	reset:SetPoint("LEFT", stop, "RIGHT", 8, 0)
+	d.recap = UI.Button(d, "Last recap", ns.SessionRecap.reopen, { kind = "ghost", width = 100, height = 26 })
+	d.recap:SetPoint("LEFT", reset, "RIGHT", 8, 0)
 	local hide = UI.Button(d, "Hide the HUD", function()
 		ns.commands.appraise()
 	end, { width = 130, height = 26 })

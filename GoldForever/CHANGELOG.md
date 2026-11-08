@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **See what a farming session came to.** When a session ends, after 15 minutes without loot or when you press
+  Stop, a small card shows its time, the gold looted, what the items are worth, gold an hour, kills and the
+  best drop. It waits until combat ends, and closes on a click or after 30 seconds; a Recap button on the HUD
+  brings it back until the next session starts. Sessions under 5 minutes or with nothing looted show no card.
+  Turn it off under Settings, Modules, Session recap.
 - **See what to do with each bag item.** A small mark on items in your bags and bank says post on the auction
   house, sell to a vendor, or disenchant; items to keep have none. Hold Shift over an item for the same word
   and why, for example "Verdict: post (AH 1g 20s after the cut, vendor 15s)". Items on a shopping list or in

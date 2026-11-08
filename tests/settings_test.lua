@@ -39,7 +39,7 @@ end
 
 local PINNED = {
 	window = "{  }",
-	appraiser = "{ shown = true }",
+	appraiser = "{ recap = true, shown = true }",
 	rares = "{ announce = true, mark = true }",
 	crafting = "{ strip = true }",
 	craftQueue = "{ closed = false }",

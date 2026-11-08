@@ -4582,6 +4582,96 @@ do
   before = stops()
   Session.stop()
   assert(stops() == before + 1, "Stop with the toggle on records session_stop")
+  -- The session recap: a card when a session closes, from a session of real loot.
+  -- Played on top of the run and then taken back: the card records nothing, so the golden saves stay as they were.
+  local Recap, clockWas, nowWas, moneyWas = ns2.SessionRecap, clock, now, money
+  local eventsWas, heldWas = ns2.copy(GoldForeverDB.events), {}
+  for guid, c in pairs(GoldForeverDB.characters) do heldWas[guid] = c.money end
+  local function card() return Recap.cards.frame end
+  local function shown() return card() ~= nil and card():IsShown() end
+  local function click(b) b:GetScript("OnClick")(b) end
+  local function minutes(m) clock = clock + m * 60; now = now + m * 60 end
+  local function played(m) loot(50000); minutes(m); loot(50000) end
+  SlashCmdList.GOLDFOREVER("reset")
+  assert(not shown() and not Recap.available(), "New session: no card, nothing to reopen")
+  played(6)
+  assert(not shown(), "no card while the session runs")
+  Session.stop()
+  assert(shown(), "Stop closes the session: the card")
+  assert(card().values[1]:GetText() == "6m", "its time: " .. tostring(card().values[1]:GetText()))
+  assert(card().values[2]:GetText():find("10", 1, true), "its gold: " .. tostring(card().values[2]:GetText()))
+  assert(Session.get() == nil and hud.recap:IsShown(), "a session too short for the HUD still offers the recap on the line")
+  click(card().hit)
+  assert(not shown(), "a click closes it")
+  click(hud.recap)
+  assert(shown(), "the HUD reopens it")
+  wait(29)
+  assert(shown(), "still open at 29 seconds")
+  wait(2)
+  assert(not shown(), "gone after 30 seconds")
+  -- A timer from an earlier opening does not close a later one.
+  click(hud.recap)
+  wait(20)
+  click(card().hit)
+  click(hud.recap)
+  wait(15)
+  assert(shown(), "the last opening has its own 30 seconds")
+  click(card().hit)
+  -- The next session ends the reopening.
+  loot(10)
+  assert(not Recap.available() and not hud.recap:IsShown(), "a new session: nothing to reopen")
+  SlashCmdList.GOLDFOREVER("reset")
+  -- 15 minutes without loot closes it, with nothing else happening; the HUD need not be up.
+  ns2.setHud(false)
+  local watchers = running(5) -- the first load of the addon may have a session of its own
+  played(11) -- long enough that Session.get still gives it once it has ended
+  assert(running(5) == watchers + 1, "the clock watched while a session runs")
+  minutes(16)
+  tick(5)
+  assert(shown(), "gone idle: the card, the HUD hidden")
+  assert(running(5) == watchers - 1, "no clock watched with no session running (the first load's went idle in the same tick)")
+  ns2.setHud(true)
+  click(card().hit)
+  -- Combat: the card waits, and an open card gives way.
+  played(6)
+  fireNow("PLAYER_REGEN_DISABLED")
+  Session.stop()
+  assert(not shown(), "never in combat")
+  fireNow("PLAYER_REGEN_ENABLED")
+  assert(shown(), "shown when the fight ends")
+  fireNow("PLAYER_REGEN_DISABLED")
+  assert(not shown(), "a fight takes an open card away")
+  fireNow("PLAYER_REGEN_ENABLED")
+  -- Sessions that earn none.
+  SlashCmdList.GOLDFOREVER("reset")
+  assert(not Recap.available(), "New session: nothing left to reopen")
+  played(6)
+  fireNow("PLAYER_REGEN_DISABLED")
+  Session.stop()
+  SlashCmdList.GOLDFOREVER("reset")
+  fireNow("PLAYER_REGEN_ENABLED")
+  assert(not shown(), "New session in the fight: the waiting card is dropped")
+  played(4)
+  Session.stop()
+  assert(not shown() and not Recap.available(), "under 5 minutes: no card")
+  SlashCmdList.GOLDFOREVER("reset")
+  Session.start()
+  minutes(6)
+  Session.stop()
+  assert(not shown() and not Recap.available(), "nothing looted: no card")
+  SlashCmdList.GOLDFOREVER("reset")
+  -- Settings → Modules.
+  local row
+  for _, r in ipairs(ns.hubWindow().pages.settings.modules.rows) do if r.mod.name == "Session recap" then row = r end end
+  assert(row and row.switch.on == true, "on by default in Settings, Modules")
+  row.mod.set(false)
+  played(6)
+  Session.stop()
+  assert(not shown() and not Recap.available(), "switched off: no card")
+  row.mod.set(true)
+  SlashCmdList.GOLDFOREVER("reset")
+  clock, now, money, GoldForeverDB.events = clockWas, nowWas, moneyWas, eventsWas
+  for guid, c in pairs(GoldForeverDB.characters) do c.money = heldWas[guid] end
 end
 -- Kills close together (addon#50): the client tells each kill's XP as it comes, then raises the XP bar
 -- once for both, so one XP update holds two kills. Each kill is its own row, naming its mob (addon#52).

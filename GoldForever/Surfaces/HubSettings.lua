@@ -179,6 +179,9 @@ local function fillModules(page, prefs)
 			set = function(on)
 				ns.setHud(on)
 			end },
+		{ icon = "timer", name = "Session recap", blurb = "When a session ends, a small card with what it came to.",
+			on = function() return appraiser.recap ~= false end,
+			set = function(on) appraiser.recap = on end },
 		{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
 			on = function() return not auction.hidden end,
 			set = function(on) auction.hidden = not on end },

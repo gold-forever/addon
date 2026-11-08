@@ -81,6 +81,7 @@ Recording\Kills.lua
 Recording\Session.lua
 ReadModels\SessionSummary.lua
 Surfaces\BigDrops.lua
+Surfaces\SessionRecap.lua
 Surfaces\Hud.lua
 Recording\MobStats.lua
 Surfaces\Tooltips.lua
