@@ -293,7 +293,7 @@ C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return
     if s == 2 and bagsFull then return { itemID = 251962, stackCount = 1, hyperlink = "|Hitem:251962::::::::30|h[Violet Sash]|h" } end
     if s == 3 and bagsFull then return { itemID = 271206, stackCount = 1, isBound = true, hyperlink = "|Hitem:271206::::::::30|h[Skin]|h" } end
   end,
-  GetContainerItemID = function() return 2589 end }
+  GetContainerItemID = function() return 2589 end, PickupContainerItem = function() end }
 C_Item = { GetItemInfo = function(id) return "Item, " .. id, nil, 1, 10, 1, "", "", 20, "", 132889, 13, 7, 5, 0 end,
   GetItemInfoInstant = function(id) return id, "Tradeskill", "Cloth", "", 132889, 7, 5 end,
   GetItemMaxStackSizeByID = function(id) return id == 2589 and 1000 or nil end }
@@ -911,6 +911,18 @@ slots = { { kind = 1, link = "|Hitem:6358::::::::30|h[Oily Blackmouth]|h", qty =
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 seen("BOBBER NAMED ", tostring(GoldForeverDB.catalogue.objects[35591]), "nil")
 wait(30)
+-- Disenchanting the item clicked in the bags (the stand-in's bags hold 2589): its loot is marked with it.
+do
+  local function day() return table.concat(GoldForeverDB.events[ns.Encode.day(GetServerTime())].loot, ";") end
+  C_Container.PickupContainerItem(0, 1)
+  fire("UNIT_SPELLCAST_START", "player", "Cast-10", 13262)
+  fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-10", 13262)
+  slots = { { kind = 1, link = "|Hitem:10940::::::::30|h[Strange Dust]|h", qty = 2, sources = { "Item-5-0-40000001", 2 } } }
+  fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+  wait(2)
+  assert(string.find(day(), ",d2589,", 1, true), "the disenchant's loot row: " .. day())
+  wait(30)
+end
 fire("TRADE_SKILL_SHOW")
 fire("MERCHANT_SHOW")
 -- The trainer was left without its close event; its frame is hidden, so the sale is the vendor's alone.

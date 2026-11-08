@@ -10,6 +10,9 @@ local Encode = ns.Encode
 local FARMING_SECONDS = 15 * 60 -- the frontend's idle split
 local ITEM_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Item or 1
 local MONEY_SLOT = Enum and Enum.LootSlotType and Enum.LootSlotType.Money or 2
+local DISENCHANT = 13262 -- both clients
+local TARGET_SECONDS = 2 -- from the click on the item to the cast's start
+local DISENCHANT_LOOT_SECONDS = 5 -- from the cast's success to its loot window
 
 -- Called with (coin, { [itemKey] = count }, rows) after every loot window, rows one per source:
 -- { src, coin, items = { [itemKey] = count } }; see Session.lua.
@@ -18,6 +21,9 @@ ns.lootListeners = {}
 local window -- the open loot window
 local seen = {} -- spawn GUIDs looted this session, for `first`; never written
 local opened -- { id, at }: the container item last used, for `i<itemId>` sources
+local touched -- { id, at }: the bag item last clicked or used, what a spell being targeted lands on
+local casting -- `touched` as a Disenchant began: later clicks in the bags are not its target
+local disenchanted -- { id, at }: the item of the last Disenchant that succeeded, for `d<itemId>` sources
 local lastLoot -- GetTime() of the last loot, while farming
 
 -- Map position of the player, coordinates empty in instances.
@@ -55,15 +61,26 @@ local function itemOf(guid)
 	return nil
 end
 
+-- The source of an item's loot: a disenchant's, unless the bags or a later use name another item.
+local function itemSource(guid)
+	local id = itemOf(guid)
+	local note = disenchanted
+	if note and GetTime() - note.at <= DISENCHANT_LOOT_SECONDS and (not id or id == note.id) then
+		disenchanted = nil
+		return "d" .. note.id
+	end
+	return id and "i" .. id or nil
+end
+
 local function sourceOf(guid)
 	local src = Encode.source(guid)
 	if src then
 		return src
 	end
 	if guid == "?" or string.find(guid, "^Item%-") then
-		local id = itemOf(guid)
-		if id then
-			return "i" .. id
+		src = itemSource(guid)
+		if src then
+			return src
 		end
 	end
 	-- Not in design 002's source kinds yet; recorded raw so the parser can learn it.
@@ -386,14 +403,42 @@ local function used(bag, slot)
 	local id = C_Container.GetContainerItemID(bag, slot)
 	if id then
 		opened = { id = id, at = GetTime() }
+		touched = opened
+	end
+end
+-- A left click on the item a spell is targeting arrives as a pickup; it opens nothing.
+local function picked(bag, slot)
+	local id = C_Container.GetContainerItemID(bag, slot)
+	if id then
+		touched = { id = id, at = GetTime() }
 	end
 end
 if C_Container and C_Container.UseContainerItem then
 	hooksecurefunc(C_Container, "UseContainerItem", used)
+	hooksecurefunc(C_Container, "PickupContainerItem", picked)
 end
 if UseContainerItem then
 	hooksecurefunc("UseContainerItem", used)
 end
+if PickupContainerItem then
+	hooksecurefunc("PickupContainerItem", picked)
+end
+
+-- The client names no item for the cast, so its target is the click that came just before it began.
+ns.on("UNIT_SPELLCAST_START", "disenchant", function(unit, _, spell)
+	if unit == "player" and spell == DISENCHANT then
+		casting = touched and GetTime() - touched.at <= TARGET_SECONDS and touched or nil
+	end
+end, "player")
+
+ns.on("UNIT_SPELLCAST_SUCCEEDED", "disenchant", function(unit, _, spell)
+	if unit ~= "player" or spell ~= DISENCHANT or not casting then
+		return
+	end
+	disenchanted = { id = casting.id, at = GetTime() }
+	casting = nil
+	opened = nil -- used before the cast, it is not this loot's container
+end, "player")
 
 -- Positions ----------------------------------------------------------------------------------------
 

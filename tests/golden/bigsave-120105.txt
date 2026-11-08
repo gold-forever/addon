@@ -11,7 +11,7 @@
 + api.namespaces.C_AuctionHouse = "CancelAuction ConfirmCommoditiesPurchase ConfirmPostCommodity GetAuctionInfoByID GetNumOwnedAuctions GetNumReplicateItems GetOwnedAuctionInfo GetReplicateItemInfo GetReplicateItemLink GetReplicateItemTimeLeft PlaceBid PostCommodity PostItem ReplicateItems"
 + api.namespaces.C_AutoComplete = "GetAutoCompleteRealms"
 + api.namespaces.C_Background = "GetThing"
-+ api.namespaces.C_Container = "GetContainerItemID GetContainerItemInfo GetContainerNumFreeSlots GetContainerNumSlots UseContainerItem"
++ api.namespaces.C_Container = "GetContainerItemID GetContainerItemInfo GetContainerNumFreeSlots GetContainerNumSlots PickupContainerItem UseContainerItem"
 + api.namespaces.C_CurrencyInfo = "GetCurrencyListInfo GetCurrencyListLink GetCurrencyListSize"
 + api.namespaces.C_FakePerks = "GetPerkRanks Spend"
 + api.namespaces.C_GameRules = "GetActiveGameMode GetForeverExperiencePreset GetGameRuleAsFloat IsGameRuleActive IsHardcoreActive"

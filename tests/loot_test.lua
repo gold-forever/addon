@@ -45,7 +45,25 @@ loadEncode(ns)
 local schema = { Encode = ns.Encode }
 assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", schema)
 LOOT_COLUMNS = ns.Encode.columns(schema.FIELDS.loot)
-function hooksecurefunc() end
+local hooks = {} -- the bag calls Loot.lua hooks, by name
+function hooksecurefunc(a, b, c)
+	if type(a) == "string" then
+		hooks[a] = b
+	else
+		hooks[b] = c
+	end
+end
+local bagItems = {} -- bag 0, by slot
+C_Container = {
+	GetContainerItemID = function(_, slot)
+		return bagItems[slot]
+	end,
+	GetContainerNumSlots = function(bag)
+		return bag == 0 and 3 or 0
+	end,
+	UseContainerItem = function() end,
+	PickupContainerItem = function() end,
+}
 function GetTime()
 	return clock
 end
@@ -320,5 +338,116 @@ end
 C_Map.GetPlayerMapPosition = function() end
 got = lootAll()
 eq(got[1].map .. " " .. tostring(got[1].instanceId), "1429 nil", "with a map, no instance")
+
+-- Disenchant: the loot of a cast is marked with the item, "d<itemId>"; a container stays "i<itemId>".
+local GEAR, LOCKBOX, OTHER_GEAR, DISENCHANT = 16000, 4632, 16001, 13262
+bagItems[1], bagItems[2], bagItems[3] = GEAR, LOCKBOX, OTHER_GEAR
+local DUST = { { item = 10940, qty = 2, sources = { "Item-5-0-40000001", 2 } } }
+local function cast(unit, spell)
+	handlers.UNIT_SPELLCAST_START(unit or "player", "Cast-1", spell or DISENCHANT)
+	wait(2)
+	handlers.UNIT_SPELLCAST_SUCCEEDED(unit or "player", "Cast-1", spell or DISENCHANT)
+end
+local function srcOf(sources)
+	slots = { { item = 10940, qty = 2, sources = sources or DUST[1].sources } }
+	local out = lootAll()
+	wait(10)
+	return out[1].src
+end
+
+hooks.PickupContainerItem(0, 1) -- a left click on the item being targeted
+cast()
+eq(srcOf(), "d16000", "a left-clicked item's disenchant loot is marked with it")
+hooks.UseContainerItem(0, 1) -- a right click, or a macro's /use
+cast()
+eq(srcOf(), "d16000", "so is a right-clicked one's")
+hooks.PickupContainerItem(0, 1)
+cast()
+eq(srcOf({}), "d16000", "a loot window with no source (?) is a disenchant's too")
+
+hooks.UseContainerItem(0, 2)
+eq(srcOf(), "i4632", "a container alone stays i")
+hooks.UseContainerItem(0, 2)
+hooks.PickupContainerItem(0, 1)
+cast()
+eq(srcOf(), "d16000", "a container opened just before the cast does not take the disenchant's loot")
+hooks.PickupContainerItem(0, 1)
+cast()
+hooks.UseContainerItem(0, 2)
+eq(srcOf(), "i4632", "a container opened after the cast keeps its own source")
+
+hooks.PickupContainerItem(0, 1)
+handlers.UNIT_SPELLCAST_START("player", "Cast-1", DISENCHANT)
+hooks.PickupContainerItem(0, 3) -- moving another item during the cast
+wait(2)
+handlers.UNIT_SPELLCAST_SUCCEEDED("player", "Cast-1", DISENCHANT)
+eq(srcOf(), "d16000", "an item touched during the cast is not the one disenchanted")
+
+hooks.PickupContainerItem(0, 1)
+wait(3)
+cast()
+eq(srcOf(), "", "an item touched long before the cast is not its target")
+hooks.PickupContainerItem(0, 1)
+handlers.UNIT_SPELLCAST_START("player", "Cast-1", DISENCHANT) -- and never succeeds
+eq(srcOf(), "", "an interrupted cast marks nothing")
+hooks.PickupContainerItem(0, 1)
+cast("party1")
+eq(srcOf(), "", "another player's cast marks nothing")
+hooks.PickupContainerItem(0, 1)
+cast("player", 133)
+eq(srcOf(), "", "another spell marks nothing")
+
+hooks.PickupContainerItem(0, 1)
+cast()
+rows = {}
+wait(4.5)
+eq(#rows, 0, "a cast with no loot writes nothing")
+wait(1)
+eq(srcOf(), "", "and a loot window after 5 s is not its loot")
+hooks.PickupContainerItem(0, 1)
+cast()
+wait(4.5)
+eq(srcOf(), "d16000", "one within 5 s is")
+hooks.PickupContainerItem(0, 1)
+cast()
+slots = { { item = 10940, qty = 2, sources = DUST[1].sources } }
+eq(lootAll()[1].src, "d16000", "one disenchant's window")
+eq(srcOf(), "", "marks that window alone")
+
+hooks.PickupContainerItem(0, 1)
+cast()
+eq(srcOf({ A, 1 }), "n256862", "a mob looted after the cast stays the mob's")
+wait(10)
+
+for _, other in ipairs({ { "party1", DISENCHANT }, { "player", 133 } }) do
+	hooks.PickupContainerItem(0, 1)
+	handlers.UNIT_SPELLCAST_START("player", "Cast-1", DISENCHANT)
+	wait(3)
+	handlers.UNIT_SPELLCAST_START(other[1], "Cast-2", other[2])
+	handlers.UNIT_SPELLCAST_SUCCEEDED("player", "Cast-1", DISENCHANT)
+	eq(srcOf(), "d16000", "another cast beginning does not change the target: " .. other[1] .. " " .. other[2])
+end
+hooks.PickupContainerItem(0, 1)
+cast()
+eq(srcOf(), "d16000", "a cast's item")
+handlers.UNIT_SPELLCAST_SUCCEEDED("player", "Cast-3", DISENCHANT)
+eq(srcOf(), "", "serves that cast alone")
+
+-- The bags name an Item GUID's item where the client can: the container wins, the gear being destroyed does not.
+local bagGuid = { [1] = "Item-gear", [2] = "Item-box" }
+ItemLocation = { CreateFromBagAndSlot = function(_, bag, slot)
+	return { slot = bag == 0 and slot or 0, IsValid = function(self) return self.slot > 0 end }
+end }
+C_Item = {
+	GetItemGUID = function(l) return bagGuid[l.slot] end,
+	GetItemID = function(l) return bagItems[l.slot] end,
+}
+hooks.PickupContainerItem(0, 1)
+cast()
+eq(srcOf({ "Item-box", 1 }), "i4632", "a container still in the bags is a container, even just after a cast")
+hooks.PickupContainerItem(0, 1)
+cast()
+eq(srcOf({ "Item-gear", 1 }), "d16000", "gear still in the bags as its loot shows is the disenchant's")
+ItemLocation, C_Item = nil, nil
 
 return checks()
