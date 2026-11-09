@@ -4,7 +4,7 @@
 + account.achievements.earned = "9201:2026-10-20"
 + account.achievements.points = 10
 + account.achievements.t = 1792835263
-+ addon = "0.17.0"
++ addon = "0.18.0"
 + api.build = "1.60.1.70450"
 + api.enums = "BagIndex GameRule LootSlotType PlayerInteractionType TooltipDataType TradeskillRecipeType"
 + api.globals = "GoldForever_OnAddonCompartmentClick GoldForever_OnAddonCompartmentEnter GoldForever_OnAddonCompartmentLeave GoldForever_SwitchLook GoldForever_ToggleHud GoldForever_ToggleWindow ToggleLegacySystemUI"

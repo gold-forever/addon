@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.18.0 (2026-11-09)
 
 ### Selling
 
