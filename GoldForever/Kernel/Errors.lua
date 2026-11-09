@@ -26,6 +26,11 @@ function ns.forgetError(name)
 	errors[name] = nil
 end
 
+-- What is recorded under `name`: { n, msg, t, stack }, or nil.
+function ns.lastError(name)
+	return errors[name]
+end
+
 -- The outermost call in flight and the frame it began in. The client stops a script that runs too long
 -- without an error the addon can catch ("has exceeded its execution time limit", no stack): that call
 -- never returns, so the next one, in a later frame, finds it still marked and counts it in

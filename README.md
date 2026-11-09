@@ -60,10 +60,10 @@ the window to move it.
 
 ## Loot advisor and big drops (0.7.0)
 
-At a vendor, and with `/gf bags`, a window sorts what is in your bags by what brings the most:
-**vendor these** (a vendor pays more than the auction house would after the cut; soulbound items
-cannot go there), **post these** (with the price to post at), and **disenchant these** (only when
-your Enchanting is high enough), each with its total. Item tooltips also show what disenchanting is
+Items in your bags and bank carry a small mark saying post, vendor or disenchant. If the marks do not
+show, `/gf bags` with your bags open prints why: the bag frames and item buttons found, a sample item
+and its verdict, the marks showing, both switches, the last error, and any replacement bag addon.
+Item tooltips also show what disenchanting is
 worth and whether that beats selling.
 
 A **big drop** (worth 1 gold or more, or any rare) gets a message mid-screen and a sound; `/gf

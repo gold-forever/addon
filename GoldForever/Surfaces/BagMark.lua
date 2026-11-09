@@ -84,27 +84,51 @@ local function addBank(out)
 	end
 end
 
+local function addFrameButtons(out, f)
+	local frame = f.frame
+	if frame.EnumerateValidItems then
+		for _, b in frame:EnumerateValidItems() do
+			out[#out + 1] = { button = b, bag = b.GetBagID and b:GetBagID() or frame:GetID(), slot = b:GetID() }
+		end
+	elseif f.name then
+		for j = 1, frame.size or MAX_CONTAINER_ITEMS or 36 do
+			local b = _G[f.name .. "Item" .. j]
+			if b then
+				out[#out + 1] = { button = b, bag = b.GetBagID and b:GetBagID() or frame:GetID(), slot = b:GetID() }
+			end
+		end
+	end
+end
+
 -- Every item button showing now, in the bags and the bank: { button, bag, slot }.
 function BagMark.shownButtons()
 	local out = {}
 	for _, f in ipairs(bagFrames()) do
-		local frame = f.frame
-		if frame:IsShown() then
-			if frame.EnumerateValidItems then
-				for _, b in frame:EnumerateValidItems() do
-					out[#out + 1] = { button = b, bag = b.GetBagID and b:GetBagID() or frame:GetID(), slot = b:GetID() }
-				end
-			elseif f.name then
-				for j = 1, frame.size or MAX_CONTAINER_ITEMS or 36 do
-					local b = _G[f.name .. "Item" .. j]
-					if b then
-						out[#out + 1] = { button = b, bag = b.GetBagID and b:GetBagID() or frame:GetID(), slot = b:GetID() }
-					end
-				end
-			end
+		if f.frame:IsShown() then
+			addFrameButtons(out, f)
 		end
 	end
 	addBank(out)
+	return out
+end
+
+-- For /gf bags, each bag frame: { name, shown, how, count, err }. One frame failing is reported, not raised.
+function BagMark.frameReport()
+	local out = {}
+	for _, f in ipairs(bagFrames()) do
+		local r = { name = f.name or "ContainerFrameCombinedBags" }
+		out[#out + 1] = r
+		local ok, err = pcall(function()
+			r.how = f.frame.EnumerateValidItems and "EnumerateValidItems" or f.name and "named buttons" or "no button list"
+			r.shown = f.frame:IsShown() and true or false
+			if r.shown then
+				local buttons = {}
+				addFrameButtons(buttons, f)
+				r.count = #buttons
+			end
+		end)
+		r.err = not ok and tostring(err) or nil
+	end
 	return out
 end
 
@@ -120,6 +144,10 @@ end
 -- Whether the copper coin is on this button: its corner is the coin's, and a bag verdict gives way.
 function BagMark.isMarked(button)
 	return marked ~= nil and marked.button == button
+end
+
+function BagMark.coinShowing()
+	return marked ~= nil
 end
 
 local function coin(button)

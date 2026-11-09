@@ -1140,7 +1140,6 @@ C_MerchantFrame = { GetNumJunkItems = function() return 3 end, IsSellAllJunkEnab
   SellAllJunkItems = function() sold = sold + 1 end }
 fire("MERCHANT_SHOW")
 for _, f in ipairs(frames) do assert(f.name ~= "GoldForeverAdvisor", "no loot window at the merchant") end
-assert(ns.commands.bags == nil, "no /gf bags")
 do
   local sell = ns.SellJunk.button()
   assert(sell and sell:IsShown() and (sell.label:GetText()):find("Sell junk: 3 items", 1, true), "Sell junk shows: " .. tostring(sell and sell.label:GetText()))
@@ -3717,6 +3716,120 @@ do
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem, C_Container.UseContainerItem = keep[1], keep[2], keep[3], keep[4], keep[5]
   ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds = keep[6], keep[7], keep[8], keep[9], keep[10], keep[11]
   clock = started
+end
+-- /gf bags (gf#331): why bag marks do or don't show, one section a line, every read guarded.
+do
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds, C_AddOns, IsAddOnLoaded }
+  local started = clock
+  local items = { { itemID = 9001, hyperlink = "[Test Ore]" }, { itemID = 9002 } }
+  C_Container.GetContainerNumSlots = function(b) return b == 0 and #items or 0 end
+  C_Container.GetContainerItemInfo = function(b, s) return b == 0 and items[s] or nil end
+  C_Container.GetContainerNumFreeSlots = function(b) return b == 0 and 1 or 0, 0 end
+  ns.price.worth = function() return 120, "auction" end
+  ns.price.vendor = function() return 15 end
+  ns.price.disenchant = function() end
+  ns.price.enchanting = function() return 300 end
+  ns.price.itemInfo = function() return 2, 20, 7 end
+  ns.queueNeeds = function() return {} end
+  local loaded = {}
+  C_AddOns, IsAddOnLoaded = nil, function(name) return loaded[name] end
+  local frame = CreateFrame("Frame", "ContainerFrame1", UIParent)
+  ContainerFrame1, frame.size = frame, #items
+  frame.GetID = function() return 0 end
+  frame:Hide()
+  local function button(slot)
+    local b = CreateFrame("Button", nil, frame)
+    b.GetID = function() return slot end
+    b.CreateTexture = function()
+      local t = CreateFrame("Frame")
+      t.SetTexture = function() end
+      return t
+    end
+    _G["ContainerFrame1Item" .. slot] = b
+    return b
+  end
+  local buttons = { button(1), button(2) }
+  local function bags()
+    local said, chat = {}, print
+    function print(...) said[#said + 1] = ns.plainText(table.concat({ ... }, " ")) end
+    SlashCmdList.GOLDFOREVER("bags")
+    print = chat
+    assert(not GoldForeverDB.errors["/gf bags"], "/gf bags never errors: " .. tostring(GoldForeverDB.errors["/gf bags"] and GoldForeverDB.errors["/gf bags"].msg))
+    return said
+  end
+  local function has(said, text, why)
+    for _, l in ipairs(said) do if l:find(text, 1, true) then return l end end
+    assert(false, why .. " (no \"" .. text .. "\" in: " .. table.concat(said, " / ") .. ")")
+  end
+  local function hasNot(said, text, why)
+    for _, l in ipairs(said) do assert(not l:find(text, 1, true), why .. ": " .. l) end
+  end
+  -- Bags closed: the frames, the hint, and what needs no open bag.
+  local said = bags()
+  has(said, "ContainerFrame1: hidden", "a closed frame is listed")
+  has(said, "open your bags first", "closed bags say so")
+  hasNot(said, "sample", "closed bags have no sample")
+  has(said, "replacement bag addon: none", "no replacement addon")
+  -- Bags open, Blizzard's classic frames.
+  frame:Show()
+  wait(1)
+  ns.BagVerdict.refresh()
+  wait(30) -- the block before set the clock back, so the throttle's last draw is still ahead of it
+  said = bags()
+  hasNot(said, "open your bags first", "open bags have no hint")
+  has(said, "ContainerFrame1: shown, named buttons, 2 buttons", "the frame, how its buttons are found and how many")
+  has(said, "item buttons: 2", "the buttons found in all")
+  local sample = has(said, "sample: bag 0 slot 1", "the first slot with an item")
+  assert(sample:find("[Test Ore]", 1, true) and sample:find("Verdict: post (AH", 1, true), "the sample's item and verdict: " .. sample)
+  has(said, "marks showing: 2 verdict, 0 coin", "the marks showing")
+  has(said, "switches: bag mark on, bag verdict on", "both switches")
+  has(said, "last error: bag verdict none, bag mark none", "no errors")
+  -- A switch off, and a failure on record.
+  GoldForeverDB.settings.prices.bagVerdict = false
+  GoldForeverDB.errors["bag verdict"] = { n = 3, msg = "boom", t = GetServerTime() - 120 }
+  said = bags()
+  has(said, "bag verdict off", "the switch off")
+  has(said, "bag verdict failed 3x, 2 min ago: boom", "the last error")
+  GoldForeverDB.settings.prices.bagVerdict = nil
+  GoldForeverDB.errors["bag verdict"] = nil
+  -- A replacement addon, by the retail client's C_AddOns too.
+  loaded.Baganator = true
+  has(bags(), "replacement bag addon: Baganator", "by the global")
+  IsAddOnLoaded, loaded, C_AddOns = nil, {}, { IsAddOnLoaded = function(name) return name == "AdiBags" end }
+  has(bags(), "replacement bag addon: AdiBags", "by C_AddOns")
+  -- Retail's frames list their own buttons.
+  frame.EnumerateValidItems = function() return ipairs({ buttons[2] }) end
+  said = bags()
+  has(said, "ContainerFrame1: shown, EnumerateValidItems, 1 button", "the frame lists its buttons")
+  has(said, "sample: bag 0 slot 2", "the sample comes from that list")
+  -- A read that fails costs only its own section.
+  frame.EnumerateValidItems = function() error("no items yet") end
+  said = bags()
+  has(said, "ContainerFrame1: shown, EnumerateValidItems, could not read", "a frame that fails says so")
+  has(said, "item buttons: could not read", "the count that fails says so")
+  has(said, "switches: bag mark on", "the rest still prints")
+  frame.EnumerateValidItems = nil
+  C_Container.GetContainerItemInfo = function() error("no info") end
+  said = bags()
+  has(said, "sample: could not read", "the sample that fails says so")
+  has(said, "replacement bag addon:", "the rest still prints")
+  C_Container.GetContainerItemInfo = keep[2]
+  frame:Hide()
+  ns.BagVerdict.refresh()
+  wait(30)
+  ContainerFrame1 = nil
+  for slot = 1, #items do _G["ContainerFrame1Item" .. slot] = nil end
+  C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots = keep[1], keep[2], keep[3]
+  ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds = keep[4], keep[5], keep[6], keep[7], keep[8], keep[9]
+  C_AddOns, IsAddOnLoaded = keep[10], keep[11]
+  clock = started
+end
+do
+  local listed, chat = false, print
+  function print(...) if table.concat({ ... }, " "):find("/gf bags", 1, true) then listed = true end end
+  SlashCmdList.GOLDFOREVER("help all")
+  print = chat
+  assert(listed, "/gf help all lists /gf bags")
 end
 -- Tooltip lines (addon#98): each Off, with Shift or Always, the price lines Always and the rest on Shift by
 -- default; Shift pressed or let go draws the open tooltip again; Settings → Tooltip sets each with a picker,

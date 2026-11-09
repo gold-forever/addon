@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Find out why bag marks do or don't show.** `/gf bags`, with your bags open, prints which bag frames exist,
+  the item buttons found, a sample item and its verdict, the marks showing, both switches, the last error of
+  each, and whether a replacement bag addon (Bagnon, ArkInventory, Baganator, AdiBags) is loaded.
 - **Finding a rare no longer shows "GoldForever has been blocked from an action only available to the
   Blizzard UI".** The game now only lets a key press set a raid mark, so the addon no longer puts a skull
   on a rare by itself. The rare alert ends with "/gf mark to skull it": type it (or put it in a macro on a

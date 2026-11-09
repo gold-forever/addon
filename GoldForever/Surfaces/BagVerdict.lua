@@ -95,6 +95,27 @@ local function draw()
 	end
 end
 
+-- For /gf bags: the first of these buttons with an item, its item and its verdict; nil when all are empty.
+function BagVerdict.sample(buttons)
+	for _, s in ipairs(buttons) do
+		local info = C_Container.GetContainerItemInfo(s.bag, s.slot)
+		if info and info.itemID then
+			return s, info, verdictOf(s, info, wanted(), ns.queueNeeds())
+		end
+	end
+end
+
+-- For /gf bags: how many verdict marks are showing.
+function BagVerdict.marksShowing()
+	local n = 0
+	for _, t in pairs(textures) do
+		if t:IsShown() then
+			n = n + 1
+		end
+	end
+	return n
+end
+
 local function drawOutOfCombat()
 	ns.afterCombat("bag verdict", draw)
 end
@@ -124,4 +145,93 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("bag verdict tooltip", verdictTooltip, tooltip, data)
 	end)
+end
+
+-- /gf bags: why the marks do or don't show (gf#331).
+local REPLACEMENT_BAG_ADDONS = { "Bagnon", "ArkInventory", "Baganator", "AdiBags" }
+
+local function addonLoaded(name)
+	if C_AddOns and C_AddOns.IsAddOnLoaded then
+		return C_AddOns.IsAddOnLoaded(name)
+	end
+	return IsAddOnLoaded and IsAddOnLoaded(name)
+end
+
+-- Each section is one line; a read that fails costs only its own line.
+local function section(label, read)
+	local ok, text = pcall(read)
+	print("  " .. label .. ": " .. (ok and text or ("could not read (" .. tostring(text) .. ")")))
+end
+
+local function frameLine(r)
+	local parts = { r.name .. ": " .. (r.shown == nil and "unknown" or r.shown and "shown" or "hidden"), r.how }
+	if r.err then
+		parts[#parts + 1] = "could not read (" .. r.err .. ")"
+	elseif r.count then
+		parts[#parts + 1] = r.count .. (r.count == 1 and " button" or " buttons")
+	end
+	return table.concat(parts, ", ")
+end
+
+local function sampleLine()
+	local s, info, verdict = BagVerdict.sample(ns.BagMark.shownButtons())
+	if not s then
+		return "no item in a shown slot"
+	end
+	return string.format("bag %s slot %s, %s, %s", tostring(s.bag), tostring(s.slot), info.hyperlink or ("item " .. info.itemID),
+		BagVerdict.line(verdict, ns.price.coins))
+end
+
+local function errorWords(name)
+	local e = ns.lastError(name)
+	if not e then
+		return name .. " none"
+	end
+	return string.format("%s failed %dx, %d min ago: %s", name, e.n, math.floor((GetServerTime() - e.t) / 60), e.msg)
+end
+
+local function switchWord(name)
+	return ns.settings("prices")[name] == false and "off" or "on"
+end
+
+local function replacementAddons()
+	local found = {}
+	for _, name in ipairs(REPLACEMENT_BAG_ADDONS) do
+		if addonLoaded(name) then
+			found[#found + 1] = name
+		end
+	end
+	return #found > 0 and table.concat(found, ", ") or "none"
+end
+
+ns.commands.bags = function()
+	print(ns.PREFIX .. " bags:")
+	local open
+	section("frames", function()
+		local lines, anyShown = {}, false
+		for i, r in ipairs(ns.BagMark.frameReport()) do
+			lines[i] = frameLine(r)
+			anyShown = anyShown or r.shown == true
+		end
+		open = anyShown
+		return #lines > 0 and table.concat(lines, " · ") or "none exist"
+	end)
+	if open == false then
+		print("  open your bags first")
+	else
+		section("item buttons", function()
+			return tostring(#ns.BagMark.shownButtons())
+		end)
+		section("sample", sampleLine)
+	end
+	section("marks showing", function()
+		return BagVerdict.marksShowing() .. " verdict, " .. (ns.BagMark.coinShowing() and 1 or 0) .. " coin"
+	end)
+	section("switches", function()
+		return "bag mark " .. switchWord("bagMark") .. ", bag verdict " .. switchWord("bagVerdict")
+	end)
+	section("last error", function()
+		return errorWords("bag verdict") .. ", " .. errorWords("bag mark")
+	end)
+	section("replacement bag addon", replacementAddons)
 end

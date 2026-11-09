@@ -1,6 +1,6 @@
 -- The bag verdict: what to do with one bag item. SalePlan.verdict is the rule; BagVerdict.line its tooltip words.
 
-local ns = { on = function() end, listen = function() end, module = function() end, throttle = function(_, _, f) return f end, price = {}, BagMark = {} }
+local ns = { on = function() end, listen = function() end, module = function() end, throttle = function(_, _, f) return f end, price = {}, BagMark = {}, commands = {} }
 loadEncode(ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
 assert(load(SOURCES["BagVerdict.lua"], "@BagVerdict.lua"))("GoldForever", ns)
