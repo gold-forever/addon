@@ -220,15 +220,18 @@ local function readRecipes()
 	-- Only the lines the list really belongs to; a stale list leaves the open line untouched.
 	for own, list in pairs(learned) do
 		catalogued[own] = true
-		table.sort(list)
-		local p = me.prof[own] or {}
-		me.prof[own] = p
-		p.recipes = table.concat(list, ",")
-		p.t = ns.now()
-		if own == line then
-			p.name = p.name or base.professionName
-			p.skill = base.skillLevel or p.skill
-			p.max = base.maxSkillLevel or p.max
+		-- Another profession's unlearned recipes in the list: no row for a profession this character lacks.
+		if own == line or #list > 0 or me.prof[own] then
+			table.sort(list)
+			local p = me.prof[own] or {}
+			me.prof[own] = p
+			p.recipes = table.concat(list, ",")
+			p.t = ns.now()
+			if own == line then
+				p.name = p.name or base.professionName
+				p.skill = base.skillLevel or p.skill
+				p.max = base.maxSkillLevel or p.max
+			end
 		end
 	end
 	ns.emit("recipesRead", learned)

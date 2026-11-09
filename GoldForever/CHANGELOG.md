@@ -1,5 +1,9 @@
 # Gold Forever
 
+## Unreleased
+
+- **No more phantom professions.** A profession window could briefly list another profession's recipes, and a character then got an empty row such as "Skill line 197" on the site, for a profession they don't have. It no longer records one.
+
 ## 0.18.0 (2026-11-09)
 
 ### Selling

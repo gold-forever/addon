@@ -1464,6 +1464,20 @@ do
 end
 -- A retail salvage recipe (Portioned Steak) has no reagent slots: its reagent is the salvage slot, any
 -- of the items the client lists, as many as quantityMax (gold-forever#35).
+-- A stale list: another profession's unlearned recipe makes no row for a profession the character lacks.
+do
+  local api, me = C_TradeSkillUI, ns.me()
+  me.prof[333] = nil
+  C_TradeSkillUI = setmetatable({ GetAllRecipeIDs = function() return { 7418, 2963 } end,
+    GetRecipeInfo = function(id) return { learned = id == 2963, name = "x" } end,
+    GetTradeSkillLineForRecipe = function(id) return id == 7418 and 333 or 197 end,
+    GetBaseProfessionInfo = function() return { professionID = 197, professionName = "Tailoring", skillLevel = 75, maxSkillLevel = 150 } end }, { __index = api })
+  fire("TRADE_SKILL_SHOW")
+  wait(3)
+  assert(me.prof[333] == nil, "no row for a profession the character lacks")
+  assert(me.prof[197] and me.prof[197].name == "Tailoring", "the open profession still recorded")
+  C_TradeSkillUI = api
+end
 if INTERFACE >= 110000 then
   local api = C_TradeSkillUI
   C_TradeSkillUI = setmetatable({ GetAllRecipeIDs = function() return { 445118 } end,
