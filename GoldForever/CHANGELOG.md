@@ -2,69 +2,46 @@
 
 ## Unreleased
 
-- **Find out why bag marks do or don't show.** `/gf bags`, with your bags open, prints which bag frames exist,
-  the item buttons found, a sample item and its verdict, the marks showing, both switches, the last error of
-  each, and whether a replacement bag addon (Bagnon, ArkInventory, Baganator, AdiBags) is loaded.
-- **Finding a rare no longer shows "GoldForever has been blocked from an action only available to the
-  Blizzard UI".** The game now only lets a key press set a raid mark, so the addon no longer puts a skull
-  on a rare by itself. The rare alert ends with "/gf mark to skull it": type it (or put it in a macro on a
-  key) with the rare targeted or under the mouse, or while its nameplate shows. The setting is now "Offer a
-  skull mark (/gf mark)".
-- **See what learning a recipe is worth.** Hold Shift over a pattern, plans, formula or schematic whose recipe
-  you have seen in a profession window: "Pays back in 7 crafts at today's margin (2s 10c a craft)", or "No
-  profit at today's prices". It uses the vendor's price when a vendor sells it, else the market value, and
-  shows nothing when either is unknown. A pattern that makes gear is greyed and adds "gear prices are rough".
-  Choose when the line shows on the Tooltip tab (Recipe payback).
-- **Prices from Auctionator when there are no others.** If an item has no price from the companion or your
-  own scan and Auctionator is installed, Gold Forever uses Auctionator's price. Tooltips and the Sell tab
-  label it "Auctionator". The companion's prices and your scans always come first.
-- **See what a farming session came to.** When a session ends, after 15 minutes without loot or when you press
-  Stop, a small card shows its time, the gold looted, what the items are worth, gold an hour, kills and the
-  best drop. It waits until combat ends, and closes on a click or after 30 seconds; a Recap button on the HUD
-  brings it back until the next session starts. Sessions under 5 minutes or with nothing looted show no card.
-  Turn it off under Settings, Modules, Session recap.
-- **See what to do with each bag item.** A small mark on items in your bags and bank says post on the auction
-  house, sell to a vendor, or disenchant; items to keep have none. Hold Shift over an item for the same word
-  and why, for example "Verdict: post (AH 1g 20s after the cut, vendor 15s)". Items on a shopping list or in
-  the craft queue, soulbound gear and quest items are always keep. Nothing is moved or sold. Turn it off under
-  Settings, Modules, Bag verdicts, and choose when the line shows on the Tooltip tab.
+### Selling
+
 - **See how fast an item sells and how many to post.** With a companion that carries sales, the Post screen
   says, for example, "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12", and Post's
   quantity starts at that size: about two days of sales, at most what you hold. A number you chose for an
   item, or a sale plan's quantity, still wins. Hold Shift over an item to see the same line in its tooltip,
   or change that on the Tooltip tab (Supply and post size). The merchant's resale line now says how many
   sell a day, and an item the prices say did not sell in the last week is no longer marked.
-- **Other addons can read Gold Forever's prices.** A new read-only table, `GoldForeverAPI`, gives an addon an
-  item's market value with its source, age and number of players (`GetPrice`), what a vendor pays
-  (`GetVendorPrice`) and what disenchanting it is worth (`GetDisenchantValue`). Nothing changes for you unless
-  another addon uses it.
 - **See what a merchant sells for less than the auction house pays.** At a merchant, a small gold coin marks
   items whose auction price after the 5% cut beats the vendor's price by at least 20%, and the tooltip says
   "Resell: 4g 98s on the AH · +3g 83s after the cut". Only items with a lasting price count: a typical price
   from the companion's prices, or seen in at least two of your own full scans. Limited stock says "(limited)";
   items costing tokens or honour are never marked. Turn it off under Settings, Modules, Vendor resale, and
   choose when the line shows on the Tooltip tab.
-- **Retail items now note their expansion.** The item list in your save records which expansion each retail
-  item belongs to, so the site can pool disenchants by expansion: each has its own dust, essence and shard.
-  Items already in your list get theirs over the first minutes after login. WoW: Forever is unchanged.
-- **Trainers now remember where they stand.** When you open a trainer's window, the addon also notes the
-  trainer's map position and your faction, so the site's skill plan can name the nearest trainer for your
-  side. Trainers you visited before keep their spell lists and get a place the next time you visit them.
-- **What your disenchants give now counts.** The loot of a disenchant is saved with the item you
-  disenchanted, so once uploaded it joins what the site shows that items of its kind disenchant into.
-  Containers are recorded as before.
-- **Hear when your best farm changes.** Turn on Settings, Modules, Best farm changed, and after new prices
-  (at login, with the companion's prices, and after a full scan) the addon picks the mob this character has
-  looted at least 10 times whose loot is worth the most. When that is another mob than before, one chat line
-  says so, for example "best farm now Bristleback Quilboar (Barrens), about 24s a loot (was Kolkar
-  Centaur)". The first check says nothing; it only remembers the mob. Off by default.
-- **Choose which tooltip lines show, and when.** Settings has a new Tooltip tab listing every line the
-  addon adds to a tooltip: auction prices, your scan, held counts, disenchant value, mob loot, quest
-  starters, best quest reward and cheapest in your bags. Set each to Off, With Shift or Always. With
-  Shift, the line appears while you hold Shift over the item or mob, and the open tooltip updates as you
-  press or let go. By default the prices show always and the rest with Shift, so tooltips stay short. If
-  you had switched off prices or held counts in tooltips, they stay off; if you had switched them on, they
-  show always. Those two switches have moved from Modules to the Tooltip tab.
+- **The wide Sell tab, laid out again.** The list and the chosen item each take half the page. Beside
+  the list is where you decide and post: the price in large type with its reason and why, your floor,
+  the typical price and the cheapest other listing, quantity, 12h · 24h · 48h, a full-width Post button,
+  and the deposit. Under it, the item's listings as a table: price, stack and count for gear, price and
+  quantity for commodities, yours marked; the wheel scrolls it. Prices show in full (6g 98s 99c). Held
+  under your floor, the price reads Held and the plain Post anyway button asks for a second press.
+  The narrow layout is unchanged.
+- **A sound and a chat line when one of your auctions sells.** While you are logged in, a sale plays
+  the coin sound and says what sold and what you will get after the auction house's cut, for example
+  "sold Linen Cloth x20 for 1g 20s (arrives by mail)"; when the addon did not see the post, the line
+  names the item only. The sound plays only when the game's sound is on. Turn it off under Settings,
+  Modules, Sale alert. The sale is still recorded from the mail, as before.
+
+### Bags, loot and quests
+
+- **See what to do with each bag item.** A small mark on items in your bags and bank says post on the auction
+  house, sell to a vendor, or disenchant; items to keep have none. Hold Shift over an item for the same word
+  and why, for example "Verdict: post (AH 1g 20s after the cut, vendor 15s)". Items on a shopping list or in
+  the craft queue, soulbound gear and quest items are always keep. Nothing is moved or sold. Turn it off under
+  Settings, Modules, Bag verdicts, and choose when the line shows on the Tooltip tab.
+- **With your bags full, a copper coin marks what to drop.** When no bag slot is free, the stack worth least
+  in all (by the addon's prices: the better of the auction after the cut and the vendor) gets a small copper
+  coin in its slot's corner, and its tooltip says "Cheapest in your bags" with what it is worth. Soulbound and
+  quest items, and items with no price, are never marked. Free a slot and the coin goes. The addon never
+  moves or deletes anything. Blizzard's own bags only for now. Turn it off under Settings, Modules,
+  Cheapest in full bags. The Modules list now scrolls with the mouse wheel, as it has grown past the page.
 - **A loot roll shows what the item is worth.** On a Need/Greed roll, a small line under the item's name
   gives its auction and vendor value, for example "AH 1g 20s · vendor 15s", so you can choose Greed or
   pass without hovering. A price the addon does not know shows as "?". It never rolls for you. Turn it
@@ -75,17 +52,14 @@
   auction price after the cut and the vendor price, times how many the quest gives. A reward without a
   price is left out and counted: "(1 reward unpriced)". Turn it off under Settings, Modules, Best quest
   reward.
-- **With your bags full, a copper coin marks what to drop.** When no bag slot is free, the stack worth least
-  in all (by the addon's prices: the better of the auction after the cut and the vendor) gets a small copper
-  coin in its slot's corner, and its tooltip says "Cheapest in your bags" with what it is worth. Soulbound and
-  quest items, and items with no price, are never marked. Free a slot and the coin goes. The addon never
-  moves or deletes anything. Blizzard's own bags only for now. Turn it off under Settings, Modules,
-  Cheapest in full bags. The Modules list now scrolls with the mouse wheel, as it has grown past the page.
-- **A sound and a chat line when one of your auctions sells.** While you are logged in, a sale plays
-  the coin sound and says what sold and what you will get after the auction house's cut, for example
-  "sold Linen Cloth x20 for 1g 20s (arrives by mail)"; when the addon did not see the post, the line
-  names the item only. The sound plays only when the game's sound is on. Turn it off under Settings,
-  Modules, Sale alert. The sale is still recorded from the mail, as before.
+
+### Crafting
+
+- **See what learning a recipe is worth.** Hold Shift over a pattern, plans, formula or schematic whose recipe
+  you have seen in a profession window: "Pays back in 7 crafts at today's margin (2s 10c a craft)", or "No
+  profit at today's prices". It uses the vendor's price when a vendor sells it, else the market value, and
+  shows nothing when either is unknown. A pattern that makes gear is greyed and adds "gear prices are rough".
+  Choose when the line shows on the Tooltip tab (Recipe payback).
 - **Reagents you choose.** A recipe slot you fill with your choice of reagent (any of several herbs, or a
   herb's qualities) is recorded with every choice. The crafting strip shows it as one line, "any of: …"
   with the cheapest first, and prices it at the cheapest choice you hold or can buy; the Crafting page
@@ -94,20 +68,66 @@
 - **The crafting strip reads more recipes right.** A recipe with a random result (Wild Experimentation)
   no longer shows a count in its title: the 20 was the herbs it takes. The To buy lines wrap instead of
   being cut off, and the strip grows to fit them.
+
+### Farming and goals
+
+- **See what a farming session came to.** When a session ends, after 15 minutes without loot or when you press
+  Stop, a small card shows its time, the gold looted, what the items are worth, gold an hour, kills and the
+  best drop. It waits until combat ends, and closes on a click or after 30 seconds; a Recap button on the HUD
+  brings it back until the next session starts. Sessions under 5 minutes or with nothing looted show no card.
+  Turn it off under Settings, Modules, Session recap.
+- **Hear when your best farm changes.** Turn on Settings, Modules, Best farm changed, and after new prices
+  (at login, with the companion's prices, and after a full scan) the addon picks the mob this character has
+  looted at least 10 times whose loot is worth the most. When that is another mob than before, one chat line
+  says so, for example "best farm now Bristleback Quilboar (Barrens), about 24s a loot (was Kolkar
+  Centaur)". The first check says nothing; it only remembers the mob. Off by default.
 - **Home's goal line reads cleanly.** With a goal set, the line shows the goal, how far you are and an
   X that cancels it: the first press asks, a second within 5 seconds cancels. Without a goal, it shows
   your gold across your characters, the amount field, the days and Set.
-- **The wide Sell tab, laid out again.** The list and the chosen item each take half the page. Beside
-  the list is where you decide and post: the price in large type with its reason and why, your floor,
-  the typical price and the cheapest other listing, quantity, 12h · 24h · 48h, a full-width Post button,
-  and the deposit. Under it, the item's listings as a table: price, stack and count for gear, price and
-  quantity for commodities, yours marked; the wheel scrolls it. Prices show in full (6g 98s 99c). Held
-  under your floor, the price reads Held and the plain Post anyway button asks for a second press.
-  The narrow layout is unchanged.
+
+### Tooltips and prices
+
+- **Choose which tooltip lines show, and when.** Settings has a new Tooltip tab listing every line the
+  addon adds to a tooltip: auction prices, your scan, held counts, disenchant value, mob loot, quest
+  starters, best quest reward and cheapest in your bags. Set each to Off, With Shift or Always. With
+  Shift, the line appears while you hold Shift over the item or mob, and the open tooltip updates as you
+  press or let go. By default the prices show always and the rest with Shift, so tooltips stay short. If
+  you had switched off prices or held counts in tooltips, they stay off; if you had switched them on, they
+  show always. Those two switches have moved from Modules to the Tooltip tab.
+- **Prices from Auctionator when there are no others.** If an item has no price from the companion or your
+  own scan and Auctionator is installed, Gold Forever uses Auctionator's price. Tooltips and the Sell tab
+  label it "Auctionator". The companion's prices and your scans always come first.
+- **Other addons can read Gold Forever's prices.** A new read-only table, `GoldForeverAPI`, gives an addon an
+  item's market value with its source, age and number of players (`GetPrice`), what a vendor pays
+  (`GetVendorPrice`) and what disenchanting it is worth (`GetDisenchantValue`). Nothing changes for you unless
+  another addon uses it.
+
+### What the addon records
+
+- **Retail items now note their expansion.** The item list in your save records which expansion each retail
+  item belongs to, so the site can pool disenchants by expansion: each has its own dust, essence and shard.
+  Items already in your list get theirs over the first minutes after login. WoW: Forever is unchanged.
+- **Trainers now remember where they stand.** When you open a trainer's window, the addon also notes the
+  trainer's map position and your faction, so the site's skill plan can name the nearest trainer for your
+  side. Trainers you visited before keep their spell lists and get a place the next time you visit them.
+- **What your disenchants give now counts.** The loot of a disenchant is saved with the item you
+  disenchanted, so once uploaded it joins what the site shows that items of its kind disenchant into.
+  Containers are recorded as before.
+
+### Fixes
+
+- **Finding a rare no longer shows "GoldForever has been blocked from an action only available to the
+  Blizzard UI".** The game now only lets a key press set a raid mark, so the addon no longer puts a skull
+  on a rare by itself. The rare alert ends with "/gf mark to skull it": type it (or put it in a macro on a
+  key) with the rare targeted or under the mouse, or while its nameplate shows. The setting is now "Offer a
+  skull mark (/gf mark)".
 - **When the auction house panel cannot load, chat says why.** If the GoldForever_Auctions folder is
   not installed, the line says so and to reinstall (or, in a developer install, to link both folders);
   if it is turned off in the AddOns list, it says to turn it on. Once a session, and no longer an error
   in /gf check; an old MISSING entry there goes once the panel loads.
+- **Find out why bag marks do or don't show.** `/gf bags`, with your bags open, prints which bag frames exist,
+  the item buttons found, a sample item and its verdict, the marks showing, both switches, the last error of
+  each, and whether a replacement bag addon (Bagnon, ArkInventory, Baganator, AdiBags) is loaded.
 
 ## 0.17.0 (2026-11-04)
 
