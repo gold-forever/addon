@@ -3,6 +3,14 @@ local dir = arg[1]
 local now, money, clock = 1792517410, 79098, 100
 local timers = {}
 local frames = {}
+-- Whether a key press or a click is being handled, as the client tracks its hardware event.
+local keyPress = false
+local function after_press(was, ...) keyPress = was return ... end
+local function during(state, fn, ...) local was = keyPress keyPress = state return after_press(was, fn(...)) end
+-- `fn`, run as a key press or a click would run it.
+local function pressing(fn) return function(...) return during(true, fn, ...) end end
+-- `fn` run now as a key press: Blizzard's own window, or a key the stand-in has no frame for.
+function pressKey(fn, ...) return during(true, fn, ...) end
 function GetServerTime() return now end
 function GetTime() return clock end
 -- The client's profiling timer (milliseconds), which work spread over frames budgets against.
@@ -160,6 +168,8 @@ BackdropTemplateMixin = {}
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 -- Frames as the client's: shown when made, visible when their parents are, and OnShow/OnHide (with
 -- hooks) run on a frame and its shown children when what is visible changes.
+-- The scripts a key press or a click runs.
+local PRESS_SCRIPTS = { OnClick = true, OnDoubleClick = true, OnMouseDown = true, OnMouseUp = true, OnKeyDown = true, OnKeyUp = true, OnEnterPressed = true }
 local function visible(f)
   while f do
     if f.shown == false then return false end
@@ -179,9 +189,9 @@ function CreateFrame(_, name, parent) local f = widget({ events = {}, shown = tr
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
   -- One unit's event only: the client passes the unit first, and calls the frame for no other.
   function f:RegisterUnitEvent(e, ...) self:RegisterEvent(e) self.units = self.units or {} self.units[e] = {} for _, u in ipairs({...}) do self.units[e][u] = true end end
-  function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn end end
+  function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn and PRESS_SCRIPTS[name] and pressing(fn) or fn end end
   function f:GetScript(name) return self.scripts[name] end
-  function f:HookScript(name, fn) local old = self.scripts[name]; self.scripts[name] = function(...) if old then old(...) end fn(...) end end
+  function f:HookScript(name, fn) local old = self.scripts[name]; local both = function(...) if old then old(...) end fn(...) end; self.scripts[name] = PRESS_SCRIPTS[name] and pressing(both) or both end
   function f:Show() if self.shown then return end local was = visible(self) self.shown = true if not was and visible(self) then run(self, "OnShow") end end
   function f:Hide() if not self.shown then return end local was = visible(self) self.shown = false if was then run(self, "OnHide") end end
   function f:SetShown(on) if on then self:Show() else self:Hide() end end
@@ -212,10 +222,15 @@ function tick(every)
 end
 -- The timers due by `upto`; a chain that never ends (more than 5,000 in one go) fails the run.
 local function runTimers(upto) local i = 0 while #timers > 0 do table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.n < b.n end); if timers[1].at > (upto or clock + 2) then break end assert(i < 5000, "more than 5,000 timers in one go"); local t = table.remove(timers, 1); if t.at > clock then clock = t.at end t.fn(); i = i + 1 end end
+do
+  local due = runTimers
+  runTimers = function(upto) return during(false, due, upto) end
+end
 local function hears(f, e, unit) return f.events[e] and not (f.units and f.units[e] and not f.units[e][unit]) end
-function fire(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end runTimers() end
+local function deliver(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end end
+function fire(e, ...) during(false, deliver, e, ...) runTimers() end
 -- An event without running the timers due, for orderings within a second.
-function fireNow(e, ...) for _, f in ipairs(frames) do if hears(f, e, ...) then f.handler(f, e, ...) end end end
+function fireNow(e, ...) during(false, deliver, e, ...) end
 function wait(s) runTimers(clock + s) clock = clock + s end
 -- What a list's row stands for: a Sell row's item key, an own auction, a shopping list's item.
 local function ident(r) return r and (r.key or r.auctionID or r.itemId) end
@@ -374,7 +389,7 @@ ChatFrame1 = { registered = { TIME_PLAYED_MSG = true }, heard = 0 }
 function ChatFrame1:IsEventRegistered(e) return self.registered[e] end
 function ChatFrame1:UnregisterEvent(e) self.registered[e] = nil end
 function ChatFrame1:RegisterEvent(e) self.registered[e] = true end
-SlashCmdList = {}
+SlashCmdList = setmetatable({}, { __newindex = function(t, k, fn) rawset(t, k, pressing(fn)) end })
 -- The files the client loads of an addon (the core by default), in its order: the list in the TOC this
 -- client reads, each path from the addon's folder.
 function addonDir(addon)
@@ -430,10 +445,104 @@ local function noting(t, shape)
     __newindex = function(_, k, v) fields[k] = v end,
   })
 end
+-- What the client blocks without a key press or a click, from an event or a timer ("blocked from an action
+-- only available to the Blizzard UI"), in one list: HasRestrictions in Blizzard's API docs, #hwevent or
+-- #protected on warcraft.wiki.gg, and SetRaidTarget from the owner's game (2026-11-08). `true` is always; a
+-- function decides for a call restricted by its arguments.
+local OUT_LOUD = { SAY = true, EMOTE = true, YELL = true, CHANNEL = true }
+local function spokenOutLoud(_, chatType) return OUT_LOUD[chatType] end
+local KEY_PRESS_ONLY = {
+  globals = { SetRaidTarget = true, SendChatMessage = spokenOutLoud, TargetUnit = true, TargetLastTarget = true, TargetNearestEnemy = true, ClearTarget = true, FocusUnit = true, AssistUnit = true,
+    CastSpellByName = true, CastSpellByID = true, CastSpell = true, UseAction = true, UseItemByName = true, UseInventoryItem = true, RunMacroText = true },
+  C_AuctionHouse = { PostItem = true, PostCommodity = true, ConfirmPostItem = true, ConfirmPostCommodity = true, PlaceBid = true, CancelAuction = true, StartCommoditiesPurchase = true },
+  C_ChatInfo = { SendChatMessage = spokenOutLoud },
+  C_Item = { UseItemByName = true },
+  C_Spell = { CastSpell = true },
+}
+-- The reader and writer of a table's listed calls: read outside a press, each refuses as the client does;
+-- kept apart from the table so a test's own stub of one is refused too.
+local function pressOnly(list, label)
+  local calls = {}
+  return function(name)
+    local when = list[name]
+    local call = calls[name]
+    if not (when and call) then return nil end
+    return function(...)
+      if not keyPress and (when == true or when(...)) then error("ADDON_ACTION_BLOCKED: " .. label .. name .. " outside a key press", 2) end
+      return call(...)
+    end
+  end, function(name, fn) calls[name] = fn end, calls
+end
+local function guardCalls(t, name)
+  local list = KEY_PRESS_ONLY[name]
+  local get, set, calls = pressOnly(list, name .. ".")
+  for call in pairs(list) do if t[call] then set(call, t[call]) t[call] = nil end end
+  return setmetatable(t, { __index = function(_, k) return get(k) end,
+    -- What pairs() lists: the table's own fields and its guarded calls, as the client's table has them.
+    listed = function(self) local all = {} for k, v in next, self do all[k] = v end for k in next, calls do all[k] = get(k) end return all end,
+    __newindex = function(self, k, v) if list[k] then set(k, v) else rawset(self, k, v) end end })
+end
+do
+  local listAll = pairs
+  function pairs(t)
+    local mt = getmetatable(t)
+    if mt and mt.listed then return next, mt.listed(t), nil end
+    return listAll(t)
+  end
+end
+guardCalls(C_AuctionHouse, "C_AuctionHouse")
+guardCalls(C_Item, "C_Item")
+guardCalls(C_Spell, "C_Spell")
+local getGuarded, setGuarded = pressOnly(KEY_PRESS_ONLY.globals, "")
 setmetatable(_G, {
-  __index = function(_, k) if k == "GoldForever_Prices" then return pricesFile end end,
-  __newindex = function(g, k, v) if k == "GoldForever_Prices" then pricesFile = noting(v, "prices") else rawset(g, k, v) end end,
+  __index = function(_, k) if k == "GoldForever_Prices" then return pricesFile end return getGuarded(k) end,
+  __newindex = function(g, k, v)
+    if k == "GoldForever_Prices" then pricesFile = noting(v, "prices")
+    elseif KEY_PRESS_ONLY.globals[k] then setGuarded(k, v)
+    elseif k ~= "globals" and KEY_PRESS_ONLY[k] and type(v) == "table" then rawset(g, k, guardCalls(v, k))
+    else rawset(g, k, v) end
+  end,
 })
+-- Every listed call is refused from an event or a timer and allowed on a press; party chat is not restricted.
+do
+  local function refused(fn, ...) local ok, why = pcall(fn, ...) return not ok and tostring(why):find("ADDON_ACTION_BLOCKED", 1, true) ~= nil end
+  for section, list in pairs(KEY_PRESS_ONLY) do
+    local holder = section == "globals" and _G or _G[section] or guardCalls({}, section)
+    for name in pairs(list) do
+      local kept = rawget(holder, name) == nil and holder[name] or nil
+      holder[name] = function() end
+      local args = list[name] == true and {} or { "hello", "SAY" }
+      assert(refused(holder[name], unpack(args)), section .. "." .. name .. " is refused without a press")
+      assert(not refused(pressing(holder[name]), unpack(args)), section .. "." .. name .. " is allowed on a press")
+      holder[name] = kept
+    end
+  end
+  SendChatMessage = function() end
+  assert(not refused(SendChatMessage, "hello", "PARTY"), "party chat needs no press")
+  SendChatMessage = nil
+  SetRaidTarget = function() end
+  local holdsPress = pressing(function() local inEvent; C_Timer.After(0, function() inEvent = pcall(SetRaidTarget, "target", 8) end); runTimers(); return inEvent end)
+  assert(holdsPress() == false, "a timer run during a press is no press")
+  -- A click runs as a press, hooks included; hovering does not; an event during a press is no press.
+  local button = CreateFrame("Button")
+  local clicked, hooked, hovered, inEvent
+  button:SetScript("OnClick", function() clicked = pcall(SetRaidTarget, "target", 8) end)
+  button:HookScript("OnClick", function() hooked = pcall(SetRaidTarget, "target", 8) end)
+  button:SetScript("OnEnter", function() hovered = pcall(SetRaidTarget, "target", 8) end)
+  button:GetScript("OnClick")(button)
+  button:GetScript("OnEnter")(button)
+  assert(clicked and hooked and not hovered, "a click is a press, a hover is not")
+  local plain, plainClicked = CreateFrame("Button"), nil
+  plain:SetScript("OnClick", function() plainClicked = pcall(SetRaidTarget, "target", 8) end)
+  plain:GetScript("OnClick")(plain)
+  assert(plainClicked, "a click with no hook is a press")
+  local listener = CreateFrame("Frame")
+  listener:RegisterEvent("GF_SMOKE_PROBE")
+  listener:SetScript("OnEvent", function() inEvent = pcall(SetRaidTarget, "target", 8) end)
+  pressKey(fire, "GF_SMOKE_PROBE")
+  assert(inEvent == false, "an event during a press is no press")
+  SetRaidTarget = nil
+end
 local function unlistedPriceFields()
   local out = {}
   for asked in pairs(pricesAsked) do
@@ -1164,15 +1273,11 @@ MerchantFrame, C_MerchantFrame = nil, nil
 -- command; "/gf mark" sets the skull.
 raidNotices = {}
 marks = {}
-local typing = false
 function UnitClassification(u) return u == "nameplate3" and "rareelite" or "normal" end
 function UnitIsDead() return false end
 function IsInGroup() return false end
 function GetRaidTargetIndex(u) return marks[u] end
-function SetRaidTarget(u, i)
-  if not typing then error("ADDON_ACTION_BLOCKED: SetRaidTarget outside a key press", 2) end
-  marks[u] = i
-end
+function SetRaidTarget(u, i) marks[u] = i end
 local unitGUID = UnitGUID
 UnitGUID = function(u) if u == "nameplate3" then return "Creature-0-4620-0-12-947-0000ABC1" end return unitGUID(u) end
 UnitExists = function(u) return u == "npc" or u == "target" or u == "nameplate3" end
@@ -1186,9 +1291,7 @@ if INTERFACE >= 110000 then
 else
   assert(#raidNotices == 1, "WoW: Forever: the rare is announced once")
   -- Typed: the latest rare, still on its nameplate, gets the skull.
-  typing = true
   SlashCmdList.GOLDFOREVER("mark")
-  typing = false
   assert(marks.nameplate3 == 8, "/gf mark skulls the rare: " .. tostring(marks.nameplate3))
 end
 -- A value the client keeps secret (newer clients): anything but type() and issecretvalue() on it fails,
@@ -1452,6 +1555,8 @@ do
   print("AH PANEL FRAMES at opening: " .. (#frames - framesBefore))
   assert((#frames - framesBefore) <= 21, "the auction panel builds at most 21 frames at opening: " .. (#frames - framesBefore))
   local AP = ns.AuctionPanel
+  -- The presses the panel's buttons make (its smoke seam calls what they call).
+  for _, press in ipairs({ "post", "shopBuy", "cancelNext" }) do AP[press] = pressing(AP[press]) end
   function SetOverrideBindingClick() end
   function ClearOverrideBindings() end
   AP.tab("scan")
@@ -2457,10 +2562,10 @@ if FLAVOUR == "retail" then
   C_AuctionHouse.CalculateCommodityDeposit = function(itemID, duration, quantity) return itemID == 2592 and duration == 2 and 3 * quantity end
   C_AuctionHouse.CalculateItemDeposit = function(location, duration, quantity) return location and duration == 3 and 250 * quantity end
 end
-C_AuctionHouse.PostCommodity({}, 2, 20, 95)
-C_AuctionHouse.ConfirmPostCommodity({}, 2, 20, 95)
-C_AuctionHouse.PostItem({}, 3, 2, 0, 3000)
-C_AuctionHouse.PostItem({}, 3, 2, 0, 3000) -- a second alike auction, no confirmation: two posts
+pressKey(C_AuctionHouse.PostCommodity, {}, 2, 20, 95)
+pressKey(C_AuctionHouse.ConfirmPostCommodity, {}, 2, 20, 95)
+pressKey(C_AuctionHouse.PostItem, {}, 3, 2, 0, 3000)
+pressKey(C_AuctionHouse.PostItem, {}, 3, 2, 0, 3000) -- a second alike auction, no confirmation: two posts
 local day = GoldForeverDB.events["2026-10-20"]
 seen("POSTS ", tostring(day.post and day.post[1]),
   "1792517415,1,2592,20,95,2,1,;1792517415,1,2592,2,1500,3,,;1792517415,1,2592,2,1500,3,,",
@@ -2556,11 +2661,11 @@ fire("COMMODITY_PURCHASE_FAILED")
 fire("COMMODITY_PRICE_UPDATED", 300, 6000)
 C_AuctionHouse.ConfirmCommoditiesPurchase(2589, 20)
 fire("COMMODITY_PURCHASE_SUCCEEDED")
-C_AuctionHouse.PlaceBid(77, 10000) -- a bid under the buyout: not a purchase
+pressKey(C_AuctionHouse.PlaceBid, 77, 10000) -- a bid under the buyout: not a purchase
 fire("AUCTION_HOUSE_PURCHASE_COMPLETED", 77)
-C_AuctionHouse.PlaceBid(77, 25000)
+pressKey(C_AuctionHouse.PlaceBid, 77, 25000)
 fire("AUCTION_HOUSE_PURCHASE_COMPLETED", 77)
-C_AuctionHouse.CancelAuction(501)
+pressKey(C_AuctionHouse.CancelAuction, 501)
 fire("AUCTION_CANCELED", 501)
 do
   local buys = table.concat(day.ahBuy or {}, ";")
