@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Gold Forever speaks French.** On a French game client every window, tooltip, chat line and `/gf help` is in French, with the game's own terms (Hôtel des ventes, po/pa/pc). The translation was made with AI, and the addon says so once at login and at the top of Settings. Other clients stay in English. Sales, mail, reputation, XP and crafts are read in the client's own language, so they are recorded on a French client too. The saved file is the same in every language.
 - **Farm toward a number: item goals on the HUD.** On the Shopping lists page, choose an item with How many set and switch Goal on. While you farm, the HUD shows it under its line, for example "34/40 Linen Cloth · about 12m at this pace". The count is your bags plus your bank as of your last visit. The pace comes only from what you looted this session, so items you buy, get by mail or trade raise the count but not the pace. Before you have looted any it says "no pace yet". A reached goal gets a tick and one chat line. Up to 3 goals show; turn them off under Settings, Modules, Item goals.
 - **No more phantom professions.** A profession window could briefly list another profession's recipes, and a character then got an empty row such as "Skill line 197" on the site, for a profession they don't have. It no longer records one.
 
