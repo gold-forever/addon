@@ -6,6 +6,11 @@
 -- The middle dot, the separator in lines of facts: Latin-1, which every font the game draws its Western
 -- locales in has.
 local ALLOWED = { ["\194\183"] = true }
+-- French's letters and quotes (frFR.lua), Latin-1 as well: the French client's own text uses them. Not œ or
+-- the curly apostrophe, which are beyond it: French text writes oe and '.
+for ch in string.gmatch("àâäçéèêëîïôöùûüÿÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ«»", "[\192-\255][\128-\191]*") do
+	ALLOWED[ch] = true
+end
 
 -- The string literals in a Lua source, comments left out: each as { line, text } (escapes kept as written).
 local function literals(source)
@@ -67,6 +72,8 @@ eq(found[2][1], 3, "the long string's line")
 eq(undrawn(found[3][2]), "→", "an escaped quote does not end the string")
 eq(undrawn("Settings › General"), "›", "the first-run card's chevron")
 eq(undrawn("a · b"), nil, "the middle dot passes")
+eq(undrawn("la fenêtre « déjà »"), nil, "French's letters and quotes pass")
+eq(undrawn("cœur"), "œ", "œ is beyond Latin-1")
 
 local names = {}
 for name in pairs(SOURCES) do

@@ -7,6 +7,7 @@
 -- that fails records its error in db.errors and leaves the others running.
 
 local addonName, ns = ...
+local L = ns.L
 
 local VERSION = "0.18.0"
 ns.VERSION = VERSION
@@ -82,6 +83,14 @@ end)
 
 ns.on("PLAYER_ENTERING_WORLD", "modules", function(isInitialLogin, isReloadingUi)
 	ns.enterWorld(isInitialLogin, isReloadingUi)
+end)
+
+-- In a language the addon was translated into, the player is told once a session (at the login, not a
+-- reload) that the translation was made with AI (owner, 2026-11-10).
+ns.on("PLAYER_ENTERING_WORLD", "translated", function(isInitialLogin)
+	if isInitialLogin and ns.Locale.translated() then
+		ns.say(L["Translated with AI: it may contain mistakes."])
+	end
 end)
 
 -- /reload and addons call ReloadUI; flag it so PLAYER_LOGOUT records a reload, not a logout.

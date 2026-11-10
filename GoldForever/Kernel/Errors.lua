@@ -2,6 +2,7 @@
 -- running: ns.safely runs a call that way (Scheduling.lua runs later ones through it).
 
 local _, ns = ...
+local L = ns.L
 
 local errors = {} -- collector -> { n, msg, t, stack }; becomes the save's once it is loaded
 local told = {} -- collectors already reported in chat this session
@@ -17,7 +18,7 @@ function ns.fail(name, err, stack)
 	e.t = GetServerTime()
 	if not told[name] then
 		told[name] = true
-		ns.say(name .. " failed: " .. tostring(err))
+		ns.say(string.format(L["%s failed: %s"], name, tostring(err)))
 	end
 end
 

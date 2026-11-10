@@ -1,5 +1,16 @@
 -- Smoke test: loads the addon with a stubbed game API and plays a short session.
 local dir = arg[1]
+-- GF_SMOKE_LOCALE=frFR plays the session on a French client. The session's checks of what the addon says
+-- are worded in English: on another language a check that fails is counted (WORDING), not raised, and the
+-- run fails on an error the addon recorded or on one thrown. The save it writes is English's (run.js).
+local LOCALE = os.getenv("GF_SMOKE_LOCALE") or "enUS"
+local wording = {}
+if LOCALE ~= "enUS" then
+  function assert(ok, ...)
+    if not ok then wording[#wording + 1] = tostring((...)) end
+    return ok, ...
+  end
+end
 local now, money, clock = 1792517410, 79098, 100
 local timers = {}
 local frames = {}
@@ -255,7 +266,7 @@ local INTERFACE = tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001
 function GetBuildInfo() return "1.60.1", "70450", "", INTERFACE end
 function GetNormalizedRealmName() return "ClassicBetaPvE2" end
 C_AutoComplete = { GetAutoCompleteRealms = function() return { "ClassicBetaPvE2", "AnotherRealm" } end }
-function GetLocale() return "enUS" end
+function GetLocale() return LOCALE end
 function GetCurrentRegionName() return "" end
 function GetCurrentRegion() return 3 end
 function GetCVar() return "test" end
@@ -5276,6 +5287,7 @@ do
   GoldForeverDB.schema = 1
 end
 do
+  if LOCALE ~= "enUS" then io.write("WORDING " .. #wording .. " checks worded in English\n") end
   io.write("ERRORS " .. #left .. "\n", table.concat(left, "\n"), "\n")
   exit(#left == 0 and 0 or 1)
 end

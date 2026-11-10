@@ -3,8 +3,9 @@
 -- ns that only a layer above its own sets, never sets a name another file sets, and keeps no listeners of
 -- its own; every message listened to is one a file emits.
 
--- The layers, lowest first: a file reads what its own layer and those below it set.
-local LAYERS = { "Kernel", "Store", "Recording", "ReadModels", "Tools", "UIKit", "Surfaces" }
+-- The layers, lowest first: a file reads what its own layer and those below it set. The text in the
+-- client's language (Locales) is below them all.
+local LAYERS = { "Locales", "Kernel", "Store", "Recording", "ReadModels", "Tools", "UIKit", "Surfaces" }
 local rank = {}
 for i, layer in ipairs(LAYERS) do
 	rank[layer] = i

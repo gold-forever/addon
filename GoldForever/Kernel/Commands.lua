@@ -1,6 +1,7 @@
 -- Gold Forever: the slash command, /gf, and its help.
 
 local _, ns = ...
+local L = ns.L
 
 -- Collectors add subcommands: ns.commands.scan = function() ... end
 ns.commands = {}
@@ -11,19 +12,19 @@ SLASH_GOLDFOREVER2 = "/goldforever"
 -- "/gf" alone opens or closes the hub; "/gf help" lists the commands a player uses, "/gf help all" the
 -- rest. The stored counts and failures are for bug reports, under "/gf check" (manual test run 001).
 local function help(rest)
-	print(ns.PREFIX .. " commands:")
-	print("  /gf - open or close the window")
-	print("  /gf hud - show or hide the session HUD")
-	print("  /gf ah - show or hide the auction panel · /gf scan - scan the auction house")
-	print("  /gf shop - your crafts by profit")
-	print("  /gf look web|classic|arcane - change the look · /gf minimap - the minimap button")
+	print(string.format(L["%s commands:"], ns.PREFIX))
+	print(L["  /gf - open or close the window"])
+	print(L["  /gf hud - show or hide the session HUD"])
+	print(L["  /gf ah - show or hide the auction panel · /gf scan - scan the auction house"])
+	print(L["  /gf shop - your crafts by profit"])
+	print(L["  /gf look web|classic|arcane - change the look · /gf minimap - the minimap button"])
 	if rest == "all" then
-		print("  /gf ui <page> - open a page · /gf session - the session in chat · /gf reset - a new session")
-		print("  /gf bigdrop <gold> - big-drop alerts · /gf accent #rrggbb · /gf welcome - the first-run card")
-		print("  /gf prices - the prices file · /gf rares [mark] · /gf mark (skull the rare) · /gf claim <code> · /gf export · /gf check - details for a bug report")
-		print("  /gf bags - why bag marks do or don't show")
+		print(L["  /gf ui <page> - open a page · /gf session - the session in chat · /gf reset - a new session"])
+		print(L["  /gf bigdrop <gold> - big-drop alerts · /gf accent #rrggbb · /gf welcome - the first-run card"])
+		print(L["  /gf prices - the prices file · /gf rares [mark] · /gf mark (skull the rare) · /gf claim <code> · /gf export · /gf check - details for a bug report"])
+		print(L["  /gf bags - why bag marks do or don't show"])
 	else
-		print("  More: /gf help all")
+		print(L["  More: /gf help all"])
 	end
 end
 
@@ -32,7 +33,7 @@ SlashCmdList.GOLDFOREVER = function(message)
 	name = string.lower(name or "")
 	local command = ns.commands[name]
 	if ns.stopped() then
-		ns.say("off this session: " .. ns.stopped())
+		ns.say(string.format(L["off this session: %s"], ns.stopped()))
 	elseif command then
 		ns.safely("/gf " .. name, command, rest)
 	elseif name == "" and ns.commands.ui then
@@ -40,6 +41,6 @@ SlashCmdList.GOLDFOREVER = function(message)
 	elseif name == "help" or name == "" then
 		help(rest)
 	else
-		print(ns.PREFIX .. ": no command \"" .. name .. "\". /gf help lists them.")
+		print(string.format(L["%s: no command \"%s\". /gf help lists them."], ns.PREFIX, name))
 	end
 end

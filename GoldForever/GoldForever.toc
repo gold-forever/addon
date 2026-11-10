@@ -12,6 +12,9 @@
 
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
+Locales\Locale.lua
+Locales\enUS.lua
+Locales\frFR.lua
 Store\Encode.lua
 Store\EncodeIds.lua
 Store\EncodeText.lua

@@ -4,14 +4,15 @@
 -- and its modules start at once (ns.startLate).
 
 local _, ns = ...
+local L = ns.L
 
 local loads = {} -- addon -> the function that loads it, made once so a wait in combat queues it once
 local done = {} -- addon -> true once asked to load
 
 -- What the client's refusal means for the player, and what to do; any other reason is an error.
 local TOLD = {
-	DISABLED = "%s is turned off in the AddOns list: turn it on there to use the auction house panel.",
-	MISSING = "the %s folder is not installed: reinstall Gold Forever, or in a developer install link both folders into AddOns.",
+	DISABLED = L["%s is turned off in the AddOns list: turn it on there to use the auction house panel."],
+	MISSING = L["the %s folder is not installed: reinstall Gold Forever, or in a developer install link both folders into AddOns."],
 }
 
 local function loader(addon)

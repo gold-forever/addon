@@ -27,3 +27,22 @@ function loadEncode(ns)
 		assert(loadChunk(SOURCES[file], "@" .. file))("GoldForever", ns)
 	end
 end
+
+-- The addon's text in English (Locale.lua, enUS.lua): every file a test loads reads ns.L, so a chunk
+-- loaded from SOURCES and given a namespace without one gets it, as the TOC's order would give it.
+local english = {}
+for _, file in ipairs({ "Locale.lua", "enUS.lua" }) do
+	assert(loadChunk(SOURCES[file], "@" .. file))("GoldForever", english)
+end
+function load(chunk, ...)
+	local f, err = loadChunk(chunk, ...)
+	if not f then
+		return f, err
+	end
+	return function(name, ns, ...)
+		if type(ns) == "table" and rawget(ns, "L") == nil and not rawget(ns, "Locale") then
+			ns.L, ns.plural = english.L, english.plural
+		end
+		return f(name, ns, ...)
+	end
+end
