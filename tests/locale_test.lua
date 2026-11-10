@@ -106,6 +106,21 @@ table.sort(unlisted) table.sort(unused)
 eq(table.concat(unlisted, "\n"), "", "texts shown through ns.L that enUS.lua does not list")
 eq(table.concat(unused, "\n"), "", "texts enUS.lua lists that no file shows")
 
+-- The game's own text is read in the client's language: a client global string (ERR_AUCTION_SOLD_S) is
+-- never backed by an English wording of the addon's, which would not match on a French client. The font
+-- path and the number separator are no wording.
+local NOT_WORDING = { STANDARD_TEXT_FONT = true, LARGE_NUMBER_SEPARATOR = true }
+local fallbacks = {}
+for file, source in pairs(SOURCES) do
+	for name, text in string.gmatch(source, "%f[%w_]([%u][%u%d_]+) or \"([^\"]*)\"") do
+		if not NOT_WORDING[name] and string.find(text, "%a") then
+			fallbacks[#fallbacks + 1] = file .. ": " .. name .. " or \"" .. text .. "\""
+		end
+	end
+end
+table.sort(fallbacks)
+eq(table.concat(fallbacks, "\n"), "", "client strings with an English fallback")
+
 -- The locale files load before every file that shows text.
 local toc = TOCS["GoldForever.toc"]
 local first = toc:match("\n(Locales\\Locale%.lua)\nLocales\\enUS%.lua\nLocales\\frFR%.lua\n")

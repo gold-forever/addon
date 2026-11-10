@@ -43,8 +43,9 @@ end
 -- What a craft made: the game's "You create: [Bolt of Linen Cloth]x2." says it exactly. Counting the
 -- bags instead misses with "Create All", where the next cast starts before this one's items arrive.
 -- A craft waits for its message a moment, then falls back to the bag count.
-local CREATED_MULTIPLE = Encode.pattern(LOOT_ITEM_CREATED_SELF_MULTIPLE or "You create: %sx%d.")
-local CREATED = Encode.pattern(LOOT_ITEM_CREATED_SELF or "You create: %s.")
+local nothing = function() end
+local createdMultiple = LOOT_ITEM_CREATED_SELF_MULTIPLE and Encode.matcher(LOOT_ITEM_CREATED_SELF_MULTIPLE) or nothing
+local created = LOOT_ITEM_CREATED_SELF and Encode.matcher(LOOT_ITEM_CREATED_SELF) or nothing
 local MESSAGE_WAIT = 2 -- seconds
 local crafting = {} -- casts done, oldest first: { t, spell, output, line, map, start, me }
 
@@ -80,9 +81,9 @@ ns.on("CHAT_MSG_LOOT", "craft", function(message)
 		return
 	end
 	-- A message the client keeps from addons (in combat) cannot be read; the bag count stands in.
-	local ok, link, count = pcall(string.match, message, CREATED_MULTIPLE)
+	local ok, link, count = pcall(createdMultiple, message)
 	if not (ok and link) then
-		ok, link = pcall(string.match, message, CREATED)
+		ok, link = pcall(created, message)
 		count = 1
 	end
 	if not (ok and link) then

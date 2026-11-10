@@ -8,16 +8,17 @@ local SETTLE = 3 -- seconds for a message and the standings it changed to arrive
 
 -- "Reputation with Stormwind increased by 250.", as patterns from the client's own text, each with the
 -- sign of its delta. Retail tells a warband faction's change in its own words.
-local CHANGES = {
-	{ FACTION_STANDING_INCREASED or "Reputation with %s increased by %d.", 1 },
-	{ FACTION_STANDING_DECREASED or "Reputation with %s decreased by %d.", -1 },
-}
-if ns.retail then
-	CHANGES[#CHANGES + 1] = { FACTION_STANDING_INCREASED_ACCOUNT_WIDE or "Your Warband's reputation with %s increased by %d.", 1 }
-	CHANGES[#CHANGES + 1] = { FACTION_STANDING_DECREASED_ACCOUNT_WIDE or "Your Warband's reputation with %s decreased by %d.", -1 }
+local CHANGES = {}
+local function change(format, sign)
+	if format then
+		CHANGES[#CHANGES + 1] = { Encode.matcher(format), sign }
+	end
 end
-for _, change in ipairs(CHANGES) do
-	change[1] = Encode.pattern(change[1])
+change(FACTION_STANDING_INCREASED, 1)
+change(FACTION_STANDING_DECREASED, -1)
+if ns.retail then
+	change(FACTION_STANDING_INCREASED_ACCOUNT_WIDE, 1)
+	change(FACTION_STANDING_DECREASED_ACCOUNT_WIDE, -1)
 end
 
 -- The factions the reputation list shows, by ID: { name, standing }, standing nil for a renown faction (its
@@ -124,7 +125,7 @@ ns.on("CHAT_MSG_COMBAT_FACTION_CHANGE", "reputation", function(message)
 		return
 	end
 	for _, change in ipairs(CHANGES) do
-		local name, delta = string.match(message or "", change[1])
+		local name, delta = change[1](message or "")
 		if delta then
 			told[#told + 1] = { name = name, delta = change[2] * tonumber(delta) }
 			break

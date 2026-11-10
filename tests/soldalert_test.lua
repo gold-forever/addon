@@ -4,10 +4,11 @@
 local NOW = 1792517410
 local NAMES = { [2589] = "Linen Cloth", [2592] = "Wool Cloth" }
 
--- One load of Auctions.lua with the client's wording `format` (nil: the client has none), the save's post
+-- One load of Auctions.lua with the client's wording `format` (nil: the English client's), the save's post
 -- rows and the auction settings. Returns fire(message), the lines said, the sounds played, the rows written.
+local ENGLISH = ERR_AUCTION_SOLD_S
 local function start(format, posts, auction)
-	ERR_AUCTION_SOLD_S = format
+	ERR_AUCTION_SOLD_S = format or ENGLISH
 	SOUNDKIT = { LOOT_WINDOW_COIN_SOUND = 120 }
 	local sounds, cvar = {}, { Sound_EnableAllSound = "1" }
 	function PlaySound(kit, channel) sounds[#sounds + 1] = kit .. " " .. tostring(channel) end

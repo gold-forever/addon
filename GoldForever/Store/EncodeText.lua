@@ -96,9 +96,53 @@ function Encode.duration(seconds)
 	return string.format("%dh %dm", math.floor(minutes / 60), minutes % 60)
 end
 
--- A Lua pattern from one of the client's own message formats ("You create: %sx%d."), with a capture
--- for each %s and %d, so a message reads the same in every language the client speaks.
-function Encode.pattern(format)
-	local escaped = string.gsub(format, "[%%%(%)%.%+%-%*%?%[%]%^%$]", "%%%0")
-	return (string.gsub(string.gsub(escaped, "%%%%s", "(.+)"), "%%%%d", "(%%d+)"))
+-- The placeholder at `i` in a message format: its argument's position where the format numbers it
+-- ("%2$d", a language that reorders them), its kind (s or d), and where the rest starts.
+local function placeholder(format, i)
+	local at, kind, after = string.match(format, "^%%(%d+)%$([sd])()", i)
+	if not kind then
+		kind, after = string.match(format, "^%%([sd])()", i)
+	end
+	return tonumber(at), kind, after
+end
+
+-- A reader for one of the client's own message formats ("You create: %sx%d.", its global string in the
+-- client's language): reader(text) gives the values of its %s and %d in the format's argument order, or
+-- nil when the text is not that message. So a message reads the same in every language the client
+-- speaks, a language that numbers its placeholders ("%2$d ... %1$s") included. `whole`: the text is the
+-- message and nothing more.
+local unpack = unpack or table.unpack
+function Encode.matcher(format, whole)
+	local parts, order = {}, {}
+	local i = 1
+	while i <= #format do
+		local at, kind, after = placeholder(format, i)
+		if kind then
+			order[#order + 1] = at or #order + 1
+			parts[#parts + 1] = kind == "s" and "(.+)" or "(%d+)"
+			i = after
+		else
+			local c = string.sub(format, i, i)
+			if string.sub(format, i, i + 1) == "%%" then
+				i = i + 1 -- a literal %
+			end
+			parts[#parts + 1] = string.find(c, "^[%^%$%(%)%%%.%[%]%*%+%-%?]") and "%" .. c or c
+			i = i + 1
+		end
+	end
+	local pattern = table.concat(parts)
+	if whole then
+		pattern = "^" .. pattern .. "$"
+	end
+	return function(text)
+		local found = { string.match(text, pattern) }
+		if found[1] == nil then
+			return nil
+		end
+		local out = {}
+		for k, at in ipairs(order) do
+			out[at] = found[k]
+		end
+		return unpack(out, 1, #order)
+	end
 end

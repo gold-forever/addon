@@ -83,6 +83,11 @@ function state() {
   if (lauxlib.luaL_dostring(L, to_luastring(gamedate)) !== lua.LUA_OK) {
     throw new Error(`gamedate.lua: ${lua.lua_tojsstring(L, -1)}`)
   }
+  // The client's message formats in English (clienttext.lua), as the game's globals.
+  const clientText = fs.readFileSync(path.join(__dirname, 'clienttext.lua'), 'utf8')
+  if (lauxlib.luaL_dostring(L, to_luastring(clientText)) !== lua.LUA_OK) {
+    throw new Error(`clienttext.lua: ${lua.lua_tojsstring(L, -1)}`)
+  }
   // The shared harness: eq, near and checks() (helpers.lua).
   const helpers = fs.readFileSync(path.join(__dirname, 'helpers.lua'), 'utf8')
   if (lauxlib.luaL_loadbuffer(L, to_luastring(helpers), null, to_luastring('@helpers.lua')) !== lua.LUA_OK || lua.lua_pcall(L, 0, 0, 0) !== lua.LUA_OK) {

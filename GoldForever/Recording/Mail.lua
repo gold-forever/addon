@@ -103,14 +103,15 @@ end)
 
 -- Receiving ----------------------------------------------------------------------------------------
 
--- Whether a subject is one of the client's subject formats ("Outbid on %s"), %s standing for anything.
+-- Whether a subject is one of the client's subject formats ("Outbid on %s"), %s standing for anything; a
+-- format the client lacks (false) is none.
 local function worded(subject, formats)
 	if type(subject) ~= "string" then
 		return false
 	end
 	for _, f in ipairs(formats) do
-		local escaped = string.gsub(f, "([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
-		if string.find(subject, "^" .. string.gsub(escaped, "%%%%s", ".+") .. "$") then
+		local escaped = f and string.gsub(f, "([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1")
+		if escaped and string.find(subject, "^" .. string.gsub(escaped, "%%%%s", ".+") .. "$") then
 			return true
 		end
 	end
@@ -119,13 +120,13 @@ end
 
 -- The auction house's subjects: for a bid given back (outbid, or the auction cancelled), and the rest.
 local function returnedBid()
-	return { AUCTION_OUTBID_MAIL_SUBJECT or "Outbid on %s", AUCTION_REMOVED_MAIL_SUBJECT or "Auction canceled: %s" }
+	return { AUCTION_OUTBID_MAIL_SUBJECT or false, AUCTION_REMOVED_MAIL_SUBJECT or false }
 end
 local function otherAuction()
 	return {
-		AUCTION_SOLD_MAIL_SUBJECT or "Auction successful: %s",
-		AUCTION_EXPIRED_MAIL_SUBJECT or "Auction expired: %s",
-		AUCTION_WON_MAIL_SUBJECT or "Auction won: %s",
+		AUCTION_SOLD_MAIL_SUBJECT or false,
+		AUCTION_EXPIRED_MAIL_SUBJECT or false,
+		AUCTION_WON_MAIL_SUBJECT or false,
 	}
 end
 

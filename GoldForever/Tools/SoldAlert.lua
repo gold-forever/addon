@@ -6,7 +6,7 @@ local Encode = ns.Encode
 -- The client's own "A buyer has been found for your auction of %s." (ERR_AUCTION_SOLD_S), on both clients.
 -- Nothing is recorded: the sale is recorded from its mail (Auctions.lua). The amount is the oldest post of that
 -- item still listed and not yet told, after the cut; unknown, the line has none.
-local SOLD = "^" .. Encode.pattern(ERR_AUCTION_SOLD_S or "A buyer has been found for your auction of %s.") .. "$"
+local readSold = ERR_AUCTION_SOLD_S and Encode.matcher(ERR_AUCTION_SOLD_S, true)
 local SOLD_SOUND = SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120 -- the coin sound
 local HOURS = { 12, 24, 48 } -- a post's duration index, as PostItem takes it
 local told = {} -- post rows told as sold this session: their row -> how many alike
@@ -29,7 +29,7 @@ end
 
 local function sold(message)
 	local me = ns.me()
-	local ok, name = pcall(string.match, message or "", SOLD)
+	local ok, name = pcall(readSold or function() end, message or "")
 	if not me or not ok or not name or ns.settings("auction").soldAlert == false then
 		return
 	end

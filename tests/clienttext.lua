@@ -1,0 +1,18 @@
+-- The client's message formats the addon reads, as the English client words them (its global strings): the
+-- addon has no wording of its own for them, a French client's are French. run.js sets them in every
+-- test's state, and the smoke run loads them.
+LOOT_ITEM_CREATED_SELF = "You create: %s."
+LOOT_ITEM_CREATED_SELF_MULTIPLE = "You create: %sx%d."
+ERR_AUCTION_SOLD_S = "A buyer has been found for your auction of %s."
+AUCTION_SOLD_MAIL_SUBJECT = "Auction successful: %s"
+AUCTION_EXPIRED_MAIL_SUBJECT = "Auction expired: %s"
+AUCTION_REMOVED_MAIL_SUBJECT = "Auction canceled: %s"
+AUCTION_WON_MAIL_SUBJECT = "Auction won: %s"
+AUCTION_OUTBID_MAIL_SUBJECT = "Outbid on %s"
+FACTION_STANDING_INCREASED = "Reputation with %s increased by %d."
+FACTION_STANDING_DECREASED = "Reputation with %s decreased by %d."
+FACTION_STANDING_INCREASED_ACCOUNT_WIDE = "Your Warband's reputation with %s increased by %d."
+FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "Your Warband's reputation with %s decreased by %d."
+COMBATLOG_XPGAIN_FIRSTPERSON = "%s dies, you gain %d experience."
+ERR_ZONE_EXPLORED_XP = "Discovered %s: %d experience gained"
+ITEM_STARTS_QUEST = "This Item Begins a Quest"

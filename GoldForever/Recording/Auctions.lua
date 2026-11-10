@@ -227,7 +227,7 @@ ns.on("MAIL_INBOX_UPDATE", "sales", ns.throttle("sales", 1, readInbox))
 -- localized string (AUCTION_EXPIRED_MAIL_SUBJECT, "Auction expired: %s"), matched up to the item name; the
 -- stack is the mail's first attachment. Known again, as a sale is, by its content and its expiry.
 local function expiredPrefix()
-	local format = AUCTION_EXPIRED_MAIL_SUBJECT or "Auction expired: %s"
+	local format = AUCTION_EXPIRED_MAIL_SUBJECT or ""
 	return (string.match(format, "^(.-)%%s") or format):gsub("[:%s]+$", "")
 end
 

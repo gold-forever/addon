@@ -14,16 +14,16 @@ ns.Mail = Mail
 
 Mail.BATCH = 500 -- mails a press: all of them (a guard against a loop, not a limit)
 
--- The auction house's subjects as the client words them ("Auction successful: %s"), English fallbacks
--- for the tests; as Lua patterns that match the whole subject.
+-- The auction house's subjects as the client words them ("Auction successful: %s"), in its language; as
+-- Lua patterns that match the whole subject.
 function Mail.patterns(formats)
-	formats = formats or {
-		AUCTION_SOLD_MAIL_SUBJECT or "Auction successful: %s",
-		AUCTION_EXPIRED_MAIL_SUBJECT or "Auction expired: %s",
-		AUCTION_REMOVED_MAIL_SUBJECT or "Auction canceled: %s",
-		AUCTION_WON_MAIL_SUBJECT or "Auction won: %s",
-		AUCTION_OUTBID_MAIL_SUBJECT or "Outbid on %s",
-	}
+	if not formats then
+		formats = {}
+		for _, name in ipairs({ "AUCTION_SOLD_MAIL_SUBJECT", "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT",
+			"AUCTION_WON_MAIL_SUBJECT", "AUCTION_OUTBID_MAIL_SUBJECT" }) do
+			formats[#formats + 1] = _G[name]
+		end
+	end
 	local out = {}
 	for _, f in ipairs(formats) do
 		-- Escape the pattern's magic characters, then let %s stand for anything.

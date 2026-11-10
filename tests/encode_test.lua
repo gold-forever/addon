@@ -120,12 +120,17 @@ end
 
 -- Patterns from the client's message formats, with captures.
 do
-	local link, n = string.match("You create: |cffffffff|Hitem:2996::::::::30|h[Bolt of Linen Cloth]|h|rx2.", E.pattern("You create: %sx%d."))
+	local link, n = E.matcher("You create: %sx%d.")("You create: |cffffffff|Hitem:2996::::::::30|h[Bolt of Linen Cloth]|h|rx2.")
 	eq(n, "2", "the count made")
 	eq(E.itemId(E.itemKey(link)), 2996, "the item made")
-	eq(string.match("Discovered Razor Hill: 55 experience gained", E.pattern("Discovered %s: %d experience gained")), "Razor Hill", "a discovery")
-	eq(string.match("Discovered: Razor Hill", E.pattern("Discovered %s: %d experience gained")), nil, "no XP, no match")
-	eq(string.match("Entdeckt: Klingenhügel (55 EP)", E.pattern("Entdeckt: %s (%d EP)")), "Klingenhügel", "parentheses escaped")
+	eq(E.matcher("Discovered %s: %d experience gained")("Discovered Razor Hill: 55 experience gained"), "Razor Hill", "a discovery")
+	eq(E.matcher("Discovered %s: %d experience gained")("Discovered: Razor Hill"), nil, "no XP, no match")
+	eq(E.matcher("Entdeckt: %s (%d EP)")("Entdeckt: Klingenhügel (55 EP)"), "Klingenhügel", "parentheses escaped")
+	local mob, xp = E.matcher("Vous gagnez %2$d points d'expérience : %1$s meurt.")("Vous gagnez 120 points d'expérience : Kobold meurt.")
+	eq(mob .. " " .. xp, "Kobold 120", "numbered placeholders give the values in the format's argument order")
+	eq(E.matcher("100%% sure: %s")("100% sure: yes"), "yes", "a literal %")
+	eq(E.matcher("sold %s.", true)("Re: sold Wool."), nil, "whole: nothing before the message")
+	eq(E.matcher("sold %s.")("Re: sold Wool."), "Wool", "not whole: the message within a text")
 end
 
 eq(E.xpGained(2570, 47400, 3010, false), 440, "within a level")

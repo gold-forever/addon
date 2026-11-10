@@ -267,6 +267,8 @@ function GetBuildInfo() return "1.60.1", "70450", "", INTERFACE end
 function GetNormalizedRealmName() return "ClassicBetaPvE2" end
 C_AutoComplete = { GetAutoCompleteRealms = function() return { "ClassicBetaPvE2", "AnotherRealm" } end }
 function GetLocale() return LOCALE end
+-- The client's message formats the addon reads, in English (clienttext.lua).
+dofile((dir or "GoldForever") .. "/../tests/clienttext.lua")
 function GetCurrentRegionName() return "" end
 function GetCurrentRegion() return 3 end
 function GetCVar() return "test" end
@@ -1072,8 +1074,6 @@ bolts = 1
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-1", 2963)
 tailoring = 76; fire("SKILL_LINES_CHANGED")
 -- "Create All": the second cast starts before the first's bolt is in the bags; the chat says what each made.
-LOOT_ITEM_CREATED_SELF = "You create: %s."
-LOOT_ITEM_CREATED_SELF_MULTIPLE = "You create: %sx%d."
 bolts = 1
 fireNow("UNIT_SPELLCAST_START", "player", "Cast-2", 2963)
 fireNow("UNIT_SPELLCAST_SUCCEEDED", "player", "Cast-2", 2963)

@@ -187,14 +187,14 @@ end
 -- its XP and mob, or false where the client kept the message secret. It tells each kill as it comes and
 -- raises the XP bar once for kills close together, so one reading can hold several.
 local kills = {}
-local KILLED = Encode.pattern(COMBATLOG_XPGAIN_FIRSTPERSON or "%s dies, you gain %d experience.")
+local killed = COMBATLOG_XPGAIN_FIRSTPERSON and Encode.matcher(COMBATLOG_XPGAIN_FIRSTPERSON) or function() end
 
 ns.on("CHAT_MSG_COMBAT_XP_GAIN", "xp", function(message)
 	if ns.secret(message) then
 		kills[#kills + 1] = false
 		return
 	end
-	local mob, xp = string.match(message or "", KILLED)
+	local mob, xp = killed(message or "")
 	if xp then
 		kills[#kills + 1] = { xp = tonumber(xp), mob = Encode.text(mob) }
 	end
@@ -289,11 +289,11 @@ ns.on("UNIT_SPELLCAST_SUCCEEDED", "gather", function(unit, _, spell)
 end, "player")
 
 -- "Discovered Razor Hill: 55 experience gained", as a pattern from the client's own text.
-local DISCOVERED = Encode.pattern(ERR_ZONE_EXPLORED_XP or "Discovered %s: %d experience gained")
+local discoveredIn = ERR_ZONE_EXPLORED_XP and Encode.matcher(ERR_ZONE_EXPLORED_XP) or function() end
 
 local function discovered(message)
 	-- A message the client keeps from addons (in combat) cannot be read; that is no discovery.
-	local ok, found = pcall(string.find, message, DISCOVERED)
+	local ok, found = pcall(discoveredIn, message)
 	if ok and found then
 		exploredAt = GetTime()
 	end

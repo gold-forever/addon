@@ -262,7 +262,7 @@ function Catalogue.startsQuest(id)
 		return quest
 	end
 	local tooltip = catalogue.tooltips[id] or (ns.lean and ns.itemTooltipText(id))
-	return tooltip and (string.find(tooltip, ITEM_STARTS_QUEST or "This Item Begins a Quest", 1, true) and true) or nil
+	return tooltip and ITEM_STARTS_QUEST and (string.find(tooltip, ITEM_STARTS_QUEST, 1, true) and true) or nil
 end
 
 -- Whether this character finished the quest; unknown (nil) without a quest ID.
