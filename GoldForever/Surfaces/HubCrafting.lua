@@ -2,6 +2,7 @@
 -- queue.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
 local Kit = ns.HubKit
 local settings, sortOf, itemName, itemQuality = Kit.settings, Kit.sortOf, Kit.itemName, Kit.itemQuality
@@ -21,11 +22,11 @@ local function buildCrafting(page)
 		page:Refresh()
 	end)
 	sw:SetPoint("TOPLEFT", 0, -2)
-	local switchLabel = UI.Text(page, "Use my own ingredients when I have them (they cost nothing)", { size = "sm", tone = "muted" })
+	local switchLabel = UI.Text(page, L["Use my own ingredients when I have them (they cost nothing)"], { size = "sm", tone = "muted" })
 	switchLabel:SetPoint("LEFT", sw, "RIGHT", 8, 0)
 	-- One profession at a time, or all (owner, 2026-10-24: "only leatherworking").
 	local profession = settings().craftProf
-	local profPick = UI.Dropdown(page, { { value = "all", label = "All professions" } }, profession or "all", function(v)
+	local profPick = UI.Dropdown(page, { { value = "all", label = L["All professions"] } }, profession or "all", function(v)
 		profession = v ~= "all" and v or nil
 		settings().craftProf = profession
 		chosen = nil
@@ -34,22 +35,22 @@ local function buildCrafting(page)
 	profPick:SetPoint("TOPRIGHT", 0, 2)
 	profPick:SetWidth(180)
 	local money = function(c)
-		return c and UI.layout.amount(c) or (Theme.escape(Theme.color.textFaint) .. "unknown|r")
+		return c and UI.layout.amount(c) or (Theme.escape(Theme.color.textFaint) .. L["unknown"] .. "|r")
 	end
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Recipe", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
-			text = function(r) return r.name .. (r.gear and (Theme.escape(Theme.color.textFaint) .. "  any quality|r") or "") end },
-		{ key = "cost", title = "Cost", width = 84, align = "RIGHT", text = function(r) return money(r.cost) end, sort = function(r) return r.cost or -1 end },
-		{ key = "revenue", title = "Sells for", width = 84, align = "RIGHT", text = function(r) return money(r.revenue) end, sort = function(r) return r.revenue or -1 end },
+		{ key = "name", title = L["Recipe"], flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
+			text = function(r) return r.name .. (r.gear and (Theme.escape(Theme.color.textFaint) .. "  " .. L["any quality"] .. "|r") or "") end },
+		{ key = "cost", title = L["Cost"], width = 84, align = "RIGHT", text = function(r) return money(r.cost) end, sort = function(r) return r.cost or -1 end },
+		{ key = "revenue", title = L["Sells for"], width = 84, align = "RIGHT", text = function(r) return money(r.revenue) end, sort = function(r) return r.revenue or -1 end },
 		-- Gear: shown in grey and sorted last, its price being one for every quality.
-		{ key = "profit", title = "Profit", width = 84, align = "RIGHT", text = function(r) return r.gear and (Theme.escape(Theme.color.textFaint) .. UI.layout.plain(money(r.profit)) .. "|r") or money(r.profit) end,
+		{ key = "profit", title = L["Profit"], width = 84, align = "RIGHT", text = function(r) return r.gear and (Theme.escape(Theme.color.textFaint) .. UI.layout.plain(money(r.profit)) .. "|r") or money(r.profit) end,
 			sort = function(r) return (not r.gear and r.profit) or -math.huge end },
-		{ key = "margin", title = "Margin", width = 64, align = "RIGHT", text = function(r) return r.margin and (r.margin .. "%") or "-" end,
+		{ key = "margin", title = L["Margin"], width = 64, align = "RIGHT", text = function(r) return r.margin and (r.margin .. "%") or "-" end,
 			color = function(r) return r.gear and Theme.color.textFaint or Theme.color[BAND_COLOR[ns.Crafting.band(r.margin)] or "textFaint"] end,
 			sort = function(r) return (not r.gear and r.margin) or -math.huge end },
 	}, {
 		pageSize = 8,
-		empty = "No priced recipe yet: open your professions once, and scan the auction house.",
+		empty = L["No priced recipe yet: open your professions once, and scan the auction house."],
 		itemId = function(r) return r.q and r.q.recipe and r.q.recipe.output end,
 		sort = sortOf("crafting", "profit"),
 		isSelected = function(r) return chosen and r.id == chosen end,
@@ -69,18 +70,18 @@ local function buildCrafting(page)
 	-- The craft queue: this recipe added, and the queue's size; the Shop buys what it still needs.
 	local queued = UI.Text(detail, "", { size = "xs", tone = "faint" })
 	queued:SetPoint("BOTTOMLEFT", 14, 12)
-	local clear = UI.Button(detail, "Clear queue", function()
+	local clear = UI.Button(detail, L["Clear queue"], function()
 		ns.queueClear()
 		page:Refresh()
 	end, { kind = "ghost", width = 100, height = 22 })
 	clear:SetPoint("BOTTOMRIGHT", -14, 8)
 	-- The craft queue window: where to get each reagent (CraftQueue.lua).
-	local queueWindow = UI.Button(detail, "Queue window", function()
+	local queueWindow = UI.Button(detail, L["Queue window"], function()
 		ns.openCraftQueue()
 	end, { width = 110, height = 22 })
 	queueWindow:SetPoint("RIGHT", clear, "LEFT", -6, 0)
 	for i, n in ipairs({ 5, 1 }) do
-		local b = UI.Button(detail, "Queue " .. n, function()
+		local b = UI.Button(detail, string.format(L["Queue %d"], n), function()
 			if chosen then
 				ns.queueAdd(chosen, n)
 				page:Refresh()
@@ -104,7 +105,7 @@ local function buildCrafting(page)
 		lines[i] = { name = l, value = v, hover = hover }
 	end
 	function page:Refresh()
-		local rows, profs, seenProf = {}, { { value = "all", label = "All professions" } }, {}
+		local rows, profs, seenProf = {}, { { value = "all", label = L["All professions"] } }, {}
 		local quotes = ns.allCraftQuotes()
 		for _, q in ipairs(quotes) do
 			if q.prof and not seenProf[q.prof] then
@@ -153,25 +154,26 @@ local function buildCrafting(page)
 			return
 		end
 		chosen = sel.id
-		head:SetText(sel.name .. Theme.escape(Theme.color.textFaint) .. "  · reagents|r")
+		head:SetText(sel.name .. Theme.escape(Theme.color.textFaint) .. "  · " .. L["reagents"] .. "|r")
 		local crafts = 0
 		for _, q in ipairs(ns.queueList()) do
 			crafts = crafts + q.count
 		end
-		queued:SetText(crafts > 0 and string.format("In the queue: %d %s. The Buy tab's \"Craft queue\" list buys what is missing.", crafts, crafts == 1 and "craft" or "crafts") or "The queue is empty.")
+		queued:SetText(crafts > 0 and ns.plural(crafts, L["In the queue: %d craft. The Buy tab's \"Craft queue\" list buys what is missing."],
+			L["In the queue: %d crafts. The Buy tab's \"Craft queue\" list buys what is missing."]) or L["The queue is empty."])
 		-- More reagents than lines: the last line says how many more (the queue window lists them all).
 		local fits, more = Views.fit(#sel.q.lines, #lines)
 		for i, l in ipairs(lines) do
 			local x = i <= fits and sel.q.lines[i] or nil
 			l.hover.itemId = x and x.id
 			if x then
-				l.name:SetText(x.needed .. "x " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  (" .. x.owned .. " held)|r") or ""))
-				l.value:SetText(x.unit and (UI.layout.amount(x.unit) .. " each, " .. (x.from == "vendor" and "vendor" or "AH")) or "no price")
+				l.name:SetText(x.needed .. "x " .. itemName(x.id) .. (x.owned > 0 and (Theme.escape(Theme.color.textFaint) .. "  " .. string.format(L["(%d held)"], x.owned) .. "|r") or ""))
+				l.value:SetText(x.unit and string.format(L["%s each, %s"], UI.layout.amount(x.unit), x.from == "vendor" and L["vendor"] or L["AH"]) or L["no price"])
 			elseif i == fits + 1 and more > 0 then
-				l.name:SetText(Theme.escape(Theme.color.textFaint) .. "+" .. more .. " more " .. (more == 1 and "reagent" or "reagents") .. "|r")
+				l.name:SetText(Theme.escape(Theme.color.textFaint) .. ns.plural(more, L["+%d more reagent"], L["+%d more reagents"]) .. "|r")
 				l.value:SetText("")
 			else
-				l.name:SetText(i == 1 and "No reagents" or "")
+				l.name:SetText(i == 1 and L["No reagents"] or "")
 				l.value:SetText("")
 			end
 		end

@@ -2,6 +2,7 @@
 -- art, the footer, and the addon's own footprint at the sidebar's foot. Hub.lua makes one per look.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local box, solid, surface, radius = UI.box, UI.solid, UI.surface, UI.radius
 
@@ -107,15 +108,15 @@ function UI.Window(name, title, pages, store, opts)
 		local r, g, b = Theme.rgb(Theme.color.accent)
 		glow:SetVertexColor(r, g, b, 0.35)
 	end
-	w.title = UI.Text(side, skin.titleCaps and string.upper(title) or title, { size = "xl", medium = true, tone = web and "text" or "accent" })
+	w.title = UI.Text(side, skin.titleCaps and ns.upper(title) or title, { size = "xl", medium = true, tone = web and "text" or "accent" })
 	w.title:SetPoint("TOPLEFT", emblem, "TOPRIGHT", 12, -2)
-	local tagline = UI.Text(side, "FOR WOW: FOREVER", { size = "xs", tone = "faint" })
+	local tagline = UI.Text(side, L["FOR WOW: FOREVER"], { size = "xs", tone = "faint" })
 	tagline:SetPoint("TOPLEFT", w.title, "BOTTOMLEFT", 1, -5)
 
 	local nav = CreateFrame("Frame", nil, side)
 	nav:SetPoint("TOPLEFT", 8, -130)
 	nav:SetPoint("BOTTOMRIGHT", -8, FOOT + 8)
-	local search = UI.SearchBox(side, "Search pages...", function(text)
+	local search = UI.SearchBox(side, L["Search pages..."], function(text)
 		if w.Filter then
 			w:Filter(text)
 		end
@@ -243,7 +244,7 @@ function UI.Window(name, title, pages, store, opts)
 	footRule:SetPoint("BOTTOMLEFT", SIDE, FOOT)
 	footRule:SetPoint("BOTTOMRIGHT", -inset, FOOT)
 	footRule:SetHeight(UI.pixel())
-	local reload = UI.Button(w, "Reload UI", function()
+	local reload = UI.Button(w, L["Reload UI"], function()
 		if opts.onReload then
 			opts.onReload()
 		elseif ReloadUI then
@@ -255,8 +256,8 @@ function UI.Window(name, title, pages, store, opts)
 	if extra then
 		extra:SetPoint("LEFT", reload, "RIGHT", 8, 0)
 	end
-	local note = UI.Text(w, (opts.look and ("Look: " .. opts.look .. " · ") or "") .. "gold-forever.app", { size = "xs", tone = "faint", align = "CENTER" })
-	local done = UI.Button(w, "Close", function()
+	local note = UI.Text(w, (opts.look and (string.format(L["Look: %s"], opts.look) .. " · ") or "") .. "gold-forever.app", { size = "xs", tone = "faint", align = "CENTER" })
+	local done = UI.Button(w, L["Close"], function()
 		w:Hide()
 	end, { kind = "primary", width = 130, height = 30 })
 	done:SetPoint("BOTTOMRIGHT", -PAD - inset, 13)
@@ -311,12 +312,12 @@ function UI.Window(name, title, pages, store, opts)
 		if p.group and not w.heads[p.group] then
 			local head = CreateFrame("Frame", nil, nav)
 			head:SetHeight(28)
-			head.text = UI.Text(head, string.upper(p.group), { size = "xs", medium = true, tone = "accent" })
+			head.text = UI.Text(head, ns.upper(p.group), { size = "xs", medium = true, tone = "accent" })
 			head.text:SetPoint("BOTTOMLEFT", 12, 6)
 			w.heads[p.group] = head
 		end
 	end
-	local empty = UI.Text(nav, "No page matches.", { size = "sm", tone = "faint" })
+	local empty = UI.Text(nav, L["No page matches."], { size = "sm", tone = "faint" })
 	empty:SetPoint("TOPLEFT", 12, -8)
 	function w:Filter(query)
 		for _, item in ipairs(self.items) do

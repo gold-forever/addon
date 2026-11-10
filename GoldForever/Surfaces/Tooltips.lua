@@ -4,6 +4,7 @@
 -- characters have looted from it (MobStats.lua).
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 local Catalogue = ns.Catalogue
 local SaveView = ns.SaveView
@@ -15,18 +16,18 @@ local ownMarket, worth, disenchantWorth, enchanting, coins = price.own, price.wo
 -- Every line the addon adds to a tooltip, in Settings' order; each is Off, shown with Shift, or Always
 -- (settings.tooltip, its defaults in Save.lua; addon#98).
 ns.TOOLTIP_LINES = {
-	{ key = "price", name = "Auction prices", blurb = "Everyone's price from the companion's file, under every item." },
-	{ key = "supply", name = "Supply and post size", blurb = "How many sell a day, how long what is listed lasts, and how many to post." },
-	{ key = "payback", name = "Recipe payback", blurb = "On a recipe item: how many crafts pay back its price at today's margin." },
-	{ key = "scan", name = "Your scan", blurb = "The price your own auction house scan found." },
-	{ key = "held", name = "Held counts", blurb = "How many each of your characters holds, in bags, bank and mail." },
-	{ key = "disenchant", name = "Disenchant value", blurb = "What disenchanting it gives, and whether that beats selling." },
-	{ key = "mob", name = "Mob loot", blurb = "On a mob you have looted: what a loot is worth and its likeliest drops." },
-	{ key = "starter", name = "Quest starters", blurb = "On a mob: the quest-starting items it drops, and whether you did the quest." },
-	{ key = "bestReward", name = "Best quest reward", blurb = "On the quest reward worth the most: what it sells for." },
-	{ key = "bagMark", name = "Cheapest in your bags", blurb = "On the marked stack in full bags: what it is worth in all." },
-	{ key = "bagVerdict", name = "Bag verdict", blurb = "On a bag or bank item: post, vendor, disenchant or keep, and why." },
-	{ key = "vendorResale", name = "Vendor resale", blurb = "At a merchant, on an item that sells for more on the auction house: what it fetches." },
+	{ key = "price", name = L["Auction prices"], blurb = L["Everyone's price from the companion's file, under every item."] },
+	{ key = "supply", name = L["Supply and post size"], blurb = L["How many sell a day, how long what is listed lasts, and how many to post."] },
+	{ key = "payback", name = L["Recipe payback"], blurb = L["On a recipe item: how many crafts pay back its price at today's margin."] },
+	{ key = "scan", name = L["Your scan"], blurb = L["The price your own auction house scan found."] },
+	{ key = "held", name = L["Held counts"], blurb = L["How many each of your characters holds, in bags, bank and mail."] },
+	{ key = "disenchant", name = L["Disenchant value"], blurb = L["What disenchanting it gives, and whether that beats selling."] },
+	{ key = "mob", name = L["Mob loot"], blurb = L["On a mob you have looted: what a loot is worth and its likeliest drops."] },
+	{ key = "starter", name = L["Quest starters"], blurb = L["On a mob: the quest-starting items it drops, and whether you did the quest."] },
+	{ key = "bestReward", name = L["Best quest reward"], blurb = L["On the quest reward worth the most: what it sells for."] },
+	{ key = "bagMark", name = L["Cheapest in your bags"], blurb = L["On the marked stack in full bags: what it is worth in all."] },
+	{ key = "bagVerdict", name = L["Bag verdict"], blurb = L["On a bag or bank item: post, vendor, disenchant or keep, and why."] },
+	{ key = "vendorResale", name = L["Vendor resale"], blurb = L["At a merchant, on an item that sells for more on the auction house: what it fetches."] },
 }
 
 local function shiftHeld()
@@ -75,7 +76,7 @@ ns.on("MODIFIER_STATE_CHANGED", "tooltip lines", function(key)
 end)
 
 local function itemName(id)
-	return Catalogue.name("item", id) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or ("item " .. id)
+	return Catalogue.name("item", id) or (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or string.format(L["item %d"], id)
 end
 
 -- "looted 40× · ~7c a loot" and the three likeliest drops, for an NPC looted before.
@@ -106,12 +107,12 @@ local function mobLines(npc)
 		local quest = Catalogue.startsQuest(id)
 		if quest then
 			local done = Catalogue.questDone(quest)
-			starters[#starters + 1] = string.format("%s (%d%% of loots)%s", itemName(id), math.floor(d.dropped / m.loots * 100 + 0.5),
-				done == false and " · not done" or done and " · done" or "")
+			starters[#starters + 1] = string.format(L["%s (%d%% of loots)%s"], itemName(id), math.floor(d.dropped / m.loots * 100 + 0.5),
+				done == false and L[" · not done"] or done and L[" · done"] or "")
 		end
 	end
-	return string.format("looted %dx · ~%s a loot", m.loots, coins(value)), #top > 0 and table.concat(top, " · ") or nil,
-		#starters > 0 and ("Drops a quest starter: " .. table.concat(starters, ", ")) or nil
+	return string.format(L["looted %dx · ~%s a loot"], m.loots, coins(value)), #top > 0 and table.concat(top, " · ") or nil,
+		#starters > 0 and string.format(L["Drops a quest starter: %s"], table.concat(starters, ", ")) or nil
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
@@ -181,7 +182,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		end
 		local m = ns.tipLine("scan") and ownMarket(data.id) -- the own scan's line; the pool has its own
 		if m then
-			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. "Your scan", coins(m), 1, 1, 1, 1, 1, 1)
+			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. L["Your scan"], coins(m), 1, 1, 1, 1, 1, 1)
 		end
 		if not ns.tipLine("disenchant") then
 			return
@@ -189,9 +190,9 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		local de, skill = disenchantWorth(data.id)
 		if de and de > 0 then
 			local sale = worth(data.id) or 0
-			local verdict = de > sale and " |cff56c98f(better than selling)|r" or ""
-			local short = enchanting() < skill and string.format(" |cff999999(needs Enchanting %d)|r", skill) or ""
-			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. "Disenchant" .. verdict .. short, "~" .. coins(de), 1, 1, 1, 1, 1, 1)
+			local verdict = de > sale and (" |cff56c98f" .. L["(better than selling)"] .. "|r") or ""
+			local short = enchanting() < skill and (" |cff999999" .. string.format(L["(needs Enchanting %d)"], skill) .. "|r") or ""
+			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. L["Disenchant"] .. verdict .. short, "~" .. coins(de), 1, 1, 1, 1, 1, 1)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
@@ -225,7 +226,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		-- In a zone with a neutral auction house, its market's rows first (design 009 decision 9).
 		local neutral = Prices.neutralMarkets()
 		if neutral then
-			addRows(tooltip, Prices.rows(GoldForever_Prices, neutral, data.id, now, "Neutral AH"))
+			addRows(tooltip, Prices.rows(GoldForever_Prices, neutral, data.id, now, L["Neutral AH"]))
 		end
 		addRows(tooltip, Prices.rows(GoldForever_Prices, Prices.mine(), data.id, now))
 		local value, from = price.valued(data.id)

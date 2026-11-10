@@ -3,6 +3,7 @@
 -- no button). What Blizzard counts as junk, sold by its own call, so it stays in the buyback tab.
 
 local _, ns = ...
+local L = ns.L
 local UI = ns.UI
 
 local SELL_ARMED = 5 -- seconds the first press waits for the second
@@ -47,8 +48,8 @@ local function refresh()
 		return
 	end
 	local armed = armedAt and GetTime() - armedAt < SELL_ARMED
-	sell:SetLabel(armed and string.format("Press again: sell %d for %s", n, ns.price.coins(value))
-		or string.format("Sell junk: %d %s · %s", n, n == 1 and "item" or "items", ns.price.coins(value)))
+	sell:SetLabel(armed and string.format(L["Press again: sell %d for %s"], n, ns.price.coins(value))
+		or ns.plural(n, L["Sell junk: %d item · %s"], L["Sell junk: %d items · %s"], ns.price.coins(value)))
 	sell:Show()
 end
 
@@ -61,7 +62,7 @@ local function press()
 	if armedAt and GetTime() - armedAt < SELL_ARMED then
 		armedAt = nil
 		C_MerchantFrame.SellAllJunkItems()
-		ns.say(string.format("sold %d junk %s for %s; the buyback tab has them for now.", n, n == 1 and "item" or "items", ns.price.coins(value)))
+		ns.say(ns.plural(n, L["sold %d junk item for %s; the buyback tab has it for now."], L["sold %d junk items for %s; the buyback tab has them for now."], ns.price.coins(value)))
 	else
 		armedAt = GetTime()
 		C_Timer.After(SELL_ARMED, refresh)
@@ -70,7 +71,7 @@ local function press()
 end
 
 local function build()
-	local sell = UI.Button(MerchantFrame, "Sell junk", function()
+	local sell = UI.Button(MerchantFrame, L["Sell junk"], function()
 		ns.safely("sell junk", press)
 	end, { width = 240, height = 26 })
 	sell:Hide()

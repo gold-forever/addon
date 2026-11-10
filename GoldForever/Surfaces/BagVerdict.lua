@@ -3,6 +3,7 @@
 -- Nothing is moved, sold or recorded; the cheapest-item coin (BagMark.lua) keeps its corner.
 
 local _, ns = ...
+local L = ns.L
 
 local BagVerdict = {}
 ns.BagVerdict = BagVerdict
@@ -18,19 +19,26 @@ local ICONS = {
 local textures = {} -- item button -> its mark, made the first time it is marked
 local shown = {} -- item button -> its verdict, with the item's id
 
+-- A verdict's word and a keep's reason (SalePlan.verdict) as the player reads them.
+local WORDS = { keep = L["keep"], disenchant = L["disenchant"], vendor = L["vendor"], post = L["post"] }
+local WHY = {
+	["a quest item"] = L["a quest item"], ["on a shopping list"] = L["on a shopping list"],
+	["in the craft queue"] = L["in the craft queue"], ["soulbound gear"] = L["soulbound gear"], ["no price"] = L["no price"],
+}
+
 -- The tooltip words of a verdict.
 function BagVerdict.line(v, coins)
 	local why
 	if v.word == "keep" then
-		why = v.why
+		why = WHY[v.why] or v.why
 	elseif v.word == "disenchant" then
-		why = "~" .. coins(v.disenchant) .. (v.sale and (", best sale " .. coins(v.sale)) or "")
+		why = "~" .. coins(v.disenchant) .. (v.sale and string.format(L[", best sale %s"], coins(v.sale)) or "")
 	elseif v.word == "vendor" then
-		why = "vendor " .. coins(v.sale)
+		why = string.format(L["vendor %s"], coins(v.sale))
 	else
-		why = "AH " .. coins(v.sale) .. " after the cut" .. (v.vendor and (", vendor " .. coins(v.vendor)) or "")
+		why = string.format(L["AH %s after the cut"], coins(v.sale)) .. (v.vendor and string.format(L[", vendor %s"], coins(v.vendor)) or "")
 	end
-	return "Verdict: " .. v.word .. " (" .. why .. ")"
+	return string.format(L["Verdict: %s (%s)"], WORDS[v.word] or v.word, why)
 end
 
 -- What this character means to buy, item ID -> true: its shopping lists and an active profile's buy rules.
@@ -160,15 +168,15 @@ end
 -- Each section is one line; a read that fails costs only its own line.
 local function section(label, read)
 	local ok, text = pcall(read)
-	print("  " .. label .. ": " .. (ok and text or ("could not read (" .. tostring(text) .. ")")))
+	print(string.format(L["  %s: %s"], label, ok and text or string.format(L["could not read (%s)"], tostring(text))))
 end
 
 local function frameLine(r)
-	local parts = { r.name .. ": " .. (r.shown == nil and "unknown" or r.shown and "shown" or "hidden"), r.how }
+	local parts = { string.format(L["%s: %s"], r.name, r.shown == nil and L["unknown"] or r.shown and L["shown"] or L["hidden"]), r.how }
 	if r.err then
-		parts[#parts + 1] = "could not read (" .. r.err .. ")"
+		parts[#parts + 1] = string.format(L["could not read (%s)"], r.err)
 	elseif r.count then
-		parts[#parts + 1] = r.count .. (r.count == 1 and " button" or " buttons")
+		parts[#parts + 1] = ns.plural(r.count, L["%d button"], L["%d buttons"])
 	end
 	return table.concat(parts, ", ")
 end
@@ -176,22 +184,22 @@ end
 local function sampleLine()
 	local s, info, verdict = BagVerdict.sample(ns.BagMark.shownButtons())
 	if not s then
-		return "no item in a shown slot"
+		return L["no item in a shown slot"]
 	end
-	return string.format("bag %s slot %s, %s, %s", tostring(s.bag), tostring(s.slot), info.hyperlink or ("item " .. info.itemID),
+	return string.format(L["bag %s slot %s, %s, %s"], tostring(s.bag), tostring(s.slot), info.hyperlink or string.format(L["item %d"], info.itemID),
 		BagVerdict.line(verdict, ns.price.coins))
 end
 
 local function errorWords(name)
 	local e = ns.lastError(name)
 	if not e then
-		return name .. " none"
+		return string.format(L["%s none"], name)
 	end
-	return string.format("%s failed %dx, %d min ago: %s", name, e.n, math.floor((GetServerTime() - e.t) / 60), e.msg)
+	return string.format(L["%s failed %dx, %d min ago: %s"], name, e.n, math.floor((GetServerTime() - e.t) / 60), e.msg)
 end
 
 local function switchWord(name)
-	return ns.settings("prices")[name] == false and "off" or "on"
+	return ns.settings("prices")[name] == false and L["off"] or L["on"]
 end
 
 local function replacementAddons()
@@ -201,37 +209,37 @@ local function replacementAddons()
 			found[#found + 1] = name
 		end
 	end
-	return #found > 0 and table.concat(found, ", ") or "none"
+	return #found > 0 and table.concat(found, ", ") or L["none"]
 end
 
 ns.commands.bags = function()
-	print(ns.PREFIX .. " bags:")
+	print(string.format(L["%s bags:"], ns.PREFIX))
 	local open
-	section("frames", function()
+	section(L["frames"], function()
 		local lines, anyShown = {}, false
 		for i, r in ipairs(ns.BagMark.frameReport()) do
 			lines[i] = frameLine(r)
 			anyShown = anyShown or r.shown == true
 		end
 		open = anyShown
-		return #lines > 0 and table.concat(lines, " · ") or "none exist"
+		return #lines > 0 and table.concat(lines, " · ") or L["none exist"]
 	end)
 	if open == false then
-		print("  open your bags first")
+		print(L["  open your bags first"])
 	else
-		section("item buttons", function()
+		section(L["item buttons"], function()
 			return tostring(#ns.BagMark.shownButtons())
 		end)
-		section("sample", sampleLine)
+		section(L["sample"], sampleLine)
 	end
-	section("marks showing", function()
-		return BagVerdict.marksShowing() .. " verdict, " .. (ns.BagMark.coinShowing() and 1 or 0) .. " coin"
+	section(L["marks showing"], function()
+		return string.format(L["%d verdict, %d coin"], BagVerdict.marksShowing(), ns.BagMark.coinShowing() and 1 or 0)
 	end)
-	section("switches", function()
-		return "bag mark " .. switchWord("bagMark") .. ", bag verdict " .. switchWord("bagVerdict")
+	section(L["switches"], function()
+		return string.format(L["bag mark %s, bag verdict %s"], switchWord("bagMark"), switchWord("bagVerdict"))
 	end)
-	section("last error", function()
+	section(L["last error"], function()
 		return errorWords("bag verdict") .. ", " .. errorWords("bag mark")
 	end)
-	section("replacement bag addon", replacementAddons)
+	section(L["replacement bag addon"], replacementAddons)
 end

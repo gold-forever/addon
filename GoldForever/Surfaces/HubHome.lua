@@ -2,6 +2,7 @@
 -- worth most.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Views = ns.Theme, ns.UI, ns.Views
 local Kit = ns.HubKit
 local settings, itemName, itemQuality = Kit.settings, Kit.itemName, Kit.itemQuality
@@ -43,7 +44,7 @@ local function buildActions(page, cardW, GAP)
 		-- A card that opens a page says so: "Open ›" in its corner, and its edge lights up under the pointer
 		-- (manual test run 001: hard to know it can be clicked).
 		if a.go then
-			local open = UI.Text(card, "Open >", { size = "xs", tone = "faint" })
+			local open = UI.Text(card, L["Open >"], { size = "xs", tone = "faint" })
 			open:SetPoint("TOPRIGHT", -10, -8)
 			card:SetScript("OnClick", function()
 				ns.openPage(a.go)
@@ -72,18 +73,18 @@ local function fillActions(actions, home, now)
 	local st = ns.scanState()
 	local latest = ns.price.latestScan()
 	local last = latest and latest.t
-	actions[1].title:SetText("Scan the auction house")
-	actions[1].line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60)
-		or (last and ("Last scan " .. Views.ago(last, now) .. ": scan again") or "No scan yet: open the auction house"))
+	actions[1].title:SetText(L["Scan the auction house"])
+	actions[1].line:SetText(st.wait > 0 and string.format(L["Next full scan in %d:%02d"], math.floor(st.wait / 60), st.wait % 60)
+		or (last and string.format(L["Last scan %s: scan again"], Views.ago(last, now)) or L["No scan yet: open the auction house"]))
 	-- The bags: what they would sell for.
 	local list, total = home.bags.list, home.bags.total
-	actions[2].title:SetText("Sell your bags")
-	actions[2].line:SetText(#list > 0 and string.format("%d items, about %s", #list, UI.layout.money(total, "gold")) or "Nothing priced in your bags")
+	actions[2].title:SetText(L["Sell your bags"])
+	actions[2].line:SetText(#list > 0 and string.format(L["%d items, about %s"], #list, UI.layout.money(total, "gold")) or L["Nothing priced in your bags"])
 	-- The best craft at the latest prices.
 	local crafts = ns.profitableCrafts()
 	local best = crafts[1]
-	actions[3].title:SetText(best and ("Craft " .. itemName(best.recipe.output)) or "Craft for profit")
-	actions[3].line:SetText(best and (UI.layout.money(best.profit, "gold") .. " profit a craft") or "No priced recipe makes a profit yet")
+	actions[3].title:SetText(best and string.format(L["Craft %s"], itemName(best.recipe.output)) or L["Craft for profit"])
+	actions[3].line:SetText(best and string.format(L["%s profit a craft"], UI.layout.money(best.profit, "gold")) or L["No priced recipe makes a profit yet"])
 end
 
 local function column(page, half, x, title, rows, rowH)
@@ -125,7 +126,7 @@ local function buildGoal(page)
 	local strip = { frame = goalStrip, text = goalText, bar = goalBar }
 	-- The field groups the digits as they are typed ("3,000,000"); Set reads the digits alone.
 	local goalGold
-	goalGold = UI.SearchBox(goalStrip, "Goal in gold", function(text)
+	goalGold = UI.SearchBox(goalStrip, L["Goal in gold"], function(text)
 		local digits = string.gsub(text, "%D", "")
 		local grouped = digits ~= "" and UI.layout.group(tonumber(digits)) or ""
 		if grouped ~= text then
@@ -137,11 +138,11 @@ local function buildGoal(page)
 	goalGold:SetHeight(28)
 	goalGold:SetPoint("TOPRIGHT", -196, 2)
 	goalGold:SetWidth(100)
-	local DAYS = { { value = 7, label = "in 7 days" }, { value = 14, label = "in 14 days" }, { value = 30, label = "in 30 days" }, { value = 60, label = "in 60 days" } }
+	local DAYS = { { value = 7, label = L["in 7 days"] }, { value = 14, label = L["in 14 days"] }, { value = 30, label = L["in 30 days"] }, { value = 60, label = L["in 60 days"] } }
 	local goalDays = UI.Dropdown(goalStrip, DAYS, 30, nil)
 	goalDays:SetPoint("TOPRIGHT", -84, 2)
 	goalDays:SetWidth(106)
-	local goalSet = UI.Button(goalStrip, "Set", function()
+	local goalSet = UI.Button(goalStrip, L["Set"], function()
 		local gold = tonumber((string.gsub(goalGold:GetText() or "", "%D", "")))
 		if not gold or gold <= 0 then
 			return
@@ -188,21 +189,22 @@ local function fillGoal(goalStrip, home, now)
 	if not goal then
 		goalStrip.armedAt = nil
 		goalText:SetPoint("RIGHT", goalStrip.frame, "RIGHT", -310, 0)
-		goalText:SetText(UI.layout.money(gold, "gold") .. faint .. " across your characters|r")
+		goalText:SetText(string.format(L["%s across your characters"], UI.layout.money(gold, "gold") .. faint) .. "|r")
 		goalBar:Hide()
 		return
 	end
 	local armed = goalStrip.armedAt and GetTime() - goalStrip.armedAt < CANCEL_ARMED
 	local g = Views.goal(now, gold, goal)
-	local line = string.format("Goal %s: %s now, %d%%", UI.layout.money(goal.gold, "gold"), UI.layout.money(gold, "gold"), g.pct)
+	local line = string.format(L["Goal %s: %s now, %d%%"], UI.layout.money(goal.gold, "gold"), UI.layout.money(gold, "gold"), g.pct)
 	if armed then
-		line = line .. Theme.escape(Theme.color.warning) .. " · press X again to cancel the goal|r"
+		line = line .. Theme.escape(Theme.color.warning) .. " · " .. L["press X again to cancel the goal"] .. "|r"
 	elseif g.reached then
-		line = line .. Theme.escape(Theme.color.success) .. " · reached|r"
+		line = line .. Theme.escape(Theme.color.success) .. " · " .. L["reached"] .. "|r"
 	elseif g.late then
-		line = line .. faint .. " · the date has passed|r"
+		line = line .. faint .. " · " .. L["the date has passed"] .. "|r"
 	else
-		line = line .. faint .. string.format(" · %s a day for %d more %s", "|r" .. UI.layout.money(g.perDay, "gold") .. faint, g.daysLeft, g.daysLeft == 1 and "day" or "days") .. "|r"
+		local days = ns.plural(g.daysLeft, L["%d more day"], L["%d more days"])
+		line = line .. faint .. " · " .. string.format(L["%s a day for %s"], "|r" .. UI.layout.money(g.perDay, "gold") .. faint, days) .. "|r"
 	end
 	goalText:SetText(line)
 	goalText:SetPoint("RIGHT", goalStrip.frame, "RIGHT", -40, 0)
@@ -212,7 +214,7 @@ end
 
 -- Today's money for this character, by where it came from.
 local function buildToday(page, half)
-	local today, todayLabel = column(page, half, 0, "TODAY", 7, 36)
+	local today, todayLabel = column(page, half, 0, L["TODAY"], 7, 36)
 	for _, r in ipairs(today.rows) do
 		r.icon = UI.Icon(r, "trending-up", 15, "muted")
 		r.icon:SetPoint("LEFT", 8, 0)
@@ -230,7 +232,7 @@ local function fillToday(today, todayLabel, home)
 	table.sort(ledger.categories, function(a, b)
 		return math.abs(a.net) > math.abs(b.net)
 	end)
-	todayLabel:SetText(#ledger.categories > 0 and ("TODAY · NET " .. string.upper(UI.layout.money(ledger.net, "gold"))) or "TODAY")
+	todayLabel:SetText(#ledger.categories > 0 and string.format(L["TODAY · NET %s"], ns.upper(UI.layout.money(ledger.net, "gold"))) or L["TODAY"])
 	for i, r in ipairs(today.rows) do
 		local c = ledger.categories[i]
 		r:SetShown(c ~= nil)
@@ -241,12 +243,12 @@ local function fillToday(today, todayLabel, home)
 			r.value:SetText(c.net >= 0 and UI.layout.money(c.net, "gold") or (Theme.escape(Theme.color.danger) .. "-|r" .. UI.layout.money(-c.net, "gold")))
 		end
 	end
-	today.empty:SetText(#ledger.categories == 0 and "No money has moved today on this character." or "")
+	today.empty:SetText(#ledger.categories == 0 and L["No money has moved today on this character."] or "")
 end
 
 -- The bag items worth most.
 local function buildSell(page, half, GAP)
-	local sell = column(page, half, half + GAP, "WORTH SELLING NOW", 5, 50)
+	local sell = column(page, half, half + GAP, L["WORTH SELLING NOW"], 5, 50)
 	for _, r in ipairs(sell.rows) do
 		r.icon = r:CreateTexture(nil, "ARTWORK")
 		r.icon:SetSize(28, 28)
@@ -279,11 +281,12 @@ local function fillSell(sell, home)
 			local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.id) or (GetItemIcon and GetItemIcon(it.id))
 			r.icon:SetTexture(icon or 134400)
 			r.name:SetText(Theme.escape(Theme.quality[quality] or Theme.color.text) .. itemName(it.id) .. "|r" .. faint .. " x" .. it.count .. "|r")
-			r.hint:SetText(it.where == "vendor" and "to a vendor" or "at the auction house, after its cut")
+			r.hint:SetText(it.where == "vendor" and L["to a vendor"] or L["at the auction house, after its cut"])
 			r.value:SetText(UI.layout.money(it.value, "gold"))
 		end
 	end
-	sell.empty:SetText(#list == 0 and ("Nothing priced in your bags" .. (unpriced > 0 and string.format(" (%d unpriced)", unpriced) or "") .. ". Scan the auction house for prices.") or "")
+	sell.empty:SetText(#list == 0 and (unpriced > 0 and string.format(L["Nothing priced in your bags (%d unpriced). Scan the auction house for prices."], unpriced)
+		or L["Nothing priced in your bags. Scan the auction house for prices."]) or "")
 end
 
 -- The next moves, from the save and the prices; today's money by where it came from; and the bag items

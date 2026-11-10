@@ -1,6 +1,7 @@
 -- Gold Forever: the hub's Settings page: General, Modules, Tooltip and Looks.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local Kit = ns.HubKit
 local settings, isRetail = Kit.settings, Kit.isRetail
@@ -9,7 +10,7 @@ local settings, isRetail = Kit.settings, Kit.isRetail
 -- half and its control on the right. rows = { { side = 0|1, label, make = function(parent) -> control,
 -- full = true for a control as wide as the half's right part } }. Returns the card.
 local function settingsCard(page, title, y, rows)
-	local label = UI.Text(page, string.upper(title), { size = "xs", medium = true, tone = "faint" })
+	local label = UI.Text(page, ns.upper(title), { size = "xs", medium = true, tone = "faint" })
 	label:SetPoint("TOPLEFT", 0, y)
 	local lines = 0
 	for _, r in ipairs(rows) do
@@ -66,14 +67,14 @@ local function fillGeneral(page, prefs)
 	local function bigDrop()
 		return math.floor((appraiser.bigDrop or ns.BIG_DROP) / 10000)
 	end
-	settingsCard(g, "Display", 0, {
-		{ side = 0, row = 0, label = "Look", full = true, make = function(cell)
+	settingsCard(g, L["Display"], 0, {
+		{ side = 0, row = 0, label = L["Look"], full = true, make = function(cell)
 			c.look = UI.Dropdown(cell, lookOptions, ns.currentLook(), function(v)
 				ns.commands.look(v)
 			end)
 			return c.look
 		end },
-		{ side = 0, row = 1, label = "Accent colour", make = function(cell)
+		{ side = 0, row = 1, label = L["Accent colour"], make = function(cell)
 			local row = CreateFrame("Frame", nil, cell)
 			row:SetSize(#Theme.accents * 30 - 6, 24)
 			c.swatches = {}
@@ -87,14 +88,14 @@ local function fillGeneral(page, prefs)
 			end
 			return row
 		end },
-		{ side = 1, row = 0, label = "Minimap button", make = function(cell)
+		{ side = 1, row = 0, label = L["Minimap button"], make = function(cell)
 			c.minimap = UI.Switch(cell, not minimap.hidden, function(on)
 				minimap.hidden = not on
 				ns.refreshMinimap()
 			end)
 			return c.minimap
 		end },
-		{ side = 1, row = 1, label = "Window size", full = true, make = function(cell)
+		{ side = 1, row = 1, label = L["Window size"], full = true, make = function(cell)
 			c.scale = UI.Slider(cell, 70, 130, 5, math.floor((window.scale or 1) * 100 + 0.5), function(v)
 				window.scale = v / 100
 				local open = ns.hubWindow()
@@ -107,20 +108,20 @@ local function fillGeneral(page, prefs)
 			return c.scale
 		end },
 	})
-	settingsCard(g, "Alerts", -146, {
-		{ side = 0, row = 0, label = "Hide the HUD in combat", make = function(cell)
+	settingsCard(g, L["Alerts"], -146, {
+		{ side = 0, row = 0, label = L["Hide the HUD in combat"], make = function(cell)
 			c.hideInCombat = UI.Switch(cell, appraiser.hideInCombat, function(on)
 				appraiser.hideInCombat = on
 			end)
 			return c.hideInCombat
 		end },
-		{ side = 0, row = 2, label = "Start and stop sessions by themselves", make = function(cell)
+		{ side = 0, row = 2, label = L["Start and stop sessions by themselves"], make = function(cell)
 			c.autoSession = UI.Switch(cell, ns.Session.automatic(), function(on)
 				ns.Session.setAutomatic(on)
 			end)
 			return c.autoSession
 		end },
-		{ side = 0, row = 1, label = "Offer a skull mark (/gf mark)", make = function(cell)
+		{ side = 0, row = 1, label = L["Offer a skull mark (/gf mark)"], make = function(cell)
 			c.mark = UI.Switch(cell, rares.mark, function(on)
 				rares.mark = on
 			end)
@@ -130,7 +131,7 @@ local function fillGeneral(page, prefs)
 			end
 			return c.mark
 		end },
-		{ side = 1, row = 1, label = "Tell my party about rares", make = function(cell)
+		{ side = 1, row = 1, label = L["Tell my party about rares"], make = function(cell)
 			c.party = UI.Switch(cell, rares.party == true, function(on)
 				rares.party = on
 			end)
@@ -140,11 +141,11 @@ local function fillGeneral(page, prefs)
 			end
 			return c.party
 		end },
-		{ side = 1, row = 0, label = "Big drop alert", full = true, make = function(cell)
+		{ side = 1, row = 0, label = L["Big drop alert"], full = true, make = function(cell)
 			c.bigDrop = UI.Slider(cell, 0, 50, 1, bigDrop(), function(v)
 				appraiser.bigDrop = v * 10000
 			end, function(v)
-				return v == 0 and "rares" or (v .. "g")
+				return v == 0 and L["rares"] or string.format(L["%dg"], v)
 			end)
 			return c.bigDrop
 		end },
@@ -174,57 +175,57 @@ local function fillModules(page, prefs)
 	local crafting = ns.settings("crafting")
 	local mail = ns.settings("mail")
 	local MODULES = {
-		{ icon = "timer", name = "Session HUD", blurb = "Gold, XP and kills an hour while you farm or level, and the session's loot.",
+		{ icon = "timer", name = L["Session HUD"], blurb = L["Gold, XP and kills an hour while you farm or level, and the session's loot."],
 			on = function() return appraiser.shown end,
 			set = function(on)
 				ns.setHud(on)
 			end },
-		{ icon = "timer", name = "Session recap", blurb = "When a session ends, a small card with what it came to.",
+		{ icon = "timer", name = L["Session recap"], blurb = L["When a session ends, a small card with what it came to."],
 			on = function() return appraiser.recap ~= false end,
 			set = function(on) appraiser.recap = on end },
-		{ icon = "trending-up", name = "Item goals", blurb = "On the HUD: up to 3 list items you farm for, how many you hold and the time to go.",
+		{ icon = "trending-up", name = L["Item goals"], blurb = L["On the HUD: up to 3 list items you farm for, how many you hold and the time to go."],
 			on = function() return appraiser.goals ~= false end,
 			set = function(on) appraiser.goals = on end },
-		{ icon = "gavel", name = "Auction house panel", blurb = "Scan, buy, sell and your auctions, beside the auction house.",
+		{ icon = "gavel", name = L["Auction house panel"], blurb = L["Scan, buy, sell and your auctions, beside the auction house."],
 			on = function() return not auction.hidden end,
 			set = function(on) auction.hidden = not on end },
-		{ icon = "search", name = "Deals after a scan", blurb = "One chat line naming the list items listed at or under your price.",
+		{ icon = "search", name = L["Deals after a scan"], blurb = L["One chat line naming the list items listed at or under your price."],
 			on = function() return auction.dealsAlert ~= false end,
 			set = function(on) auction.dealsAlert = on end },
-		{ icon = "coins", name = "Sale alert", blurb = "A coin sound and one chat line when one of your auctions sells.",
+		{ icon = "coins", name = L["Sale alert"], blurb = L["A coin sound and one chat line when one of your auctions sells."],
 			on = function() return auction.soldAlert ~= false end,
 			set = function(on) auction.soldAlert = on end },
-		{ icon = "coins", name = "Best quest reward", blurb = "A gold coin on the quest reward worth the most to sell.",
+		{ icon = "coins", name = L["Best quest reward"], blurb = L["A gold coin on the quest reward worth the most to sell."],
 			on = function() return prices.bestReward ~= false end,
 			set = function(on) prices.bestReward = on end },
-		{ icon = "coins", name = "Vendor resale", blurb = "At a merchant, a gold coin on items that sell for more on the auction house.",
+		{ icon = "coins", name = L["Vendor resale"], blurb = L["At a merchant, a gold coin on items that sell for more on the auction house."],
 			on = function() return prices.vendorResale ~= false end,
 			set = function(on) prices.vendorResale = on end },
-		{ icon = "backpack", name = "Cheapest in full bags", blurb = "With your bags full, a copper coin on the stack worth least, to make room.",
+		{ icon = "backpack", name = L["Cheapest in full bags"], blurb = L["With your bags full, a copper coin on the stack worth least, to make room."],
 			on = function() return prices.bagMark ~= false end,
 			set = function(on)
 				prices.bagMark = on
 				ns.BagMark.refresh()
 			end },
-		{ icon = "backpack", name = "Bag verdicts", blurb = "A small mark on each bag and bank item: post, vendor or disenchant.",
+		{ icon = "backpack", name = L["Bag verdicts"], blurb = L["A small mark on each bag and bank item: post, vendor or disenchant."],
 			on = function() return prices.bagVerdict ~= false end,
 			set = function(on)
 				prices.bagVerdict = on
 				ns.BagVerdict.refresh()
 			end },
-		{ icon = "coins", name = "Loot roll value", blurb = "Under the item on a Need/Greed roll: its auction and vendor value.",
+		{ icon = "coins", name = L["Loot roll value"], blurb = L["Under the item on a Need/Greed roll: its auction and vendor value."],
 			on = function() return prices.rollValue ~= false end,
 			set = function(on) prices.rollValue = on end },
-		{ icon = "skull", name = "Best farm changed", blurb = "After new prices, one chat line when another mob is now your best loot.",
+		{ icon = "skull", name = L["Best farm changed"], blurb = L["After new prices, one chat line when another mob is now your best loot."],
 			on = function() return prices.bestFarm == true end,
 			set = function(on) prices.bestFarm = on end },
-		{ icon = "package", name = "Mail helper", blurb = "Beside the mailbox: open all the auction house's mail in one press.",
+		{ icon = "package", name = L["Mail helper"], blurb = L["Beside the mailbox: open all the auction house's mail in one press."],
 			on = function() return mail.helper ~= false end,
 			set = function(on) mail.helper = on end },
-		{ icon = "flask-conical", name = "Crafting strip", blurb = "Beside the profession window: a recipe's cost, sale, profit and what to buy.",
+		{ icon = "flask-conical", name = L["Crafting strip"], blurb = L["Beside the profession window: a recipe's cost, sale, profit and what to buy."],
 			on = function() return crafting.strip ~= false end,
 			set = function(on) crafting.strip = on end },
-		{ icon = "skull", name = "Rare alerts", blurb = isRetail and "Off on retail: its cities are full of markers the alert took for rares." or "A message and a sound when a rare is near.",
+		{ icon = "skull", name = L["Rare alerts"], blurb = isRetail and L["Off on retail: its cities are full of markers the alert took for rares."] or L["A message and a sound when a rare is near."],
 			on = function() return rares.announce end,
 			set = function(on) rares.announce = on end, disabled = isRetail },
 	}
@@ -280,14 +281,14 @@ local function fillModules(page, prefs)
 			paint(row, on)
 		end
 	end
-	local note = UI.Text(m.body, "The save records the same whatever is off: the site and the shared prices still get it.", { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(m.body, L["The save records the same whatever is off: the site and the shared prices still get it."], { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
 	note:SetPoint("RIGHT", m.body, "RIGHT")
 end
 
 -- Tooltip: each line the addon adds to a tooltip (Tooltips.lua) with a three-way picker, Off, With Shift or
 -- Always, changed at once; a tooltip open with Shift held shows the Shift lines.
-local MODES = { { key = "off", label = "Off" }, { key = "shift", label = "With Shift" }, { key = "always", label = "Always" } }
+local MODES = { { key = "off", label = L["Off"] }, { key = "shift", label = L["With Shift"] }, { key = "always", label = L["Always"] } }
 local function fillTooltip(page)
 	local t = page.tooltip
 	local modes = ns.settings("tooltip")
@@ -329,7 +330,7 @@ local function fillTooltip(page)
 			row.picker:Select(modes[row.line.key])
 		end
 	end
-	local note = UI.Text(t.body, "With Shift: the line shows while you hold Shift over the item or mob.", { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(t.body, L["With Shift: the line shows while you hold Shift over the item or mob."], { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
 	note:SetPoint("RIGHT", t.body, "RIGHT")
 end
@@ -348,21 +349,21 @@ local function fillLooks(page)
 		icon:SetPoint("TOPLEFT", 16, -16)
 		local label = UI.Text(card, skin.label, { size = "md", medium = true, tone = on and "accent" or "text" })
 		label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
-		local line = UI.Text(card, on and "In use. Every window draws in it." or "Click to switch: no reload.", { size = "xs", tone = "faint", wrap = true })
+		local line = UI.Text(card, on and L["In use. Every window draws in it."] or L["Click to switch: no reload."], { size = "xs", tone = "faint", wrap = true })
 		line:SetPoint("TOPLEFT", 16, -46)
 		line:SetWidth(180)
 		card:SetScript("OnClick", function()
 			ns.commands.look(name)
 		end)
 	end
-	local note = UI.Text(l, "The accent colour (General) goes over any look. Panels opened before a change keep their colours until /reload.", { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(l, L["The accent colour (General) goes over any look. Panels opened before a change keep their colours until /reload."], { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", 0, -106)
 	note:SetPoint("RIGHT", l, "RIGHT")
 end
 -- Each tab drawn the first time it is chosen (General when the page opens).
 local FILLS = { general = fillGeneral, modules = fillModules, tooltip = fillTooltip, looks = fillLooks }
-local TABS = { { key = "general", label = "General" }, { key = "modules", label = "Modules" }, { key = "tooltip", label = "Tooltip" },
-	{ key = "looks", label = "Looks" } }
+local TABS = { { key = "general", label = L["General"] }, { key = "modules", label = L["Modules"] }, { key = "tooltip", label = L["Tooltip"] },
+	{ key = "looks", label = L["Looks"] } }
 
 local function buildSettings(page)
 	local window = settings()
@@ -375,8 +376,16 @@ local function buildSettings(page)
 			page[key]:Refresh()
 		end
 	end, { variant = "underline" })
-	tabs:SetPoint("TOPLEFT")
-	tabs:SetPoint("TOPRIGHT")
+	-- In a language the addon was translated into, a line above the tabs says the translation was made with
+	-- AI (owner, 2026-11-10).
+	local top = 0
+	if ns.Locale.translated() then
+		local notice = UI.Text(page, L["Translated with AI: it may contain mistakes."], { size = "xs", tone = "faint" })
+		notice:SetPoint("TOPLEFT")
+		top = -20
+	end
+	tabs:SetPoint("TOPLEFT", 0, top)
+	tabs:SetPoint("TOPRIGHT", 0, top)
 	page.general = CreateFrame("Frame", nil, page)
 	page.general:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 0, -16)
 	page.general:SetPoint("BOTTOMRIGHT")

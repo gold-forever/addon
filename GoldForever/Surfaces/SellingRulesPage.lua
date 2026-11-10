@@ -2,6 +2,7 @@
 -- category, and the sale profiles.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Post = ns.Theme, ns.UI, ns.Post
 local ah = ns.ah
 local settings, activeProfile = ns.auctionSettings, ns.activeProfile
@@ -22,7 +23,7 @@ local function buildRule(page)
 	local scope = "default"
 	local function className(class)
 		local name = C_Item and C_Item.GetItemClassInfo and C_Item.GetItemClassInfo(class) or (GetItemClassInfo and GetItemClassInfo(class))
-		return name or ("category " .. class)
+		return name or string.format(L["category %s"], tostring(class))
 	end
 	local function target()
 		local kind, id = string.match(scope, "^(%a+):(%d+)$")
@@ -52,7 +53,7 @@ local function buildRule(page)
 	exampleCard:SetPoint("TOPLEFT", RIGHT, 0)
 	exampleCard:SetPoint("RIGHT", page, "RIGHT")
 	exampleCard:SetHeight(196)
-	local exampleHead = UI.Text(exampleCard, "WHAT IT DOES TO AN ITEM WORTH 10G", { size = "xs", medium = true, tone = "faint" })
+	local exampleHead = UI.Text(exampleCard, L["WHAT IT DOES TO AN ITEM WORTH 10G"], { size = "xs", medium = true, tone = "faint" })
 	exampleHead:SetPoint("TOPLEFT", 14, -12)
 	local exampleText = UI.Text(exampleCard, "", { size = "xs", wrap = true })
 	exampleText:SetPoint("TOPLEFT", exampleHead, "BOTTOMLEFT", 0, -10)
@@ -89,27 +90,27 @@ local function buildRule(page)
 	end
 	local v = shown()
 	local controls = {
-		undercut = row(-84, "Undercut by", UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
-			"How far under the cheapest other seller you post."),
-		floor = row(-156, "Never under", UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
-			"Your floor, as a share of the market value: nothing posts below it."),
-		normal = row(-228, "Normal price", UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
-			"What you ask when no one else sells it, or everyone asks more than this."),
-		belowFloor = row(-300, "Under the floor", UI.Dropdown(page, { { value = "hold", label = "Hold it" }, { value = "floor", label = "Post at the floor" } }, v.belowFloor, function(x) set("belowFloor", x) end),
-			"When undercutting would go under your floor: keep the item, or post at the floor anyway."),
+		undercut = row(-84, L["Undercut by"], UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
+			L["How far under the cheapest other seller you post."]),
+		floor = row(-156, L["Never under"], UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
+			L["Your floor, as a share of the market value: nothing posts below it."]),
+		normal = row(-228, L["Normal price"], UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
+			L["What you ask when no one else sells it, or everyone asks more than this."]),
+		belowFloor = row(-300, L["Under the floor"], UI.Dropdown(page, { { value = "hold", label = L["Hold it"] }, { value = "floor", label = L["Post at the floor"] } }, v.belowFloor, function(x) set("belowFloor", x) end),
+			L["When undercutting would go under your floor: keep the item, or post at the floor anyway."]),
 	}
 	local scopePick, removeButton
 	local function pickOptions()
-		local out = { { value = "default", label = "Every item" } }
+		local out = { { value = "default", label = L["Every item"] } }
 		for id in pairs(s.overrides.items) do
 			local _, _, _, _, name = ns.price.itemInfo(id)
-			out[#out + 1] = { value = "item:" .. id, label = "Item: " .. (name or id) }
+			out[#out + 1] = { value = "item:" .. id, label = string.format(L["Item: %s"], tostring(name or id)) }
 		end
 		for class in pairs(s.overrides.classes) do
-			out[#out + 1] = { value = "class:" .. class, label = "Category: " .. className(class) }
+			out[#out + 1] = { value = "class:" .. class, label = string.format(L["Category: %s"], className(class)) }
 		end
-		out[#out + 1] = { value = "add-item", label = "+ The item chosen in Sell" }
-		out[#out + 1] = { value = "add-class", label = "+ Its category" }
+		out[#out + 1] = { value = "add-item", label = L["+ The item chosen in Sell"] }
+		out[#out + 1] = { value = "add-class", label = L["+ Its category"] }
 		return out
 	end
 	local rebuildPick
@@ -149,9 +150,9 @@ local function buildRule(page)
 		scopePick:SetPoint("TOPLEFT", LABEL, 6)
 		scopePick:SetPoint("RIGHT", page, "LEFT", LEFT - 94, 0)
 	end
-	local pickLabel = UI.Text(page, "Rule for", { size = "sm" })
+	local pickLabel = UI.Text(page, L["Rule for"], { size = "sm" })
 	pickLabel:SetPoint("TOPLEFT", 0, 0)
-	removeButton = UI.Button(page, "Remove", function()
+	removeButton = UI.Button(page, L["Remove"], function()
 		local kind, id = string.match(scope, "^(%a+):(%d+)$")
 		if kind == "item" then
 			s.overrides.items[tonumber(id)] = nil
@@ -165,21 +166,21 @@ local function buildRule(page)
 	rebuildPick()
 	page.chooseScope = choose
 	page.setField = set
-	local scopeLine = UI.Text(page, "A rule for one item or a category changes only what you set for it; the rest comes from Every item.", { size = "xs", tone = "faint", wrap = true })
+	local scopeLine = UI.Text(page, L["A rule for one item or a category changes only what you set for it; the rest comes from Every item."], { size = "xs", tone = "faint", wrap = true })
 	scopeLine:SetPoint("TOPLEFT", 0, -34)
 	scopeLine:SetWidth(LEFT)
-	local note = UI.Text(page, "The market value is everyone's price from the companion, else your own last scan. Prices are whole silver.", { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(page, L["The market value is everyone's price from the companion, else your own last scan. Prices are whole silver."], { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", 0, -376)
 	note:SetWidth(LEFT)
 
 	-- Sale profiles (GFP1 strings from the site or other players): one active at a time.
 	s.profiles = s.profiles or {}
-	local head = UI.Text(page, "SALE PROFILE", { size = "xs", medium = true, tone = "faint" })
+	local head = UI.Text(page, L["SALE PROFILE"], { size = "xs", medium = true, tone = "faint" })
 	head:SetPoint("TOPLEFT", exampleCard, "BOTTOMLEFT", 0, -18)
 	local pick
 	local summary = UI.Text(page, "", { size = "xs", tone = "muted", wrap = true })
 	local function options()
-		local out = { { value = 0, label = "None: the rules" } }
+		local out = { { value = 0, label = L["None: the rules"] } }
 		for i, p in ipairs(s.profiles) do
 			if ns.profileForMe(p) then
 				out[#out + 1] = { value = i, label = p.name }
@@ -189,8 +190,8 @@ local function buildRule(page)
 	end
 	local function describe()
 		local p = activeProfile()
-		summary:SetText(p and string.format("%s by %s: %d items to sell, %d to buy. The items it names follow it instead of the rules.", p.name, p.author ~= "" and p.author or "?", #p.sell, #p.buy)
-			or "A profile from gold-forever.app/me/lists prices the items it names; the rules price the rest.")
+		summary:SetText(p and string.format(L["%s by %s: %d items to sell, %d to buy. The items it names follow it instead of the rules."], p.name, p.author ~= "" and p.author or "?", #p.sell, #p.buy)
+			or L["A profile from gold-forever.app/me/lists prices the items it names; the rules price the rest."])
 	end
 	local function rebuild()
 		if pick then
@@ -211,7 +212,7 @@ local function buildRule(page)
 		describe()
 	end
 	rebuild()
-	local field = UI.SearchBox(page, "Paste a GFP1 string", nil)
+	local field = UI.SearchBox(page, L["Paste a GFP1 string"], nil)
 	field:SetMaxLetters(0) -- a profile string runs to 16 KB (SalePlan.decode bounds it)
 	field:SetPoint("TOPLEFT", pick, "BOTTOMLEFT", 0, -48)
 	field:SetPoint("RIGHT", page, "RIGHT", -152, 0)
@@ -234,19 +235,19 @@ local function buildRule(page)
 		s.profile = #s.profiles
 		field:SetText("")
 		rebuild()
-		message:SetText("Imported and in use.")
+		message:SetText(L["Imported and in use."])
 	end
-	local import = UI.Button(page, "Import", function()
+	local import = UI.Button(page, L["Import"], function()
 		doImport()
 	end, { width = 72, height = 28 })
 	import:SetPoint("LEFT", field, "RIGHT", 6, 0)
-	local export = UI.Button(page, "Export", function()
+	local export = UI.Button(page, L["Export"], function()
 		local p = activeProfile()
 		if p then
 			field:SetText(ns.SalePlan.encode(p))
 			field:SetFocus()
 			field:HighlightText()
-			message:SetText("Copy it with Ctrl+C.")
+			message:SetText(L["Copy it with Ctrl+C."])
 		end
 	end, { width = 72, height = 28 })
 	export:SetPoint("LEFT", import, "RIGHT", 4, 0)

@@ -2,6 +2,7 @@
 -- time to the next level; a click opens the session under it (Session.lua keeps the session).
 
 local _, ns = ...
+local L = ns.L
 local Session = ns.Session
 local itemInfo = ns.price.itemInfo
 
@@ -57,7 +58,7 @@ local function drawGoals(hud, session, sum)
 			local name = ns.itemName(e.itemId)
 			local p = ns.Shopping.goalProgress(e.upTo, ns.Lists.goalHave(e.itemId), session and session.items[e.itemId] or 0, elapsed)
 			if ns.Shopping.newlyReached(reachedSeen, e.itemId .. "/" .. e.upTo, p.reached) then
-				ns.say(string.format("goal reached: %d %s.", e.upTo, name))
+				ns.say(string.format(L["goal reached: %d %s."], e.upTo, name))
 			end
 			local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(e.itemId) or (GetItemIcon and GetItemIcon(e.itemId))
 			row.icon:SetTexture(icon or 134400)
@@ -86,7 +87,7 @@ local function refresh()
 	drawGoals(hud, session, sum)
 	if not session then
 		hud.time:SetText("")
-		hud.gold:SetText(faint .. (Session.automatic() and "Loot or kill something to start a session." or "Press Start to start a session.") .. "|r")
+		hud.gold:SetText(faint .. (Session.automatic() and L["Loot or kill something to start a session."] or L["Press Start to start a session."]) .. "|r")
 		hud.xp:SetText("")
 		hud.kills:SetText("")
 		hud.ding:SetText("")
@@ -95,24 +96,24 @@ local function refresh()
 	end
 	local secs, value, unpriced, r = sum.elapsed, sum.value, sum.unpriced, sum.rates
 	local dash = faint .. "-|r"
-	hud.time:SetText((Session.idle() and "ended " or "") .. Views.duration(math.max(60, secs)))
+	hud.time:SetText(string.format(Session.idle() and L["ended %s"] or "%s", Views.duration(math.max(60, secs))))
 	hud.gold:SetText((r.rated and UI.layout.money(r.goldPerHour, "gold") or dash) .. faint .. " /h|r")
-	hud.xp:SetText((r.rated and Views.short(r.xpPerHour) or dash) .. faint .. " XP/h|r")
-	hud.kills:SetText((r.rated and Views.short(r.killsPerHour) or dash) .. faint .. " kills/h|r")
-	hud.ding:SetText(not r.rated and "warming up..." or r.dingIn and ("ding in " .. Theme.escape(Theme.color.text) .. Views.duration(r.dingIn) .. "|r") or "")
+	hud.xp:SetText((r.rated and Views.short(r.xpPerHour) or dash) .. faint .. L[" XP/h"] .. "|r")
+	hud.kills:SetText((r.rated and Views.short(r.killsPerHour) or dash) .. faint .. L[" kills/h"] .. "|r")
+	hud.ding:SetText(not r.rated and L["warming up..."] or r.dingIn and string.format(L["ding in %s"], Theme.escape(Theme.color.text) .. Views.duration(r.dingIn) .. "|r") or "")
 
 	local d = hud.details
 	if not d:IsShown() then
 		return
 	end
 	d.values[1]:SetText(UI.layout.money(session.coin))
-	d.values[2]:SetText(UI.layout.money(value) .. (unpriced > 0 and (faint .. string.format("  +%d unpriced", unpriced) .. "|r") or ""))
-	d.values[3]:SetText(UI.layout.money(r.total) .. (r.rated and (faint .. "  · " .. "|r" .. UI.layout.money(r.goldPerHour, "gold") .. faint .. " an hour|r") or ""))
-	d.values[4]:SetText(Views.short(sum.xp) .. (r.killsToLevel and (faint .. string.format("  · ~%d kills to level %d", r.killsToLevel, sum.nextLevel or 0) .. "|r") or ""))
-	d.values[5]:SetText(sum.kills .. faint .. "  from kill XP and corpses, never the combat log|r")
-	local bags = sum.bagFree == 0 and (Theme.escape(Theme.color.danger) .. "full|r") or (sum.bagFree .. " free")
+	d.values[2]:SetText(UI.layout.money(value) .. (unpriced > 0 and (faint .. string.format(L["  +%d unpriced"], unpriced) .. "|r") or ""))
+	d.values[3]:SetText(UI.layout.money(r.total) .. (r.rated and (faint .. "  · " .. "|r" .. UI.layout.money(r.goldPerHour, "gold") .. faint .. L[" an hour"] .. "|r") or ""))
+	d.values[4]:SetText(Views.short(sum.xp) .. (r.killsToLevel and (faint .. string.format(L["  · ~%d kills to level %d"], r.killsToLevel, sum.nextLevel or 0) .. "|r") or ""))
+	d.values[5]:SetText(sum.kills .. faint .. L["  from kill XP and corpses, never the combat log"] .. "|r")
+	local bags = sum.bagFree == 0 and (Theme.escape(Theme.color.danger) .. L["full"] .. "|r") or string.format(L["%d free"], sum.bagFree)
 	if sum.fullIn then
-		bags = bags .. faint .. "  · full in ~" .. Views.duration(sum.fullIn) .. "|r"
+		bags = bags .. faint .. string.format(L["  · full in ~%s"], Views.duration(sum.fullIn)) .. "|r"
 	end
 	d.values[6]:SetText(bags)
 	-- The most valuable loot so far.
@@ -124,14 +125,14 @@ local function refresh()
 			local quality, _, _, _, name = itemInfo(it.id)
 			local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.id) or (GetItemIcon and GetItemIcon(it.id))
 			row.icon:SetTexture(icon or 134400) -- the question mark
-			row.name:SetText(Theme.escape(Theme.quality[quality or 1] or Theme.color.text) .. (name or ("item " .. it.id)) .. "|r" .. faint .. " x" .. it.n .. "|r")
-			row.value:SetText(it.value > 0 and UI.layout.money(it.value, "gold") or (faint .. "no price|r"))
+			row.name:SetText(Theme.escape(Theme.quality[quality or 1] or Theme.color.text) .. (name or string.format(L["item %d"], it.id)) .. "|r" .. faint .. " x" .. it.n .. "|r")
+			row.value:SetText(it.value > 0 and UI.layout.money(it.value, "gold") or (faint .. L["no price"] .. "|r"))
 		end
 	end
 	d.empty:SetShown(#ranked == 0)
 end
 
-local ROWS = { "Coin", "Loot, at what it sells for", "Total", "XP", "Kills", "Bags" }
+local ROWS = { L["Coin"], L["Loot, at what it sells for"], L["Total"], L["XP"], L["Kills"], L["Bags"] }
 local TOP_LOOT = 5
 
 -- Where the player last left the HUD, in whichever look.
@@ -198,15 +199,15 @@ build = function()
 	hud.ding = UI.Text(hit, "", { size = "sm", tone = "muted", align = "RIGHT" })
 	hud.ding:SetPoint("RIGHT", -12, 0)
 	hud.ding:SetWidth(110)
-	hud.start = UI.Button(hit, "Start", function()
+	hud.start = UI.Button(hit, L["Start"], function()
 		Session.start()
 	end, { kind = "primary", width = 64, height = 24 })
 	hud.start:SetPoint("RIGHT", -6, 0)
-	hud.stop = UI.Button(hit, "Stop", function()
+	hud.stop = UI.Button(hit, L["Stop"], function()
 		Session.stop()
 	end, { kind = "ghost", width = 64, height = 24 })
 	hud.stop:SetPoint("RIGHT", -6, 0)
-	hud.recap = UI.Button(hit, "Recap", ns.SessionRecap.reopen, { kind = "ghost", width = 64, height = 24 })
+	hud.recap = UI.Button(hit, L["Recap"], ns.SessionRecap.reopen, { kind = "ghost", width = 64, height = 24 })
 
 	-- Item goals, under the line (drawGoals).
 	local g = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
@@ -239,7 +240,7 @@ build = function()
 	d:SetHeight(48 + #ROWS * 20 + 26 + TOP_LOOT * 28 + 48 + 34)
 	d:EnableMouse(true)
 	d:Hide()
-	local head = UI.Text(d, Theme.skin.titleCaps and "THIS SESSION" or "This session", { size = "lg", medium = true })
+	local head = UI.Text(d, Theme.skin.titleCaps and L["THIS SESSION"] or L["This session"], { size = "lg", medium = true })
 	head:SetPoint("TOPLEFT", 16, -14)
 	d.values = {}
 	for i, label in ipairs(ROWS) do
@@ -251,7 +252,7 @@ build = function()
 		d.values[i] = v
 	end
 	local y = -24 - #ROWS * 20 - 34
-	local lootHead = UI.Text(d, "LOOT", { size = "xs", medium = true, tone = "faint" })
+	local lootHead = UI.Text(d, L["LOOT"], { size = "xs", medium = true, tone = "faint" })
 	lootHead:SetPoint("TOPLEFT", 16, y)
 	d.items = {}
 	for i = 1, TOP_LOOT do
@@ -271,25 +272,25 @@ build = function()
 		row.value:SetWidth(140)
 		d.items[i] = row
 	end
-	d.empty = UI.Text(d, "Nothing looted yet.", { size = "sm", tone = "faint" })
+	d.empty = UI.Text(d, L["Nothing looted yet."], { size = "sm", tone = "faint" })
 	d.empty:SetPoint("TOPLEFT", 16, y - 22)
 	d.auto = UI.Switch(d, Session.automatic(), function(on)
 		Session.setAutomatic(on)
 	end)
 	d.auto:SetPoint("BOTTOMLEFT", 16, 52)
-	local autoLabel = UI.Text(d, "Start and stop sessions by themselves", { size = "sm", tone = "muted" })
+	local autoLabel = UI.Text(d, L["Start and stop sessions by themselves"], { size = "sm", tone = "muted" })
 	autoLabel:SetPoint("LEFT", d.auto, "RIGHT", 10, 0)
-	local stop = UI.Button(d, "Stop", function()
+	local stop = UI.Button(d, L["Stop"], function()
 		Session.stop()
 	end, { kind = "ghost", width = 80, height = 26 })
 	stop:SetPoint("BOTTOMLEFT", 12, 12)
-	local reset = UI.Button(d, "New session", function()
+	local reset = UI.Button(d, L["New session"], function()
 		ns.commands.reset()
 	end, { kind = "ghost", width = 120, height = 26 })
 	reset:SetPoint("LEFT", stop, "RIGHT", 8, 0)
-	d.recap = UI.Button(d, "Last recap", ns.SessionRecap.reopen, { kind = "ghost", width = 100, height = 26 })
+	d.recap = UI.Button(d, L["Last recap"], ns.SessionRecap.reopen, { kind = "ghost", width = 100, height = 26 })
 	d.recap:SetPoint("LEFT", reset, "RIGHT", 8, 0)
-	local hide = UI.Button(d, "Hide the HUD", function()
+	local hide = UI.Button(d, L["Hide the HUD"], function()
 		ns.commands.appraise()
 	end, { width = 130, height = 26 })
 	hide:SetPoint("BOTTOMRIGHT", -12, 12)
@@ -381,7 +382,7 @@ ns.commands.appraise = function()
 	local hud = huds.frame
 	if hud and (hud:IsShown() or (settings().shown and tucked())) then
 		ns.setHud(false)
-		ns.say("session HUD hidden; /gf hud shows it again.")
+		ns.say(L["session HUD hidden; /gf hud shows it again."])
 	else
 		ns.setHud(true)
 	end

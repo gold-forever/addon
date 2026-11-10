@@ -4,6 +4,7 @@
 -- once the saved settings are read; dragging is the only time it runs code every frame.
 
 local _, ns = ...
+local L = ns.L
 local Theme = ns.Theme
 
 local Minimap_ = {}
@@ -61,9 +62,9 @@ local function tooltip(owner)
 	end
 	GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
 	GameTooltip:AddLine("Gold Forever", Theme.rgb(Theme.color.accent))
-	GameTooltip:AddLine("Left-click: open or close the window", 1, 1, 1)
-	GameTooltip:AddLine(string.format("Right-click: the %s look", Theme.skins[otherLook()].label), 1, 1, 1)
-	GameTooltip:AddLine("Drag: move it around the minimap", Theme.rgb(Theme.color.textFaint))
+	GameTooltip:AddLine(L["Left-click: open or close the window"], 1, 1, 1)
+	GameTooltip:AddLine(string.format(L["Right-click: the %s look"], Theme.skins[otherLook()].label), 1, 1, 1)
+	GameTooltip:AddLine(L["Drag: move it around the minimap"], Theme.rgb(Theme.color.textFaint))
 	GameTooltip:Show()
 end
 
@@ -155,7 +156,7 @@ ns.commands.minimap = function()
 	local s = settings()
 	s.hidden = not s.hidden
 	refresh()
-	print(string.format("%s minimap button %s. /gf minimap brings it %s.", ns.PREFIX, s.hidden and "hidden" or "shown", s.hidden and "back" or "away"))
+	print(string.format(s.hidden and L["%s minimap button hidden. /gf minimap brings it back."] or L["%s minimap button shown. /gf minimap brings it away."], ns.PREFIX))
 end
 
 -- The addon compartment (the TOC names these) and the key bindings (Bindings.xml) -----------------------------
@@ -194,6 +195,6 @@ end
 
 -- Retail's AddOns list may show no header and cuts a name past about 24 letters: each name says whose it is.
 BINDING_HEADER_GOLDFOREVER = "Gold Forever"
-BINDING_NAME_GOLDFOREVER_WINDOW = "Gold Forever window"
-BINDING_NAME_GOLDFOREVER_LOOK = "Gold Forever next look"
-BINDING_NAME_GOLDFOREVER_HUD = "Gold Forever HUD"
+BINDING_NAME_GOLDFOREVER_WINDOW = L["Gold Forever window"]
+BINDING_NAME_GOLDFOREVER_LOOK = L["Gold Forever next look"]
+BINDING_NAME_GOLDFOREVER_HUD = L["Gold Forever HUD"]

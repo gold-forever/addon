@@ -6,17 +6,18 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local FirstRun = {}
 ns.FirstRun = FirstRun
 
 -- The presets: which module switches each turns on (the rest off). Rare alerts stay as they are.
 FirstRun.PRESETS = {
-	{ id = "prices", label = "Prices only", blurb = "Everyone's prices in your tooltips; nothing else on screen.",
+	{ id = "prices", label = L["Prices only"], blurb = L["Everyone's prices in your tooltips; nothing else on screen."],
 		on = { tooltip = true } },
-	{ id = "trader", label = "Trader", blurb = "Prices, the auction house panel and the crafting strip.",
+	{ id = "trader", label = L["Trader"], blurb = L["Prices, the auction house panel and the crafting strip."],
 		on = { tooltip = true, auction = true, strip = true } },
-	{ id = "everything", label = "Everything", blurb = "All of it, the session HUD too. Switch any off later.",
+	{ id = "everything", label = L["Everything"], blurb = L["All of it, the session HUD too. Switch any off later."],
 		on = { tooltip = true, auction = true, strip = true, hud = true } },
 }
 
@@ -55,7 +56,7 @@ local function settingsTables()
 end
 
 local card, open
-local STEPS = { "What it records", "Where to start", "Look and colour", "The companion" }
+local STEPS = { L["What it records"], L["Where to start"], L["Look and colour"], L["The companion"] }
 -- The preset picked, kept across the cards of each look (a new look draws the card anew).
 local chosen = "trader"
 
@@ -67,7 +68,7 @@ local function build()
 	f:SetPoint("CENTER", 0, 40)
 	f:SetFrameStrata("DIALOG")
 	f:EnableMouse(true)
-	local title = UI.Text(f, Theme.skin.titleCaps and "WELCOME TO GOLD FOREVER" or "Welcome to Gold Forever", { size = "xl", medium = true })
+	local title = UI.Text(f, Theme.skin.titleCaps and L["WELCOME TO GOLD FOREVER"] or L["Welcome to Gold Forever"], { size = "xl", medium = true })
 	title:SetPoint("TOPLEFT", 24, -22)
 	local steps = UI.Text(f, "", { size = "xs", tone = "faint" })
 	steps:SetPoint("TOPLEFT", 24, -54)
@@ -82,15 +83,15 @@ local function build()
 	p1:SetPoint("TOPLEFT", 24, -92)
 	p1:SetPoint("BOTTOMRIGHT", -24, 60)
 	for i, t in ipairs({
-		{ "Your characters", "level, gold, guild, professions and where they are, for your own pages on the site" },
-		{ "Your money and loot", "every coin in and out, and what you looted and sold" },
-		{ "Auction scans", "prices when you open the auction house, never who sells" },
+		{ L["Your characters"], L["level, gold, guild, professions and where they are, for your own pages on the site"] },
+		{ L["Your money and loot"], L["every coin in and out, and what you looted and sold"] },
+		{ L["Auction scans"], L["prices when you open the auction house, never who sells"] },
 	}) do
 		local l = UI.Text(p1, Theme.escape(Theme.color.accent) .. "-|r  " .. t[1] .. "\n" .. Theme.escape(Theme.color.textMuted) .. t[2] .. "|r", { size = "sm", wrap = true })
 		l:SetPoint("TOPLEFT", 0, -(i - 1) * 44)
 		l:SetPoint("RIGHT", p1, "RIGHT")
 	end
-	local shared = UI.Text(p1, "Every upload adds its auction scans, item details and loot counts to the shared prices, never your name. Your characters, gold and ledger stay private.", { size = "xs", tone = "faint", wrap = true })
+	local shared = UI.Text(p1, L["Every upload adds its auction scans, item details and loot counts to the shared prices, never your name. Your characters, gold and ledger stay private."], { size = "xs", tone = "faint", wrap = true })
 	shared:SetPoint("TOPLEFT", 0, -140)
 	shared:SetPoint("RIGHT", p1, "RIGHT")
 	pages[1] = p1
@@ -135,7 +136,7 @@ local function build()
 		change()
 		open(3)
 	end
-	local lookLabel = UI.Text(p3, "Look", { size = "xs", medium = true, tone = "faint" })
+	local lookLabel = UI.Text(p3, L["Look"], { size = "xs", medium = true, tone = "faint" })
 	lookLabel:SetPoint("TOPLEFT")
 	local function pickLook(name)
 		if name ~= Theme.skin.name then
@@ -151,10 +152,10 @@ local function build()
 		end, { kind = name == Theme.skin.name and "primary" or nil, width = 110, height = 28 })
 		b:SetPoint("TOPLEFT", (i - 1) * 118, -18)
 	end
-	local accentLabel = UI.Text(p3, "Accent colour", { size = "xs", medium = true, tone = "faint" })
+	local accentLabel = UI.Text(p3, L["Accent colour"], { size = "xs", medium = true, tone = "faint" })
 	accentLabel:SetPoint("TOPLEFT", 0, -68)
 	local current = ns.settings("window").accent
-	local own = UI.Button(p3, "The look's own", function()
+	local own = UI.Button(p3, L["The look's own"], function()
 		if current then
 			redraw(function()
 				ns.commands.accent("")
@@ -173,14 +174,14 @@ local function build()
 		sw:SetPoint("LEFT", own, "RIGHT", 12 + (k - 1) * 30, 0)
 		sw:SetOn(current == a.hex)
 	end
-	local later = UI.Text(p3, "Settings > General changes both any time, and /gf look too.", { size = "xs", tone = "faint" })
+	local later = UI.Text(p3, L["Settings > General changes both any time, and /gf look too."], { size = "xs", tone = "faint" })
 	later:SetPoint("TOPLEFT", 0, -132)
 	pages[3] = p3
 
 	-- 4: the companion.
 	local p4 = CreateFrame("Frame", nil, f)
 	p4:SetAllPoints(p1)
-	local why = UI.Text(p4, "The addon cannot reach the internet. The free companion app brings everyone's prices into the game every hour and uploads your save when the game writes it. Copy the address and open it in your browser:", { size = "sm", tone = "muted", wrap = true })
+	local why = UI.Text(p4, L["The addon cannot reach the internet. The free companion app brings everyone's prices into the game every hour and uploads your save when the game writes it. Copy the address and open it in your browser:"], { size = "sm", tone = "muted", wrap = true })
 	why:SetPoint("TOPLEFT")
 	why:SetPoint("RIGHT", p4, "RIGHT")
 	local url = UI.SearchBox(p4, "", nil)
@@ -190,10 +191,10 @@ local function build()
 	url:SetScript("OnEditFocusGained", function(self)
 		self:HighlightText()
 	end)
-	local copy = UI.Text(p4, "Ctrl+C copies it. Without the companion, prices come from your own scans.", { size = "xs", tone = "faint" })
+	local copy = UI.Text(p4, L["Ctrl+C copies it. Without the companion, prices come from your own scans."], { size = "xs", tone = "faint" })
 	copy:SetPoint("TOPLEFT", url, "BOTTOMLEFT", 0, -10)
 	-- Said plainly (manual test run 001): a player installs it on their own computer, so they may read it first.
-	local source = UI.Text(p4, Theme.escape(Theme.color.accent) .. "Open source.|r The companion's code is free to read (MIT licence) at github.com/gold-forever/companion: everything it reads and sends is there.", { size = "xs", tone = "muted", wrap = true })
+	local source = UI.Text(p4, Theme.escape(Theme.color.accent) .. L["Open source.|r The companion's code is free to read (MIT licence) at github.com/gold-forever/companion: everything it reads and sends is there."], { size = "xs", tone = "muted", wrap = true })
 	source:SetPoint("TOPLEFT", copy, "BOTTOMLEFT", 0, -14)
 	source:SetPoint("RIGHT", p4, "RIGHT")
 	pages[4] = p4
@@ -211,7 +212,7 @@ local function build()
 		end
 		steps:SetText(table.concat(parts, "  ·  "))
 		back:SetShown(n > 1)
-		nextButton:SetLabel(n == #STEPS and "Done" or "Next")
+		nextButton:SetLabel(n == #STEPS and L["Done"] or L["Next"])
 	end
 	local function finish(skipped)
 		local s = ns.settings("firstRun")
@@ -223,14 +224,20 @@ local function build()
 			ns.setHud(tables.appraiser.shown)
 		end
 		f:Hide()
-		ns.say(skipped and "first-run card skipped; everything stays as it was. /gf welcome shows it again."
-			or "started with the " .. chosen .. " preset. Settings > Modules changes it any time.")
+		local label = chosen
+		for _, p in ipairs(FirstRun.PRESETS) do
+			if p.id == chosen then
+				label = p.label
+			end
+		end
+		ns.say(skipped and L["first-run card skipped; everything stays as it was. /gf welcome shows it again."]
+			or string.format(L["started with the %s preset. Settings > Modules changes it any time."], label))
 	end
-	skip = UI.Button(f, "Skip", function()
+	skip = UI.Button(f, L["Skip"], function()
 		finish(true)
 	end, { kind = "ghost", width = 80, height = 28 })
 	skip:SetPoint("BOTTOMLEFT", 20, 18)
-	nextButton = UI.Button(f, "Next", function()
+	nextButton = UI.Button(f, L["Next"], function()
 		if step == #STEPS then
 			finish(false)
 		else
@@ -238,7 +245,7 @@ local function build()
 		end
 	end, { kind = "primary", width = 96, height = 28 })
 	nextButton:SetPoint("BOTTOMRIGHT", -20, 18)
-	back = UI.Button(f, "Back", function()
+	back = UI.Button(f, L["Back"], function()
 		show(step - 1)
 	end, { width = 96, height = 28 })
 	back:SetPoint("RIGHT", nextButton, "LEFT", -8, 0)

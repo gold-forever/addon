@@ -4,6 +4,7 @@
 -- to ns.hubPages.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local settings = ns.HubKit.settings
 
@@ -69,47 +70,47 @@ end
 
 -- The tabbed pages' tabs; the sidebar's search finds a page by a tab's name too.
 local LEDGER_TABS = {
-	{ key = "money", label = "Money", build = ns.hubPages.money },
-	{ key = "characters", label = "Characters", build = ns.hubPages.characters },
-	{ key = "inventory", label = "Inventory", build = ns.hubPages.inventory },
-	{ key = "sales", label = "Auction sales", build = ns.hubPages.sales },
+	{ key = "money", label = L["Money"], build = ns.hubPages.money },
+	{ key = "characters", label = L["Characters"], build = ns.hubPages.characters },
+	{ key = "inventory", label = L["Inventory"], build = ns.hubPages.inventory },
+	{ key = "sales", label = L["Auction sales"], build = ns.hubPages.sales },
 }
 local SESSION_TABS = {
-	{ key = "now", label = "This session", build = ns.hubPages.now },
-	{ key = "levelling", label = "Levelling", build = ns.hubPages.levelling },
-	{ key = "mobs", label = "Mobs", build = ns.hubPages.mobs },
+	{ key = "now", label = L["This session"], build = ns.hubPages.now },
+	{ key = "levelling", label = L["Levelling"], build = ns.hubPages.levelling },
+	{ key = "mobs", label = L["Mobs"], build = ns.hubPages.mobs },
 }
 local PAGES = {
-	{ key = "home", label = "Home", icon = "coins", group = "Overview", build = ns.hubPages.home, title = "Home",
-		lede = "Your next moves, from everyone's prices and your own bags." },
-	{ key = "ledger", label = "Ledger", icon = "book-open", group = "Overview", title = "Ledger",
-		lede = "Where your money went and came from, your characters, and everything they hold.",
+	{ key = "home", label = L["Home"], icon = "coins", group = L["Overview"], build = ns.hubPages.home, title = L["Home"],
+		lede = L["Your next moves, from everyone's prices and your own bags."] },
+	{ key = "ledger", label = L["Ledger"], icon = "book-open", group = L["Overview"], title = L["Ledger"],
+		lede = L["Where your money went and came from, your characters, and everything they hold."],
 		tabs = LEDGER_TABS, build = tabbed("ledger", LEDGER_TABS) },
-	{ key = "crafting", label = "Crafting", icon = "flask-conical", group = "Trading", build = ns.hubPages.crafting, title = "Crafting",
-		lede = "Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut." },
-	{ key = "lists", label = "Shopping lists", icon = "backpack", group = "Trading", title = "Shopping lists",
-		lede = "What the auction panel's Buy tab buys: your lists, their items, the most you pay and how many.",
+	{ key = "crafting", label = L["Crafting"], icon = "flask-conical", group = L["Trading"], build = ns.hubPages.crafting, title = L["Crafting"],
+		lede = L["Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut."] },
+	{ key = "lists", label = L["Shopping lists"], icon = "backpack", group = L["Trading"], title = L["Shopping lists"],
+		lede = L["What the auction panel's Buy tab buys: your lists, their items, the most you pay and how many."],
 		build = function(page)
 			ns.buildShoppingLists(page)
 		end },
-	{ key = "rules", label = "Selling rules", icon = "tag", group = "Trading", title = "Selling rules",
-		lede = "How the auction panel's Sell tab prices your items: by these rules, or a sale profile.",
+	{ key = "rules", label = L["Selling rules"], icon = "tag", group = L["Trading"], title = L["Selling rules"],
+		lede = L["How the auction panel's Sell tab prices your items: by these rules, or a sale profile."],
 		build = function(page)
 			ns.buildSellingRules(page)
 		end },
-	{ key = "session", label = "Session", icon = "timer", group = "Play", title = "Session",
-		lede = "Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live.",
+	{ key = "session", label = L["Session"], icon = "timer", group = L["Play"], title = L["Session"],
+		lede = L["Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live."],
 		tabs = SESSION_TABS, build = tabbed("session", SESSION_TABS) },
-	{ key = "rares", label = "Rares", icon = "skull", group = "Play", build = ns.hubPages.rares, title = "Rares",
-		lede = "Every rare your characters have seen, where and when last, and what a loot of one has been worth." },
-	{ key = "companion", label = "Companion", icon = "rotate-ccw", group = "Addon", build = ns.hubPages.companion, title = "Companion",
-		lede = "Everyone's prices in the game, and your save on the site: what the companion app has brought in." },
-	{ key = "settings", label = "Settings", icon = "settings", group = "Addon", build = ns.hubPages.settings, title = "Settings",
-		lede = "How Gold Forever looks and behaves. Changes apply at once." },
-	{ key = "guide", label = "Guide", icon = "circle-help", group = "Addon", build = ns.hubPages.guide, title = "Guide",
-		lede = "How to use Gold Forever: the auction house panel, crafting, the session, and the commands." },
-	{ key = "design", label = "Design system", icon = "palette", group = "Addon", build = ns.hubPages.design, title = "Design system",
-		lede = "Every part of the window kit with example data, in the look in use." },
+	{ key = "rares", label = L["Rares"], icon = "skull", group = L["Play"], build = ns.hubPages.rares, title = L["Rares"],
+		lede = L["Every rare your characters have seen, where and when last, and what a loot of one has been worth."] },
+	{ key = "companion", label = L["Companion"], icon = "rotate-ccw", group = L["Addon"], build = ns.hubPages.companion, title = L["Companion"],
+		lede = L["Everyone's prices in the game, and your save on the site: what the companion app has brought in."] },
+	{ key = "settings", label = L["Settings"], icon = "settings", group = L["Addon"], build = ns.hubPages.settings, title = L["Settings"],
+		lede = L["How Gold Forever looks and behaves. Changes apply at once."] },
+	{ key = "guide", label = L["Guide"], icon = "circle-help", group = L["Addon"], build = ns.hubPages.guide, title = L["Guide"],
+		lede = L["How to use Gold Forever: the auction house panel, crafting, the session, and the commands."] },
+	{ key = "design", label = L["Design system"], icon = "palette", group = L["Addon"], build = ns.hubPages.design, title = L["Design system"],
+		lede = L["Every part of the window kit with example data, in the look in use."] },
 }
 
 -- The pages that became tabs, by their old keys: /gf ui levelling, a saved page, a card's link.
@@ -159,7 +160,7 @@ local function windowFor(name)
 		windows[key] = UI.Window(key == "web" and "GoldForeverWindow" or "GoldForeverWindow_" .. key, "Gold Forever", PAGES, settings(), {
 			version = ns.VERSION,
 			look = Theme.skins[name].label,
-			extra = { label = "Export", onClick = function()
+			extra = { label = L["Export"], onClick = function()
 				ns.commands.export()
 			end, shown = function()
 				return not ns.Prices.connected(GoldForever_Prices, ns.now())

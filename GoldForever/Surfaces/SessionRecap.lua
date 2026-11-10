@@ -3,6 +3,7 @@
 -- session starts. Nothing is recorded.
 
 local _, ns = ...
+local L = ns.L
 local Session = ns.Session
 
 local Recap = {}
@@ -12,7 +13,7 @@ local SHORTEST = 5 * 60 -- a shorter session earns no card
 local OPEN_SECONDS = 30
 local POLL_SECONDS = 5 -- nothing announces a session going idle
 local W, H = 360, 214
-local ROWS = { "Time", "Gold looted", "Items, at what they sell for", "Gold an hour", "Kills", "Best drop" }
+local ROWS = { L["Time"], L["Gold looted"], L["Items, at what they sell for"], L["Gold an hour"], L["Kills"], L["Best drop"] }
 
 local running -- the session under way; kept because Session.get gives nothing for a short one once it ends
 local ticker
@@ -50,12 +51,12 @@ end
 local function bestDrop(best)
 	local Theme, UI = ns.Theme, ns.UI
 	if not best then
-		return Theme.escape(Theme.color.textFaint) .. "nothing priced|r"
+		return Theme.escape(Theme.color.textFaint) .. L["nothing priced"] .. "|r"
 	end
 	local quality, name = ns.sessionItem(best.id)
 	local color = Theme.quality[quality or 1] or Theme.color.text
 	local count = best.n > 1 and (" x" .. best.n) or ""
-	return Theme.escape(color) .. (name or ("item " .. best.id)) .. "|r" .. count .. "  " .. UI.layout.money(best.value, "gold")
+	return Theme.escape(color) .. (name or string.format(L["item %d"], best.id)) .. "|r" .. count .. "  " .. UI.layout.money(best.value, "gold")
 end
 
 local function fill(card, r)
@@ -87,7 +88,7 @@ local function build()
 	card.hit = CreateFrame("Button", nil, card)
 	card.hit:SetAllPoints()
 	card.hit:SetScript("OnClick", hide)
-	local title = UI.Text(card.hit, Theme.skin.titleCaps and "SESSION RECAP" or "Session recap", { size = "lg", medium = true })
+	local title = UI.Text(card.hit, Theme.skin.titleCaps and L["SESSION RECAP"] or L["Session recap"], { size = "lg", medium = true })
 	title:SetPoint("TOPLEFT", 16, -14)
 	card.values = {}
 	for i, label in ipairs(ROWS) do
@@ -98,7 +99,7 @@ local function build()
 		v:SetWidth(i == #ROWS and W - 100 or W - 200) -- the best drop has a short label and a long value
 		card.values[i] = v
 	end
-	local foot = UI.Text(card.hit, "See it on the map: goldforever site > Sessions", { size = "xs", tone = "faint" })
+	local foot = UI.Text(card.hit, L["See it on the map: goldforever site > Sessions"], { size = "xs", tone = "faint" })
 	foot:SetPoint("BOTTOMLEFT", 16, 14)
 	return card
 end

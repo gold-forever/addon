@@ -5,6 +5,7 @@
 -- Crafting page or the Craft queue list. Take from bank marks the reagents for the next bank visit.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Views, Encode, CraftQueueView = ns.Theme, ns.UI, ns.Views, ns.Encode, ns.CraftQueueView
 
 local CraftQueue = {}
@@ -41,7 +42,7 @@ end
 local function build()
 	-- Closed with its X, it stays closed until a craft is queued again.
 	local f = UI.Dialog({ window = true, width = W, height = 340, strata = "MEDIUM", movable = true, store = settings, at = { "LEFT", 40, 60 },
-		icon = "flask-conical", title = "Craft queue", titleSize = "md", close = function()
+		icon = "flask-conical", title = L["Craft queue"], titleSize = "md", close = function()
 			settings().closed = true
 		end })
 	f.crafts = UI.Text(f, "", { size = "xs", tone = "muted", wrap = true })
@@ -49,17 +50,17 @@ local function build()
 	f.crafts:SetPoint("RIGHT", f, "RIGHT", -14, 0)
 	f.table = UI.Table(f, {
 		-- Columns wide enough for their titles in every look (manual test run 001: "Ne…", "Ha…", "Ba…").
-		{ key = "name", title = "Reagent", flex = 3 },
-		{ key = "need", title = "Need", width = 56, align = "RIGHT" },
-		{ key = "bags", title = "Bags", width = 56, align = "RIGHT" },
-		{ key = "bank", title = "Bank", width = 56, align = "RIGHT", text = function(r) return r.bank > 0 and tostring(r.bank) or "" end },
-		{ key = "where", title = "Elsewhere", flex = 2, color = function() return Theme.color.textMuted end },
-		{ key = "buy", title = "Buy", width = 80, align = "RIGHT", text = function(r) return r.buy > 0 and (r.buy .. (r.vendor and " vendor" or "")) or "-" end,
+		{ key = "name", title = L["Reagent"], flex = 3 },
+		{ key = "need", title = L["Need"], width = 56, align = "RIGHT" },
+		{ key = "bags", title = L["Bags"], width = 56, align = "RIGHT" },
+		{ key = "bank", title = L["Bank"], width = 56, align = "RIGHT", text = function(r) return r.bank > 0 and tostring(r.bank) or "" end },
+		{ key = "where", title = L["Elsewhere"], flex = 2, color = function() return Theme.color.textMuted end },
+		{ key = "buy", title = L["Buy"], width = 80, align = "RIGHT", text = function(r) return r.buy > 0 and (r.vendor and string.format(L["%d vendor"], r.buy) or tostring(r.buy)) or "-" end,
 			color = function(r) return r.buy > 0 and Theme.color.accent or Theme.color.textFaint end },
-	}, { pageSize = 7, rowHeight = 22, empty = "Nothing queued.", itemId = function(r) return r.id end })
+	}, { pageSize = 7, rowHeight = 22, empty = L["Nothing queued."], itemId = function(r) return r.id end })
 	f.table:SetPoint("TOPLEFT", 14, -64)
 	f.table:SetPoint("RIGHT", f, "RIGHT", -14, 0)
-	f.take = UI.Button(f, "Take from bank", function()
+	f.take = UI.Button(f, L["Take from bank"], function()
 		local want = ns.fetchList()
 		if not want then
 			return
@@ -71,11 +72,11 @@ local function build()
 				n = n + 1
 			end
 		end
-		f.note:SetText(n > 0 and string.format("%d %s marked: they move into your bags the next time you open your bank.", n, n == 1 and "reagent" or "reagents")
-			or "Nothing to take from the bank.")
+		f.note:SetText(n > 0 and ns.plural(n, L["%d reagent marked: it moves into your bags the next time you open your bank."],
+			L["%d reagents marked: they move into your bags the next time you open your bank."]) or L["Nothing to take from the bank."])
 	end, { width = 130, height = 26 })
 	f.take:SetPoint("TOPLEFT", f.table, "BOTTOMLEFT", 0, -10)
-	f.clear = UI.Button(f, "Clear queue", function()
+	f.clear = UI.Button(f, L["Clear queue"], function()
 		ns.queueClear()
 	end, { width = 110, height = 26 })
 	f.clear:SetPoint("LEFT", f.take, "RIGHT", 6, 0)
@@ -104,18 +105,18 @@ function CraftQueue.refresh()
 	local crafts = {}
 	for _, q in ipairs(queue) do
 		local r = ns.recipeOf(q.recipe)
-		crafts[#crafts + 1] = q.count .. "x " .. (r and ns.itemName(r.output) or ("recipe " .. q.recipe))
+		crafts[#crafts + 1] = q.count .. "x " .. (r and ns.itemName(r.output) or string.format(L["recipe %s"], tostring(q.recipe)))
 	end
-	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or "Nothing queued: queue crafts on the Crafting page or the crafting strip.")
+	frame.crafts:SetText(#crafts > 0 and table.concat(crafts, ", ") or L["Nothing queued: queue crafts on the Crafting page or the crafting strip."])
 	local rows, buy, vendors, ready = {}, 0, 0, true
 	local plan = CraftQueue.plan()
 	for _, r in ipairs(plan) do
 		local where = {}
 		if r.mail > 0 then
-			where[#where + 1] = "mailbox " .. r.mail
+			where[#where + 1] = string.format(L["mailbox %d"], r.mail)
 		end
 		if r.guild > 0 then
-			where[#where + 1] = "guild bank " .. r.guild
+			where[#where + 1] = string.format(L["guild bank %d"], r.guild)
 		end
 		for _, o in ipairs(r.others) do
 			where[#where + 1] = o.name .. " " .. o.n
@@ -139,19 +140,19 @@ function CraftQueue.refresh()
 		frame:Hide()
 		if not toldReady then
 			toldReady = true
-			ns.say("everything the craft queue needs is in your bags: ready to craft.")
+			ns.say(L["everything the craft queue needs is in your bags: ready to craft."])
 		end
 		return
 	end
 	frame.table:SetRows(rows, true)
 	local parts = {}
 	if buy > 0 then
-		parts[#parts + 1] = string.format("%d to buy at the auction house (Buy tab, list \"Craft queue\")", buy)
+		parts[#parts + 1] = string.format(L["%d to buy at the auction house (Buy tab, list \"Craft queue\")"], buy)
 	end
 	if vendors > 0 then
-		parts[#parts + 1] = string.format("%d from a vendor (bought when you open one that sells it)", vendors)
+		parts[#parts + 1] = string.format(L["%d from a vendor (bought when you open one that sells it)"], vendors)
 	end
-	frame.note:SetText(#parts > 0 and (table.concat(parts, "; ") .. ".") or "Nothing left to buy.")
+	frame.note:SetText(#parts > 0 and (table.concat(parts, "; ") .. ".") or L["Nothing left to buy."])
 end
 
 function CraftQueue.show()
@@ -251,7 +252,7 @@ local function buyFromMerchant()
 		end
 	end
 	if #bought > 0 then
-		ns.say("bought for the craft queue: " .. table.concat(bought, ", ") .. " (" .. ns.price.coins(spent) .. ").")
+		ns.say(string.format(L["bought for the craft queue: %s (%s)."], table.concat(bought, ", "), ns.price.coins(spent)))
 	end
 end
 ns.on("MERCHANT_SHOW", "craft queue", function()

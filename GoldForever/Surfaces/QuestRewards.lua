@@ -4,6 +4,7 @@
 -- Unpriced rewards are not marked; the line counts them. Nothing is recorded.
 
 local _, ns = ...
+local L = ns.L
 local QuestRewards = {}
 ns.QuestRewards = QuestRewards
 
@@ -36,11 +37,9 @@ function QuestRewards.value(id, count)
 end
 
 function QuestRewards.line(pick)
-	local text = "Best to sell: " .. ns.Money.auction(pick.value)
-	if pick.unpriced == 1 then
-		return text .. " (1 reward unpriced)"
-	elseif pick.unpriced > 1 then
-		return text .. string.format(" (%d rewards unpriced)", pick.unpriced)
+	local text = string.format(L["Best to sell: %s"], ns.Money.auction(pick.value))
+	if pick.unpriced > 0 then
+		return text .. ns.plural(pick.unpriced, L[" (%d reward unpriced)"], L[" (%d rewards unpriced)"])
 	end
 	return text
 end

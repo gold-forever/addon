@@ -4,6 +4,7 @@
 -- tooltip's; an unknown price reads "?". It only shows: the roll stays the player's. Nothing is recorded.
 
 local _, ns = ...
+local L = ns.L
 local RollValue = {}
 ns.RollValue = RollValue
 
@@ -19,7 +20,7 @@ function RollValue.line(auction, vendor)
 	if not auction and not vendor then
 		return nil
 	end
-	return "AH " .. money(auction) .. " · vendor " .. money(vendor)
+	return string.format(L["AH %s · vendor %s"], money(auction), money(vendor))
 end
 
 function RollValue.text(id, count)

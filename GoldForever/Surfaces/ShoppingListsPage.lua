@@ -1,6 +1,7 @@
 -- Gold Forever: the hub's Shopping lists page: the lists Buy shows, made, named, priced and shared.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local settings = ns.auctionSettings
 local lists, stamp, choose = ns.Lists.lists, ns.Lists.stamp, ns.Lists.choose
@@ -12,8 +13,8 @@ local money = ns.Money.auction
 -- dropping an item on the slot or shift-clicking it anywhere while the page shows; the chosen item's most
 -- per unit (under market, a fixed price or a share of the market value) and how many to hold. The craft
 -- queue's list is here too: its items follow the queue, their prices are set here.
-local PRICE_MODES = { { value = "market", label = "Under market" }, { value = "fixed", label = "Fixed price" }, { value = "pct", label = "% of market" },
-	{ value = "lowest", label = "Lowest, ask over %" } }
+local PRICE_MODES = { { value = "market", label = L["Under market"] }, { value = "fixed", label = L["Fixed price"] }, { value = "pct", label = L["% of market"] },
+	{ value = "lowest", label = L["Lowest, ask over %"] } }
 
 -- The chosen list when it is one of the player's own, with its index among them, and their lists.
 local function ownList()
@@ -50,7 +51,8 @@ end
 
 -- An entry's most per unit, in the items' table.
 local function priceText(e)
-	return e.maxUnit and money(e.maxUnit) or e.pct and (e.pct .. "% of market") or e.lowest and ("lowest, ask over " .. e.lowest .. "%") or "under market"
+	return e.maxUnit and money(e.maxUnit) or e.pct and string.format(L["%s%% of market"], tostring(e.pct))
+		or e.lowest and string.format(L["lowest, ask over %s%%"], tostring(e.lowest)) or L["under market"]
 end
 
 -- An entry's number in the price box: gold without trailing zeros, or the share.
@@ -65,15 +67,15 @@ local function buildLists(page)
 	local say -- the page note, set under what it is about
 
 	-- Left: the lists.
-	local head = UI.Text(page, "LISTS", { size = "xs", medium = true, tone = "faint" })
+	local head = UI.Text(page, L["LISTS"], { size = "xs", medium = true, tone = "faint" })
 	head:SetPoint("TOPLEFT")
 	local function chooseRow(r)
 		s.list, chosenItem = r.index, nil
 		page:Refresh()
 	end
 	local listTable = UI.Table(page, {
-		{ key = "name", title = "List", flex = 1, color = function(r) return r.generated and Theme.color.textMuted or Theme.color.text end },
-		{ key = "n", title = "Items", width = 44, align = "RIGHT" },
+		{ key = "name", title = L["List"], flex = 1, color = function(r) return r.generated and Theme.color.textMuted or Theme.color.text end },
+		{ key = "n", title = L["Items"], width = 44, align = "RIGHT" },
 	}, {
 		pageSize = 8,
 		rowHeight = 24,
@@ -82,7 +84,7 @@ local function buildLists(page)
 	})
 	listTable:SetPoint("TOPLEFT", 0, -18)
 	listTable:SetWidth(LEFT)
-	local name = UI.SearchBox(page, "Rename the list", nil)
+	local name = UI.SearchBox(page, L["Rename the list"], nil)
 	name:SetPoint("TOPLEFT", listTable, "BOTTOMLEFT", 0, -10)
 	name:SetWidth(LEFT)
 	local function renameTo(text)
@@ -98,7 +100,7 @@ local function buildLists(page)
 		self:ClearFocus()
 		renameTo(self:GetText())
 	end)
-	local newList = UI.Button(page, "New", function()
+	local newList = UI.Button(page, L["New"], function()
 		local mine = lists()
 		mine[#mine + 1] = stamp({ name = "List " .. (#mine + 1), entries = {} })
 		choose(mine[#mine])
@@ -108,7 +110,7 @@ local function buildLists(page)
 		name:HighlightText()
 	end, { width = 70, height = 26 })
 	newList:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
-	local delete = UI.Button(page, "Delete", function(self)
+	local delete = UI.Button(page, L["Delete"], function(self)
 		local list, i, mine = ownList()
 		if not list then
 			return
@@ -116,7 +118,7 @@ local function buildLists(page)
 		-- A second press deletes (a list can hold many items).
 		if self.armed ~= list then
 			self.armed = list
-			say(Theme.escape(Theme.color.warning) .. "Press Delete again to delete \"" .. list.name .. "\".|r", true)
+			say(Theme.escape(Theme.color.warning) .. string.format(L["Press Delete again to delete \"%s\"."], list.name) .. "|r", true)
 			return
 		end
 		self.armed = nil
@@ -127,7 +129,7 @@ local function buildLists(page)
 		end
 		table.remove(mine, i)
 		s.list, chosenItem = math.max(1, s.list - 1), nil
-		say("Deleted.", true)
+		say(L["Deleted."], true)
 		page:Refresh()
 	end, { width = 70, height = 26 })
 	delete:SetPoint("LEFT", newList, "RIGHT", 5, 0)
@@ -138,11 +140,11 @@ local function buildLists(page)
 	local title = UI.Text(page, "", { size = "lg", medium = true })
 	title:SetPoint("TOPLEFT", X, 0)
 	title:SetPoint("RIGHT", page, "RIGHT", -240, 0)
-	local crafting = UI.Button(page, "Open Crafting >", function()
+	local crafting = UI.Button(page, L["Open Crafting >"], function()
 		ns.openPage("crafting")
 	end, { width = 120, height = 24 })
 	crafting:SetPoint("TOPRIGHT", 0, 2)
-	local queueWindow = UI.Button(page, "Queue window", function()
+	local queueWindow = UI.Button(page, L["Queue window"], function()
 		ns.openCraftQueue()
 	end, { width = 110, height = 24 })
 	queueWindow:SetPoint("RIGHT", crafting, "LEFT", -6, 0)
@@ -153,17 +155,17 @@ local function buildLists(page)
 	UI.surface(slot, Theme.color.surfaceSunken, 1, Theme.color.borderStrong, Theme.skin.radius and 6 or 0)
 	local plus = UI.Text(slot, "+", { size = "xl", tone = "faint", align = "CENTER" })
 	plus:SetPoint("CENTER", 0, 1)
-	local slotLine = UI.Text(page, "Drop an item here, or shift-click one anywhere, to add it.", { size = "xs", tone = "faint", wrap = true })
+	local slotLine = UI.Text(page, L["Drop an item here, or shift-click one anywhere, to add it."], { size = "xs", tone = "faint", wrap = true })
 	slotLine:SetPoint("LEFT", slot, "RIGHT", 10, 0)
 	slotLine:SetPoint("RIGHT", page, "RIGHT")
 	local items = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
-		{ key = "price", title = "At most", width = 110, align = "RIGHT" },
-		{ key = "many", title = "How many", width = 100, align = "RIGHT" },
+		{ key = "name", title = L["Item"], flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "price", title = L["At most"], width = 110, align = "RIGHT" },
+		{ key = "many", title = L["How many"], width = 100, align = "RIGHT" },
 	}, {
 		pageSize = 6,
 		rowHeight = 24,
-		empty = "No items yet.",
+		empty = L["No items yet."],
 		itemId = function(r) return r.itemId end,
 		isSelected = function(r) return r.itemId == chosenItem end,
 		onRowClick = function(r)
@@ -200,20 +202,20 @@ local function buildLists(page)
 	amount = UI.SearchBox(edit, "", nil)
 	amount:SetPoint("LEFT", mode, "RIGHT", 8, 0)
 	amount:SetWidth(90)
-	local manyLabel = UI.Text(edit, "How many", { size = "sm", tone = "muted" })
+	local manyLabel = UI.Text(edit, L["How many"], { size = "sm", tone = "muted" })
 	manyLabel:SetPoint("LEFT", amount, "RIGHT", 14, 0)
-	local many = UI.SearchBox(edit, "any", nil)
+	local many = UI.SearchBox(edit, L["any"], nil)
 	many:SetPoint("LEFT", manyLabel, "RIGHT", 8, 0)
 	many:SetWidth(60)
 	-- A goal (gf#337): the HUD counts it toward How many while you farm.
-	local goalLabel = UI.Text(edit, "Goal", { size = "sm", tone = "muted" })
+	local goalLabel = UI.Text(edit, L["Goal"], { size = "sm", tone = "muted" })
 	goalLabel:SetPoint("LEFT", many, "RIGHT", 14, 0)
 	local setGoal
 	local goal = UI.Switch(edit, false, function(on)
 		setGoal(on)
 	end)
 	goal:SetPoint("LEFT", goalLabel, "RIGHT", 8, 0)
-	local removeItem = UI.Button(edit, "Remove", function()
+	local removeItem = UI.Button(edit, L["Remove"], function()
 		local list = ownList()
 		if not list then
 			return
@@ -238,11 +240,11 @@ local function buildLists(page)
 	noteUnderEdit()
 
 	-- Import and export, under the lists: one field, the GFL1 string in or out.
-	local field = UI.SearchBox(page, "Paste a GFL1 string", nil)
+	local field = UI.SearchBox(page, L["Paste a GFL1 string"], nil)
 	field:SetMaxLetters(0)
 	field:SetPoint("TOPLEFT", newList, "BOTTOMLEFT", 0, -14)
 	field:SetWidth(LEFT)
-	importButton = UI.Button(page, "Import", function()
+	importButton = UI.Button(page, L["Import"], function()
 		local got, err = ns.Shopping.decode(field:GetText())
 		if not got then
 			say(Theme.escape(Theme.color.danger) .. err .. "|r", true)
@@ -261,16 +263,16 @@ local function buildLists(page)
 		chosenItem = nil
 		field:SetText("")
 		field:ClearFocus()
-		say(string.format("Imported %d %s.", #got, #got == 1 and "list" or "lists"), true)
+		say(ns.plural(#got, L["Imported %d list."], L["Imported %d lists."]), true)
 		page:Refresh()
 	end, { width = 70, height = 26 })
 	importButton:SetPoint("TOPLEFT", field, "BOTTOMLEFT", 0, -8)
-	exportButton = UI.Button(page, "Export", function()
+	exportButton = UI.Button(page, L["Export"], function()
 		local _, list = lists()
 		field:SetText(ns.Shopping.encode({ { name = list.name, character = list.character, entries = list.entries } }))
 		field:SetFocus()
 		field:HighlightText()
-		say("Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists.", true)
+		say(L["Copy it with Ctrl+C; anyone with Gold Forever can import it, or keep it at gold-forever.app/me/lists."], true)
 	end, { width = 70, height = 26 })
 	exportButton:SetPoint("LEFT", importButton, "RIGHT", 5, 0)
 	-- Import's, Export's and Delete's under the paste box's buttons, as wide as the box (addon#17, addon#18);
@@ -304,13 +306,13 @@ local function buildLists(page)
 		end
 		local maxUnit, share = priceTyped(kind, text)
 		if kind ~= "market" and not maxUnit and not share then
-			say(Theme.escape(Theme.color.warning) .. (kind == "fixed" and "Type a price in gold, as 4.5 or 4g 50s, then Enter."
-				or kind == "lowest" and "Type the share of the market value to ask over, as 120, then Enter." or "Type a share of the market value, as 80, then Enter.") .. "|r")
+			say(Theme.escape(Theme.color.warning) .. (kind == "fixed" and L["Type a price in gold, as 4.5 or 4g 50s, then Enter."]
+				or kind == "lowest" and L["Type the share of the market value to ask over, as 120, then Enter."] or L["Type a share of the market value, as 80, then Enter."]) .. "|r")
 			return
 		end
 		t.maxUnit, t.pct, t.lowest = maxUnit, kind == "pct" and share or nil, kind == "lowest" and share or nil
 		if kind == "lowest" and not e.upTo and not list.queue then
-			say("Set How many too: Lowest buys until you hold that many, asking over your share.")
+			say(L["Set How many too: Lowest buys until you hold that many, asking over your share."])
 		end
 		if not list.queue then
 			stamp(list)
@@ -343,14 +345,14 @@ local function buildLists(page)
 			return
 		end
 		if on and not e.goal and #ns.Lists.goals() >= ns.Lists.GOALS_SHOWN then
-			say(Theme.escape(Theme.color.warning) .. string.format("The HUD shows %d goals: turn one off first.", ns.Lists.GOALS_SHOWN) .. "|r")
+			say(Theme.escape(Theme.color.warning) .. string.format(L["The HUD shows %d goals: turn one off first."], ns.Lists.GOALS_SHOWN) .. "|r")
 			page:Refresh()
 			return
 		end
 		e.goal = on or nil
 		stamp(list)
 		if on then
-			say(e.upTo and "On the HUD while you farm: how many you hold, and the time to go at this pace." or "Set How many too: the goal counts up to it.")
+			say(e.upTo and L["On the HUD while you farm: how many you hold, and the time to go at this pace."] or L["Set How many too: the goal counts up to it."])
 		end
 		page:Refresh()
 	end
@@ -362,7 +364,7 @@ local function buildLists(page)
 			return
 		end
 		if not list then
-			say("This list follows the craft queue or the profile; choose one of yours to add to.")
+			say(L["This list follows the craft queue or the profile; choose one of yours to add to."])
 			return
 		end
 		for _, e in ipairs(list.entries) do
@@ -375,7 +377,7 @@ local function buildLists(page)
 		list.entries[#list.entries + 1] = { itemId = id }
 		stamp(list)
 		chosenItem = id
-		say("Added " .. ns.itemName(id) .. ": set the most you pay below.")
+		say(string.format(L["Added %s: set the most you pay below."], ns.itemName(id)))
 		page:Refresh()
 	end
 	page.addItem = add
@@ -407,9 +409,9 @@ local function buildLists(page)
 		crafting:SetShown(list.queue == true)
 		queueWindow:SetShown(list.queue == true)
 		slot:SetShown(mine ~= nil)
-		slotLine:SetText(mine and "Drop an item here, or shift-click one anywhere, to add it."
-			or list.queue and "Its items are what the queued crafts still need; set what you pay for each."
-			or "This list follows the sale profile; change it there.")
+		slotLine:SetText(mine and L["Drop an item here, or shift-click one anywhere, to add it."]
+			or list.queue and L["Its items are what the queued crafts still need; set what you pay for each."]
+			or L["This list follows the sale profile; change it there."])
 		slotLine:ClearAllPoints()
 		if mine then
 			slotLine:SetPoint("LEFT", slot, "RIGHT", 10, 0)
@@ -421,7 +423,7 @@ local function buildLists(page)
 		for i, e in ipairs(list.entries) do
 			local quality = ns.price.itemInfo(e.itemId)
 			entries[i] = { itemId = e.itemId, name = ns.itemName(e.itemId), quality = quality or 1, price = priceText(e),
-				many = (e.upTo and tostring(e.upTo) or "any") .. (e.goal and " \194\183 goal" or "") }
+				many = (e.upTo and tostring(e.upTo) or L["any"]) .. (e.goal and (" \194\183 " .. L["goal"]) or "") }
 		end
 		items:SetRows(entries, true)
 		local e = chosenEntry()
@@ -433,7 +435,7 @@ local function buildLists(page)
 			mode:Set(kind)
 			amount:SetShown(kind ~= "market")
 			amount:SetText(amountText(e))
-			amount.hint:SetText(kind == "fixed" and "gold" or "%")
+			amount.hint:SetText(kind == "fixed" and L["gold"] or "%")
 			many:SetText(e.upTo and tostring(e.upTo) or "")
 			-- The craft queue's numbers come from the queue.
 			many:SetShown(not list.profile)

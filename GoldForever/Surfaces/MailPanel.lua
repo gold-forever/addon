@@ -2,6 +2,7 @@
 -- batch, which opens the auction house's mail and says what the panel's note shows.
 
 local _, ns = ...
+local L = ns.L
 local UI = ns.UI
 local Mail = ns.Mail
 
@@ -17,8 +18,8 @@ local function refresh()
 		return
 	end
 	local n, gold, items = Mail.waiting()
-	panel.count:SetText(n > 0 and string.format("%d auction %s: %s, %d %s", n, n == 1 and "mail" or "mails", UI.layout.money(gold, "gold"), items, items == 1 and "item" or "items")
-		or "No auction mail.")
+	panel.count:SetText(n > 0 and string.format(L["%s: %s, %s"], ns.plural(n, L["%d auction mail"], L["%d auction mails"]),
+		UI.layout.money(gold, "gold"), ns.plural(items, L["%d item"], L["%d items"])) or L["No auction mail."])
 	panel.open:SetEnabled(n > 0 and not Mail.running())
 end
 
@@ -37,11 +38,11 @@ local function build()
 	p.count = UI.Text(p, "", { size = "sm", wrap = true })
 	p.count:SetPoint("TOPLEFT", 14, -40)
 	p.count:SetWidth(232)
-	p.open = UI.Button(p, "Open all auction mail", function()
+	p.open = UI.Button(p, L["Open all auction mail"], function()
 		ns.safely("mail helper", Mail.press)
 	end, { kind = "primary", width = 232, height = 30 })
 	p.open:SetPoint("TOPLEFT", 14, -78)
-	p.note = UI.Text(p, "Gold and items from sold, bought, expired and cancelled auctions; never a player's letter.", { size = "xs", tone = "faint", wrap = true })
+	p.note = UI.Text(p, L["Gold and items from sold, bought, expired and cancelled auctions; never a player's letter."], { size = "xs", tone = "faint", wrap = true })
 	p.note:SetPoint("TOPLEFT", p.open, "BOTTOMLEFT", 0, -8)
 	p.note:SetWidth(232)
 	return p

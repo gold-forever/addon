@@ -1,6 +1,7 @@
 -- Gold Forever: big drops and quest starters called out as they are looted.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 local Catalogue = ns.Catalogue
 
@@ -30,11 +31,9 @@ local function bigDrops(taken)
 			local quest = Catalogue.startsQuest(id)
 			if quest and not Catalogue.questDone(quest) and not startersAlerted[id] then
 				startersAlerted[id] = true
-				local text = "Starts a quest: " .. (name or ("item " .. id))
-				ns.alert(text .. " - right-click it in your bags to start it.")
+				ns.alert(string.format(L["Starts a quest: %s - right-click it in your bags to start it."], name or string.format(L["item %d"], id)))
 			elseif not quest and ((threshold > 0 and value >= threshold) or (quality or 0) >= 3) then
-				local text = string.format("Big drop: %s%s - %s", n > 1 and (n .. "x ") or "", name or ("item " .. id), value > 0 and coins(value) or "no price")
-				ns.alert(text)
+				ns.alert(string.format(L["Big drop: %s%s - %s"], n > 1 and string.format(L["%dx "], n) or "", name or string.format(L["item %d"], id), value > 0 and coins(value) or L["no price"]))
 			end
 		end
 	end
@@ -48,9 +47,9 @@ end)
 ns.commands.bigdrop = function(arg)
 	local gold = tonumber(arg)
 	if not gold then
-		ns.say(string.format("big drops are worth %s or more, and every rare. /gf bigdrop <gold> changes it.", coins(settings().bigDrop or BIG_DROP)))
+		ns.say(string.format(L["big drops are worth %s or more, and every rare. /gf bigdrop <gold> changes it."], coins(settings().bigDrop or BIG_DROP)))
 		return
 	end
 	settings().bigDrop = math.floor(gold * 10000)
-	ns.say(string.format("big drops from %s.", gold > 0 and coins(gold * 10000) or "rare quality (no gold threshold)"))
+	ns.say(string.format(L["big drops from %s."], gold > 0 and coins(gold * 10000) or L["rare quality (no gold threshold)"]))
 end

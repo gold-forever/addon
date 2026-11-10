@@ -9,6 +9,7 @@
 -- form it shows. ASSUMED for Forever: its profession window is ProfessionsFrame as on retail.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 
 local W, LINES = 280, 6
@@ -34,7 +35,7 @@ local function build()
 	f.title:SetPoint("TOPLEFT", 14, -40)
 	f.title:SetWidth(W - 28)
 	f.rows = {}
-	for i, label in ipairs({ "Reagents", "Sells for", "Profit", "Margin" }) do
+	for i, label in ipairs({ L["Reagents"], L["Sells for"], L["Profit"], L["Margin"] }) do
 		local l = UI.Text(f, label, { size = "sm", tone = "muted" })
 		l:SetPoint("TOPLEFT", 14, -80 - (i - 1) * 20)
 		local v = UI.Text(f, "", { size = "sm", align = "RIGHT", medium = i == 3 })
@@ -42,7 +43,7 @@ local function build()
 		v:SetWidth(W - 120)
 		f.rows[i] = v
 	end
-	local lh = UI.Text(f, "TO BUY", { size = "xs", medium = true, tone = "faint" })
+	local lh = UI.Text(f, L["TO BUY"], { size = "xs", medium = true, tone = "faint" })
 	lh:SetPoint("TOPLEFT", 14, -80 - 4 * 20 - 10)
 	f.lines = {}
 	for i = 1, LINES do
@@ -60,10 +61,10 @@ local function build()
 		f.lines[i] = { name = l, value = v }
 	end
 	-- Queue one of the recipe in view; the Shop's "Craft queue" list buys what the queue needs.
-	f.queue = UI.Button(f, "Queue 1", function()
+	f.queue = UI.Button(f, L["Queue 1"], function()
 		if recipeID and ns.queueAdd then
 			ns.queueAdd(recipeID, 1)
-			f.note:SetText("Queued. The Buy tab's \"Craft queue\" list buys what is missing.")
+			f.note:SetText(L["Queued. The Buy tab's \"Craft queue\" list buys what is missing."])
 		end
 	end, { kind = "ghost", width = 70, height = 22 })
 	f.queue:SetPoint("TOPRIGHT", -12, -12)
@@ -113,7 +114,7 @@ local function reagentName(line)
 			names[#names + 1] = ns.itemName(id)
 		end
 	end
-	return "any of: " .. table.concat(names, ", ")
+	return string.format(L["any of: %s"], table.concat(names, ", "))
 end
 
 -- One strip per look and accent.
@@ -122,12 +123,12 @@ local strips = UI.perLook(build, dock)
 -- Sells for, Profit and Margin. A random result (or one that can fail) has none of them, and says so.
 local function saleRows(strip, q, gear, money, faint, dash)
 	if q.random then
-		strip.rows[2]:SetText(faint .. "random, can fail|r")
+		strip.rows[2]:SetText(faint .. L["random, can fail"] .. "|r")
 		strip.rows[3]:SetText("")
 		strip.rows[4]:SetText("")
 		return
 	end
-	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and " any quality|r" or " after the cut|r")) or dash)
+	strip.rows[2]:SetText(q.revenue and (money(q.revenue) .. faint .. (gear and L[" any quality"] or L[" after the cut"]) .. "|r") or dash)
 	if q.profit and gear then
 		-- One price for every quality and item level: grey, not to be trusted.
 		strip.rows[3]:SetText(faint .. (q.profit >= 0 and "+" or "-") .. UI.layout.plain(money(math.abs(q.profit))) .. "|r")
@@ -150,10 +151,10 @@ local function refresh()
 		return UI.layout.money(c, "gold")
 	end
 	local faint = Theme.escape(Theme.color.textFaint)
-	local dash = faint .. "unknown|r"
+	local dash = faint .. L["unknown"] .. "|r"
 	local q = recipeID and ns.quoteRecipe(recipeID)
 	if not q then
-		strip.title:SetText(faint .. (recipeID and "This recipe makes no item, or the addon has not read it yet." or "Choose a recipe.") .. "|r")
+		strip.title:SetText(faint .. (recipeID and L["This recipe makes no item, or the addon has not read it yet."] or L["Choose a recipe."]) .. "|r")
 		for _, v in ipairs(strip.rows) do
 			v:SetText("")
 		end
@@ -183,18 +184,18 @@ local function refresh()
 	for i = 1, shown do
 		local line = toBuy[i]
 		setLine(strip.lines[i], line.toBuy .. "x " .. reagentName(line),
-			line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and " vendor" or " AH") .. "|r") or dash)
+			line.unit and (money(line.unit) .. faint .. (line.from == "vendor" and L[" vendor"] or L[" AH"]) .. "|r") or dash)
 	end
 	if shown < #toBuy then
 		shown = shown + 1
-		setLine(strip.lines[shown], faint .. string.format("+%d more", #toBuy - shown + 1) .. "|r", "")
+		setLine(strip.lines[shown], faint .. string.format(L["+%d more"], #toBuy - shown + 1) .. "|r", "")
 	end
 	for i = shown + 1, LINES do
-		setLine(strip.lines[i], i == 1 and (faint .. "Nothing: your bags and bank hold it all.|r") or "", "")
+		setLine(strip.lines[i], i == 1 and (faint .. L["Nothing: your bags and bank hold it all."] .. "|r") or "", "")
 	end
-	strip.note:SetText(q.random and "Its result is random, and it can fail: no sale price or profit to show."
-		or gear and "Gear has one price for every quality and item level: check the auction house for the quality you craft."
-		or "Reagents at the cheaper of the auction house and a vendor; what you hold counts at the lower of buying and selling it.")
+	strip.note:SetText(q.random and L["Its result is random, and it can fail: no sale price or profit to show."]
+		or gear and L["Gear has one price for every quality and item level: check the auction house for the quality you craft."]
+		or L["Reagents at the cheaper of the auction house and a vendor; what you hold counts at the lower of buying and selling it."])
 	fit(strip)
 end
 

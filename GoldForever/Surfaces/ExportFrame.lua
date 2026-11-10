@@ -2,6 +2,7 @@
 -- `/gf export` holds what is new since the last export; `/gf export all` holds everything again.
 
 local _, ns = ...
+local L = ns.L
 local UI, Export, ExportView, Theme = ns.UI, ns.Export, ns.ExportView, ns.Theme
 
 local SITE = "gold-forever.app/me/upload"
@@ -30,12 +31,12 @@ local function copied()
 		frame.pending = nil
 		Export.recordSent(pending.picked, pending.now)
 	end
-	frame.summary:SetText("Copied. Paste it at " .. SITE)
+	frame.summary:SetText(string.format(L["Copied. Paste it at %s"], SITE))
 end
 
 local function build()
 	frame = UI.Dialog({ name = "GoldForeverExport", width = 560, height = 206, at = { "CENTER" }, strata = "DIALOG", movable = true,
-		title = "Gold Forever export" })
+		title = L["Gold Forever export"] })
 	-- Closed, copied or not: nothing more counts as sent, and the string and what it held are let go
 	-- (review B-26): a big save's export is megabytes of text, kept till the next export otherwise.
 	frame:SetScript("OnHide", function()
@@ -46,7 +47,7 @@ local function build()
 
 	frame.summary = UI.Text(frame, "", { tone = "muted" })
 	frame.summary:SetPoint("TOPLEFT", frame.heading, "BOTTOMLEFT", 0, -6)
-	local how = UI.Text(frame, "Press Ctrl+C to copy, then paste it at " .. SITE, { tone = "faint" })
+	local how = UI.Text(frame, string.format(L["Press Ctrl+C to copy, then paste it at %s"], SITE), { tone = "faint" })
 	how:SetPoint("TOPLEFT", frame.summary, "BOTTOMLEFT", 0, -6)
 
 	-- One line: a long string shows far faster in a single-line box than a scrolling one. All of it
@@ -80,11 +81,11 @@ local function build()
 	end)
 	frame.box = box
 
-	local close = UI.Button(frame, "Close", function()
+	local close = UI.Button(frame, L["Close"], function()
 		frame:Hide()
 	end)
 	close:SetPoint("BOTTOMRIGHT", -16, 14)
-	local auto = UI.Text(frame, "The companion app does this for you: it uploads your save at every /reload and logout. gold-forever.app/companion",
+	local auto = UI.Text(frame, L["The companion app does this for you: it uploads your save at every /reload and logout. gold-forever.app/companion"],
 		{ size = "xs", tone = "faint", wrap = true })
 	auto:SetPoint("LEFT", frame, "LEFT", 16, 0)
 	auto:SetPoint("RIGHT", close, "LEFT", -12, 0)
@@ -98,8 +99,8 @@ local function show(text, picked, now)
 	local scans, days = #picked.scans, count(picked.events)
 	frame.text = text
 	frame.pending = { picked = picked, now = now }
-	frame.summary:SetText(string.format("%d characters, %d %s of play, %d auction %s · %d characters of text",
-		count(picked.characters), days, days == 1 and "day" or "days", scans, scans == 1 and "scan" or "scans", #text))
+	frame.summary:SetText(string.format(L["%d characters, %s of play, %s · %d characters of text"], count(picked.characters),
+		ns.plural(days, L["%d day"], L["%d days"]), ns.plural(scans, L["%d auction scan"], L["%d auction scans"]), #text))
 	frame.box:SetText(text)
 	frame:Show()
 	frame.box:SetFocus()
@@ -110,7 +111,7 @@ end
 -- seconds of work.
 ns.commands.export = function(arg)
 	if building and GetTime() - building < 60 then
-		ns.say("the export is still being built.")
+		ns.say(L["the export is still being built."])
 		return
 	end
 	local LibDeflate = LibStub("LibDeflate")
@@ -132,7 +133,7 @@ ns.commands.export = function(arg)
 		if not text then
 			if not told then
 				told = true
-				ns.say("building the export: a few seconds for a big save.")
+				ns.say(L["building the export: a few seconds for a big save."])
 			end
 			ns.after(0, "export", more)
 			return
@@ -149,7 +150,7 @@ local copy
 function ns.showCopy(title, text)
 	if not copy then
 		copy = UI.Dialog({ name = "GoldForeverCopy", width = 640, height = 420, at = { "CENTER" }, strata = "DIALOG", movable = true, title = "" })
-		local how = UI.Text(copy, "Ctrl+A, then Ctrl+C to copy it all.", { tone = "faint" })
+		local how = UI.Text(copy, L["Ctrl+A, then Ctrl+C to copy it all."], { tone = "faint" })
 		how:SetPoint("TOPLEFT", copy.heading, "BOTTOMLEFT", 0, -6)
 		local scroll = CreateFrame("ScrollFrame", nil, copy, "UIPanelScrollFrameTemplate")
 		scroll:SetPoint("TOPLEFT", how, "BOTTOMLEFT", 0, -10)
@@ -172,7 +173,7 @@ function ns.showCopy(title, text)
 		end)
 		scroll:SetScrollChild(box)
 		copy.box = box
-		local close = UI.Button(copy, "Close", function()
+		local close = UI.Button(copy, L["Close"], function()
 			copy:Hide()
 		end)
 		close:SetPoint("BOTTOMRIGHT", -16, 14)
@@ -188,12 +189,12 @@ end
 
 -- /gf check's lines, to paste into a bug report instead of a screenshot.
 ns.listen("checked", "check", function(text)
-	ns.showCopy("Gold Forever: check", text)
+	ns.showCopy(L["Gold Forever: check"], text)
 end)
 
 -- /gf probe's lines, to paste into an issue instead of reading them off the screen.
 ns.listen("probed", "probe", function(text)
-	ns.showCopy("Gold Forever: probe", text)
+	ns.showCopy(L["Gold Forever: probe"], text)
 end)
 
 -- For the smoke test.

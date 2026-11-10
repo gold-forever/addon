@@ -4,6 +4,7 @@
 -- of one, and only for gold. Nothing is recorded.
 
 local _, ns = ...
+local L = ns.L
 local VendorResale = {}
 ns.VendorResale = VendorResale
 
@@ -32,9 +33,9 @@ function VendorResale.offer(item)
 end
 
 function VendorResale.line(offer)
-	local rate = offer.rate and (" (" .. offer.rate .. " a day)") or ""
-	return "Resell: " .. ns.Money.auction(offer.value) .. " on the AH" .. rate .. " · +" .. ns.Money.auction(offer.gain) .. " after the cut"
-		.. (offer.limited and " (limited)" or "")
+	local rate = offer.rate and string.format(L[" (%s a day)"], offer.rate) or ""
+	return string.format(L["Resell: %s on the AH%s · +%s after the cut"], ns.Money.auction(offer.value), rate, ns.Money.auction(offer.gain))
+		.. (offer.limited and L[" (limited)"] or "")
 end
 
 -- The merchant's window ------------------------------------------------------------------------------------

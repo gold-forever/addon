@@ -3,6 +3,7 @@
 -- (addon#96). Blizzard's own bag frames only; nothing is moved or deleted: that stays the player's.
 
 local _, ns = ...
+local L = ns.L
 
 local BagMark = {}
 ns.BagMark = BagMark
@@ -225,7 +226,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 			or not ns.tipLine("bagMark") then
 			return
 		end
-		tooltip:AddLine(ns.tipPrefix(tooltip) .. "Cheapest in your bags: " .. ns.price.coins(marked.total), 1, 1, 1)
+		tooltip:AddLine(ns.tipPrefix(tooltip) .. string.format(L["Cheapest in your bags: %s"], ns.price.coins(marked.total)), 1, 1, 1)
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
 		ns.safely("bag mark tooltip", markTooltip, tooltip, data)
