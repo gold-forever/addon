@@ -79,6 +79,24 @@ function Lists.lists()
 	return s.lists, shown[s.list], shown
 end
 
+-- Item goals (gf#337): the HUD shows at most three, from the lists this character sees.
+Lists.GOALS_SHOWN = 3
+function Lists.goals()
+	return ns.Shopping.goals(visible(settings()), Lists.GOALS_SHOWN)
+end
+
+-- A goal's count: this character's bags, and its bank as last seen (not the mailbox, nor alts').
+local bankParsed = { items = {} }
+function Lists.goalHave(id)
+	local me = ns.me()
+	local text = me and me.bank and me.bank.items
+	if text ~= bankParsed.text then
+		bankParsed.text, bankParsed.items = text, text and ns.Encode.parseItems(text) or {}
+	end
+	local inBags = C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id) or 0
+	return inBags + (bankParsed.items[id] or 0)
+end
+
 -- Puts a list in view, when this character sees it.
 function Lists.choose(list)
 	local _, _, shown = Lists.lists()

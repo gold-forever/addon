@@ -4925,6 +4925,91 @@ do
   assert(not shown() and not Recap.available(), "switched off: no card")
   row.mod.set(true)
   SlashCmdList.GOLDFOREVER("reset")
+  -- Item goals on the HUD (gf#337): list entries flagged a goal on the Shopping lists page, at most three,
+  -- show under the HUD's line, counted from the bags and the bank as last seen, the pace from this
+  -- session's loot only; reaching one ticks it and says so once; Settings -> Modules hides them.
+  do
+    local auction, appraiser, Session = GoldForeverDB.settings.auction, GoldForeverDB.settings.appraiser, ns2.Session
+    local keep, keepList, count, chat, auto = auction.lists, auction.list, C_Item.GetItemCount, print, Session.automatic()
+    -- Played on top of the run and then taken back, so the golden saves stay as they were.
+    local eventsWas, catalogueWas, clockWas, nowWas = ns2.copy(GoldForeverDB.events), ns2.copy(GoldForeverDB.catalogue), clock, now
+    local pageWas = GoldForeverDB.settings.window.page
+    local me = ns2.me()
+    local bank = me.bank
+    me.bank = { items = "2589*4", t = now }
+    local inBags = 10
+    C_Item.GetItemCount = function(id) return id == 2589 and inBags or 0 end
+    auction.lists = { { id = "goal1", name = "Farm", entries = { { itemId = 2589, upTo = 40 }, { itemId = 2592, upTo = 5 }, { itemId = 2447, upTo = 5 }, { itemId = 6358, upTo = 5 } } } }
+    auction.list = 1
+    SlashCmdList.GOLDFOREVER("ui lists")
+    local L = ns2.listsPage
+    local c = L.controls
+    for _, id in ipairs({ 2589, 2592, 2447 }) do
+      L.addItem(id)
+      c.setGoal(true)
+    end
+    local entries = auction.lists[1].entries
+    assert(entries[1].goal and entries[2].goal and entries[3].goal and c.goal.on, "three goals set on the page")
+    L.addItem(6358)
+    c.setGoal(true)
+    assert(not entries[4].goal and L.note:GetText():find("turn one off first", 1, true), "a fourth goal is refused: " .. tostring(L.note:GetText()))
+    assert(ns2.Shopping.decode(ns2.Shopping.encode(auction.lists))[1].entries[1].goal == nil, "the goal stays out of the shared string")
+    SlashCmdList.GOLDFOREVER("ui")
+    -- A session's loot: 6 Linen Cloth in 10 minutes.
+    Session.setAutomatic(true)
+    SlashCmdList.GOLDFOREVER("reset")
+    ns2.setHud(true)
+    local function lootLinen(n)
+      slots = { { kind = 1, link = "|Hitem:2589::::::::30|h[Linen Cloth]|h", qty = n, sources = { "Creature-0-4620-0-12-99337-000G", n } } }
+      fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+    end
+    lootLinen(3)
+    clock = clock + 600; now = now + 600
+    lootLinen(3)
+    local hud = ns2.test.hud()
+    local rows = hud.goals.rows
+    local function line(i) return rows[i]:IsShown() and rows[i].text:GetText() or "" end
+    assert(hud:IsShown() and hud.goals:IsShown() and rows[1]:IsShown() and rows[3]:IsShown(), "the goals under the HUD's line")
+    assert(line(1):find("^14/40 ") and line(1):find("at this pace", 1, true), "bags and bank, with a pace: " .. line(1))
+    assert(line(2):find("no pace yet", 1, true), "nothing looted of it: " .. line(2))
+    assert(anchor(hud.details, "TOPLEFT")[2] == hud.goals, "the session opens under the goals")
+    -- Bought, mailed or traded: the count rises, the pace stays the loot's.
+    inBags = 20
+    fire("BAG_UPDATE_DELAYED")
+    local sum = ns2.sessionSummary()
+    local expected = ns2.Shopping.goalText(ns2.itemName(2589), ns2.Shopping.goalProgress(40, 24, 6, sum.elapsed), ns2.Views.duration)
+    assert(Session.get().items[2589] == 6 and line(1) == expected, "the count rises, not the pace: " .. line(1) .. " / " .. expected)
+    -- Reached: a tick, and one chat line.
+    local said = 0
+    print = function(...) if table.concat({ ... }, " "):find("goal reached: 40 " .. ns2.itemName(2589), 1, true) then said = said + 1 end chat(...) end
+    inBags = 36
+    fire("BAG_UPDATE_DELAYED")
+    fire("BAG_UPDATE_DELAYED")
+    print = chat
+    assert(line(1):find("40/40 ", 1, true) and line(1):find("reached", 1, true), "reached: " .. line(1))
+    assert(said == 1, "reached is said once: " .. said)
+    -- Settings -> Modules: Item goals, on by default.
+    SlashCmdList.GOLDFOREVER("ui settings")
+    local p = ns2.hubWindow().pages.settings
+    p.ensure("modules")
+    local row
+    for _, r in ipairs(p.modules.rows) do if r.mod.name == "Item goals" then row = r end end
+    assert(row and row.switch.on == true, "Item goals is on by default in Settings")
+    row.mod.set(false)
+    fire("BAG_UPDATE_DELAYED")
+    assert(not hud.goals:IsShown() and anchor(hud.details, "TOPLEFT")[2] == hud, "switched off: no goals")
+    row.mod.set(true)
+    fire("BAG_UPDATE_DELAYED")
+    assert(hud.goals:IsShown(), "switched on again")
+    appraiser.goals = nil -- on by default, so nothing in the save
+    SlashCmdList.GOLDFOREVER("ui")
+    me.bank, C_Item.GetItemCount = bank, count
+    auction.lists, auction.list = keep, keepList
+    Session.setAutomatic(auto)
+    SlashCmdList.GOLDFOREVER("reset")
+    GoldForeverDB.events, GoldForeverDB.catalogue, clock, now = eventsWas, catalogueWas, clockWas, nowWas
+    GoldForeverDB.settings.window.page = pageWas
+  end
   clock, now, money, GoldForeverDB.events = clockWas, nowWas, moneyWas, eventsWas
   for guid, c in pairs(GoldForeverDB.characters) do c.money = heldWas[guid] end
 end

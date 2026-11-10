@@ -40,6 +40,38 @@ local function byHand(hud)
 	hud.details.recap:SetShown(reopen)
 end
 
+-- Item goals (gf#337, Settings → Modules): under the line, each "34/40 Linen Cloth · about 12m at this
+-- pace", the count from bags and bank, the pace from this session's loot only (Session.lua counts the loot
+-- stream); a tick and one chat line when one is reached. The session panel opens under them.
+local GOAL_ROW = 22
+local reachedSeen = {} -- each goal's last state, so reaching it is told once
+
+local function drawGoals(hud, session, sum)
+	local g, Theme = hud.goals, ns.Theme
+	local goals = settings().goals ~= false and ns.Lists.goals() or {}
+	local elapsed = sum and sum.rates.rated and sum.elapsed or nil
+	for i, row in ipairs(g.rows) do
+		local e = goals[i]
+		row:SetShown(e ~= nil)
+		if e then
+			local name = ns.itemName(e.itemId)
+			local p = ns.Shopping.goalProgress(e.upTo, ns.Lists.goalHave(e.itemId), session and session.items[e.itemId] or 0, elapsed)
+			if ns.Shopping.newlyReached(reachedSeen, e.itemId .. "/" .. e.upTo, p.reached) then
+				ns.say(string.format("goal reached: %d %s.", e.upTo, name))
+			end
+			local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(e.itemId) or (GetItemIcon and GetItemIcon(e.itemId))
+			row.icon:SetTexture(icon or 134400)
+			row.icon:SetShown(not p.reached)
+			row.tick:SetShown(p.reached)
+			row.text:SetText((p.reached and Theme.escape(Theme.color.textMuted) or "") .. ns.Shopping.goalText(name, p, ns.Views.duration) .. (p.reached and "|r" or ""))
+		end
+	end
+	g:SetShown(#goals > 0)
+	g:SetHeight(#goals * GOAL_ROW + 8)
+	hud.details:ClearAllPoints()
+	hud.details:SetPoint("TOPLEFT", #goals > 0 and g or hud, "BOTTOMLEFT", 0, -6)
+end
+
 local function refresh()
 	if not huds.frame or not huds.frame:IsShown() then
 		return
@@ -50,6 +82,8 @@ local function refresh()
 	byHand(hud)
 	local faint = Theme.escape(Theme.color.textFaint)
 	local session = Session.get()
+	local sum = session and ns.sessionSummary()
+	drawGoals(hud, session, sum)
 	if not session then
 		hud.time:SetText("")
 		hud.gold:SetText(faint .. (Session.automatic() and "Loot or kill something to start a session." or "Press Start to start a session.") .. "|r")
@@ -59,7 +93,6 @@ local function refresh()
 		hud.details:Hide()
 		return
 	end
-	local sum = ns.sessionSummary()
 	local secs, value, unpriced, r = sum.elapsed, sum.value, sum.unpriced, sum.rates
 	local dash = faint .. "-|r"
 	hud.time:SetText((Session.idle() and "ended " or "") .. Views.duration(math.max(60, secs)))
@@ -174,6 +207,30 @@ build = function()
 	end, { kind = "ghost", width = 64, height = 24 })
 	hud.stop:SetPoint("RIGHT", -6, 0)
 	hud.recap = UI.Button(hit, "Recap", ns.SessionRecap.reopen, { kind = "ghost", width = 64, height = 24 })
+
+	-- Item goals, under the line (drawGoals).
+	local g = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
+	g:SetPoint("TOPLEFT", hud, "BOTTOMLEFT", 0, -4)
+	g:SetWidth(W)
+	g:Hide()
+	g.rows = {}
+	for i = 1, ns.Lists.GOALS_SHOWN do
+		local row = CreateFrame("Frame", nil, g)
+		row:SetHeight(GOAL_ROW)
+		row:SetPoint("TOPLEFT", 12, -4 - (i - 1) * GOAL_ROW)
+		row:SetPoint("RIGHT", g, "RIGHT", -12, 0)
+		row.icon = row:CreateTexture(nil, "ARTWORK")
+		row.icon:SetSize(16, 16)
+		row.icon:SetPoint("LEFT", 2, 0)
+		row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+		row.tick = UI.Icon(row, "check", 16, "accent")
+		row.tick:SetPoint("LEFT", 2, 0)
+		row.text = UI.Text(row, "", { size = "sm" })
+		row.text:SetPoint("LEFT", 26, 0)
+		row.text:SetWidth(W - 50)
+		g.rows[i] = row
+	end
+	hud.goals = g
 
 	-- The session, under the line.
 	local d = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.96, borderColor = Theme.color.borderStrong })

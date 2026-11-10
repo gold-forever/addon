@@ -382,4 +382,46 @@ function Shopping.refind(items, was)
 	return nil
 end
 
+-- Item goals (gf#337): list entries flagged `goal` with a How many, each item once in list order, at most
+-- `most` (the HUD's room).
+function Shopping.goals(lists, most)
+	local out, seen = {}, {}
+	for _, l in ipairs(lists or {}) do
+		for _, e in ipairs(l.entries or {}) do
+			if #out < most and e.goal and e.upTo and not seen[e.itemId] then
+				seen[e.itemId] = true
+				out[#out + 1] = e
+			end
+		end
+	end
+	return out
+end
+
+-- A goal's progress: `have` of `want` held, and the pace from what was `looted` this session in `elapsed`
+-- seconds, so a purchase, mail or trade raises the count but not the pace. pace is units an hour and eta
+-- seconds to go, nil without loot or time; a goal reached has no eta.
+function Shopping.goalProgress(want, have, looted, elapsed)
+	local p = { want = want, have = have, reached = have >= want }
+	if looted > 0 and elapsed and elapsed > 0 then
+		p.pace = looted * 3600 / elapsed
+	end
+	if p.pace and not p.reached then
+		p.eta = (want - have) * 3600 / p.pace
+	end
+	return p
+end
+
+-- A goal's HUD line: "34/40 Linen Cloth · about 12m at this pace"; `duration` writes the seconds.
+function Shopping.goalText(name, p, duration)
+	local tail = p.reached and "reached" or p.eta and ("about " .. duration(p.eta) .. " at this pace") or "no pace yet"
+	return string.format("%d/%d %s \194\183 %s", p.have, p.want, name, tail)
+end
+
+-- Whether a goal has just been reached: seen short of it before, reached now. `seen` keeps each key's last state.
+function Shopping.newlyReached(seen, key, reached)
+	local was = seen[key]
+	seen[key] = reached
+	return reached and was == false
+end
+
 return Shopping

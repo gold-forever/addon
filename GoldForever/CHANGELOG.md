@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Farm toward a number: item goals on the HUD.** On the Shopping lists page, choose an item with How many set and switch Goal on. While you farm, the HUD shows it under its line, for example "34/40 Linen Cloth · about 12m at this pace". The count is your bags plus your bank as of your last visit. The pace comes only from what you looted this session, so items you buy, get by mail or trade raise the count but not the pace. Before you have looted any it says "no pace yet". A reached goal gets a tick and one chat line. Up to 3 goals show; turn them off under Settings, Modules, Item goals.
 - **No more phantom professions.** A profession window could briefly list another profession's recipes, and a character then got an empty row such as "Skill line 197" on the site, for a profession they don't have. It no longer records one.
 
 ## 0.18.0 (2026-11-09)

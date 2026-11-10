@@ -159,7 +159,7 @@ local function buildLists(page)
 	local items = UI.Table(page, {
 		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		{ key = "price", title = "At most", width = 110, align = "RIGHT" },
-		{ key = "many", title = "How many", width = 80, align = "RIGHT" },
+		{ key = "many", title = "How many", width = 100, align = "RIGHT" },
 	}, {
 		pageSize = 6,
 		rowHeight = 24,
@@ -205,6 +205,14 @@ local function buildLists(page)
 	local many = UI.SearchBox(edit, "any", nil)
 	many:SetPoint("LEFT", manyLabel, "RIGHT", 8, 0)
 	many:SetWidth(60)
+	-- A goal (gf#337): the HUD counts it toward How many while you farm.
+	local goalLabel = UI.Text(edit, "Goal", { size = "sm", tone = "muted" })
+	goalLabel:SetPoint("LEFT", many, "RIGHT", 14, 0)
+	local setGoal
+	local goal = UI.Switch(edit, false, function(on)
+		setGoal(on)
+	end)
+	goal:SetPoint("LEFT", goalLabel, "RIGHT", 8, 0)
 	local removeItem = UI.Button(edit, "Remove", function()
 		local list = ownList()
 		if not list then
@@ -328,6 +336,24 @@ local function buildLists(page)
 		self:ClearFocus()
 		setMany(self:GetText())
 	end)
+	-- At most GOALS_SHOWN goals, since the HUD shows no more.
+	function setGoal(on)
+		local e, list = chosenEntry()
+		if not e or list.profile then
+			return
+		end
+		if on and not e.goal and #ns.Lists.goals() >= ns.Lists.GOALS_SHOWN then
+			say(Theme.escape(Theme.color.warning) .. string.format("The HUD shows %d goals: turn one off first.", ns.Lists.GOALS_SHOWN) .. "|r")
+			page:Refresh()
+			return
+		end
+		e.goal = on or nil
+		stamp(list)
+		if on then
+			say(e.upTo and "On the HUD while you farm: how many you hold, and the time to go at this pace." or "Set How many too: the goal counts up to it.")
+		end
+		page:Refresh()
+	end
 
 	-- Adds an item to the chosen list (one of the player's own).
 	local function add(id)
@@ -395,7 +421,7 @@ local function buildLists(page)
 		for i, e in ipairs(list.entries) do
 			local quality = ns.price.itemInfo(e.itemId)
 			entries[i] = { itemId = e.itemId, name = ns.itemName(e.itemId), quality = quality or 1, price = priceText(e),
-				many = e.upTo and tostring(e.upTo) or "any" }
+				many = (e.upTo and tostring(e.upTo) or "any") .. (e.goal and " \194\183 goal" or "") }
 		end
 		items:SetRows(entries, true)
 		local e = chosenEntry()
@@ -412,6 +438,9 @@ local function buildLists(page)
 			-- The craft queue's numbers come from the queue.
 			many:SetShown(not list.profile)
 			manyLabel:SetShown(not list.profile)
+			goal:Set(e.goal == true)
+			goal:SetShown(not list.profile)
+			goalLabel:SetShown(not list.profile)
 			removeItem:SetShown(not list.profile)
 			mode:SetAlpha(editable and 1 or 0.5)
 			mode:EnableMouse(editable)
@@ -419,7 +448,7 @@ local function buildLists(page)
 	end
 	-- For the smoke test: its controls.
 	page.controls = { lists = listTable, choose = function(i) chooseRow({ index = i }) end, new = newList, delete = delete, name = name, import = importButton, export = exportButton, field = field,
-		remove = removeItem, setPrice = function(kind, text) setPrice(kind, text) end, setMany = setMany, rename = renameTo }
+		remove = removeItem, setPrice = function(kind, text) setPrice(kind, text) end, setMany = setMany, setGoal = function(on) setGoal(on) end, goal = goal, rename = renameTo }
 	ns.listsPage = page
 end
 ns.buildShoppingLists = buildLists

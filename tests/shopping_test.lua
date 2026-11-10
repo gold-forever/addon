@@ -204,4 +204,38 @@ do
 	eq(S.entryDeal({ itemId = 7, lowest = 120 }, { lv(900, 10) }, 0, 1000).quantity, 10, "lowest without How many: a plain deal at its share")
 end
 
+-- Item goals on the HUD (gf#337): a list entry flagged a goal, counted toward its How many.
+do
+	local lists = { { entries = { { itemId = 1, upTo = 40, goal = true }, { itemId = 2, upTo = 5 }, { itemId = 3, goal = true } } },
+		{ entries = { { itemId = 1, upTo = 9, goal = true }, { itemId = 4, upTo = 1, goal = true }, { itemId = 5, upTo = 2, goal = true }, { itemId = 6, upTo = 3, goal = true } } } }
+	local ids = {}
+	for i, g in ipairs(S.goals(lists, 3)) do ids[i] = g.itemId .. "/" .. g.upTo end
+	eq(table.concat(ids, " "), "1/40 4/1 5/2", "goals: flagged with How many, each item once, at most three")
+	eq(#S.goals({}, 3), 0, "no lists, no goals")
+	-- The count, the pace from loot only, and the time to go.
+	local p = S.goalProgress(40, 34, 30, 3600)
+	eq(p.have .. " " .. p.want .. " " .. tostring(p.reached), "34 40 false", "34 of 40, not reached")
+	eq(p.pace, 30, "30 looted in an hour: 30 an hour")
+	eq(p.eta, 720, "6 to go at 30 an hour: 12 minutes")
+	local bought = S.goalProgress(40, 38, 30, 3600)
+	eq(bought.pace, 30, "bought or mailed: the count rises, the pace does not")
+	eq(bought.eta, 240, "and the time to go falls by what came in")
+	eq(S.goalProgress(40, 34, 0, 3600).pace, nil, "nothing looted: no pace")
+	eq(S.goalProgress(40, 34, 5, nil).pace, nil, "no session time yet: no pace")
+	eq(S.goalProgress(40, 34, 0, 3600).eta, nil, "no pace: no time")
+	local done = S.goalProgress(40, 41, 30, 3600)
+	eq(tostring(done.reached) .. " " .. tostring(done.eta), "true nil", "reached: no time to go")
+	-- Its line on the HUD.
+	local function dur(secs) return math.floor(secs / 60) .. "m" end
+	eq(S.goalText("Linen Cloth", p, dur), "34/40 Linen Cloth \194\183 about 12m at this pace", "with a pace")
+	eq(S.goalText("Linen Cloth", S.goalProgress(40, 34, 0, 3600), dur), "34/40 Linen Cloth \194\183 no pace yet", "no pace yet")
+	eq(S.goalText("Linen Cloth", done, dur), "41/40 Linen Cloth \194\183 reached", "reached")
+	-- Reached is told once: when a goal seen short of it gets there, not when first seen reached.
+	local seen = {}
+	eq(S.newlyReached(seen, "1/40", false), false, "short of it")
+	eq(S.newlyReached(seen, "1/40", true), true, "reached: told")
+	eq(S.newlyReached(seen, "1/40", true), false, "told once")
+	eq(S.newlyReached(seen, "4/1", true), false, "first seen reached: not told")
+end
+
 return checks()
