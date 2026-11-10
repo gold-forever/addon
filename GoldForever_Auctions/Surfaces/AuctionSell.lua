@@ -6,6 +6,7 @@
 -- player never undercuts themself.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Post = ns.Theme, ns.UI, ns.Post
 local ah = ns.ah
 local Blizzard, Books = ns.AuctionBlizzard, ns.AuctionBooks
@@ -15,7 +16,7 @@ local bookKey, search, LISTED = Books.bookKey, Books.search, Books.LISTED
 local await, busy, money = ah.await, ah.busy, ns.Money.auction
 local Wide = ns.AuctionSellWide
 
-local DURATIONS = { { value = 1, label = "12 hours" }, { value = 2, label = "24 hours" }, { value = 3, label = "48 hours" } }
+local DURATIONS = { { value = 1, label = L["12 hours"] }, { value = 2, label = L["24 hours"] }, { value = 3, label = L["48 hours"] } }
 
 local function bags()
 	local list = { 0, 1, 2, 3, 4 }
@@ -44,7 +45,7 @@ local function sellable()
 					local r = byKey[key]
 					if not r then
 						local quality, _, _, _, name = ns.price.itemInfo(info.itemID)
-						r = { key = key, id = info.itemID, link = info.hyperlink, name = name or C_Item.GetItemNameByID(info.itemID) or ("item " .. info.itemID),
+						r = { key = key, id = info.itemID, link = info.hyperlink, name = name or C_Item.GetItemNameByID(info.itemID) or string.format(L["item %d"], info.itemID),
 							quality = quality or info.quality or 1, count = 0, locations = {}, commodity = commodity, icon = info.iconFileID }
 						byKey[key] = r
 						out[#out + 1] = r
@@ -61,8 +62,8 @@ end
 -- A sale plan's step as the Post tab's suggestion: posts in whole silver; "ask" posts the plan's price
 -- after a second press; hold and skip post nothing.
 local PLAN_REASONS = {
-	undercut = "Undercut (plan)", fixed = "Fixed price (plan)", percentile = "Percentile (plan)", ["no-competition"] = "No one else (plan)",
-	["market-moved"] = "The market moved (plan)", ["under-floor"] = "Hold: under the plan's floor", keeping = "Keeping", ["no-price"] = "No price yet",
+	undercut = L["Undercut (plan)"], fixed = L["Fixed price (plan)"], percentile = L["Percentile (plan)"], ["no-competition"] = L["No one else (plan)"],
+	["market-moved"] = L["The market moved (plan)"], ["under-floor"] = L["Hold: under the plan's floor"], keeping = L["Keeping"], ["no-price"] = L["No price yet"],
 }
 
 local function planned(r, rule, market)
@@ -72,7 +73,7 @@ local function planned(r, rule, market)
 	local unit = step.unitPrice or (step.choices and step.choices.plan)
 	local label = PLAN_REASONS[step.reason] or step.reason
 	if step.reason == "keeping" then
-		label = "Keeping " .. rule.keep
+		label = string.format(L["Keeping %s"], tostring(rule.keep))
 	end
 	return {
 		unit = unit and Post.silver(unit) or nil,
@@ -110,7 +111,7 @@ local function price(r, s)
 		local postRule, from = Post.resolve(s.rule, s.overrides, r.id, class)
 		r.suggestion, r.anyway = Post.advise(postRule, market, r.cheapest)
 		if r.suggestion and from ~= "default" then
-			r.suggestion.label = (Post.REASONS[r.suggestion.reason] or "") .. (from == "item" and " (item rule)" or " (category rule)")
+			r.suggestion.label = (Post.REASONS[r.suggestion.reason] or "") .. (from == "item" and L[" (item rule)"] or L[" (category rule)"])
 		end
 	end
 	return r
@@ -140,7 +141,7 @@ end
 
 local function posting(r)
 	await("post", r.key, ah.panel.post.note)
-	ah.panel.post.note:SetText("Posting...")
+	ah.panel.post.note:SetText(L["Posting..."])
 end
 
 -- The unit price to post at, and whether it is forced: held under the floor, Post anyway posts at the
@@ -153,7 +154,7 @@ local function unitToPost(r)
 	if ah.armed ~= r.key .. ":anyway" then
 		ah.armed = r.key .. ":anyway"
 		-- Wide, the button itself asks for the second press (addon#91).
-		local text = ah.panel.post.wide and Wide.underFloor(r) or string.format("%s is under your floor of %s. Press again to post anyway.",
+		local text = ah.panel.post.wide and Wide.underFloor(r) or string.format(L["%s is under your floor of %s. Press again to post anyway."],
 			money(r.anyway), money(r.suggestion.floor))
 		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. text .. "|r")
 		return nil
@@ -183,12 +184,12 @@ end
 -- A price the panel warns about takes a second press; true while it waits for it.
 local function waitsForSecondPress(r, unit, forced)
 	local warning = not forced and (Post.check(unit, r.market, r.vendor, ns.price.cut)
-		or (r.suggestion.ask and "at the plan's fixed price though the market moved"))
+		or (r.suggestion.ask and L["at the plan's fixed price though the market moved"]))
 	if not warning or ah.armed == r.key then
 		return false
 	end
 	ah.armed = r.key
-	ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "Press again to post " .. warning .. ".|r")
+	ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. string.format(L["Press again to post %s."], warning) .. "|r")
 	return true
 end
 
@@ -210,7 +211,7 @@ local function send(r, unit)
 	end
 	if needs then
 		ah.confirm = { key = r.key, args = lastArgs }
-		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
+		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. L["The auction house warns this price is far from the going one. Press again to post anyway."] .. "|r")
 		return
 	end
 	posting(r)
@@ -250,7 +251,7 @@ local function posted()
 	end
 	ah.chosen = next
 	if ah.panel then
-		ah.panel.post.note:SetText(Theme.escape(Theme.color.success) .. "Posted.|r")
+		ah.panel.post.note:SetText(Theme.escape(Theme.color.success) .. L["Posted."] .. "|r")
 	end
 	if next then
 		-- Into Blizzard's Sell window too, as a click on it does.
@@ -272,7 +273,7 @@ ns.on("AUCTION_HOUSE_POST_WARNING", "auction panel", function()
 	Blizzard.closeWarning()
 	ah.waits.post = nil
 	if ah.panel and ah.panel.post.note then
-		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. "The auction house warns this price is far from the going one. Press again to post anyway.|r")
+		ah.panel.post.note:SetText(Theme.escape(Theme.color.warning) .. L["The auction house warns this price is far from the going one. Press again to post anyway."] .. "|r")
 	end
 end)
 -- A post the server refused: say so at once rather than after the wait.
@@ -280,7 +281,7 @@ ns.on("AUCTION_HOUSE_POST_ERROR", "auction panel", function()
 	if ah.waits.post then
 		ah.waits.post = nil
 		if ah.panel and ah.panel.post.note then
-			ah.panel.post.note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused the post.|r")
+			ah.panel.post.note:SetText(Theme.escape(Theme.color.danger) .. L["The auction house refused the post."] .. "|r")
 		end
 	end
 end)
@@ -359,17 +360,17 @@ local function buildPost(page)
 		if sug and sug.unit then
 			return cash(sug.unit)
 		end
-		return wideNow and sug and (Theme.escape(Theme.color.textFaint) .. "hold|r") or "-"
+		return wideNow and sug and (Theme.escape(Theme.color.textFaint) .. L["hold"] .. "|r") or "-"
 	end
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 3, text = itemName, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "name", title = L["Item"], flex = 3, text = itemName, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
 		-- The typical price, what selling is priced against; the tooltip's "Market" is the day's value (addon#21).
-		{ key = "typical", title = "Typical", width = COLUMNS.narrow.typical, align = "RIGHT", text = function(r) return r.typical and cash(r.typical) or "-" end, sort = function(r) return r.typical or 0 end },
-		{ key = "post", title = "Post at", width = COLUMNS.narrow.post, align = "RIGHT", text = postAt, sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
+		{ key = "typical", title = L["Typical"], width = COLUMNS.narrow.typical, align = "RIGHT", text = function(r) return r.typical and cash(r.typical) or "-" end, sort = function(r) return r.typical or 0 end },
+		{ key = "post", title = L["Post at"], width = COLUMNS.narrow.post, align = "RIGHT", text = postAt, sort = function(r) return r.suggestion and r.suggestion.unit or 0 end },
 	}, {
 		pageSize = 5,
 		rowHeight = 24,
-		empty = "Nothing in your bags the auction house takes.",
+		empty = L["Nothing in your bags the auction house takes."],
 		itemId = function(r) return r.id end,
 		isSelected = function(r) return ah.chosen and r.key == ah.chosen.key end,
 		onRowClick = function(r)
@@ -396,7 +397,7 @@ local function buildPost(page)
 			ns.rulesPage.chooseScope("add-item")
 		end
 	end
-	local ruleButton = UI.Button(detail, "Rule >", openRule, { width = 72, height = 24 })
+	local ruleButton = UI.Button(detail, L["Rule >"], openRule, { width = 72, height = 24 })
 	ruleButton:SetPoint("TOPRIGHT", -10, -8)
 	page.ruleButton = ruleButton
 	-- Wide or narrow, saved in the settings; the label offers the other.
@@ -406,7 +407,7 @@ local function buildPost(page)
 		page.applyLayout()
 		ah.refresh()
 	end
-	local layoutButton = UI.Button(detail, "Wide", toggleLayout, { kind = "ghost", width = 64, height = 24 })
+	local layoutButton = UI.Button(detail, L["Wide"], toggleLayout, { kind = "ghost", width = 64, height = 24 })
 	layoutButton:SetPoint("RIGHT", ruleButton, "LEFT", -6, 0)
 	page.layoutButton = layoutButton
 	local reason = UI.Text(detail, "", { size = "sm" })
@@ -417,7 +418,7 @@ local function buildPost(page)
 	facts:SetPoint("TOPLEFT", reason, "BOTTOMLEFT", 0, -6)
 	facts:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
 	-- The cheapest listings, the player's own marked, from the last search.
-	local listHead = UI.Text(detail, "LISTINGS", { size = "xs", medium = true, tone = "faint" })
+	local listHead = UI.Text(detail, L["LISTINGS"], { size = "xs", medium = true, tone = "faint" })
 	listHead:SetPoint("TOPLEFT", facts, "BOTTOMLEFT", 0, -10)
 	local listed = {}
 	for i = 1, LISTED do
@@ -440,7 +441,7 @@ local function buildPost(page)
 	end)
 	page.duration = duration
 	-- How many of a commodity to post, remembered for it; hidden for gear (one at a time).
-	local qtyLabel = UI.Text(detail, "Post", { size = "sm", tone = "muted" })
+	local qtyLabel = UI.Text(detail, L["Post"], { size = "sm", tone = "muted" })
 	local qty = UI.Slider(detail, 1, 2, 1, 1, function(v)
 		if ah.chosen then
 			settings().quantities[ah.chosen.key] = v
@@ -457,7 +458,7 @@ local function buildPost(page)
 		ns.safely("auction post", post)
 		ah.refresh()
 	end
-	local button = UI.Button(detail, "Post", press, { kind = "primary", width = 240, height = 30 })
+	local button = UI.Button(detail, L["Post"], press, { kind = "primary", width = 240, height = 30 })
 	page.button = button
 	page.note = UI.Text(page, "", { size = "xs", tone = "faint", wrap = true })
 
@@ -492,8 +493,8 @@ local function buildPost(page)
 			tbl:Refresh()
 		end
 	end
-	paging.previous = UI.Button(paging, "Previous", turn(-1), { width = 80, height = 22 })
-	paging.next = UI.Button(paging, "Next", turn(1), { width = 80, height = 22 })
+	paging.previous = UI.Button(paging, L["Previous"], turn(-1), { width = 80, height = 22 })
+	paging.next = UI.Button(paging, L["Next"], turn(1), { width = 80, height = 22 })
 	paging.text = UI.Text(paging, "", { size = "xs", tone = "muted", align = "CENTER" })
 	paging.next:SetPoint("RIGHT")
 	paging.text:SetPoint("RIGHT", paging.next, "LEFT", -6, 0)
@@ -567,10 +568,10 @@ local function buildPost(page)
 		local wide = settings().sellWide
 		local plan = layout(wide, wide and roomBeside(page:GetParent()) or nil)
 		place(plan)
-		layoutButton:SetLabel(wide and "Narrow" or "Wide")
-		box.layoutButton:SetLabel("Narrow")
+		layoutButton:SetLabel(wide and L["Narrow"] or L["Wide"])
+		box.layoutButton:SetLabel(L["Narrow"])
 		if plan.cramped then
-			page.note:SetText("Too little room beside the auction house for the wide layout at this UI scale.")
+			page.note:SetText(L["Too little room beside the auction house for the wide layout at this UI scale."])
 		end
 	end
 	page.applyLayout()
@@ -583,7 +584,7 @@ local function buildPost(page)
 	-- Wide: the box drawn from the chosen row, its book and what posting it would take.
 	local function drawWide()
 		local r = ah.chosen
-		page.count:SetText(string.format("%d %s in your bags", #ah.rows, #ah.rows == 1 and "item" or "items"))
+		page.count:SetText(ns.plural(#ah.rows, L["%d item in your bags"], L["%d items in your bags"]))
 		if not r then
 			box:Draw({ note = page.note:GetText() })
 			return
@@ -604,9 +605,9 @@ local function buildPost(page)
 			return
 		end
 		if not ah.chosen then
-			name:SetText(faint .. "Choose an item.|r")
+			name:SetText(faint .. L["Choose an item."] .. "|r")
 			reason:SetText("")
-			facts:SetText("Space posts the chosen item while this panel shows.")
+			facts:SetText(L["Space posts the chosen item while this panel shows."])
 			button:SetEnabled(false)
 			return
 		end
@@ -620,13 +621,13 @@ local function buildPost(page)
 			qty:Set(quantity(r))
 		end
 		local sug = r.suggestion
-		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  x" .. quantity(r) .. (r.commodity and "" or " (one at a time)") .. "|r")
+		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  x" .. quantity(r) .. (r.commodity and "" or L[" (one at a time)"]) .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
 		local hint = Post.trendHint(r.trend)
-		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or "No price yet: scan first") .. "|r"
-			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. " each|r") or "")
+		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or L["No price yet: scan first"]) .. "|r"
+			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. L[" each"] .. "|r") or "")
 			.. (hint and ("  " .. Theme.escape(r.trend > 0 and Theme.color.warning or Theme.color.textFaint) .. hint .. "|r") or ""))
-		local cheapest = r.cheapest and (money(r.cheapest) .. faint .. (r.cheapestFrom == "live" and " (live)" or " (last scan, yours included)") .. "|r") or (faint .. "none|r")
+		local cheapest = r.cheapest and (money(r.cheapest) .. faint .. (r.cheapestFrom == "live" and L[" (live)"] or L[" (last scan, yours included)"]) .. "|r") or (faint .. L["none"] .. "|r")
 		-- The market's trend on the week, when the pool carries one: green rising, red falling.
 		local trend = ""
 		if r.trend then
@@ -634,22 +635,22 @@ local function buildPost(page)
 			trend = Theme.escape(tone) .. (string.gsub(ns.Prices.trendText(r.trend), "^ · ", " ")) .. "|r"
 		end
 		-- The price Sell measures against, named for what it is: the typical price, or the market value and its source.
-		local base = r.typical and ("typical " .. money(r.typical))
-			or ("market " .. (r.market and money(r.market) or "-") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
-		facts:SetText(string.format("Cheapest other %s · %s%s · floor %s · normal %s", cheapest, base, trend,
+		local base = r.typical and string.format(L["typical %s"], money(r.typical))
+			or (string.format(L["market %s"], r.market and money(r.market) or "-") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
+		facts:SetText(string.format(L["Cheapest other %s · %s%s · floor %s · normal %s"], cheapest, base, trend,
 			sug and money(sug.floor) or "-", sug and money(sug.normal) or "-") .. (r.supplyLine and ("\n" .. r.supplyLine) or ""))
 		local l = ah.live[r.key]
 		for i, line in ipairs(listed) do
 			local x = l and l.list and l.list[i]
-			line.unit:SetText(x and money(x.unit) or (i == 1 and (faint .. (l and "none listed" or "searching...") .. "|r") or ""))
-			line.qty:SetText(x and ("x" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  yours|r") or "")) or "")
+			line.unit:SetText(x and money(x.unit) or (i == 1 and (faint .. (l and L["none listed"] or L["searching..."]) .. "|r") or ""))
+			line.qty:SetText(x and ("x" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  " .. L["yours"] .. "|r") or "")) or "")
 		end
-		listHead:SetText(l and l.total and l.total > LISTED and string.format("LISTINGS · CHEAPEST %d OF %d", LISTED, l.total) or "LISTINGS")
+		listHead:SetText(l and l.total and l.total > LISTED and string.format(L["LISTINGS · CHEAPEST %d OF %d"], LISTED, l.total) or L["LISTINGS"])
 		local can = sug and (sug.unit or r.anyway) and not busy()
 		if can then
-			button:SetLabel(sug.unit and ("Post " .. quantity(r) .. " x " .. money(sug.unit)) or ("Post anyway: " .. quantity(r) .. " x " .. money(r.anyway)))
+			button:SetLabel(sug.unit and string.format(L["Post %d x %s"], quantity(r), money(sug.unit)) or string.format(L["Post anyway: %s"], string.format("%d x %s", quantity(r), money(r.anyway))))
 		else
-			button:SetLabel(sug and sug.reason == "hold" and "Under your floor" or "Post")
+			button:SetLabel(sug and sug.reason == "hold" and L["Under your floor"] or L["Post"])
 		end
 		button:SetEnabled(can and true or false)
 	end
@@ -702,9 +703,9 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 				end
 				local sug = r.suggestion
 				if sug and sug.unit then
-					tooltip:AddLine(string.format("%sPost at %s · %s", ns.tipPrefix(tooltip), money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
+					tooltip:AddLine(ns.tipPrefix(tooltip) .. string.format(L["Post at %s · %s"], money(sug.unit), sug.label or Post.REASONS[sug.reason] or ""), 1, 1, 1)
 				elseif sug then
-					tooltip:AddLine(ns.tipPrefix(tooltip) .. (sug.label or Post.REASONS[sug.reason] or "Hold"), 0.6, 0.6, 0.6)
+					tooltip:AddLine(ns.tipPrefix(tooltip) .. (sug.label or Post.REASONS[sug.reason] or L["Hold"]), 0.6, 0.6, 0.6)
 				end
 				return
 			end
@@ -715,4 +716,4 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
-ns.AuctionSell = { key = "post", label = "Sell", build = buildPost, refresh = refresh, post = post, reread = reread, layout = layout, pager = pager }
+ns.AuctionSell = { key = "post", label = L["Sell"], build = buildPost, refresh = refresh, post = post, reread = reread, layout = layout, pager = pager }

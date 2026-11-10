@@ -4,6 +4,7 @@
 -- places it and hands it what posting needs; the texts below are pure, so the tests read them.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 
 local Wide = {}
@@ -19,7 +20,7 @@ local LIST_HEADER = 22
 local LIST_ROW = 20
 local LIST_BOTTOM = 10
 local DURATION = { width = 44, height = 24, step = 48 }
-local DURATIONS = { { value = 1, label = "12h" }, { value = 2, label = "24h" }, { value = 3, label = "48h" } }
+local DURATIONS = { { value = 1, label = string.format(L["%dh"], 12) }, { value = 2, label = string.format(L["%dh"], 24) }, { value = 3, label = string.format(L["%dh"], 48) } }
 
 local function money(copper)
 	return ns.Money.format(copper, "colour")
@@ -68,13 +69,13 @@ function Wide.lines(levels, commodity)
 end
 
 function Wide.heading(prices, units)
-	return string.upper(string.format("Listings · %d %s · %d for sale", prices, prices == 1 and "price" or "prices", units))
+	return ns.plural(prices, L["LISTINGS · %d PRICE · %d FOR SALE"], L["LISTINGS · %d PRICES · %d FOR SALE"], units)
 end
 
 local BADGES = {
-	undercut = { label = "Undercut", tone = "accent" }, alone = { label = "No one else", tone = "success" },
-	normal = { label = "Normal price", tone = "info" }, floor = { label = "At floor", tone = "warning" },
-	hold = { label = "Hold", tone = "danger" },
+	undercut = { label = L["Undercut"], tone = "accent" }, alone = { label = L["No one else"], tone = "success" },
+	normal = { label = L["Normal price"], tone = "info" }, floor = { label = L["At floor"], tone = "warning" },
+	hold = { label = L["Hold"], tone = "danger" },
 }
 
 -- The reason as a badge: { label, tone }; a sale plan's step by its own label. Nil with no price.
@@ -83,7 +84,7 @@ function Wide.badge(sug)
 		return nil
 	end
 	if sug.reason == "plan" then
-		return { label = sug.label or "Plan", tone = sug.unit and "accent" or "warning" }
+		return { label = sug.label or L["Plan"], tone = sug.unit and "accent" or "warning" }
 	end
 	return BADGES[sug.reason]
 end
@@ -92,21 +93,21 @@ end
 function Wide.why(r)
 	local sug = r.suggestion
 	if not sug then
-		return "No price yet: scan first."
+		return L["No price yet: scan first."]
 	end
 	local reason = sug.reason
 	if reason == "undercut" and r.cheapest and sug.unit then
-		return money(r.cheapest - sug.unit) .. " under the cheapest other listing, above your floor."
+		return string.format(L["%s under the cheapest other listing, above your floor."], money(r.cheapest - sug.unit))
 	elseif reason == "alone" then
-		return "No one else lists it: your normal price."
+		return L["No one else lists it: your normal price."]
 	elseif reason == "normal" then
-		return "The others ask more than your normal price: posted at normal."
+		return L["The others ask more than your normal price: posted at normal."]
 	elseif reason == "floor" then
-		return "An undercut would go under your floor: posted at the floor."
+		return L["An undercut would go under your floor: posted at the floor."]
 	elseif reason == "hold" then
-		return "The cheapest other is under your floor: held." .. (r.anyway and (" Anyway: " .. money(r.anyway) .. ".") or "")
+		return L["The cheapest other is under your floor: held."] .. (r.anyway and string.format(L[" Anyway: %s."], money(r.anyway)) or "")
 	end
-	return (sug.label or "The sale plan's step") .. "."
+	return (sug.label or L["The sale plan's step"]) .. "."
 end
 
 -- The price line: the unit price, or Held under the floor; nil with no price.
@@ -126,25 +127,25 @@ end
 function Wide.button(r, quantity, armed, busy)
 	local sug = r and r.suggestion
 	if sug and sug.unit then
-		return { label = string.format("Post %d x %s", quantity, money(sug.unit)), kind = "primary", enabled = not busy }
+		return { label = string.format(L["Post %d x %s"], quantity, money(sug.unit)), kind = "primary", enabled = not busy }
 	end
 	if sug and r.anyway then
 		local what = string.format("%d x %s", quantity, money(r.anyway))
-		return { label = armed and ("Press again: post " .. what) or ("Post anyway: " .. what), kind = "default", enabled = not busy }
+		return { label = armed and string.format(L["Press again: post %s"], what) or string.format(L["Post anyway: %s"], what), kind = "default", enabled = not busy }
 	end
-	return { label = sug and sug.reason == "hold" and "Under your floor" or "Post", kind = "primary", enabled = false }
+	return { label = sug and sug.reason == "hold" and L["Under your floor"] or L["Post"], kind = "primary", enabled = false }
 end
 
 -- The note line after the first press of Post anyway.
 function Wide.underFloor(r)
-	return "Under your floor of " .. money(r.suggestion.floor or 0) .. "."
+	return string.format(L["Under your floor of %s."], money(r.suggestion.floor or 0))
 end
 
 -- Drawing ----------------------------------------------------------------------------------------------
 
 -- A caps xs label over a value in md, a third of the content wide.
 local function fact(box, x, label, width)
-	local head = UI.Text(box, string.upper(label), { size = "xs", tone = "faint" })
+	local head = UI.Text(box, ns.upper(label), { size = "xs", tone = "faint" })
 	head:SetPoint("TOPLEFT", x, -124)
 	head:SetWidth(width - 8)
 	local value = UI.Text(box, "", { size = "md" })
@@ -155,7 +156,7 @@ end
 
 -- The listings table: a header and as many rows of text as the height leaves, paged by the wheel.
 local function listings(box)
-	local heading = UI.Text(box, "LISTINGS", { size = "xs", tone = "faint" })
+	local heading = UI.Text(box, L["LISTINGS"], { size = "xs", tone = "faint" })
 	heading:SetPoint("TOPLEFT", IN, -LIST_TOP)
 	local t = UI.Panel(box, { color = Theme.color.surface })
 	t:SetPoint("TOPLEFT", IN, -(LIST_TOP + LIST_HEADING))
@@ -171,7 +172,7 @@ local function listings(box)
 		return fs
 	end
 	t.heads = { price = column(t, 10, 140, "LEFT", "xs", -5), mid = column(t, 160, 70, "RIGHT", "xs", -5), right = column(t, 240, 70, "RIGHT", "xs", -5) }
-	t.heads.price:SetText("PRICE EACH")
+	t.heads.price:SetText(L["PRICE EACH"])
 	t.empty = UI.Text(t, "", { size = "sm", tone = "faint" })
 	t.empty:SetPoint("TOPLEFT", 10, -(LIST_HEADER + 4))
 	t.rows, t.offset, t.lines = {}, 0, {}
@@ -191,8 +192,8 @@ local function listings(box)
 	function t:Draw(lines, commodity, empty, rows)
 		self.lines, self.commodity, self.size = lines, commodity, rows
 		self.offset = math.max(0, math.min(self.offset, #lines - rows))
-		self.heads.mid:SetText(commodity and "QUANTITY" or "STACK")
-		self.heads.right:SetText(commodity and "" or "COUNT")
+		self.heads.mid:SetText(commodity and L["QUANTITY"] or L["STACK"])
+		self.heads.right:SetText(commodity and "" or L["COUNT"])
 		self.empty:SetText(#lines == 0 and empty or "")
 		for n = 1, math.max(rows, #self.rows) do
 			local r = row(n)
@@ -200,7 +201,7 @@ local function listings(box)
 			r.price:SetText(l and money(l.unit) or "")
 			r.mid:SetText(l and tostring(commodity and l.count or l.stack) or "")
 			r.right:SetText(l and not commodity and tostring(l.count) or "")
-			r.yours:SetText(l and l.own and "yours" or "")
+			r.yours:SetText(l and l.own and L["yours"] or "")
 		end
 	end
 	t:EnableMouseWheel(true)
@@ -226,16 +227,16 @@ function Wide.build(page, act)
 	box.sub = UI.Text(box, "", { size = "xs", tone = "muted" })
 	box.sub:SetPoint("TOPLEFT", IN + ICON + 10, -32)
 	box.sub:SetWidth(g.name)
-	box.rule = UI.Button(box, "Rule >", act.rule, { width = 64, height = 22 })
+	box.rule = UI.Button(box, L["Rule >"], act.rule, { width = 64, height = 22 })
 	box.rule:SetPoint("TOPRIGHT", -IN, -12)
-	box.layoutButton = UI.Button(box, "Narrow", act.toggle, { kind = "ghost", width = 64, height = 22 })
+	box.layoutButton = UI.Button(box, L["Narrow"], act.toggle, { kind = "ghost", width = 64, height = 22 })
 	box.layoutButton:SetPoint("TOPRIGHT", -(IN + 70), -12)
 	local divider = UI.solid(box, "BORDER", Theme.color.border)
 	divider:SetPoint("TOPLEFT", IN, -52)
 	divider:SetPoint("TOPRIGHT", -IN, -52)
 	divider:SetHeight(UI.pixel())
 
-	local postAt = UI.Text(box, "POST AT", { size = "xs", tone = "muted" })
+	local postAt = UI.Text(box, L["POST AT"], { size = "xs", tone = "muted" })
 	postAt:SetPoint("TOPLEFT", IN, -60)
 	box.price = UI.Text(box, "", { size = "xxl", medium = true })
 	box.price:SetPoint("TOPLEFT", IN, -74)
@@ -244,14 +245,14 @@ function Wide.build(page, act)
 	box.why = UI.Text(box, "", { size = "sm", tone = "muted" })
 	box.why:SetPoint("TOPLEFT", IN, -108)
 	box.why:SetWidth(g.inner)
-	box.floor = fact(box, IN, "Floor", g.fact)
-	box.typical = fact(box, IN + g.fact, "Typical", g.fact)
-	box.cheapest = fact(box, IN + 2 * g.fact, "Cheapest other", g.fact)
+	box.floor = fact(box, IN, L["Floor"], g.fact)
+	box.typical = fact(box, IN + g.fact, L["Typical"], g.fact)
+	box.cheapest = fact(box, IN + 2 * g.fact, L["Cheapest other"], g.fact)
 	box.supply = UI.Text(box, "", { size = "xs", tone = "muted" })
 	box.supply:SetPoint("TOPLEFT", IN, -152)
 	box.supply:SetWidth(g.inner)
 
-	local qtyLabel = UI.Text(box, "Quantity", { size = "sm", tone = "muted" })
+	local qtyLabel = UI.Text(box, L["Quantity"], { size = "sm", tone = "muted" })
 	qtyLabel:SetPoint("TOPLEFT", IN, -168)
 	box.quantity = UI.Slider(box, 1, 2, 1, 1, act.quantity, tostring)
 	box.quantity:SetPoint("TOPLEFT", IN + 70, -166)
@@ -279,12 +280,12 @@ function Wide.build(page, act)
 		box.durations[d.value] = pair
 	end
 	-- Post, primary; Post anyway under the floor, the plain one. The same press either way.
-	box.post = UI.Button(box, "Post", act.post, { kind = "primary", width = g.inner, height = 32 })
-	box.anyway = UI.Button(box, "Post anyway", act.post, { kind = "default", width = g.inner, height = 32 })
+	box.post = UI.Button(box, L["Post"], act.post, { kind = "primary", width = g.inner, height = 32 })
+	box.anyway = UI.Button(box, L["Post anyway"], act.post, { kind = "default", width = g.inner, height = 32 })
 	for _, b in ipairs({ box.post, box.anyway }) do
 		b:SetPoint("TOPLEFT", IN, -196)
 	end
-	box.hint = UI.Text(box, "Space posts · one press, one post", { size = "xs", tone = "faint" })
+	box.hint = UI.Text(box, L["Space posts · one press, one post"], { size = "xs", tone = "faint" })
 	box.hint:SetPoint("TOPLEFT", IN, -234)
 	box.hint:SetWidth(g.note)
 	box.deposit = UI.Text(box, "", { size = "xs", tone = "muted", align = "RIGHT" })
@@ -328,7 +329,7 @@ function Wide.build(page, act)
 		self.hint:SetShown((v.note or "") == "")
 		if not r then
 			self.icon:SetTexture(nil)
-			self.name:SetText(faint .. "Choose an item.|r")
+			self.name:SetText(faint .. L["Choose an item."] .. "|r")
 			self.sub:SetText("")
 			self.price:SetText("")
 			self.why:SetText("")
@@ -336,22 +337,22 @@ function Wide.build(page, act)
 			badge(nil)
 			self.post:Show()
 			self.anyway:Hide()
-			self.post:SetLabel("Post")
+			self.post:SetLabel(L["Post"])
 			self.post:SetEnabled(false)
 			return
 		end
 		local sug = r.suggestion
 		self.icon:SetTexture(r.icon)
 		self.name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r")
-		self.sub:SetText(string.format("%d in bags · %s", r.count, r.commodity and "all at one price" or "one at a time"))
+		self.sub:SetText(string.format(L["%d in bags · %s"], r.count, r.commodity and L["all at one price"] or L["one at a time"]))
 		local p = Wide.price(r)
-		self.price:SetText(p and (p.held and tint("warning", "Held") or (p.text .. faint .. " each|r")) or (faint .. "-|r"))
+		self.price:SetText(p and (p.held and tint("warning", L["Held"]) or (p.text .. faint .. L[" each"] .. "|r")) or (faint .. "-|r"))
 		badge(Wide.badge(sug))
 		self.why:SetText(Wide.why(r))
 		self.supply:SetText(r.supplyLine or "")
 		self.floor:SetText(sug and money(sug.floor) or (faint .. "-|r"))
 		self.typical:SetText(r.typical and money(r.typical) or (faint .. "-|r"))
-		self.cheapest:SetText(not v.live and (faint .. "searching...|r") or r.cheapest and money(r.cheapest) or tint("success", "nobody"))
+		self.cheapest:SetText(not v.live and (faint .. L["searching..."] .. "|r") or r.cheapest and money(r.cheapest) or tint("success", L["nobody"]))
 		local many = r.commodity and r.count > 1
 		self.quantity:SetShown(many)
 		self.one:SetShown(not many)
@@ -359,7 +360,7 @@ function Wide.build(page, act)
 			self.quantity:SetRange(1, r.count)
 			self.quantity:Set(v.quantity)
 		else
-			self.one:SetText(r.commodity and "1" or "1 (one at a time)")
+			self.one:SetText(r.commodity and "1" or L["1 (one at a time)"])
 		end
 		for value, pair in pairs(self.durations) do
 			pair.primary:SetShown(value == v.duration)
@@ -371,11 +372,11 @@ function Wide.build(page, act)
 		self.anyway:SetShown(shown == self.anyway)
 		shown:SetLabel(b.label)
 		shown:SetEnabled(b.enabled)
-		self.deposit:SetText(v.deposit and ("Deposit " .. money(v.deposit)) or "")
+		self.deposit:SetText(v.deposit and string.format(L["Deposit %s"], money(v.deposit)) or "")
 		local lines, prices, units = Wide.lines(v.levels, r.commodity)
 		local rows = Wide.geometry(416, (self:GetHeight() or 0) > 0 and self:GetHeight() or 436).rows
-		self.listings.heading:SetText(v.levels and Wide.heading(prices, units) or "LISTINGS")
-		self.listings:Draw(lines, r.commodity, v.levels and "No one lists it." or "Searching...", rows)
+		self.listings.heading:SetText(v.levels and Wide.heading(prices, units) or L["LISTINGS"])
+		self.listings:Draw(lines, r.commodity, v.levels and L["No one lists it."] or L["Searching..."], rows)
 	end
 	return box
 end

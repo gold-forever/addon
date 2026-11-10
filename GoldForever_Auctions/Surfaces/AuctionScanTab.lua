@@ -2,6 +2,7 @@
 -- cooldown, the last result.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local W = ns.ah.WIDTH
 
@@ -13,7 +14,7 @@ local function buildScan(page)
 	bar:SetPoint("RIGHT", page, "RIGHT")
 	local line = UI.Text(page, "", { size = "sm", tone = "muted" })
 	line:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -10)
-	local button = UI.Button(page, "Scan now", function()
+	local button = UI.Button(page, L["Scan now"], function()
 		ns.startScan()
 	end, { kind = "primary", width = 140, height = 30 })
 	button:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, -14)
@@ -23,10 +24,10 @@ local function buildScan(page)
 		scanSettings.auto = on
 	end)
 	auto:SetPoint("LEFT", button, "RIGHT", 16, 0)
-	local autoLabel = UI.Text(page, "Scan when I open the auction house", { size = "sm", tone = "muted" })
+	local autoLabel = UI.Text(page, L["Scan when I open the auction house"], { size = "sm", tone = "muted" })
 	autoLabel:SetPoint("LEFT", auto, "RIGHT", 8, 0)
 	local cards = {}
-	for i, label in ipairs({ "Listings", "Prices", "Took", "Scanned" }) do
+	for i, label in ipairs({ L["Listings"], L["Prices"], L["Took"], L["Scanned"] }) do
 		local c = UI.StatCard(page, label, "", "")
 		c:SetWidth((W - 40 - 12) / 2)
 		if i == 1 then
@@ -38,22 +39,22 @@ local function buildScan(page)
 		end
 		cards[i] = c
 	end
-	local note = UI.Text(page, "One full scan every 15 minutes per account: the server's limit. Sellers are never stored.", { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(page, L["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."], { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", cards[3], "BOTTOMLEFT", 0, -16)
 	note:SetPoint("RIGHT", page, "RIGHT")
 	function page:Refresh()
 		local st = ns.scanState()
 		if st.phase == "asking" then
-			status:SetText("Asking the server...")
+			status:SetText(L["Asking the server..."])
 			bar:Set(1, { { value = 0, color = Theme.color.accent } })
 		elseif st.phase == "reading" then
-			status:SetText(string.format("Reading %s of %s", BreakUpLargeNumbers and BreakUpLargeNumbers(st.done) or st.done, BreakUpLargeNumbers and BreakUpLargeNumbers(st.total) or st.total))
+			status:SetText(string.format(L["Reading %s of %s"], BreakUpLargeNumbers and BreakUpLargeNumbers(st.done) or st.done, BreakUpLargeNumbers and BreakUpLargeNumbers(st.total) or st.total))
 			bar:Set(math.max(1, st.total), { { value = st.done, color = Theme.color.accent } })
 		else
-			status:SetText(st.wait > 0 and "Scanned" or "Ready to scan")
+			status:SetText(st.wait > 0 and L["Scanned"] or L["Ready to scan"])
 			bar:Set(1, { { value = st.wait > 0 and 1 or 0, color = Theme.color.accent } })
 		end
-		line:SetText(st.wait > 0 and string.format("Next full scan in %d:%02d", math.floor(st.wait / 60), st.wait % 60) or "A full scan can start now.")
+		line:SetText(st.wait > 0 and string.format(L["Next full scan in %d:%02d"], math.floor(st.wait / 60), st.wait % 60) or L["A full scan can start now."])
 		button:SetEnabled(st.wait <= 0 and st.phase == "idle")
 		local last = st.last
 		if not last then
@@ -61,13 +62,13 @@ local function buildScan(page)
 			local s = ns.price.latestScan()
 			last = s and { t = s.t, auctions = s.auctions, prices = nil }
 		end
-		cards[1]:Set(last and tostring(last.auctions or 0) or "-", "auctions read")
-		cards[2]:Set(last and last.prices and tostring(last.prices) or "-", "item and price pairs")
-		cards[3]:Set(last and last.seconds and (last.seconds .. " s") or "-", "asking and reading")
-		cards[4]:Set(last and ns.Views.ago(last.t, ns.now()) or "never", last and (last.kind == "partial" and "cut short: not used" or last.kind == "throttled" and "the server said wait") or "")
+		cards[1]:Set(last and tostring(last.auctions or 0) or "-", L["auctions read"])
+		cards[2]:Set(last and last.prices and tostring(last.prices) or "-", L["item and price pairs"])
+		cards[3]:Set(last and last.seconds and string.format(L["%d s"], last.seconds) or "-", L["asking and reading"])
+		cards[4]:Set(last and ns.Views.ago(last.t, ns.now()) or L["never"], last and (last.kind == "partial" and L["cut short: not used"] or last.kind == "throttled" and L["the server said wait"]) or "")
 	end
 end
 
-ns.AuctionScanTab = { key = "scan", label = "Scan", build = buildScan, refresh = function(page)
+ns.AuctionScanTab = { key = "scan", label = L["Scan"], build = buildScan, refresh = function(page)
 	page:Refresh()
 end }

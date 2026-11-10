@@ -1,6 +1,7 @@
 -- Gold Forever: the auction panel's Buy tab.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local ah = ns.ah
 local Books = ns.AuctionBooks
@@ -43,7 +44,7 @@ local function confirmQuote(note)
 	C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemId, p.quantity)
 	ah.buying = { id = p.itemId, n = p.quantity }
 	await("shop", "shop:" .. p.itemId, note, letGo)
-	note:SetText("Buying...")
+	note:SetText(L["Buying..."])
 end
 
 -- Over a lowest entry's share of market: said first, bought on the next press. True while it waits for it.
@@ -53,8 +54,8 @@ local function waitsForOverPress(e, deal, note)
 	end
 	ah.overArmed = e.itemId
 	local market = ns.Prices.value(e.itemId)
-	note:SetText(Theme.escape(Theme.color.warning) .. string.format("Over your %d%% of market: %d for %s (up to %s each%s). Press again to buy, or choose something else.",
-		deal.share or 0, deal.quantity, money(deal.total), money(deal.topUnit), market and (", market " .. money(market)) or "") .. "|r")
+	note:SetText(Theme.escape(Theme.color.warning) .. string.format(L["Over your %d%% of market: %d for %s (up to %s each%s). Press again to buy, or choose something else."],
+		deal.share or 0, deal.quantity, money(deal.total), money(deal.topUnit), market and string.format(L[", market %s"], money(market)) or "") .. "|r")
 	return true
 end
 
@@ -65,11 +66,11 @@ local function buyOneAuction(e, deal, book, note)
 			C_AuctionHouse.PlaceBid(a.auctionID, a.buyout)
 			ah.buying = { id = e.itemId, n = a.quantity or 1 }
 			await("shop", "shop:" .. e.itemId, note, letGo)
-			note:SetText("Buying one for " .. money(a.buyout) .. "...")
+			note:SetText(string.format(L["Buying one for %s..."], money(a.buyout)))
 			return
 		end
 	end
-	note:SetText("Nothing at or under your price now.")
+	note:SetText(L["Nothing at or under your price now."])
 end
 
 -- One press of Buy next.
@@ -85,7 +86,7 @@ local function buyNext()
 		return
 	end
 	if not deal then
-		note:SetText(book and "Nothing at or under your price now." or "Searching...")
+		note:SetText(book and L["Nothing at or under your price now."] or L["Searching..."])
 		searchEntry(e)
 		return
 	end
@@ -99,7 +100,7 @@ local function buyNext()
 	end
 	ah.purchase = { itemId = e.itemId, quantity = deal.quantity, expected = deal.total }
 	C_AuctionHouse.StartCommoditiesPurchase(e.itemId, deal.quantity)
-	note:SetText("Asking the auction house for a price...")
+	note:SetText(L["Asking the auction house for a price..."])
 end
 
 ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
@@ -108,9 +109,9 @@ ns.on("COMMODITY_PRICE_UPDATED", "auction shop", function(unit, total)
 	end
 	ah.purchase.quoted = total
 	ah.purchase.moved = ns.Shopping.moved(ah.purchase.expected, total)
-	local text = string.format("%d for %s", ah.purchase.quantity, money(total))
-	ah.panel.shop.note:SetText(ah.purchase.moved and (Theme.escape(Theme.color.warning) .. "The price moved: " .. text .. " (the deal was " .. money(ah.purchase.expected) .. "). Press again to buy anyway.|r")
-		or ("Press again to buy " .. text .. "."))
+	local text = string.format(L["%d for %s"], ah.purchase.quantity, money(total))
+	ah.panel.shop.note:SetText(ah.purchase.moved and (Theme.escape(Theme.color.warning) .. string.format(L["The price moved: %s (the deal was %s). Press again to buy anyway."], text, money(ah.purchase.expected)) .. "|r")
+		or string.format(L["Press again to buy %s."], text))
 	ah.refresh()
 end)
 
@@ -123,7 +124,7 @@ local function bought(ok, why)
 	end
 	ah.buying = nil
 	ah.waits.shop, ah.purchase = nil, nil
-	ah.panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. "Bought.|r") or (Theme.escape(Theme.color.danger) .. (why or "The purchase failed.") .. "|r"))
+	ah.panel.shop.note:SetText(ok and (Theme.escape(Theme.color.success) .. L["Bought."] .. "|r") or (Theme.escape(Theme.color.danger) .. (why or L["The purchase failed."]) .. "|r"))
 	if ah.shopChosen then
 		ah.live[tostring(ah.shopChosen.itemId)], ah.live[bookKey(ah.shopChosen.itemId, false, 0)] = nil, nil
 		searchEntry(ah.shopChosen)
@@ -134,10 +135,10 @@ ns.on("COMMODITY_PURCHASE_SUCCEEDED", "auction shop", function()
 	bought(true)
 end)
 ns.on("COMMODITY_PURCHASE_FAILED", "auction shop", function()
-	bought(false, "The purchase failed: the price or the stock changed.")
+	bought(false, L["The purchase failed: the price or the stock changed."])
 end)
 ns.on("COMMODITY_PRICE_UNAVAILABLE", "auction shop", function()
-	bought(false, "No price: the stock changed. Search again.")
+	bought(false, L["No price: the stock changed. Search again."])
 end)
 ns.on("AUCTION_HOUSE_PURCHASE_COMPLETED", "auction shop", function()
 	bought(true)
@@ -155,7 +156,7 @@ local function buildShop(page)
 		end
 		return out
 	end
-	local buy = UI.Button(page, "Buy next", function()
+	local buy = UI.Button(page, L["Buy next"], function()
 		ns.safely("auction shop", buyNext)
 	end, { kind = "primary", width = 200, height = 28 })
 	buy:SetPoint("TOPRIGHT", 0, 0)
@@ -180,21 +181,21 @@ local function buildShop(page)
 	page.rebuildPick = rebuildPick
 
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
-		{ key = "max", title = "Up to", width = 100, align = "RIGHT", text = function(r)
-			local price = r.maxUnit and money(r.maxUnit) or r.pct and (r.pct .. "%") or r.lowest and "lowest" or "market"
-			return (r.upTo and (r.upTo .. " at ") or "") .. price
+		{ key = "name", title = L["Item"], flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end },
+		{ key = "max", title = L["Up to"], width = 100, align = "RIGHT", text = function(r)
+			local price = r.maxUnit and money(r.maxUnit) or r.pct and (r.pct .. "%") or r.lowest and L["lowest"] or L["market"]
+			return r.upTo and string.format(L["%d at %s"], r.upTo, price) or price
 		end },
-		{ key = "deal", title = "Deal", width = 120, align = "RIGHT", text = function(r)
+		{ key = "deal", title = L["Deal"], width = 120, align = "RIGHT", text = function(r)
 			if r.deal and r.deal.over then
-				return Theme.escape(Theme.color.warning) .. "over: " .. r.deal.quantity .. " for " .. money(r.deal.total) .. "|r"
+				return Theme.escape(Theme.color.warning) .. string.format(L["over: %d for %s"], r.deal.quantity, money(r.deal.total)) .. "|r"
 			end
-			return r.deal and (r.deal.quantity .. " for " .. money(r.deal.total)) or (r.searched and "-" or "")
+			return r.deal and string.format(L["%d for %s"], r.deal.quantity, money(r.deal.total)) or (r.searched and "-" or "")
 		end },
 	}, {
 		pageSize = 9,
 		rowHeight = 24,
-		empty = "Nothing on this list yet: Edit lists adds items.",
+		empty = L["Nothing on this list yet: Edit lists adds items."],
 		itemId = function(r) return r.itemId end,
 		isSelected = function(r) return ah.shopChosen and r.itemId == ah.shopChosen.itemId end,
 		onRowClick = function(r)
@@ -206,7 +207,7 @@ local function buildShop(page)
 	tbl:SetPoint("TOPLEFT", 0, -38)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	page.table = tbl
-	local editLists = UI.Button(page, "Edit lists >", function()
+	local editLists = UI.Button(page, L["Edit lists >"], function()
 		ns.openPage("lists")
 	end, { width = 110, height = 26 })
 	editLists:SetPoint("TOPLEFT", tbl, "BOTTOMLEFT", 0, -10)
@@ -234,17 +235,17 @@ local function buildShop(page)
 		for i, e in ipairs(list.entries) do
 			local quality, _, _, _, name = ns.price.itemInfo(e.itemId)
 			local deal, book = shopDeal(e)
-			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, pct = e.pct, lowest = e.lowest, upTo = e.upTo, name = name or ("item " .. e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
+			shown[i] = { entry = e, itemId = e.itemId, maxUnit = e.maxUnit, pct = e.pct, lowest = e.lowest, upTo = e.upTo, name = name or string.format(L["item %d"], e.itemId), quality = quality or 1, deal = deal, searched = book ~= nil }
 		end
 		tbl:SetRows(shown, true) -- a click or the auction house's results keep the page (addon#76)
 		local deal = ah.shopChosen and shopDeal(ah.shopChosen)
-		local label = ah.purchase and ah.purchase.quoted and ("Confirm: " .. ah.purchase.quantity .. " for " .. money(ah.purchase.quoted))
-			or (deal and ("Buy " .. deal.quantity .. " for " .. money(deal.total))) or "Buy next"
+		local label = ah.purchase and ah.purchase.quoted and string.format(L["Confirm: %d for %s"], ah.purchase.quantity, money(ah.purchase.quoted))
+			or (deal and string.format(L["Buy %d for %s"], deal.quantity, money(deal.total))) or L["Buy next"]
 		buy:SetLabel(label)
 		buy:SetEnabled((ah.shopChosen and not busy()) and true or false)
 	end
 end
 
-ns.AuctionBuy = { key = "shop", label = "Buy", build = buildShop, refresh = function(page)
+ns.AuctionBuy = { key = "shop", label = L["Buy"], build = buildShop, refresh = function(page)
 	page:Refresh()
 end, buyNext = buyNext }

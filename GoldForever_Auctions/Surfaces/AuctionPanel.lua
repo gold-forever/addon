@@ -4,6 +4,7 @@
 -- Space binding for Sell, and /gf ah.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Post = ns.Theme, ns.UI, ns.Post
 local ah = ns.ah
 local Blizzard = ns.AuctionBlizzard
@@ -70,8 +71,8 @@ local function build()
 			return
 		end
 		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-		GameTooltip:AddLine(string.format("%d items in your bank and mail sell for %s.", e.count, money(e.total)), 1, 1, 1, true)
-		GameTooltip:AddLine("Click to choose what to take from the bank.", 0.7, 0.7, 0.7, true)
+		GameTooltip:AddLine(ns.plural(e.count, L["%d item in your bank and mail sells for %s."], L["%d items in your bank and mail sell for %s."], money(e.total)), 1, 1, 1, true)
+		GameTooltip:AddLine(L["Click to choose what to take from the bank."], 0.7, 0.7, 0.7, true)
 		GameTooltip:Show()
 	end)
 	away:SetScript("OnClick", function()
@@ -175,7 +176,7 @@ local function drawAway()
 		return (ns.Prices.value(id))
 	end, ns.itemName)
 	local e = away.list
-	away.text:SetText(e.count > 0 and string.format("Bank & mail: %d %s · %s", e.count, e.count == 1 and "item" or "items", money(e.total)) or "")
+	away.text:SetText(e.count > 0 and ns.plural(e.count, L["Bank & mail: %d item · %s"], L["Bank & mail: %d items · %s"], money(e.total)) or "")
 end
 
 refresh = function()
@@ -270,7 +271,7 @@ ns.on("AUCTION_HOUSE_SHOW_ERROR", "auction panel", function()
 			ah.buying = nil
 		end
 		if note then
-			note:SetText(Theme.escape(Theme.color.danger) .. "The auction house refused it.|r")
+			note:SetText(Theme.escape(Theme.color.danger) .. L["The auction house refused it."] .. "|r")
 		end
 		ns.auctionRefresh()
 	end
@@ -408,14 +409,14 @@ ns.commands.ah = function()
 	if ah.panel and ah.panel:IsShown() then
 		s.hidden = true
 		hide()
-		ns.say("the auction panel no longer opens at the auction house; /gf ah there brings it back.")
+		ns.say(L["the auction panel no longer opens at the auction house; /gf ah there brings it back."])
 	else
 		s.hidden = false
 		-- Shown only at the auction house: away from it, it opens there next time.
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			show()
 		else
-			ns.say("the auction panel opens at the auction house again.")
+			ns.say(L["the auction panel opens at the auction house again."])
 		end
 	end
 end

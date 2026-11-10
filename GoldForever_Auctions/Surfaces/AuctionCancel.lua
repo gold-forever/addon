@@ -1,6 +1,7 @@
 -- Gold Forever: the auction panel's Auctions tab: the player's own auctions, and cancelling the undercut.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI, Post = ns.Theme, ns.UI, ns.Post
 local ah = ns.ah
 local Blizzard = ns.AuctionBlizzard
@@ -58,7 +59,7 @@ local function startCheck()
 		C_AuctionHouse.QueryOwnedAuctions({ { sortOrder = 0, reverseSort = false } })
 	end
 	ah.checking = 0
-	ah.panel.cancel.note:SetText("Reading your auctions...")
+	ah.panel.cancel.note:SetText(L["Reading your auctions..."])
 	-- The list never coming (throttled, the auction house closing) does not leave the check running.
 	local run = {}
 	checkRun = run
@@ -66,7 +67,7 @@ local function startCheck()
 		if ah.checking == 0 and checkRun == run then
 			ah.checking = nil
 			if ah.panel and ah.panel.cancel.note then
-				ah.panel.cancel.note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check again in a moment.|r")
+				ah.panel.cancel.note:SetText(Theme.escape(Theme.color.warning) .. L["No answer from the auction house; check again in a moment."] .. "|r")
 			end
 			ah.refresh()
 		end
@@ -119,12 +120,12 @@ local function cancelNext()
 	end
 	local a = undercut()[1]
 	if not a then
-		ah.panel.cancel.note:SetText("Nothing undercut past " .. tolerance() .. "%.")
+		ah.panel.cancel.note:SetText(string.format(L["Nothing undercut past %d%%."], tolerance()))
 		return
 	end
 	C_AuctionHouse.CancelAuction(a.auctionID)
 	await("cancel", "cancel:" .. a.auctionID, ah.panel.cancel.note)
-	ah.panel.cancel.note:SetText("Cancelling " .. a.name .. "...")
+	ah.panel.cancel.note:SetText(string.format(L["Cancelling %s..."], a.name))
 end
 
 ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
@@ -138,7 +139,7 @@ ns.on("AUCTION_CANCELED", "auction cancel", function(auctionID)
 		end
 	end
 	if ah.panel and ah.panel.cancel.note then
-		ah.panel.cancel.note:SetText(Theme.escape(Theme.color.success) .. "Cancelled: it comes back by mail.|r")
+		ah.panel.cancel.note:SetText(Theme.escape(Theme.color.success) .. L["Cancelled: it comes back by mail."] .. "|r")
 		ah.refresh()
 	end
 end)
@@ -150,22 +151,22 @@ local function buildCancel(page)
 	end)
 	-- The label, then the dropdown just after it, leaving room before Check my auctions at the right in
 	-- the panel's 384 pixels (manual test run 001: they touched).
-	local tolLabel = UI.Text(page, "Undercut past", { size = "sm", tone = "muted" })
+	local tolLabel = UI.Text(page, L["Undercut past"], { size = "sm", tone = "muted" })
 	tolLabel:SetPoint("TOPLEFT", 0, -7)
 	tol:SetPoint("LEFT", tolLabel, "RIGHT", 10, 0)
 	tol:SetWidth(84)
-	local check = UI.Button(page, "Check my auctions", function()
+	local check = UI.Button(page, L["Check my auctions"], function()
 		ns.safely("auction cancel", startCheck)
 	end, { width = 150, height = 28 })
 	check:SetPoint("TOPRIGHT", 0, 0)
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Your auction", flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
+		{ key = "name", title = L["Your auction"], flex = 3, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
 			text = function(r) return r.quantity > 1 and (r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.quantity .. "|r") or r.name end },
-		{ key = "unit", title = "Yours", width = 74, align = "RIGHT", text = function(r) return money(r.unit) end },
-		{ key = "cheapest", title = "Cheapest", width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "-" or "") end },
-		{ key = "under", title = "Under", width = 56, align = "RIGHT", text = function(r) return r.under and r.under > 0 and (r.under .. "%") or "" end,
+		{ key = "unit", title = L["Yours"], width = 74, align = "RIGHT", text = function(r) return money(r.unit) end },
+		{ key = "cheapest", title = L["Cheapest"], width = 74, align = "RIGHT", text = function(r) return r.cheapest and money(r.cheapest) or (r.searched and "-" or "") end },
+		{ key = "under", title = L["Under"], width = 56, align = "RIGHT", text = function(r) return r.under and r.under > 0 and (r.under .. "%") or "" end,
 			color = function(r) return r.under and r.under > tolerance() and Theme.color.warning or Theme.color.textMuted end, sort = function(r) return r.under or 0 end },
-	}, { pageSize = 9, rowHeight = 24, empty = "Check your auctions to see which are undercut.", itemId = function(r) return r.itemID end,
+	}, { pageSize = 9, rowHeight = 24, empty = L["Check your auctions to see which are undercut."], itemId = function(r) return r.itemID end,
 		-- A click shows the item's listings in Blizzard's window (manual test run 001).
 		onRowClick = function(r)
 			Blizzard.browse(r.itemKey)
@@ -173,7 +174,7 @@ local function buildCancel(page)
 	tbl:SetPoint("TOPLEFT", 0, -40)
 	tbl:SetPoint("RIGHT", page, "RIGHT")
 	page.table = tbl
-	local go = UI.Button(page, "Cancel next", function()
+	local go = UI.Button(page, L["Cancel next"], function()
 		ns.safely("auction cancel", cancelNext)
 		ah.refresh()
 	end, { kind = "primary", width = 200, height = 30 })
@@ -189,23 +190,23 @@ local function buildCancel(page)
 		tbl:SetRows(ah.owned, true) -- a click or a check keeps the page (addon#76)
 		local first = list[1]
 		if ah.checking == 0 then
-			go:SetLabel("Reading...")
+			go:SetLabel(L["Reading..."])
 		elseif ah.checking then
-			go:SetLabel(string.format("Checking %d of %d...", ah.checking, #ah.owned))
+			go:SetLabel(string.format(L["Checking %d of %d..."], ah.checking, #ah.owned))
 		elseif first then
 			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
-			go:SetLabel("Cancel " .. first.name .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
+			go:SetLabel(string.format(L["Cancel %s"], first.name) .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
 		else
-			go:SetLabel("Cancel next")
+			go:SetLabel(L["Cancel next"])
 		end
 		go:SetEnabled((first and not ah.checking and not busy()) and true or false)
-		if not ah.checking and page.note:GetText() == "Reading your auctions..." then
-			page.note:SetText(#ah.owned == 0 and "You have no auctions up."
-				or string.format("%d of your %d auctions are undercut past %d%%.", #list, #ah.owned, tolerance()))
+		if not ah.checking and page.note:GetText() == L["Reading your auctions..."] then
+			page.note:SetText(#ah.owned == 0 and L["You have no auctions up."]
+				or string.format(L["%d of your %d auctions are undercut past %d%%."], #list, #ah.owned, tolerance()))
 		end
 	end
 end
 
-ns.AuctionCancel = { key = "cancel", label = "Auctions", build = buildCancel, refresh = function(page)
+ns.AuctionCancel = { key = "cancel", label = L["Auctions"], build = buildCancel, refresh = function(page)
 	page:Refresh()
 end, startCheck = startCheck, cancelNext = cancelNext }

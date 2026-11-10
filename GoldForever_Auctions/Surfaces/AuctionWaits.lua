@@ -1,6 +1,7 @@
 -- Gold Forever: the auction panel's sizes and the waits for an action's answer.
 
 local _, ns = ...
+local L = ns.L
 local Theme = ns.Theme
 
 local ah = ns.ah
@@ -22,7 +23,7 @@ function ah.await(kind, key, note, onTimeout)
 				onTimeout()
 			end
 			if note then
-				note:SetText(Theme.escape(Theme.color.warning) .. "No answer from the auction house; check it before trying again.|r")
+				note:SetText(Theme.escape(Theme.color.warning) .. L["No answer from the auction house; check it before trying again."] .. "|r")
 			end
 			ns.auctionRefresh()
 		end

@@ -1,6 +1,7 @@
 -- Gold Forever: the auction panel's Bank tab.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local searchEntry = ns.AuctionBooks.searchEntry
 local money = ns.Money.auction
@@ -14,16 +15,16 @@ local function buildBank(page)
 		return ns.fetchList() or {}
 	end
 	local tbl = UI.Table(page, {
-		{ key = "name", title = "Item", flex = 3 },
-		{ key = "count", title = "Held", width = 50, align = "RIGHT" },
-		{ key = "place", title = "In", width = 40 },
-		{ key = "worth", title = "Worth", width = 84, align = "RIGHT", text = function(r) return money(r.worth) end, sort = function(r) return r.worth end },
-		{ key = "take", title = "Take", width = 44, align = "RIGHT", text = function(r) return r.take == true and "all" or r.take and tostring(r.take) or "" end,
+		{ key = "name", title = L["Item"], flex = 3 },
+		{ key = "count", title = L["Held"], width = 50, align = "RIGHT" },
+		{ key = "place", title = L["In"], width = 40, text = function(r) return r.place == "mail" and L["mail"] or L["bank"] end },
+		{ key = "worth", title = L["Worth"], width = 84, align = "RIGHT", text = function(r) return money(r.worth) end, sort = function(r) return r.worth end },
+		{ key = "take", title = L["Take"], width = 44, align = "RIGHT", text = function(r) return r.take == true and L["all"] or r.take and tostring(r.take) or "" end,
 			color = function() return Theme.color.accent end },
 	}, {
 		pageSize = 9,
 		rowHeight = 24,
-		empty = "Nothing in your bank or mail the auction house pays for.",
+		empty = L["Nothing in your bank or mail the auction house pays for."],
 		itemId = function(r) return r.id end,
 		isSelected = function(r) return bankChosen and r.id == bankChosen.id end,
 		onRowClick = function(r)
@@ -51,7 +52,7 @@ local function buildBank(page)
 			page:Refresh()
 		end
 	end
-	local all = UI.Button(detail, "Take all", function()
+	local all = UI.Button(detail, L["Take all"], function()
 		mark(true)
 	end, { width = 90, height = 26 })
 	all:SetPoint("BOTTOMLEFT", 12, 10)
@@ -65,7 +66,7 @@ local function buildBank(page)
 	local askText = UI.Text(ask, "", { size = "sm", wrap = true })
 	askText:SetPoint("TOPLEFT", 12, -12)
 	askText:SetPoint("RIGHT", ask, "RIGHT", -12, 0)
-	local amount = UI.SearchBox(ask, "how many", nil)
+	local amount = UI.SearchBox(ask, L["how many"], nil)
 	amount:SetPoint("BOTTOMLEFT", 12, 12)
 	amount:SetWidth(90)
 	local function takeAmount(text)
@@ -84,23 +85,23 @@ local function buildBank(page)
 		self:ClearFocus()
 		ask:Hide()
 	end)
-	local okay = UI.Button(ask, "Take", takeTyped, { kind = "primary", width = 70, height = 26 })
+	local okay = UI.Button(ask, L["Take"], takeTyped, { kind = "primary", width = 70, height = 26 })
 	okay:SetPoint("LEFT", amount, "RIGHT", 8, 0)
-	local cancel = UI.Button(ask, "Cancel", function()
+	local cancel = UI.Button(ask, L["Cancel"], function()
 		amount:ClearFocus()
 		ask:Hide()
 	end, { width = 70, height = 26 })
 	cancel:SetPoint("LEFT", okay, "RIGHT", 6, 0)
-	local some = UI.Button(detail, "Take...", function()
+	local some = UI.Button(detail, L["Take..."], function()
 		if bankChosen and bankChosen.place == "bank" then
-			askText:SetText(string.format("Take how many %s? %d in the bank.", bankChosen.name, bankChosen.count))
+			askText:SetText(string.format(L["Take how many %s? %d in the bank."], bankChosen.name, bankChosen.count))
 			amount:SetText("")
 			ask:Show()
 			amount:SetFocus()
 		end
 	end, { width = 80, height = 26 })
 	some:SetPoint("LEFT", all, "RIGHT", 6, 0)
-	local none = UI.Button(detail, "Don't take", function()
+	local none = UI.Button(detail, L["Don't take"], function()
 		mark(nil)
 	end, { width = 100, height = 26 })
 	none:SetPoint("LEFT", some, "RIGHT", 6, 0)
@@ -127,17 +128,17 @@ local function buildBank(page)
 		page.rows = rows
 		tbl:SetRows(rows, true)
 		local c = bankChosen
-		name:SetText(c and c.name or Theme.escape(Theme.color.textFaint) .. "Choose an item.|r")
-		line:SetText(c and (c.place == "mail" and string.format("%d in your mail: the mail helper takes it.", c.count)
-			or string.format("%d in the bank · %s%s", c.count, money(c.worth), c.take == true and " · taking all" or c.take and (" · taking " .. c.take) or "")) or "")
+		name:SetText(c and c.name or Theme.escape(Theme.color.textFaint) .. L["Choose an item."] .. "|r")
+		line:SetText(c and (c.place == "mail" and string.format(L["%d in your mail: the mail helper takes it."], c.count)
+			or string.format(L["%d in the bank · %s"], c.count, money(c.worth)) .. (c.take == true and L[" · taking all"] or c.take and string.format(L[" · taking %d"], c.take) or "")) or "")
 		local can = c and c.place == "bank" or false
 		for _, b in ipairs({ all, some, none }) do
 			b:SetEnabled(can)
 		end
-		sum:SetText(n > 0 and string.format("%d chosen: they move into your bags the next time you open your bank.", n) or "Choose items to take from the bank: they move into your bags the next time you open it.")
+		sum:SetText(n > 0 and string.format(L["%d chosen: they move into your bags the next time you open your bank."], n) or L["Choose items to take from the bank: they move into your bags the next time you open it."])
 	end
 end
 
-ns.AuctionBank = { key = "bank", label = "Bank", build = buildBank, refresh = function(page)
+ns.AuctionBank = { key = "bank", label = L["Bank"], build = buildBank, refresh = function(page)
 	page:Refresh()
 end }

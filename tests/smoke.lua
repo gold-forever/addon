@@ -10,6 +10,26 @@ if LOCALE ~= "enUS" then
     if not ok then wording[#wording + 1] = tostring((...)) end
     return ok, ...
   end
+  -- A check that finds a line or a widget by its English text finds nothing: what it reads off that
+  -- nothing is nothing, in this file alone, so the addon's own errors still raise.
+  local here = debug.getinfo(1, "S").source
+  local function mine() return debug.getinfo(3, "S").source == here end
+  debug.setmetatable(nil, {
+    __index = function()
+      if not mine() then error("attempt to index a nil value", 2) end
+      return function() return nil end
+    end,
+    __concat = function(a, b)
+      if not mine() then error("attempt to concatenate a nil value", 2) end
+      return (a == nil and "nil" or a) .. (b == nil and "nil" or b)
+    end,
+  })
+  -- A lookup helper that ends without a return gives no value at all: in this file, that reads as nil.
+  local tostringOf = tostring
+  function tostring(...)
+    if select("#", ...) == 0 and debug.getinfo(2, "S").source == here then return "nil" end
+    return tostringOf(...)
+  end
 end
 local now, money, clock = 1792517410, 79098, 100
 local timers = {}
@@ -427,12 +447,18 @@ function LoadAddOn(addon)
   return true
 end
 local ns = {}
+-- One of the addon's texts as the run's language shows it (ns.L): the session's checks of a label or a
+-- line name it in English.
+function T(text) return ns.L and ns.L[text] or text end
 -- An observation the run prints, pinned: its value on WoW: Forever, and on retail where that differs.
 local function seen(label, value, forever, retail)
   value = tostring(value)
   print(label .. value)
   local want = FLAVOUR == "retail" and retail or forever
-  if value ~= want then error(label:gsub("%s+$", "") .. ": expected [" .. tostring(want) .. "], got [" .. value .. "]", 2) end
+  if value ~= want then
+    local message = label:gsub("%s+$", "") .. ": expected [" .. tostring(want) .. "], got [" .. value .. "]"
+    if LOCALE ~= "enUS" then wording[#wording + 1] = message else error(message, 2) end
+  end
 end
 -- GoldForever_Prices, the companion's data file, as the addon reads it: its tables but those the addon walks
 -- (the markets, an item's figures, the lists) stand empty in front of their fields,
@@ -1106,7 +1132,7 @@ do
   assert(not GoldForeverDB.errors["/gf check"] and not GoldForeverDB.errors["check"], "/gf check runs without a failure")
   local plain = {}
   for i, l in ipairs(said) do plain[i] = ns.plainText(l) end
-  assert(title == "Gold Forever: check" and copied == table.concat(plain, "\n"), "the copy box gets the chat lines: " .. tostring(copied))
+  assert(title == T("Gold Forever: check") and copied == table.concat(plain, "\n"), "the copy box gets the chat lines: " .. tostring(copied))
   local line
   for _, l in ipairs(said) do if l:find("paid flights", 1, true) then line = l end end
   assert(line and line:find(ns.price.coins(12345), 1, true) and not line:find("12345c", 1, true), "flights line: " .. tostring(line))
@@ -1126,7 +1152,7 @@ do
   assert(not GoldForeverDB.errors["/gf probe"] and not GoldForeverDB.errors["probe"], "/gf probe runs without a failure")
   local lines = {}
   for i, l in ipairs(said) do lines[i] = l:sub(#ns.PREFIX + 3) end
-  assert(#said == 7 and copy.shown and copy.heading:GetText() == "Gold Forever: probe", "the probe opens the copy box")
+  assert(#said == 7 and copy.shown and copy.heading:GetText() == T("Gold Forever: probe"), "the probe opens the copy box")
   assert(box:GetText() == table.concat(lines, "\n"), "the copy box gets the probe's lines: " .. tostring(box:GetText()))
   assert(focused and selected, "the probe's text focused and selected")
   box.scripts.OnEscapePressed(box)
@@ -1445,7 +1471,7 @@ do
     assert(needs[2589] == 40 and needs[2934] == nil, "the queue needs the cheapest choice: " .. tostring(needs[2589]) .. " " .. tostring(needs[2934]))
     ns.settings("crafting").queue = queue
     choice(true)
-    assert(ns.CraftingStrip.line(1):find("Nothing: your bags and bank hold it all.", 1, true), "nothing to buy: " .. ns.CraftingStrip.line(1))
+    assert(ns.CraftingStrip.line(1):find(T("Nothing: your bags and bank hold it all."), 1, true), "nothing to buy: " .. ns.CraftingStrip.line(1))
     assert(width(strip.lines[1].name) == width(strip.note), "the line without a price spans the strip: " .. tostring(width(strip.lines[1].name)))
     ns.me().bags.items = stock
     GoldForeverDB.catalogue.recipes[99996], GoldForeverDB.catalogue.items[99995] = nil, nil
@@ -1616,9 +1642,9 @@ do
   do
     local tbl = AP.panel().post.table
     local col
-    for i, c in ipairs(tbl.columns) do if c.title == "Typical" then col = i end end
+    for i, c in ipairs(tbl.columns) do if c.title == T("Typical") then col = i end end
     assert(col and tbl.heads[col].text.text == "TYPICAL", "the Sell list's TYPICAL column")
-    for _, c in ipairs(tbl.columns) do assert(c.title ~= "Market", "no Market column on the Sell list") end
+    for _, c in ipairs(tbl.columns) do assert(c.title ~= T("Market"), "no Market column on the Sell list") end
     local cell = tbl.columns[col].text
     assert(cell(chosen) == "-", "no typical price without the pool's: " .. tostring(cell(chosen)))
     -- gf#323: no pool price and no own scan, Auctionator's price, named for its source.
@@ -1740,7 +1766,7 @@ do
       assert(box.cheapest.text == ns.Money.format(4250, "colour"), "the cheapest other, own left out, in full: " .. tostring(box.cheapest.text))
       assert(box.post:IsShown() and not box.anyway:IsShown(), "a price: the primary Post")
       assert(box.listings.heading.text == "LISTINGS · 2 PRICES · 25 FOR SALE", "the listings counted: " .. tostring(box.listings.heading.text))
-      assert(box.listings.heads.mid.text == "QUANTITY" and box.listings.heads.right.text == "", "a commodity: price and quantity")
+      assert(box.listings.heads.mid.text == T("QUANTITY") and box.listings.heads.right.text == "", "a commodity: price and quantity")
       local rows = box.listings.rows
       assert(rows[1].yours.text == "yours" and rows[2].yours.text == "", "the player's own marked")
       assert(rows[2].mid.text == "20" and rows[2].price.text == ns.Money.format(4250, "colour"), "a line a price, its quantity")
@@ -1757,7 +1783,7 @@ do
         pg:Refresh()
       end
       hold()
-      assert(box.price.text:find("Held", 1, true) and box.badge.label == "Hold", "held: Held, the badge Hold")
+      assert(box.price.text:find(T("Held"), 1, true) and box.badge.label == T("Hold"), "held: Held, the badge Hold")
       assert(box.anyway:IsShown() and not box.post:IsShown(), "held: the plain button")
       assert(box.anyway.label.text:upper():find("POST ANYWAY: ", 1, true), "held: Post anyway: " .. tostring(box.anyway.label.text))
       AP.post()
@@ -1858,7 +1884,7 @@ do
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
   local postLine
-  for _, l in ipairs(GameTooltip.lines) do if l:find("Post at", 1, true) then postLine = l end end
+  for _, l in ipairs(GameTooltip.lines) do if l:find(T("Post at"), 1, true) then postLine = l end end
   assert(postLine, "the Post line in the tooltip: " .. table.concat(GameTooltip.lines, " | "))
   -- A sale profile for Linen: keep 2, undercut 1 copper, floor 50%: the Post tab follows it.
   AP.importProfile(ns.SalePlan.encode({ name = "Cloth", author = "Test", sell = { { itemID = 2589, keep = 2, price = { kind = "undercut", by = 1 }, floorPct = 50 } }, buy = {} }))
@@ -1931,8 +1957,8 @@ do
     GameTooltip.lines = {}
     away.scripts.OnEnter(away)
     local listed = false
-    for _, l in ipairs(GameTooltip.lines) do if l:find("sell for", 1, true) then listed = true end end
-    assert(listed, "the hover says what they sell for")
+    for _, l in ipairs(GameTooltip.lines) do if l:find("1 item in your bank and mail sells for", 1, true) then listed = true end end
+    assert(listed, "the hover says what they sell for, one item in the singular")
     -- A click on it opens the Bank tab; a click on a bank row chooses it to take.
     away.scripts.OnClick(away)
     assert(AP.panel().tab == "bank", "the title line opens the Bank tab")
@@ -2284,7 +2310,7 @@ do
   C_AuctionHouse.GetNumOwnedAuctions = function() return 0 end
   AP.cancelCheck()
   fire("OWNED_AUCTIONS_UPDATED")
-  assert(select(2, AP.owned()) == nil and AP.panel().cancel.note:GetText() == "You have no auctions up.", "none up: " .. tostring(AP.panel().cancel.note:GetText()))
+  assert(select(2, AP.owned()) == nil and AP.panel().cancel.note:GetText() == T("You have no auctions up."), "none up: " .. tostring(AP.panel().cancel.note:GetText()))
   -- Gear: two own auctions of one item at item levels 590 and 610, each judged against its own book
   -- (review B-5, T-9). At 590 others ask 90g and up (10% under the 100g one); at 610, 210g and up (over
   -- the 200g one).
@@ -2334,7 +2360,7 @@ do
   fire("AUCTION_HOUSE_CLOSED")
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
-  for _, l in ipairs(GameTooltip.lines) do assert(not l:find("Post at", 1, true), "no Post line away from the auction house") end
+  for _, l in ipairs(GameTooltip.lines) do assert(not l:find(T("Post at"), 1, true), "no Post line away from the auction house") end
   -- /gf ah with the auction house closed shows no panel and sends no search (review B-7).
   do
     local searches = 0
@@ -2533,7 +2559,7 @@ do
       c.delete.scripts.OnClick(c.delete)
       assert(L.note:GetText():find("Press Delete again", 1, true) and under(c.import), look .. ": Delete's warning under the paste box")
       c.delete.scripts.OnClick(c.delete)
-      assert(L.note:GetText() == "Deleted." and under(c.import), look .. ": Deleted under the paste box")
+      assert(L.note:GetText() == T("Deleted.") and under(c.import), look .. ": Deleted under the paste box")
       SlashCmdList.GOLDFOREVER("ui")
     end
     SlashCmdList.GOLDFOREVER("look web")
@@ -2969,14 +2995,14 @@ local function poolLine(id, label)
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id }) end
   local lines = GameTooltip.lines
   for k, l in ipairs(lines) do
-    if l:find(label or "Market ", 1, true) then
+    if l:find(label or (T("Market") .. " "), 1, true) then
       local rows = { l }
       while GameTooltip.doubles[l] and lines[k + #rows] and GameTooltip.doubles[lines[k + #rows]] and POOL_ROWS[lines[k + #rows]:match("^(%a+) →")] do
         rows[#rows + 1] = lines[k + #rows]
       end
       return table.concat(rows, " / "), GameTooltip.shades[l]
     end
-  end
+  end  return nil
 end
 assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
 -- gf#316: the supply line, its own Tooltip mode, With Shift by default; none with no sold.
@@ -3129,11 +3155,11 @@ if INTERFACE < 110000 then
   local named, scans = 0, 0
   for _, l in ipairs(GameTooltip.lines) do
     if l:find("Gold Forever", 1, true) then named = named + 1 end
-    if l:find("Your scan", 1, true) then scans = scans + 1 end
+    if l:find(T("Your scan"), 1, true) then scans = scans + 1 end
   end
   assert(not table.concat(GameTooltip.lines, " | "):lower():find("vendor", 1, true), "no vendor value beside the own scan's: " .. table.concat(GameTooltip.lines, " | "))
   local own
-  for _, l in ipairs(GameTooltip.lines) do if l:find("Your scan", 1, true) then own = l end end
+  for _, l in ipairs(GameTooltip.lines) do if l:find(T("Your scan"), 1, true) then own = l end end
   assert(own and GameTooltip.doubles[own] and own:find("Your scan → ", 1, true), "the own scan's price a double line: " .. tostring(own))
   assert(named <= 1 and scans <= 1, "one line named, one own-scan line: " .. table.concat(GameTooltip.lines, " | "))
   -- /gf prices with a file: its age, each market's item count, this character's marked.
@@ -3321,7 +3347,7 @@ SlashCmdList.GOLDFOREVER("ui levelling")
 do
   local mix
   for _, t in pairs(texts) do
-    if type(t) == "string" and t:find("^XP by source: ") and t:find("Exploring", 1, true) then mix = t end
+    if type(t) == "string" and t:find("^XP by source: ") and t:find(T("Exploring"), 1, true) then mix = t end
   end
   local labels = mix and mix:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   seen("LEVELLING MIX ", tostring(labels), "XP by source: Kills 2% · Quests 1% · Bosses 0% · Exploring 0% · Gathering 0% · Other 96%")
@@ -3471,7 +3497,7 @@ do
   assert(said[2] == "Gold Forever: sold Copper Bar (arrives by mail)", "no post of it: the item without an amount")
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Sale alert" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Sale alert") then row = r end end
   assert(row and row.switch.on == true, "Sale alert is on by default in Settings")
   row.mod.set(false)
   sold(wool)
@@ -3531,7 +3557,7 @@ do
   fire("QUEST_FINISHED")
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Best quest reward" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Best quest reward") then row = r end end
   assert(row and row.switch.on == true, "Best quest reward is on by default in Settings")
   row.mod.set(false)
   fire("QUEST_COMPLETE")
@@ -3616,7 +3642,7 @@ do
   MerchantFrame_UpdateMerchantInfo()
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Vendor resale" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Vendor resale") then row = r end end
   assert(row and row.switch.on == true, "Vendor resale is on by default in Settings")
   row.mod.set(false)
   MerchantFrame_UpdateMerchantInfo()
@@ -3671,7 +3697,7 @@ do
     GameTooltip.lines = {}
     GameTooltip.GetOwner = function() return _G["ContainerFrame1Item" .. (#items + 1 - slot)] end
     for _, hook in ipairs(itemTooltipHooks) do hook(GameTooltip, { id = items[slot].itemID }) end
-    for _, line in ipairs(GameTooltip.lines) do if line:find("Cheapest in your bags", 1, true) then return line end end
+    for _, line in ipairs(GameTooltip.lines) do if line:find(T("Cheapest in your bags"), 1, true) then return line end end
   end
   assert(tip(cheapest) and tip(cheapest):find("Cheapest in your bags: " .. ns.price.coins(total), 1, true), "its tooltip line: " .. tostring(tip(cheapest)))
   assert(tip(1) == nil, "no line on another slot, though the same item")
@@ -3693,7 +3719,7 @@ do
   free = 0
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Cheapest in full bags" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Cheapest in full bags") then row = r end end
   assert(row and row.switch.on == true, "on by default in Settings, Modules")
   -- Eleven modules and more run past the page's ~400 px (11 × 38): the list hangs in a body that scrolls.
   assert(row:GetParent():GetParent() == p.modules.body and p.modules.body:GetParent():GetParent() == p.modules, "the Modules list scrolls")
@@ -3766,7 +3792,7 @@ do
   redraw()
   assert((icon(buttons[1]) or ""):find("gavel", 1, true), "post's mark: " .. tostring(icon(buttons[1])))
   assert((icon(buttons[2]) or ""):find("coins", 1, true), "vendor's mark: " .. tostring(icon(buttons[2])))
-  assert((icon(buttons[3]) or ""):find("Disenchant", 1, true), "disenchant's mark: " .. tostring(icon(buttons[3])))
+  assert((icon(buttons[3]) or ""):find(T("Disenchant"), 1, true), "disenchant's mark: " .. tostring(icon(buttons[3])))
   for slot = 4, 7 do assert(icon(buttons[slot]) == nil, "keep has no mark: slot " .. slot) end
   local function tip(b, id)
     GameTooltip.lines = {}
@@ -3826,7 +3852,7 @@ do
   -- Settings: on by default, and the switch takes every mark and line away.
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Bag verdicts" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Bag verdicts") then row = r end end
   assert(row and row.switch.on == true, "on by default in Settings, Modules")
   row.mod.set(false)
   wait(1)
@@ -3993,10 +4019,10 @@ do
   local mob = { guid = "Creature-0-4620-0-12-1922-000F" }
   shiftDown = false
   assert(lines(unitTooltipHooks, mob) == "", "a mob, Shift up: no line")
-  assert(not lines(itemTooltipHooks, { id = 251962 }):find("Disenchant", 1, true), "Shift up: no disenchant value")
+  assert(not lines(itemTooltipHooks, { id = 251962 }):find(T("Disenchant"), 1, true), "Shift up: no disenchant value")
   shiftDown = true
   if INTERFACE < 110000 then
-    assert(lines(itemTooltipHooks, { id = 251962 }):find("Disenchant", 1, true), "Shift held: the disenchant value")
+    assert(lines(itemTooltipHooks, { id = 251962 }):find(T("Disenchant"), 1, true), "Shift held: the disenchant value")
   end
   modes.mob = "off"
   local starter = lines(unitTooltipHooks, mob)
@@ -4071,7 +4097,7 @@ do
   _G.GroupLootFrame1:Show()
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Loot roll value" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Loot roll value") then row = r end end
   assert(row and row.switch.on == true, "Loot roll value is on by default in Settings")
   row.mod.set(false)
   fire("START_LOOT_ROLL", 7, 60000)
@@ -4085,7 +4111,7 @@ end
 do
   local p = ns.hubWindow().pages.settings
   local row
-  for _, r in ipairs(p.modules.rows) do if r.mod.name == "Best farm changed" then row = r end end
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Best farm changed") then row = r end end
   assert(row and row.switch.on == false, "Best farm changed is off by default in Settings")
   local said, print0 = 0, print
   print = function(text) if tostring(text):find("best farm") then said = said + 1 end print0(text) end
@@ -4199,7 +4225,7 @@ do
   C_Timer.After = function(_, fn) held[#held + 1] = fn end
   goal.cancel.scripts.OnClick(goal.cancel)
   assert(settings.goal, "the first press on the X only asks")
-  assert(goal.text:GetText():find("press X again to cancel the goal", 1, true), "and says so: " .. goal.text:GetText())
+  assert(goal.text:GetText():find(T("press X again to cancel the goal"), 1, true), "and says so: " .. goal.text:GetText())
   clock = clock + 6
   assert(#held == 1, "one timer for the question: " .. #held)
   table.remove(held)()
@@ -4210,7 +4236,7 @@ do
   assert(settings.goal == nil, "the second press cancels the goal")
   assert(not goal.cancel:IsShown() and formShown(), "no goal: the field, the days and Set, no X")
   assert(not goal.bar:IsShown(), "no goal: no bar")
-  assert(not goal.text:GetText():find("Goal", 1, true) and goal.text:GetText():find("across your characters", 1, true), "no goal: the gold now: " .. goal.text:GetText())
+  assert(not goal.text:GetText():find(T("Goal"), 1, true) and goal.text:GetText():find("across your characters", 1, true), "no goal: the gold now: " .. goal.text:GetText())
   -- Set from there: the goal back, with its X.
   local field, set = goal.form[1], goal.form[3]
   field:SetText("2,000")
@@ -4809,7 +4835,7 @@ do
   loot(10)
   hud.stop:GetScript("OnClick")(hud.stop)
   assert(Session.get() == nil and ns2.sessionSummary() == nil, "a session under 10 minutes is not shown as finished")
-  assert(ns2.test.sessionText() == "Press Start on the HUD to start a session.", "nor in /gf session: " .. ns2.test.sessionText())
+  assert(ns2.test.sessionText() == T("Press Start on the HUD to start a session."), "nor in /gf session: " .. ns2.test.sessionText())
   -- New session during a running one ends it, recorded.
   hud.start:GetScript("OnClick")(hud.start)
   local before = stops()
@@ -4928,7 +4954,7 @@ do
   SlashCmdList.GOLDFOREVER("reset")
   -- Settings → Modules.
   local row
-  for _, r in ipairs(ns.hubWindow().pages.settings.modules.rows) do if r.mod.name == "Session recap" then row = r end end
+  for _, r in ipairs(ns.hubWindow().pages.settings.modules.rows) do if r.mod.name == T("Session recap") then row = r end end
   assert(row and row.switch.on == true, "on by default in Settings, Modules")
   row.mod.set(false)
   played(6)
@@ -4982,7 +5008,7 @@ do
     local function line(i) return rows[i]:IsShown() and rows[i].text:GetText() or "" end
     assert(hud:IsShown() and hud.goals:IsShown() and rows[1]:IsShown() and rows[3]:IsShown(), "the goals under the HUD's line")
     assert(line(1):find("^14/40 ") and line(1):find("at this pace", 1, true), "bags and bank, with a pace: " .. line(1))
-    assert(line(2):find("no pace yet", 1, true), "nothing looted of it: " .. line(2))
+    assert(line(2):find(T("no pace yet"), 1, true), "nothing looted of it: " .. line(2))
     assert(anchor(hud.details, "TOPLEFT")[2] == hud.goals, "the session opens under the goals")
     -- Bought, mailed or traded: the count rises, the pace stays the loot's.
     inBags = 20
@@ -5004,7 +5030,7 @@ do
     local p = ns2.hubWindow().pages.settings
     p.ensure("modules")
     local row
-    for _, r in ipairs(p.modules.rows) do if r.mod.name == "Item goals" then row = r end end
+    for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Item goals") then row = r end end
     assert(row and row.switch.on == true, "Item goals is on by default in Settings")
     row.mod.set(false)
     fire("BAG_UPDATE_DELAYED")
