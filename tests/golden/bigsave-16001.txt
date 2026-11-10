@@ -30,7 +30,7 @@
 + account.legacy.trees[1190].spent = 16
 + account.legacyTreeSearch.found = "1187,1190"
 + account.legacyTreeSearch.t = 1792835263
-+ addon = "0.18.0"
++ addon = "0.19.0"
 + api.build = "1.60.1.70450"
 + api.enums = "BagIndex GameRule LootSlotType TooltipDataType"
 + api.globals = "GoldForever_OnAddonCompartmentClick GoldForever_OnAddonCompartmentEnter GoldForever_OnAddonCompartmentLeave GoldForever_SwitchLook GoldForever_ToggleHud GoldForever_ToggleWindow ToggleLegacySystemUI"

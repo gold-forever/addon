@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.19.0 (2026-11-11)
 
 - **Gold Forever speaks French.** On a French game client every window, tooltip, chat line and `/gf help` is in French, with the game's own terms (Hôtel des ventes, po/pa/pc). The translation was made with AI, and the addon says so once at login and at the top of Settings. Other clients stay in English. Sales, mail, reputation, XP and crafts are read in the client's own language, so they are recorded on a French client too. The saved file is the same in every language.
 - **Gold Forever speaks German.** On a German game client the addon is in German, with the game's own terms (Auktionshaus, Verzauberkunst, Entzaubern). Money shows as the German client writes it (1g 9s 25k, 1.234g), and a price box takes it that way, "1.000" being a thousand gold. As for French, the translation was made with AI and the addon says so once at login and at the top of Settings.
