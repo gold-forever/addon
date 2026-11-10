@@ -2,12 +2,12 @@
 -- English otherwise; every language's file has exactly English's texts, with the same placeholders; every
 -- text a file shows through ns.L is in enUS.lua, and every one listed there is shown somewhere.
 
-local LANGUAGES = { "frFR.lua" }
+local LANGUAGES = { "frFR.lua", "deDE.lua" }
 
 local function loaded(code)
 	GetLocale = function() return code end
 	local ns = {}
-	for _, file in ipairs({ "Locale.lua", "enUS.lua", "frFR.lua" }) do
+	for _, file in ipairs({ "Locale.lua", "enUS.lua", "frFR.lua", "deDE.lua" }) do
 		assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 	end
 	GetLocale = nil
@@ -15,32 +15,37 @@ local function loaded(code)
 end
 
 local KEY = "Translated with AI: it may contain mistakes."
-local en, fr = loaded("enUS"), loaded("frFR")
+local en, fr, de = loaded("enUS"), loaded("frFR"), loaded("deDE")
 eq(en.L[KEY], KEY, "an English client shows the English text")
 eq(fr.L[KEY], "Traduction faite par une IA : elle peut contenir des erreurs.", "a French client shows the French text")
+eq(de.L[KEY], "Mit KI übersetzt: kann Fehler enthalten.", "a German client shows the German text")
 eq(fr.L["a text no language lists"], "a text no language lists", "a text no file lists shows as it is")
 eq(en.Locale.translated(), false, "English is not a translation")
 eq(fr.Locale.translated(), true, "French is")
+eq(de.Locale.translated(), true, "German is")
 
--- A language without a text shows it in English; a third language is one more file of this shape.
+-- A language without a text shows it in English; another language is one more file of this shape.
 do
-	local de = loaded("deDE")
-	assert(load('local _, ns = ... ns.Locale.add("deDE", { ["Total"] = "Gesamt" })', "@deDE.lua"))("GoldForever", de)
-	eq(de.L["Total"], "Gesamt", "a third language's text")
-	eq(de.L[KEY], KEY, "a text the language lacks falls back to English")
-	eq(de.Locale.translated(), true, "a third language is a translation")
+	local it = loaded("itIT")
+	assert(load('local _, ns = ... ns.Locale.add("itIT", { ["Total"] = "Totale" })', "@itIT.lua"))("GoldForever", it)
+	eq(it.L["Total"], "Totale", "another language's text")
+	eq(it.L[KEY], KEY, "a text the language lacks falls back to English")
+	eq(it.Locale.translated(), true, "another language is a translation")
 end
 
--- Counts: English's singular is 1 alone, French's 0 and 1.
+-- Counts: English's and German's singular is 1 alone, French's 0 and 1.
 eq(en.plural(1, "%d craft", "%d crafts"), "1 craft", "English: 1 is singular")
 eq(en.plural(0, "%d craft", "%d crafts"), "0 crafts", "English: 0 is plural")
 eq(fr.plural(0, "%d fabrication", "%d fabrications"), "0 fabrication", "French: 0 is singular")
 eq(fr.plural(2, "%d fabrication", "%d fabrications"), "2 fabrications", "French: 2 is plural")
+eq(de.plural(1, "%d Herstellung", "%d Herstellungen"), "1 Herstellung", "German: 1 is singular")
+eq(de.plural(0, "%d Herstellung", "%d Herstellungen"), "0 Herstellungen", "German: 0 is plural")
 eq(en.plural(3, "%d of %s", "%d of %s", "x"), "3 of x", "the rest is formatted after the count")
 
 eq(fr.Locale.sourceOf(fr.L[KEY]), KEY, "a French text's English, for a name the save keeps")
 eq(en.Locale.sourceOf("Total"), "Total", "an English text is its own")
 eq(fr.upper("Règles de vente · à l'hôtel"), "RÈGLES DE VENTE · À L'HÔTEL", "capitals, accented letters too")
+eq(de.upper("für Größe · über Bär"), "FÜR GRÖßE · ÜBER BÄR", "German umlauts in capitals; ß has none")
 
 -- The placeholders a text formats, in their order (%s, %d, %.1f, …; %% is a literal).
 local function placeholders(text)
@@ -127,7 +132,7 @@ eq(table.concat(fallbacks, "\n"), "", "client strings with an English fallback")
 
 -- The locale files load before every file that shows text.
 local toc = TOCS["GoldForever.toc"]
-local first = toc:match("\n(Locales\\Locale%.lua)\nLocales\\enUS%.lua\nLocales\\frFR%.lua\n")
-eq(first, "Locales\\Locale.lua", "the TOC loads Locale.lua, enUS.lua and frFR.lua together")
+local first = toc:match("\n(Locales\\Locale%.lua)\nLocales\\enUS%.lua\nLocales\\frFR%.lua\nLocales\\deDE%.lua\n")
+eq(first, "Locales\\Locale.lua", "the TOC loads Locale.lua, enUS.lua, frFR.lua and deDE.lua together")
 eq(toc:find("Locales\\Locale.lua", 1, true) < toc:find("Store\\Encode.lua", 1, true), true, "before the addon's own files")
 return checks()

@@ -51,6 +51,21 @@ eq(S.parseGold("1g2s3c"), 10203, "all three")
 eq(S.parseGold(""), nil, "nothing")
 eq(S.parseGold("cheap"), nil, "not a price")
 eq(S.parseGold("0"), nil, "zero")
+-- On a German client: its coin letters (g, s, k) and its thousands point, as Money writes them ("1.234g").
+do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "g", "s", "k", "."
+	eq(S.parseGold("4g 50s 25k"), 45025, "German: gold, silver and Kupfer")
+	eq(S.parseGold("25K"), 25, "German: Kupfer in capitals")
+	eq(S.parseGold("1.000"), 10000000, "German: a point before three digits groups thousands")
+	eq(S.parseGold("100.000"), 1000000000, "German: a hundred thousand gold")
+	eq(S.parseGold("1.000.000k"), 1000000, "German: grouped twice")
+	eq(S.parseGold("1.234g 50s"), 12345000, "German: grouped gold, as the addon writes it")
+	eq(S.parseGold("1.000,5"), 10005000, "German: thousands, then a decimal comma")
+	eq(S.parseGold("4,5"), 45000, "German: a decimal comma")
+	eq(S.parseGold("4.5"), 45000, "German: a point before one digit is still a decimal point")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
 eq(S.limit({ itemId = 1, pct = 80 }, nil), nil, "a share of no market is no limit")
 eq(S.line({ itemId = 7, pct = 80, upTo = 20 }), "item 7 pct 80 upto 20", "pct and upto in the line")
 eq(S.line({ itemId = 7, maxUnit = 500 }), "item 7 max 500", "an old entry's line as before")

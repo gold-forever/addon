@@ -91,4 +91,16 @@ eq(M.format(123456, "icons"), "12g 34s 0c", "icons without the client's function
 eq(M.group(-1234567), "-1,234,567", "grouped, a loss")
 eq(L.group(1234), "1,234", "UI.layout.group is Money.group")
 
+-- On a German client: its coin letters (g, s, k) and its thousands point, read when Money.lua loads.
+do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "g", "s", "k", "."
+	local de = {}
+	loadEncode(de)
+	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", de)
+	eq(de.Money.format(10925), "1g 9s 25k", "German: plain, in Kupfer")
+	eq(de.Money.group(1234567), "1.234.567", "German: grouped with points")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
+
 return checks()

@@ -282,11 +282,23 @@ local function englishCoins(text)
 	return text
 end
 
+-- The client's thousands separator taken out where it groups digits ("1.234g" on a German client).
+local function ungrouped(text)
+	local sep = string.gsub(LARGE_NUMBER_SEPARATOR or ",", "%p", "%%%0")
+	local before
+	repeat
+		before = text
+		text = string.gsub(text, "(%d)" .. sep .. "(%d%d%d)%f[%D]", "%1%2")
+	until text == before
+	return text
+end
+
 -- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c", or with the client's own coin letters
--- ("4po 50pa"); copper, or nil when it is none. A comma is a decimal point only before one or two digits
--- at the end ("4,5", "4,50"); else it separates thousands ("1,000" is a thousand gold, not one).
+-- ("4po 50pa", "4g 50s 25k"); copper, or nil when it is none. A comma is a decimal point only before one or
+-- two digits at the end ("4,5", "4,50"); else it separates thousands ("1,000" is a thousand gold, not one),
+-- as the client's own separator does before three digits ("1.000" on a German client).
 function Shopping.parseGold(text)
-	text = englishCoins(string.lower(string.match(text or "", "^%s*(.-)%s*$")))
+	text = ungrouped(englishCoins(string.lower(string.match(text or "", "^%s*(.-)%s*$"))))
 	if text == "" then
 		return nil
 	end

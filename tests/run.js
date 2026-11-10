@@ -252,14 +252,16 @@ if (spawnSync('luajit', ['-v']).status === 0) {
       if (out) console.log(`✓ session on ${interfaceNumber} as ${faction}: ${out.match(/SCAN BUDGET .*?mean [\d.]+ ms a frame/)?.[0] ?? ''}`)
     }
   }
-  // The same session on a French client: what the addon shows is French, and the save it writes is the
-  // English session's, byte for byte but for the client's language it records (only what is shown is
-  // translated).
-  for (const interfaceNumber of ['16001', '120105']) {
-    const name = updateGolden ? null : `session-${interfaceNumber}-alliance`
-    const out = smoke(`French session on ${interfaceNumber}`, name, { GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_FACTION: 'Alliance', GF_SMOKE_LOCALE: 'frFR' },
-      (text) => text.replace('client.locale = "frFR"', 'client.locale = "enUS"'))
-    if (out) console.log(`✓ French session on ${interfaceNumber}, the English save: ${out.match(/WORDING \d+ .*/)?.[0] ?? ''}`)
+  // The same session on a French and a German client: what the addon shows is in that language, and the
+  // save it writes is the English session's, byte for byte but for the client's language it records (only
+  // what is shown is translated).
+  for (const [locale, language] of [['frFR', 'French'], ['deDE', 'German']]) {
+    for (const interfaceNumber of ['16001', '120105']) {
+      const name = updateGolden ? null : `session-${interfaceNumber}-alliance`
+      const out = smoke(`${language} session on ${interfaceNumber}`, name, { GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_FACTION: 'Alliance', GF_SMOKE_LOCALE: locale },
+        (text) => text.replace(`client.locale = "${locale}"`, 'client.locale = "enUS"'))
+      if (out) console.log(`✓ ${language} session on ${interfaceNumber}, the English save: ${out.match(/WORDING \d+ .*/)?.[0] ?? ''}`)
+    }
   }
   const save = path.join(scratch, 'GoldForever.lua')
   fs.writeFileSync(save, spawnSync('luajit', [path.join(__dirname, 'bigsave.lua')], { maxBuffer: 64 << 20 }).stdout)
