@@ -126,7 +126,7 @@ function UI.Dialog(opts)
 		f.mark = UI.Icon(f, opts.icon, 16, "accent")
 		f.mark:SetPoint("TOPLEFT", 14, -14)
 		local text = opts.title or ""
-		f.heading = UI.Text(f, Theme.skin.titleCaps and string.upper(text) or text, { size = opts.titleSize or "sm", medium = true, tone = opts.titleTone })
+		f.heading = UI.Text(f, Theme.skin.titleCaps and ns.upper(text) or text, { size = opts.titleSize or "sm", medium = true, tone = opts.titleTone })
 		f.heading:SetPoint("LEFT", f.mark, "RIGHT", 6, 0)
 	elseif opts.title then
 		f.heading = UI.Text(f, opts.title, { size = opts.titleSize or "lg" })

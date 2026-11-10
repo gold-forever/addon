@@ -3,6 +3,7 @@
 -- own, the deals alert after a full scan, and the lists and profiles the site sends.
 
 local _, ns = ...
+local L = ns.L
 local settings = ns.auctionSettings
 local heldHere = ns.Holdings.heldHere
 
@@ -65,7 +66,7 @@ function Lists.lists()
 			return a.itemId < b.itemId
 		end)
 		if #entries > 0 then
-			shown[#shown + 1] = { name = "Craft queue", entries = entries, profile = true, queue = true }
+			shown[#shown + 1] = { name = L["Craft queue"], entries = entries, profile = true, queue = true }
 		end
 	end
 	if p and #p.buy > 0 then
@@ -73,7 +74,7 @@ function Lists.lists()
 		for i, r in ipairs(p.buy) do
 			entries[i] = { itemId = r.itemID, maxUnit = r.maxUnit, upTo = r.upTo }
 		end
-		shown[#shown + 1] = { name = "Profile: " .. p.name, entries = entries, profile = true }
+		shown[#shown + 1] = { name = string.format(L["Profile: %s"], p.name), entries = entries, profile = true }
 	end
 	s.list = math.max(1, math.min(s.list or 1, #shown))
 	return s.lists, shown[s.list], shown
@@ -123,10 +124,10 @@ local function announceDeals()
 	local names = {}
 	for i = 1, math.min(3, #under) do
 		local _, _, _, _, name = ns.price.itemInfo(under[i])
-		names[i] = name or ("item " .. under[i])
+		names[i] = name or string.format(L["item %d"], under[i])
 	end
-	ns.say(string.format("%d %s on your lists %s at or under your price: %s%s. Open the Buy tab.", #under, #under == 1 and "item" or "items",
-		#under == 1 and "is" or "are", table.concat(names, ", "), #under > 3 and ", ..." or ""))
+	ns.say(ns.plural(#under, L["%d item on your lists is at or under your price: %s%s. Open the Buy tab."],
+		L["%d items on your lists are at or under your price: %s%s. Open the Buy tab."], table.concat(names, ", "), #under > 3 and ", ..." or ""))
 end
 ns.listen("pricesReady", "deals", announceDeals)
 
@@ -169,7 +170,7 @@ local function dropOlderCopies(s)
 	end
 	local n = ns.Shopping.dropCopies(s.lists or {}) + ns.Shopping.dropCopies(s.profiles or {})
 	if n > 0 then
-		ns.say(string.format("removed %d \"older copy\" %s the site sync had made.", n, n == 1 and "list" or "lists"))
+		ns.say(ns.plural(n, L["removed %d \"older copy\" list the site sync had made."], L["removed %d \"older copy\" lists the site sync had made."]))
 	end
 end
 
@@ -213,7 +214,7 @@ local function mergeShared()
 	s.sharedAt = shared[F.at]
 	restore()
 	if a + b > 0 then
-		ns.say(string.format("lists and profiles from the site: %d %s.", a + b, a + b == 1 and "change" or "changes"))
+		ns.say(ns.plural(a + b, L["lists and profiles from the site: %d change."], L["lists and profiles from the site: %d changes."]))
 	end
 end
 ns.on("PLAYER_LOGIN", "shared lists", function()

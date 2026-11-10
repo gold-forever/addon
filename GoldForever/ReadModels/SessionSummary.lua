@@ -3,6 +3,7 @@
 -- and the hub's Session page show it; big drops are called out by BigDrops.lua.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 local Session = ns.Session
 
@@ -83,12 +84,12 @@ local function xpLine(sum, session, xpSeen)
 		return nil
 	end
 	local r = sum.rates
-	local line = "XP: " .. number(sum.xp)
+	local line = string.format(L["XP: %s"], number(sum.xp))
 	if r.rated then
-		line = line .. " · " .. number(r.xpPerHour) .. "/h · level " .. sum.nextLevel .. " in " .. Encode.duration(r.dingIn or 0)
+		line = line .. string.format(L[" · %s/h · level %d in %s"], number(r.xpPerHour), sum.nextLevel, Encode.duration(r.dingIn or 0))
 	end
 	if (session.xpKills or 0) > 0 and session.killXp > 0 then
-		line = line .. string.format(" (~%s kills)", number(r.killsToLevel or 0))
+		line = line .. string.format(L[" (~%s kills)"], number(r.killsToLevel or 0))
 	end
 	return line
 end
@@ -96,11 +97,11 @@ end
 -- Free slots, and when they run out at the rate they have been filling.
 local function bagsLine(sum)
 	if sum.bagFree == 0 then
-		return "|cffff5555Bags full|r"
+		return "|cffff5555" .. L["Bags full"] .. "|r"
 	end
-	local bags = "Bags: " .. sum.bagFree .. " free"
+	local bags = string.format(L["Bags: %d free"], sum.bagFree)
 	if sum.fullIn then
-		bags = bags .. " · full in ~" .. Encode.duration(sum.fullIn)
+		bags = bags .. string.format(L[" · full in ~%s"], Encode.duration(sum.fullIn))
 	end
 	return bags
 end
@@ -109,19 +110,19 @@ end
 local function text()
 	local sum = ns.sessionSummary()
 	if not sum then
-		return Session.automatic() and "Loot something to start a session." or "Press Start on the HUD to start a session."
+		return Session.automatic() and L["Loot something to start a session."] or L["Press Start on the HUD to start a session."]
 	end
 	local elapsed, r = sum.elapsed, sum.rates
 	local lines = {
-		string.format("%s%d:%02d", sum.ended and "Ended after " or "Farming ", math.floor(elapsed / 60), math.floor(elapsed % 60)),
-		"Coin: " .. coins(sum.coin),
-		"Items: " .. coins(sum.value) .. (sum.unpriced > 0 and string.format(" (+%d unpriced)", sum.unpriced) or ""),
-		"|cffffffffTotal: " .. coins(r.total) .. "|r",
+		string.format(sum.ended and L["Ended after %d:%02d"] or L["Farming %d:%02d"], math.floor(elapsed / 60), math.floor(elapsed % 60)),
+		string.format(L["Coin: %s"], coins(sum.coin)),
+		string.format(L["Items: %s"], coins(sum.value)) .. (sum.unpriced > 0 and string.format(L[" (+%d unpriced)"], sum.unpriced) or ""),
+		"|cffffffff" .. string.format(L["Total: %s"], coins(r.total)) .. "|r",
 	}
 	if r.rated then
-		table.insert(lines, "|cffffd100Per hour: " .. coins(r.goldPerHour) .. "|r")
+		table.insert(lines, "|cffffd100" .. string.format(L["Per hour: %s"], coins(r.goldPerHour)) .. "|r")
 	else
-		table.insert(lines, "|cff999999Per hour: after a minute|r")
+		table.insert(lines, "|cff999999" .. L["Per hour: after a minute"] .. "|r")
 	end
 	local xp = xpLine(sum, Session.get(), Session.xpBar())
 	if xp then
@@ -131,8 +132,8 @@ local function text()
 	-- The most valuable items so far.
 	for i = 1, math.min(TOP_ITEMS, #sum.ranked) do
 		local item = sum.ranked[i]
-		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(item.id)) or ("item " .. item.id)
-		table.insert(lines, string.format("|cffaaaaaa%dx %s: %s|r", item.n, name, item.value > 0 and coins(item.value) or "no price"))
+		local name = (C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(item.id)) or string.format(L["item %d"], item.id)
+		table.insert(lines, string.format("|cffaaaaaa" .. L["%dx %s: %s"] .. "|r", item.n, name, item.value > 0 and coins(item.value) or L["no price"]))
 	end
 	return table.concat(lines, "\n")
 end

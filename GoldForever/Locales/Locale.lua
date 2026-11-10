@@ -11,6 +11,7 @@ ns.Locale = Locale
 Locale.code = GetLocale and GetLocale() or "enUS"
 Locale.english = {} -- text -> true, every text the addon shows (enUS.lua)
 Locale.languages = {} -- code -> { text -> translation }, every language's file, for the tests
+local sources = {} -- a translation shown -> its English text
 
 -- How a language picks between a count's singular and plural: English's one is 1 alone, French's 0 and 1.
 local SINGULAR = {
@@ -37,8 +38,14 @@ function Locale.add(code, texts)
 	if code == Locale.code then
 		for text, translated in pairs(texts) do
 			rawset(L, text, translated)
+			sources[translated] = text
 		end
 	end
+end
+
+-- The English text of one shown in the client's language, for names the save keeps (an error's).
+function Locale.sourceOf(shown)
+	return sources[shown] or shown
 end
 
 -- Whether the client shows the addon in a language other than its source (the AI-translation notice).
@@ -49,4 +56,12 @@ end
 -- One of two texts by a count, formatted with the count and the rest: ns.plural(n, L["%d craft"], L["%d crafts"]).
 function ns.plural(n, one, other, ...)
 	return string.format(singular(n) and one or other, n, ...)
+end
+
+-- A text in capitals, accented letters too (string.upper leaves é as it is): à-þ are the capitals'
+-- second byte plus 32 in UTF-8, ÷ is no letter.
+function ns.upper(text)
+	return (string.gsub(string.upper(text), "\195([\160-\190])", function(c)
+		return c == "\183" and "\195\183" or "\195" .. string.char(string.byte(c) - 32)
+	end))
 end

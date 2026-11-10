@@ -6,6 +6,7 @@
 -- a typed or macro command, which is a key press.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 local SKULL = 8
@@ -77,10 +78,11 @@ local function seeUnit(unit, how)
 	if s.announce then
 		local _, _, _, at = where()
 		local level = UnitLevel(unit)
-		local kind = UnitClassification(unit) == "rareelite" and " elite" or ""
+		local kind = UnitClassification(unit) == "rareelite" and L[" elite"] or ""
 		local name = ns.readable(UnitName(unit))
-		local hint = s.mark and mayMark() and " · /gf mark to skull it" or ""
-		alert(string.format("Rare: %s (%s%s)%s%s", not Encode.noName(name) and name or "?", level and level > 0 and level or "??", kind, at and (" near " .. at) or "", hint))
+		local hint = s.mark and mayMark() and L[" · /gf mark to skull it"] or ""
+		alert(string.format(L["Rare: %s (%s%s)%s%s"], not Encode.noName(name) and name or "?", level and level > 0 and level or "??", kind,
+			at and string.format(L[" near %s"], at) or "", hint))
 	end
 end
 
@@ -88,7 +90,7 @@ end
 -- handler below takes for rares, so the announcer fired constantly in Silvermoon (owner, 2026-10-22).
 if ns.retail then
 	ns.commands.rares = function()
-		ns.say("the rare announcer is off on retail.")
+		ns.say(L["the rare announcer is off on retail."])
 	end
 	return
 end
@@ -125,7 +127,7 @@ ns.on("VIGNETTE_MINIMAP_UPDATED", "rares", function(vignette, onMinimap)
 	announced[info.objectGUID] = true
 	record(npc, "minimap")
 	if settings().announce then
-		alert(string.format("Rare nearby: %s (on the minimap)", not Encode.noName(info.name) and info.name or "?"))
+		alert(string.format(L["Rare nearby: %s (on the minimap)"], not Encode.noName(info.name) and info.name or "?"))
 	end
 end)
 
@@ -136,7 +138,7 @@ local function markable(unit)
 end
 ns.commands.mark = function()
 	if not mayMark() then
-		ns.say("only the group's leader or an assistant can mark.")
+		ns.say(L["only the group's leader or an assistant can mark."])
 		return
 	end
 	local unit = markable("target") and "target" or markable("mouseover") and "mouseover"
@@ -144,7 +146,7 @@ ns.commands.mark = function()
 		unit = lastRare.unit
 	end
 	if not unit then
-		ns.say("no rare to mark: target it or hold the mouse over it.")
+		ns.say(L["no rare to mark: target it or hold the mouse over it."])
 		return
 	end
 	SetRaidTarget(unit, SKULL)
@@ -155,9 +157,9 @@ ns.commands.rares = function(arg)
 	local s = settings()
 	if arg == "mark" then
 		s.mark = not s.mark
-		ns.say("rares " .. (s.mark and "get a skull mark" or "are not marked") .. ".")
+		ns.say(s.mark and L["rares get a skull mark."] or L["rares are not marked."])
 	else
 		s.announce = not s.announce
-		ns.say("rares are " .. (s.announce and "announced" or "not announced") .. ".")
+		ns.say(s.announce and L["rares are announced."] or L["rares are not announced."])
 	end
 end

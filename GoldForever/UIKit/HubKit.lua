@@ -3,6 +3,7 @@
 -- builder to ns.hubPages, which Hub.lua puts in the window.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 
 local Kit = {}
@@ -60,7 +61,7 @@ Kit.isRetail = ns.retail
 
 -- Names and quality as the catalogue has them (Catalogue.lua), for the pages' tables.
 function Kit.itemName(id)
-	return ns.Catalogue.name("item", id) or ("Item " .. id)
+	return ns.Catalogue.name("item", id) or string.format(L["Item %d"], id)
 end
 
 function Kit.itemQuality(id)
@@ -68,7 +69,7 @@ function Kit.itemQuality(id)
 end
 
 function Kit.npcName(id)
-	return ns.Catalogue.name("npc", id) or ("NPC " .. id)
+	return ns.Catalogue.name("npc", id) or string.format(L["NPC %d"], id)
 end
 
 -- The item's own tooltip while the pointer is over the frame: the item is frame.itemId, set as it changes.

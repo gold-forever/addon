@@ -3,6 +3,7 @@
 -- kit's other files fill: UIDraw, UIControls, UIData, and the hub's window, HubWindow.
 
 local _, ns = ...
+local L = ns.L
 
 local UI = { layout = {} }
 ns.UI = UI
@@ -193,9 +194,9 @@ end
 
 -- The addon's own footprint as the sidebar shows it: memory in kilobytes, CPU in milliseconds (or nil).
 function UI.layout.footprint(kb, ms)
-	local text = string.format("Memory %.1f MB", (kb or 0) / 1024)
+	local text = string.format(L["Memory %.1f MB"], (kb or 0) / 1024)
 	if ms then
-		text = text .. string.format(" · CPU %.3f ms", ms)
+		text = text .. string.format(L[" · CPU %.3f ms"], ms)
 	end
 	return text
 end

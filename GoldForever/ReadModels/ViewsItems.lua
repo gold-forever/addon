@@ -3,6 +3,7 @@
 -- Pure Lua 5.1, as Views.lua.
 
 local _, ns = ...
+local L = ns.L
 local Views = ns.Views
 
 -- What a set of held items is worth, most first: held = { [id] = count }, worth(id) -> one unit's copper
@@ -32,6 +33,8 @@ end
 -- "bank" | "mail", quality = minimum, query = lower-case text }; with where it is held and its worth
 -- (worth(id) a unit, quality(id), name(id)). Returns rows and totals { items, units, worth }.
 Views.PLACES = { "bags", "bank", "mail" }
+-- Each place as the text names it.
+local PLACE_NAMES = { bags = L["bags"], bank = L["bank"], mail = L["mail"], gear = L["equipped"] }
 -- The equipped gear of a character as counts: c.gear is { [slot] = key }.
 local function gearCounts(c, parse)
 	local out = {}
@@ -68,7 +71,7 @@ function Views.inventory(characters, parse, worth, quality, name, filter, vendor
 							local it = byItem[id] or { held = 0, bound = 0, where = {} }
 							byItem[id] = it
 							it.held, it.bound = it.held + n, it.bound + b
-							it.where[#it.where + 1] = string.format("%s %d (%s)", c.name or "?", n, place == "gear" and "equipped" or place)
+							it.where[#it.where + 1] = string.format("%s %d (%s)", c.name or "?", n, PLACE_NAMES[place])
 						end
 					end
 				end
@@ -176,18 +179,18 @@ function Views.heldText(entry, most)
 	local parts = {}
 	for i, h in ipairs(entry.by) do
 		if i > most then
-			parts[#parts + 1] = string.format("+%d more", #entry.by - most)
+			parts[#parts + 1] = string.format(L["+%d more"], #entry.by - most)
 			break
 		end
 		local where = {}
 		for _, place in ipairs(Views.PLACES) do
 			if h[place] > 0 then
-				where[#where + 1] = h[place] == h.total and place or (place .. " " .. h[place])
+				where[#where + 1] = h[place] == h.total and PLACE_NAMES[place] or (PLACE_NAMES[place] .. " " .. h[place])
 			end
 		end
 		parts[#parts + 1] = string.format("%s %d (%s)", h.name, h.total, table.concat(where, ", "))
 	end
-	return string.format("Held %d: %s", entry.total, table.concat(parts, ", "))
+	return string.format(L["Held %d: %s"], entry.total, table.concat(parts, ", "))
 end
 
 -- What this character keeps out of its bags that the auction house would pay for: its bank and mailbox,

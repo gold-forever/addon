@@ -2,6 +2,7 @@
 -- about other players.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 -- Trainers ---------------------------------------------------------------------------------------
@@ -111,7 +112,7 @@ ns.on("PLAYER_LEVEL_UP", "training", function(level)
 		end
 	end
 	if #spells > 0 then
-		ns.say(string.format("level %d: %s at your trainer, %s.", level, table.concat(spells, ", "), Encode.money(cost)))
+		ns.say(string.format(L["level %d: %s at your trainer, %s."], level, table.concat(spells, ", "), Encode.money(cost)))
 	end
 end)
 

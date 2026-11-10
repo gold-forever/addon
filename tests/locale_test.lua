@@ -38,6 +38,10 @@ eq(fr.plural(0, "%d fabrication", "%d fabrications"), "0 fabrication", "French: 
 eq(fr.plural(2, "%d fabrication", "%d fabrications"), "2 fabrications", "French: 2 is plural")
 eq(en.plural(3, "%d of %s", "%d of %s", "x"), "3 of x", "the rest is formatted after the count")
 
+eq(fr.Locale.sourceOf(fr.L[KEY]), KEY, "a French text's English, for a name the save keeps")
+eq(en.Locale.sourceOf("Total"), "Total", "an English text is its own")
+eq(fr.upper("Règles de vente · à l'hôtel"), "RÈGLES DE VENTE · À L'HÔTEL", "capitals, accented letters too")
+
 -- The placeholders a text formats, in their order (%s, %d, %.1f, …; %% is a literal).
 local function placeholders(text)
 	local out = {}

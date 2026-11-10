@@ -2,6 +2,7 @@
 -- Items are aggregated per item key; slot positions are never recorded.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 -- Container IDs by name from Enum.BagIndex when the client has it, else the classic numbering.
@@ -211,8 +212,8 @@ local function settleFetch(want, left, stacks, moved, taken, full)
 		end
 	end
 	if taken > 0 or full then
-		ns.say(string.format("took %d %s from the bank to sell%s.", taken, taken == 1 and "stack" or "stacks",
-			full and "; your bags are full, the rest stays chosen" or ""))
+		ns.say(ns.plural(taken, L["took %d stack from the bank to sell%s."], L["took %d stacks from the bank to sell%s."],
+			full and L["; your bags are full, the rest stays chosen"] or ""))
 	end
 end
 

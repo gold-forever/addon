@@ -8,6 +8,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local Mail = {}
 ns.Mail = Mail
@@ -142,9 +143,10 @@ function step()
 		-- The client shows 50 mails at a time; the rest arrive when the mailbox refreshes.
 		local shown, total = GetInboxNumItems()
 		local more = total and shown and total > shown and (total - shown) or 0
-		finish(why == "bags" and "Your bags are full: make room and press again."
-			or more > 0 and string.format("All shown auction mail opened. %d more %s arrive when the mailbox refreshes (within a minute): press again then.", more, more == 1 and "mail" or "mails")
-			or "All auction mail opened.")
+		finish(why == "bags" and L["Your bags are full: make room and press again."]
+			or more > 0 and ns.plural(more, L["All shown auction mail opened. %d more mail arrives when the mailbox refreshes (within a minute): press again then."],
+				L["All shown auction mail opened. %d more mails arrive when the mailbox refreshes (within a minute): press again then."])
+			or L["All auction mail opened."])
 		return
 	end
 	-- One mail at a time, as Blizzard's Open All does: not while the server still works on the last.
@@ -179,7 +181,7 @@ ns.on("MAIL_FAILED", "mail helper", function()
 	run.waiting = false
 	run.failed = (run.failed or 0) + 1
 	if run.failed > RETRIES then
-		finish("The mailbox refused it again; press again in a moment.")
+		finish(L["The mailbox refused it again; press again in a moment."])
 		return
 	end
 	-- Busy: the same mail again after a second.
@@ -199,7 +201,7 @@ function Mail.press()
 		return
 	end
 	run = { left = Mail.BATCH }
-	ns.emit("mailBatch", "Opening...")
+	ns.emit("mailBatch", L["Opening..."])
 	step()
 end
 

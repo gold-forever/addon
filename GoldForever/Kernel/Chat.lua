@@ -9,10 +9,10 @@ function ns.say(text)
 	print(ns.PREFIX .. ": " .. text)
 end
 
--- A chat line as plain text, for a box the player copies from: no colours, coin icons as g, s and c, no
--- other icons.
-local COINS = { gold = "g", silver = "s", copper = "c" }
+-- A chat line as plain text, for a box the player copies from: no colours, coin icons as the client's
+-- letters for them (g, s and c in English), no other icons.
 function ns.plainText(text)
+	local COINS = { gold = GOLD_AMOUNT_SYMBOL, silver = SILVER_AMOUNT_SYMBOL, copper = COPPER_AMOUNT_SYMBOL }
 	text = string.gsub(string.gsub(text, "|c%x%x%x%x%x%x%x%x", ""), "|r", "")
 	return (string.gsub(text, "|[TA]([^|]*)|[ta]", function(icon)
 		icon = string.lower(icon)

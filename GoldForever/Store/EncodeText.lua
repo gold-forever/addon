@@ -3,6 +3,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 local Encode = ns.Encode
 
 -- Item names go in the catalogue as one column; commas become U+201A (design 002).
@@ -87,13 +88,13 @@ end
 -- "1h 20m", "25m", "under a minute": a duration in seconds, rounded to minutes.
 function Encode.duration(seconds)
 	if seconds < 60 then
-		return "under a minute"
+		return L["under a minute"]
 	end
 	local minutes = math.floor(seconds / 60 + 0.5)
 	if minutes < 60 then
-		return minutes .. "m"
+		return string.format(L["%dm"], minutes)
 	end
-	return string.format("%dh %dm", math.floor(minutes / 60), minutes % 60)
+	return string.format(L["%dh %dm"], math.floor(minutes / 60), minutes % 60)
 end
 
 -- The placeholder at `i` in a message format: its argument's position where the format numbers it

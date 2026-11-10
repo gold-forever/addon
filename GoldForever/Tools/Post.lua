@@ -5,6 +5,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local Post = {}
 ns.Post = Post
@@ -15,10 +16,10 @@ Post.DEFAULT = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" 
 
 -- The undercuts a player can pick: an amount in copper, or a share of the cheapest price.
 Post.UNDERCUTS = {
-	{ value = "1c", label = "1 copper (where the auction house takes copper)", copper = 1 },
-	{ value = "1s", label = "1 silver", copper = 100 },
-	{ value = "1%", label = "1 percent", pct = 1 },
-	{ value = "5%", label = "5 percent", pct = 5 },
+	{ value = "1c", label = L["1 copper (where the auction house takes copper)"], copper = 1 },
+	{ value = "1s", label = L["1 silver"], copper = 100 },
+	{ value = "1%", label = L["1 percent"], pct = 1 },
+	{ value = "5%", label = L["5 percent"], pct = 5 },
 }
 
 -- Whether this client's auction house takes copper (C_AuctionHouse.SupportsCopperValues, read when it
@@ -122,7 +123,7 @@ function Post.readOwned(n, info, keyInfo, itemInfo)
 			local unit = commodity and a.buyoutAmount or math.floor(a.buyoutAmount / math.max(1, qty) + 0.5)
 			local quality, _, _, _, name = itemInfo(a.itemKey.itemID)
 			owned[#owned + 1] = { auctionID = a.auctionID, itemID = a.itemKey.itemID, itemKey = a.itemKey, quantity = qty,
-				unit = unit, commodity = commodity, name = (key and key.itemName) or name or ("item " .. a.itemKey.itemID), quality = quality or 1 }
+				unit = unit, commodity = commodity, name = (key and key.itemName) or name or string.format(L["item %d"], a.itemKey.itemID), quality = quality or 1 }
 		end
 	end
 	return owned
@@ -136,14 +137,14 @@ function Post.examples(rule, money, market)
 	local out = {}
 	local function say(situation, cheapest)
 		local s = Post.suggest(rule, market, cheapest)
-		out[#out + 1] = situation .. ": " .. (s.unit and ("you post at " .. money(s.unit) .. " (" .. string.lower(Post.REASONS[s.reason]) .. ")")
-			or "you hold it, as it is under your floor")
+		out[#out + 1] = s.unit and string.format(L["%s: you post at %s (%s)"], situation, money(s.unit), string.lower(Post.REASONS[s.reason]))
+			or string.format(L["%s: you hold it, as it is under your floor"], situation)
 	end
 	local near, low, high = math.floor(market * 0.95), math.floor(market / 2), market * 2
-	say("Someone lists it at " .. money(near), near)
-	say("No one else lists it", nil)
-	say("The cheapest is " .. money(low), low)
-	say("The cheapest is " .. money(high), high)
+	say(string.format(L["Someone lists it at %s"], money(near)), near)
+	say(L["No one else lists it"], nil)
+	say(string.format(L["The cheapest is %s"], money(low)), low)
+	say(string.format(L["The cheapest is %s"], money(high)), high)
 	return out
 end
 
@@ -155,31 +156,31 @@ function Post.trendHint(pct)
 		return nil
 	end
 	if pct >= Post.TREND_HINT then
-		return "rising: maybe wait"
+		return L["rising: maybe wait"]
 	elseif pct <= -Post.TREND_HINT then
-		return "falling"
+		return L["falling"]
 	end
 	return nil
 end
 
 -- What each reason says in the panel.
 Post.REASONS = {
-	undercut = "Undercut",
-	alone = "No one else",
-	normal = "Normal price",
-	floor = "At floor",
-	hold = "Under your floor", -- not "Hold", read as "keep this many" (manual test run 001)
-	plan = "Plan", -- a sale plan's step; the panel shows the step's own label
+	undercut = L["Undercut"],
+	alone = L["No one else"],
+	normal = L["Normal price"],
+	floor = L["At floor"],
+	hold = L["Under your floor"], -- not "Hold", read as "keep this many" (manual test run 001)
+	plan = L["Plan"], -- a sale plan's step; the panel shows the step's own label
 }
 
 -- A second press is asked for when a post looks like a mistake: under what a vendor pays after the
 -- auction house's cut, or more than half under the market value. Returns the warning, or nil.
 function Post.check(unit, market, vendor, cut)
 	if vendor and vendor > 0 and math.floor(unit * (1 - (cut or 0.05))) < vendor then
-		return "under what a vendor pays"
+		return L["under what a vendor pays"]
 	end
 	if market and market > 0 and unit < market * 0.5 then
-		return "more than half under the market value"
+		return L["more than half under the market value"]
 	end
 end
 

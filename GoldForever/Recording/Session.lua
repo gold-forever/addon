@@ -3,6 +3,7 @@
 -- SessionSummary.lua's; the HUD (Hud.lua) shows it.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 local IDLE_SECONDS = 15 * 60 -- the web app's session split
@@ -315,5 +316,5 @@ ns.commands.reset = function()
 	end
 	session = nil
 	changed("reset")
-	ns.say("farming session reset.")
+	ns.say(L["farming session reset."])
 end

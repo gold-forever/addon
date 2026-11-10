@@ -1,6 +1,7 @@
 -- Gold Forever: one of your auctions sold while you are logged in, as a coin sound and one chat line.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 -- The client's own "A buyer has been found for your auction of %s." (ERR_AUCTION_SOLD_S), on both clients.
@@ -39,9 +40,9 @@ local function sold(message)
 	ns.chime(SOLD_SOUND)
 	if qty and unit then
 		local net = math.floor(qty * unit * (1 - ns.price.cut))
-		ns.say(string.format("sold %s x%d for %s (arrives by mail)", name, qty, ns.Money.auction(net)))
+		ns.say(string.format(L["sold %s x%d for %s (arrives by mail)"], name, qty, ns.Money.auction(net)))
 	else
-		ns.say(string.format("sold %s (arrives by mail)", name))
+		ns.say(string.format(L["sold %s (arrives by mail)"], name))
 	end
 end
 

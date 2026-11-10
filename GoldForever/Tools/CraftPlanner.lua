@@ -5,6 +5,7 @@
 -- Crafting page shows the same, and more. Not the shopping lists, which are Shopping.lua's.
 
 local _, ns = ...
+local L = ns.L
 
 local Encode = ns.Encode
 local itemList = Encode.parseItems
@@ -180,7 +181,7 @@ function ns.allCraftQuotes()
 			if r then
 				local q = ns.Crafting.quote(r, ns.price, have, ns.price.cut)
 				q.recipe = r
-				q.prof = prof.name or ("Profession " .. tostring(line)) -- for the page's profession filter
+				q.prof = prof.name or string.format(L["Profession %s"], tostring(line)) -- for the page's profession filter
 				q.gear = isGear(r.output)
 				out[#out + 1] = q
 			end

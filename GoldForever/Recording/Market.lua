@@ -5,6 +5,7 @@
 -- one row per (item key, unit price). Owner and bidder fields are never read.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 local COOLDOWN = 15 * 60
@@ -171,9 +172,9 @@ local function store(s, n, partial, rows, prices)
 		ns.emit("scanSaved")
 	end
 	if partial then
-		ns.say(string.format("scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends.", s.read or 0, n))
+		ns.say(string.format(L["scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends."], s.read or 0, n))
 	else
-		ns.say(string.format("scanned %d auctions into %d prices (%s).", n, prices, s.market))
+		ns.say(string.format(L["scanned %d auctions into %d prices (%s)."], n, prices, s.market))
 	end
 	scan = nil
 end
@@ -295,7 +296,7 @@ local function start(manual)
 	local wait = (db.lastReplicate or 0) + COOLDOWN - ns.now()
 	if wait > 0 then
 		if manual then
-			ns.say(string.format("next scan possible in %d:%02d.", math.floor(wait / 60), wait % 60))
+			ns.say(string.format(L["next scan possible in %d:%02d."], math.floor(wait / 60), wait % 60))
 		end
 		return
 	end
@@ -311,7 +312,7 @@ local function start(manual)
 		npc = Encode.source(ns.readable(UnitGUID("npc"))),
 		npcFaction = UnitExists("npc") and (UnitFactionGroup("npc") or "none") or nil,
 	}
-	ns.say("scanning the auction house...")
+	ns.say(L["scanning the auction house..."])
 	C_AuctionHouse.ReplicateItems()
 	-- No update within a minute: the client is throttling; record that instead of waiting forever.
 	local mine = scan
@@ -371,7 +372,7 @@ end
 
 ns.commands.scan = function()
 	if not auctionOpen then
-		ns.say("open the auction house first.")
+		ns.say(L["open the auction house first."])
 		return
 	end
 	start(true)

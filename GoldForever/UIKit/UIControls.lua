@@ -100,7 +100,7 @@ function UI.Button(parent, label, onClick, opts)
 				b.pulse = UI.pulse(b, Theme.color.accentStrong)
 			end
 		end
-		b.label = UI.Text(b, caps and string.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
+		b.label = UI.Text(b, caps and ns.upper(label) or label, { size = "sm", medium = true, tone = tone, align = "CENTER" })
 		b.label:SetPoint("CENTER")
 		b:SetWidth(opts.width or math.max(60, (b.label:GetStringWidth() or 40) + 24))
 		-- A gradient lifts towards white: fading it showed the rounded slices' seams (manual test run 001).
@@ -122,7 +122,7 @@ function UI.Button(parent, label, onClick, opts)
 		end)
 	end
 	function b:SetLabel(text)
-		self.label:SetText(caps and string.upper(text) or text)
+		self.label:SetText(caps and ns.upper(text) or text)
 	end
 	-- Off: faded, in the classic look as well as its grey label.
 	b:HookScript("OnDisable", function(self)
@@ -133,7 +133,7 @@ function UI.Button(parent, label, onClick, opts)
 	end)
 	if onClick then
 		b:SetScript("OnClick", function(...)
-			ns.safely("button " .. label, onClick, ...)
+			ns.safely("button " .. ns.Locale.sourceOf(label), onClick, ...)
 		end)
 	end
 	return b

@@ -2,6 +2,7 @@
 -- table of rows that sorts and pages.
 
 local _, ns = ...
+local L = ns.L
 local Theme, UI = ns.Theme, ns.UI
 local solid, surface, radius = UI.solid, UI.surface, UI.radius
 
@@ -12,7 +13,7 @@ local solid, surface, radius = UI.solid, UI.surface, UI.radius
 function UI.StatCard(parent, label, value, hint)
 	local f = UI.Panel(parent, { color = Theme.color.surfaceRaised })
 	f:SetHeight(76)
-	f.label = UI.Text(f, string.upper(label), { size = "xs", medium = true, tone = "muted" })
+	f.label = UI.Text(f, ns.upper(label), { size = "xs", medium = true, tone = "muted" })
 	f.label:SetPoint("TOPLEFT", 14, -12)
 	f.value = UI.Text(f, value, { size = "xl", medium = true })
 	f.value:SetPoint("TOPLEFT", f.label, "BOTTOMLEFT", 0, -6)
@@ -206,7 +207,7 @@ function UI.Table(parent, columns, opts)
 	for i, c in ipairs(columns) do
 		local h = CreateFrame("Button", nil, t.header)
 		h:SetHeight(ROW)
-		h.text = UI.Text(h, string.upper(c.title), { size = "xs", tone = "muted", align = c.align or "LEFT" })
+		h.text = UI.Text(h, ns.upper(c.title), { size = "xs", tone = "muted", align = c.align or "LEFT" })
 		h.text:SetAllPoints()
 		h:SetScript("OnClick", function()
 			t.sortDescending = t.sortColumn == i and not t.sortDescending or (t.sortColumn ~= i and c.align == "RIGHT")
@@ -346,11 +347,11 @@ function UI.Table(parent, columns, opts)
 				end
 			end
 		end
-		local sorted = self.sortColumn and string.format(" · by %s, %s first", string.lower(self.columns[self.sortColumn].title),
-			self.sortDescending and "highest" or "lowest") or ""
-		self.footer:SetText(#rows == 0 and (opts.empty or "Nothing yet.") or
-			((shown.pages > 1 and string.format("%d-%d of %d · page %d of %d (wheel to page)", (shown.page - 1) * self.size + 1,
-				math.min(#rows, shown.page * self.size), #rows, shown.page, shown.pages) or string.format("%d rows", #rows)) .. sorted))
+		local sorted = self.sortColumn and string.format(self.sortDescending and L[" · by %s, highest first"] or L[" · by %s, lowest first"],
+			string.lower(self.columns[self.sortColumn].title)) or ""
+		self.footer:SetText(#rows == 0 and (opts.empty or L["Nothing yet."]) or
+			((shown.pages > 1 and string.format(L["%d-%d of %d · page %d of %d (wheel to page)"], (shown.page - 1) * self.size + 1,
+				math.min(#rows, shown.page * self.size), #rows, shown.page, shown.pages) or ns.plural(#rows, L["%d row"], L["%d rows"])) .. sorted))
 		self:SetHeight(ROW + 2 + self.size * ROW + 24)
 	end
 

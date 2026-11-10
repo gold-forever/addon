@@ -5,6 +5,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local Views = {}
 ns.Views = Views
@@ -199,13 +200,13 @@ function Views.duration(seconds)
 	seconds = math.floor(seconds)
 	local d, h, m = math.floor(seconds / 86400), math.floor(seconds / 3600) % 24, math.floor(seconds / 60) % 60
 	if d > 0 then
-		return h > 0 and string.format("%dd %dh", d, h) or string.format("%dd", d)
+		return h > 0 and string.format(L["%dd %dh"], d, h) or string.format(L["%dd"], d)
 	elseif h > 0 then
-		return m > 0 and string.format("%dh %dm", h, m) or string.format("%dh", h)
+		return m > 0 and string.format(L["%dh %dm"], h, m) or string.format(L["%dh"], h)
 	elseif m > 0 then
-		return string.format("%dm", m)
+		return string.format(L["%dm"], m)
 	end
-	return "under a minute"
+	return L["under a minute"]
 end
 
 -- "now", "12m ago", "3h ago", "2d ago".
@@ -215,9 +216,9 @@ function Views.ago(t, now)
 	end
 	local s = now - t
 	if s < 60 then
-		return "now"
+		return L["now"]
 	end
-	return Views.duration(s < 3600 and s or s < 86400 and math.floor(s / 3600) * 3600 or math.floor(s / 86400) * 86400) .. " ago"
+	return string.format(L["%s ago"], Views.duration(s < 3600 and s or s < 86400 and math.floor(s / 3600) * 3600 or math.floor(s / 86400) * 86400))
 end
 
 -- "12.3k" for the HUD: thousands with one decimal, millions likewise, smaller numbers whole.

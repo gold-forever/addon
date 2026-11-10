@@ -5,6 +5,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local Claim = {}
 ns.Claim = Claim
@@ -44,8 +45,8 @@ end
 ns.commands.claim = function(arg)
 	local code = Claim.record(ns.me(), arg, ns.now())
 	if code then
-		ns.say("claim code " .. string.sub(code, 1, 4) .. "-" .. string.sub(code, 5) .. " saved on this character. /reload or log out, then upload as usual.")
+		ns.say(string.format(L["claim code %s-%s saved on this character. /reload or log out, then upload as usual."], string.sub(code, 1, 4), string.sub(code, 5)))
 	else
-		ns.say("type the code the site gave you: /gf claim ABCD-EFGH")
+		ns.say(L["type the code the site gave you: /gf claim ABCD-EFGH"])
 	end
 end

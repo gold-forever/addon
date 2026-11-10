@@ -7,6 +7,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local Crafting = {}
 ns.Crafting = Crafting
@@ -176,16 +177,17 @@ end
 
 -- What learning a recipe is worth: its item's price over a craft's profit, in whole crafts. Unknown price
 -- or profit: nil. money formats a copper value; gear: the output is gear, its price one for every quality.
-local GEAR_NOTE = ", gear prices are rough"
+local GEAR_NOTE = L[", gear prices are rough"]
 function Crafting.paybackLine(itemPrice, profit, money, gear)
 	if not itemPrice or itemPrice <= 0 or not profit then
 		return nil
 	end
 	if profit <= 0 then
-		return "No profit at today's prices" .. (gear and GEAR_NOTE or "")
+		return L["No profit at today's prices"] .. (gear and GEAR_NOTE or "")
 	end
 	local crafts = math.ceil(itemPrice / profit)
-	return string.format("Pays back in %d craft%s at today's margin (%s a craft)%s", crafts, crafts == 1 and "" or "s", money(profit), gear and GEAR_NOTE or "")
+	return ns.plural(crafts, L["Pays back in %d craft at today's margin (%s a craft)%s"], L["Pays back in %d crafts at today's margin (%s a craft)%s"],
+		money(profit), gear and GEAR_NOTE or "")
 end
 
 -- The margin band a profit falls in (design 009, Crafting): "loss" (under 0), "thin" (under 10%), "fair",

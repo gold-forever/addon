@@ -1,6 +1,7 @@
 -- Gold Forever: the look and accent every window and panel draws in, and /gf look, /gf accent.
 
 local _, ns = ...
+local L = ns.L
 local Theme = ns.Theme
 
 local function settings()
@@ -57,7 +58,7 @@ end
 ns.commands.look = function(name)
 	name = string.lower(name or "")
 	if not Theme.skins[name] then
-		print(string.format("Gold Forever: the look is %s. /gf look %s", Theme.skins[look()].label, table.concat(Theme.order, " · /gf look ")))
+		print(string.format(L["Gold Forever: the look is %s. /gf look %s"], Theme.skins[look()].label, table.concat(Theme.order, " · /gf look ")))
 		return
 	end
 	settings().look = name
@@ -68,7 +69,7 @@ end
 ns.commands.accent = function(hex)
 	hex = string.lower(hex or "")
 	if hex ~= "" and not string.match(hex, "^#%x%x%x%x%x%x$") then
-		print("Gold Forever: /gf accent #rrggbb, or /gf accent alone for the look's own colour.")
+		print(L["Gold Forever: /gf accent #rrggbb, or /gf accent alone for the look's own colour."])
 		return
 	end
 	local chosen = hex ~= "" and hex or nil
@@ -77,7 +78,7 @@ ns.commands.accent = function(hex)
 	settings().accent = chosen
 	if not drawnAccents[chosen or "none"] then
 		if drawnCount >= MAX_ACCENTS then
-			ns.say("accent saved; it shows after /reload (each new colour draws every panel again, which stays until a reload).")
+			ns.say(L["accent saved; it shows after /reload (each new colour draws every panel again, which stays until a reload)."])
 			return
 		end
 		drawnAccents[chosen or "none"], drawnCount = true, drawnCount + 1

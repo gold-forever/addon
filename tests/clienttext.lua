@@ -16,3 +16,6 @@ FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "Your Warband's reputation with %s dec
 COMBATLOG_XPGAIN_FIRSTPERSON = "%s dies, you gain %d experience."
 ERR_ZONE_EXPLORED_XP = "Discovered %s: %d experience gained"
 ITEM_STARTS_QUEST = "This Item Begins a Quest"
+GOLD_AMOUNT_SYMBOL = "g"
+SILVER_AMOUNT_SYMBOL = "s"
+COPPER_AMOUNT_SYMBOL = "c"

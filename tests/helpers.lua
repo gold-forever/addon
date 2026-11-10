@@ -24,7 +24,7 @@ end
 local loadChunk = load
 function loadEncode(ns)
 	for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua" }) do
-		assert(loadChunk(SOURCES[file], "@" .. file))("GoldForever", ns)
+		assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 	end
 end
 
@@ -40,8 +40,10 @@ function load(chunk, ...)
 		return f, err
 	end
 	return function(name, ns, ...)
-		if type(ns) == "table" and rawget(ns, "L") == nil and not rawget(ns, "Locale") then
-			ns.L, ns.plural = english.L, english.plural
+		if type(ns) == "table" and rawget(ns, "L") == nil then
+			for _, k in ipairs({ "L", "Locale", "plural", "upper" }) do
+				ns[k] = english[k]
+			end
 		end
 		return f(name, ns, ...)
 	end

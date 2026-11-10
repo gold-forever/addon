@@ -4,6 +4,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 local Encode = ns.Encode
 
 local Shopping = {}
@@ -163,14 +164,14 @@ end
 function Shopping.decode(input)
 	local s = string.match(input or "", "^%s*(.-)%s*$")
 	if string.sub(s, 1, #Shopping.PREFIX) ~= Shopping.PREFIX then
-		return nil, "Not a shopping list string: it starts with " .. Shopping.PREFIX
+		return nil, string.format(L["Not a shopping list string: it starts with %s"], Shopping.PREFIX)
 	end
 	if #s > MAX_STRING then
-		return nil, "Too long for shopping lists"
+		return nil, L["Too long for shopping lists"]
 	end
 	local text = Encode.unbase64(string.sub(s, #Shopping.PREFIX + 1))
 	if not text then
-		return nil, "The string is damaged (copy it again, all of it)"
+		return nil, L["The string is damaged (copy it again, all of it)"]
 	end
 	local lists, entries, n = {}, 0, 0
 	for raw in string.gmatch(text .. "\n", "([^\n]*)\n") do
@@ -178,12 +179,12 @@ function Shopping.decode(input)
 		local line = string.match(raw, "^%s*(.-)%s*$")
 		if line ~= "" then
 			local function bad()
-				return nil, string.format("Line %d is not understood: \"%s\"", n, string.sub(line, 1, 60))
+				return nil, string.format(L["Line %d is not understood: \"%s\""], n, string.sub(line, 1, 60))
 			end
 			local word = string.match(line, "^(%S+)")
 			if word == "list" then
 				if #lists >= MAX_LISTS then
-					return nil, "More than " .. MAX_LISTS .. " lists"
+					return nil, string.format(L["More than %d lists"], MAX_LISTS)
 				end
 				local name = string.match(string.sub(string.gsub(string.sub(line, 6), "|", ""), 1, 40), "^%s*(.-)%s*$")
 				lists[#lists + 1] = { name = name ~= "" and name or "Unnamed", entries = {} }
@@ -239,7 +240,7 @@ function Shopping.decode(input)
 				end
 				entries = entries + 1
 				if entries > MAX_ENTRIES then
-					return nil, "More than " .. MAX_ENTRIES .. " items"
+					return nil, string.format(L["More than %d items"], MAX_ENTRIES)
 				end
 				list.entries[#list.entries + 1] = { itemId = tonumber(id), maxUnit = maxUnit, pct = pct, lowest = lowest, upTo = upTo }
 			end
@@ -270,11 +271,22 @@ function Shopping.parseAdd(text)
 	return tonumber(id), (copper and copper > 0) and copper or nil
 end
 
--- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c"; copper, or nil when it is none. A
--- comma is a decimal point only before one or two digits at the end ("4,5", "4,50"); else it separates
--- thousands ("1,000" is a thousand gold, not one).
+-- The coins' letters in the client's language ("po", "pa", "pc" in French) as g, s and c.
+local function englishCoins(text)
+	for letter, symbol in pairs({ g = GOLD_AMOUNT_SYMBOL, s = SILVER_AMOUNT_SYMBOL, c = COPPER_AMOUNT_SYMBOL }) do
+		symbol = string.lower(symbol or letter)
+		if symbol ~= letter then
+			text = string.gsub(text, "(%d)%s*" .. string.gsub(symbol, "%p", "%%%0"), "%1" .. letter)
+		end
+	end
+	return text
+end
+
+-- A price typed as gold: "4.5", "4,5", "4g 50s", "45s", "4g50s25c", or with the client's own coin letters
+-- ("4po 50pa"); copper, or nil when it is none. A comma is a decimal point only before one or two digits
+-- at the end ("4,5", "4,50"); else it separates thousands ("1,000" is a thousand gold, not one).
 function Shopping.parseGold(text)
-	text = string.lower(string.match(text or "", "^%s*(.-)%s*$"))
+	text = englishCoins(string.lower(string.match(text or "", "^%s*(.-)%s*$")))
 	if text == "" then
 		return nil
 	end
@@ -413,7 +425,7 @@ end
 
 -- A goal's HUD line: "34/40 Linen Cloth · about 12m at this pace"; `duration` writes the seconds.
 function Shopping.goalText(name, p, duration)
-	local tail = p.reached and "reached" or p.eta and ("about " .. duration(p.eta) .. " at this pace") or "no pace yet"
+	local tail = p.reached and L["reached"] or p.eta and string.format(L["about %s at this pace"], duration(p.eta)) or L["no pace yet"]
 	return string.format("%d/%d %s \194\183 %s", p.have, p.want, name, tail)
 end
 

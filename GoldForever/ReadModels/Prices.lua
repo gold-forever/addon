@@ -7,6 +7,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 
 local Prices = {}
 ns.Prices = Prices
@@ -52,7 +53,7 @@ local function thin(units)
 	if not units or units < 1 then
 		return ""
 	end
-	return string.format(" (from %d %s)", units, units == 1 and "listing" or "listings")
+	return ns.plural(units, L[" (from %d listing)"], L[" (from %d listings)"])
 end
 
 -- The market value against the week before, in whole percent; nil without both.
@@ -75,7 +76,7 @@ end
 
 local function signed(pct)
 	if math.abs(pct) < 1 then
-		return "steady"
+		return L["steady"]
 	end
 	return string.format("%s%d%%", pct > 0 and "+" or "-", math.abs(pct))
 end
@@ -87,7 +88,7 @@ function Prices.trendText(pct)
 	if not pct then
 		return ""
 	end
-	return " · " .. signed(pct) .. " vs typical"
+	return string.format(L[" · %s vs typical"], signed(pct))
 end
 
 -- Whether data is a prices file this addon reads.
@@ -97,11 +98,11 @@ end
 
 local function ago(t, now)
 	local text = ns.Views.ago(t, now)
-	return text == "now" and "just now" or text
+	return text == L["now"] and L["just now"] or text
 end
 
 local function scanned(scannedAt, now)
-	return "scanned " .. ago(scannedAt, now), now - scannedAt > STALE_SECONDS
+	return string.format(L["scanned %s"], ago(scannedAt, now)), now - scannedAt > STALE_SECONDS
 end
 
 -- data: GoldForever_Prices; markets: the server's keys (Prices.markets); id: the item. The tooltip's rows,
@@ -117,15 +118,15 @@ function Prices.rows(data, markets, id, now, label)
 		return nil
 	end
 	local coins = ns.price.coins
-	local rows = { { label or "Market", coins(value) .. thin(units) } }
+	local rows = { { label or L["Market"], coins(value) .. thin(units) } }
 	local pct = Prices.trend(value, week)
 	if pct then
-		rows[#rows + 1] = { "Typical", coins(week) .. " (" .. signed(pct) .. ")" }
+		rows[#rows + 1] = { L["Typical"], coins(week) .. " (" .. signed(pct) .. ")" }
 	end
-	rows[#rows + 1] = { "Min", coins(minBuyout) }
+	rows[#rows + 1] = { L["Min"], coins(minBuyout) }
 	local stale = now - scannedAt > STALE_SECONDS
 	if stale then
-		rows[#rows + 1] = { "Scanned", ago(scannedAt, now) }
+		rows[#rows + 1] = { L["Scanned"], ago(scannedAt, now) }
 	end
 	return rows, stale
 end
@@ -160,7 +161,7 @@ end
 -- Sales a day for a line: "6", "under 1" when they round to none; sold must be above 0 to mean anything.
 function Prices.perDay(sold)
 	local n = rounded(sold / SOLD_DAYS)
-	return n < 1 and "under 1" or grouped(n)
+	return n < 1 and L["under 1"] or grouped(n)
 end
 
 -- About two days of sales, at least 1 and at most what is held; nil without sold or with nothing held.
@@ -173,31 +174,33 @@ end
 
 local function saleRate(sold)
 	if sold <= 0 then
-		return "none sold in the last week"
+		return L["none sold in the last week"]
 	end
 	local rate = Prices.perDay(sold)
-	if rate == "1" or rate == "under 1" then
-		return (rate == "1" and "about 1" or rate) .. " sells a day"
+	if rate == "1" then
+		return L["about 1 sells a day"]
+	elseif rate == L["under 1"] then
+		return L["under 1 sells a day"]
 	end
-	return "about " .. rate .. " sell a day"
+	return string.format(L["about %s sell a day"], rate)
 end
 
 local function daysOfSupply(sold, listed)
 	local days = rounded(listed * SOLD_DAYS / sold)
 	if days < 1 then
-		return "under a day of supply"
+		return L["under a day of supply"]
 	end
-	return string.format("about %s %s of supply", grouped(days), days == 1 and "day" or "days")
+	return string.format(days == 1 and L["about %s day of supply"] or L["about %s days of supply"], grouped(days))
 end
 
 local function listedPart(sold, listed)
 	if listed == 0 then
-		return "none listed"
+		return L["none listed"]
 	end
 	if sold <= 0 then
-		return grouped(listed) .. " listed"
+		return string.format(L["%s listed"], grouped(listed))
 	end
-	return grouped(listed) .. " listed: " .. daysOfSupply(sold, listed)
+	return string.format(L["%s listed: %s"], grouped(listed), daysOfSupply(sold, listed))
 end
 
 -- "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12"; nil without sold. A part the
@@ -212,7 +215,7 @@ function Prices.supplyLine(sold, listed, held)
 	end
 	local size = Prices.postSize(sold, held)
 	if size then
-		parts[#parts + 1] = "post up to " .. grouped(size)
+		parts[#parts + 1] = string.format(L["post up to %s"], grouped(size))
 	end
 	return table.concat(parts, " · ")
 end
@@ -224,8 +227,8 @@ function Prices.ownLine(value, cheapest, scannedAt, now)
 	end
 	local coins = ns.price.coins
 	local age, stale = scanned(scannedAt, now)
-	local min = cheapest and (" · min " .. coins(cheapest)) or ""
-	return "Your scan " .. coins(value) .. min .. (stale and (" · " .. age) or ""), stale
+	local min = cheapest and string.format(L[" · min %s"], coins(cheapest)) or ""
+	return string.format(L["Your scan %s"], coins(value)) .. min .. (stale and (" · " .. age) or ""), stale
 end
 
 local function count(t)
@@ -239,13 +242,13 @@ end
 -- /gf prices: the file's age, then each market with its item count; mine are the keys the tooltip reads.
 function Prices.summary(data, mine, now)
 	if type(data) ~= "table" then
-		return { "no prices file loaded. The companion app writes it into the GoldForever_Data addon." }
+		return { L["no prices file loaded. The companion app writes it into the GoldForever_Data addon."] }
 	end
 	if data[F.version] ~= VERSION then
-		return { string.format("the prices file is version %s; this addon reads version %d. Update the addon.", tostring(data[F.version]), VERSION) }
+		return { string.format(L["the prices file is version %s; this addon reads version %d. Update the addon."], tostring(data[F.version]), VERSION) }
 	end
 	if not Prices.loaded(data) then
-		return { "the prices file cannot be read. The companion app writes it again on its next update." }
+		return { L["the prices file cannot be read. The companion app writes it again on its next update."] }
 	end
 	local keys, used = {}, {}
 	for key in pairs(data[F.markets]) do
@@ -255,11 +258,11 @@ function Prices.summary(data, mine, now)
 	for _, key in ipairs(mine or {}) do
 		used[key] = true
 	end
-	local age = amount(data[F.at]) and ("written " .. ago(data[F.at], now)) or "of unknown age"
-	local lines = { string.format("prices file %s · %d %s", age, #keys, #keys == 1 and "market" or "markets") }
+	local age = amount(data[F.at]) and string.format(L["written %s"], ago(data[F.at], now)) or L["of unknown age"]
+	local lines = { string.format(#keys == 1 and L["prices file %s · %d market"] or L["prices file %s · %d markets"], age, #keys) }
 	for _, key in ipairs(keys) do
 		local n = count(data[F.markets][key])
-		lines[#lines + 1] = string.format("%s: %d %s%s", key, n, n == 1 and "item" or "items", used[key] and " · this character's" or "")
+		lines[#lines + 1] = string.format(n == 1 and L["%s: %d item%s"] or L["%s: %d items%s"], key, n, used[key] and L[" · this character's"] or "")
 	end
 	return lines
 end
@@ -396,7 +399,8 @@ function Prices.staleWarning(data, now, lastWarned)
 		return nil
 	end
 	local days = math.floor(age / 86400)
-	return string.format("everyone's prices are %d %s old: is the companion app running? gold-forever.app/companion", days, days == 1 and "day" or "days")
+	return ns.plural(days, L["everyone's prices are %d day old: is the companion app running? gold-forever.app/companion"],
+		L["everyone's prices are %d days old: is the companion app running? gold-forever.app/companion"])
 end
 
 -- The hub's note beside its X while the prices file is stale, by the warning's rule (over a day old),
@@ -407,9 +411,9 @@ function Prices.staleTitle(data, now)
 	end
 	local hours = math.floor((now - data[F.at]) / 3600)
 	if hours < 48 then
-		return string.format("Prices %d h old", hours)
+		return string.format(L["Prices %d h old"], hours)
 	end
-	return string.format("Prices %d days old", math.floor(hours / 24))
+	return string.format(L["Prices %d days old"], math.floor(hours / 24))
 end
 
 -- Whether the companion app is at work: its prices file is loaded and no older than a day, as it writes

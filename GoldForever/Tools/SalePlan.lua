@@ -9,6 +9,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L
 local Encode = ns.Encode
 
 local SalePlan = {}
@@ -143,8 +144,8 @@ end
 -- disenchant }. item = { worth, where (price.worth), vendor, disenchant, skill, enchanting, quest, listed,
 -- queued, bound, gear }. A soulbound item cannot be posted, so its only sale is the vendor's.
 function SalePlan.verdict(item)
-	local why = (item.quest and "a quest item") or (item.listed and "on a shopping list") or (item.queued and "in the craft queue")
-		or (item.bound and item.gear and "soulbound gear")
+	local why = (item.quest and L["a quest item"]) or (item.listed and L["on a shopping list"]) or (item.queued and L["in the craft queue"])
+		or (item.bound and item.gear and L["soulbound gear"])
 	if why then
 		return { word = "keep", why = why }
 	end
@@ -158,7 +159,7 @@ function SalePlan.verdict(item)
 		return { word = "disenchant", disenchant = de, sale = sale }
 	end
 	if not sale then
-		return { word = "keep", why = "no price" }
+		return { word = "keep", why = L["no price"] }
 	end
 	return { word = where == "vendor" and "vendor" or "post", sale = sale, vendor = vendor }
 end
@@ -211,14 +212,14 @@ end
 function SalePlan.decode(input)
 	local s = string.match(input or "", "^%s*(.-)%s*$")
 	if string.sub(s, 1, #SalePlan.PREFIX) ~= SalePlan.PREFIX then
-		return nil, "Not a profile string: it starts with " .. SalePlan.PREFIX
+		return nil, string.format(L["Not a profile string: it starts with %s"], SalePlan.PREFIX)
 	end
 	if #s > MAX_STRING then
-		return nil, "Too long for a profile"
+		return nil, L["Too long for a profile"]
 	end
 	local text = Encode.unbase64(string.sub(s, #SalePlan.PREFIX + 1))
 	if not text then
-		return nil, "The string is damaged (copy it again, all of it)"
+		return nil, L["The string is damaged (copy it again, all of it)"]
 	end
 	local profile = { name = "Unnamed", author = "", sell = {}, buy = {} }
 	local n, last = 0, nil
@@ -227,7 +228,7 @@ function SalePlan.decode(input)
 		local line = string.match(raw, "^%s*(.-)%s*$")
 		if line ~= "" then
 			local function bad()
-				return nil, string.format("Line %d is not understood: \"%s\"", n, string.sub(line, 1, 60))
+				return nil, string.format(L["Line %d is not understood: \"%s\""], n, string.sub(line, 1, 60))
 			end
 			local words = {}
 			for w in string.gmatch(line, "%S+") do
@@ -251,7 +252,7 @@ function SalePlan.decode(input)
 				end
 			elseif word == "sell" or word == "buy" then
 				if #profile.sell + #profile.buy >= MAX_RULES then
-					return nil, "More than " .. MAX_RULES .. " rules"
+					return nil, string.format(L["More than %d rules"], MAX_RULES)
 				end
 				local itemID = int(words[2], 10000000)
 				-- words[3..] are key value pairs: an odd count after the item is malformed.

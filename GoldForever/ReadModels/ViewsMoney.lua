@@ -2,6 +2,7 @@
 -- the same rules as the web app's Ledger.kt. Pure Lua 5.1, as Views.lua.
 
 local _, ns = ...
+local L = ns.L
 local Views = ns.Views
 
 -- Where a change in money came from, by the windows open at the time; a flight is matched by time. Gold
@@ -21,8 +22,8 @@ local CATEGORIES = {
 }
 
 Views.CATEGORY_LABELS = {
-	loot = "Loot", quest = "Quests", training = "Training", travel = "Flights", auction = "Auction house",
-	repair = "Repairs", vendor = "Vendors", mail = "Mail", trade = "Trade", transfer = "Your characters", other = "Other",
+	loot = L["Loot"], quest = L["Quests"], training = L["Training"], travel = L["Flights"], auction = L["Auction house"],
+	repair = L["Repairs"], vendor = L["Vendors"], mail = L["Mail"], trade = L["Trade"], transfer = L["Your characters"], other = L["Other"],
 }
 
 function Views.category(ctx, isFlight)

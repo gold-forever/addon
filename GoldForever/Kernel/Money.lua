@@ -14,6 +14,9 @@ local _, ns = ...
 local Money = {}
 ns.Money = Money
 
+-- The coins' letters as the client writes them in its language ("g", "s", "c"; French "po", "pa", "pc").
+local GOLD, SILVER, COPPER = GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL
+
 -- Retail has the function under C_CurrencyInfo (manual test run 001: the tooltips showed plain text).
 local coinTexture = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
 
@@ -41,11 +44,11 @@ local function plain(copper)
 	copper = math.abs(copper)
 	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
 	if g > 0 then
-		return sign .. string.format("%dg %ds %dc", g, s, c)
+		return sign .. string.format("%d%s %d%s %d%s", g, GOLD, s, SILVER, c, COPPER)
 	elseif s > 0 then
-		return sign .. string.format("%ds %dc", s, c)
+		return sign .. string.format("%d%s %d%s", s, SILVER, c, COPPER)
 	end
-	return sign .. string.format("%dc", c)
+	return sign .. c .. COPPER
 end
 
 local function colour(copper, precision)
@@ -58,19 +61,19 @@ local function colour(copper, precision)
 	end
 	local parts = {}
 	if g > 0 then
-		parts[#parts + 1] = coin(Money.group(g), "g", "gold")
+		parts[#parts + 1] = coin(Money.group(g), GOLD, "gold")
 	end
 	-- "silver": gold and silver, as auction prices are set (8g 69s); copper only under a gold, and only
 	-- when there is some (7s, not 7s 0c).
 	if precision == "silver" and (g > 0 or (s > 0 and c == 0)) then
 		if s > 0 then
-			parts[#parts + 1] = coin(s, "s", "silver")
+			parts[#parts + 1] = coin(s, SILVER, "silver")
 		end
 	elseif precision ~= "gold" or g == 0 then
 		if s > 0 or g > 0 then
-			parts[#parts + 1] = coin(s, "s", "silver")
+			parts[#parts + 1] = coin(s, SILVER, "silver")
 		end
-		parts[#parts + 1] = coin(c, "c", "copper")
+		parts[#parts + 1] = coin(c, COPPER, "copper")
 	end
 	return sign .. table.concat(parts, " ")
 end

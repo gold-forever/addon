@@ -4,11 +4,12 @@
 -- Opt-in (prices.bestFarm); the last best is kept per character in settings (prices.bestFarmBy), not in a stream.
 
 local _, ns = ...
+local L = ns.L
 
 local LOGIN_DELAY = 20 -- seconds after login, as MobStats builds its counts, not in the login's own frames
 
 local function npcName(id)
-	return ns.Catalogue.name("npc", id) or ("NPC " .. id)
+	return ns.Catalogue.name("npc", id) or string.format(L["NPC %d"], id)
 end
 
 local function zoneOf(map)
@@ -42,7 +43,7 @@ local function check()
 		return
 	end
 	local zone = zoneOf(best.map)
-	ns.say(string.format("best farm now %s%s, about %s a loot (was %s)", npcName(best.npc), zone and (" (" .. zone .. ")") or "",
+	ns.say(string.format(L["best farm now %s%s, about %s a loot (was %s)"], npcName(best.npc), zone and (" (" .. zone .. ")") or "",
 		ns.Money.auction(math.floor(best.value + 0.5)), npcName(last)))
 end
 

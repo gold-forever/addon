@@ -3,6 +3,7 @@
 -- the game's own quality, class and coin colours, and a 4-pixel spacing grid.
 
 local _, ns = ...
+local L = ns.L
 
 local Theme = {}
 ns.Theme = Theme
@@ -94,7 +95,7 @@ end
 Theme.skins = {
 	web = {
 		name = "web",
-		label = "Web",
+		label = L["Web"],
 		font = MEDIA .. "Roboto-Regular.ttf",
 		fontMedium = MEDIA .. "Roboto-Medium.ttf",
 		-- The site's rem sizes at 16 px.
@@ -112,7 +113,7 @@ Theme.skins = {
 	},
 	classic = {
 		name = "classic",
-		label = "Classic",
+		label = L["Classic"],
 		font = "Fonts\\FRIZQT__.TTF",
 		fontMedium = "Fonts\\FRIZQT__.TTF",
 		-- GameFontNormalSmall 10, GameFontNormal 12, GameFontNormalLarge 16, GameFontNormalHuge 20.
@@ -145,7 +146,7 @@ Theme.skins = {
 	-- web playground's Arcane look (/design/addon?look=arcane) is the reference.
 	arcane = {
 		name = "arcane",
-		label = "Arcane",
+		label = L["Arcane"],
 		font = MEDIA .. "Exo2-Regular.ttf",
 		fontMedium = MEDIA .. "Exo2-SemiBold.ttf",
 		text = { xs = 11, sm = 12, md = 13, lg = 15, xl = 19, xxl = 26 },
@@ -230,11 +231,11 @@ end
 
 -- The accent colours a player can put over any look (Settings), as the web playground offers them.
 Theme.accents = {
-	{ hex = "#e0ac45", label = "Gold" },
-	{ hex = "#2fd1a8", label = "Teal" },
-	{ hex = "#d6453b", label = "Horde red" },
-	{ hex = "#4a86e8", label = "Alliance blue" },
-	{ hex = "#a77bff", label = "Violet" },
+	{ hex = "#e0ac45", label = L["Gold"] },
+	{ hex = "#2fd1a8", label = L["Teal"] },
+	{ hex = "#d6453b", label = L["Horde red"] },
+	{ hex = "#4a86e8", label = L["Alliance blue"] },
+	{ hex = "#a77bff", label = L["Violet"] },
 }
 
 -- Text takes the same room in every look as in Classic, so a layout tested in one look fits in all of them

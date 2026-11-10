@@ -18,7 +18,7 @@ local function underlineTabs(parent, tabs, onSelect)
 	for i, tab in ipairs(tabs) do
 		local b = CreateFrame("Button", nil, bar)
 		b.key = tab.key
-		b.label = UI.Text(b, Theme.skin.titleCaps and string.upper(tab.label) or tab.label, { size = "md", medium = true, tone = "muted" })
+		b.label = UI.Text(b, Theme.skin.titleCaps and ns.upper(tab.label) or tab.label, { size = "md", medium = true, tone = "muted" })
 		b.label:SetPoint("CENTER", 0, 1)
 		local w = (b.label:GetStringWidth() or 50) + 28
 		b:SetSize(w, 40)

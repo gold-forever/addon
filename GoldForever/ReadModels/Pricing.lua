@@ -4,6 +4,7 @@
 -- valued as the web app does: the better of the market value after the auction cut and the vendor price.
 
 local _, ns = ...
+local L = ns.L
 local Encode = ns.Encode
 
 local CUT = 0.05 -- a faction auction house's cut; the character sells on its own
@@ -213,8 +214,9 @@ local function market(id)
 end
 
 -- A source as a player reads it.
+local SOURCE_LABELS = { auctionator = "Auctionator", pool = L["pool"], scan = L["scan"], ["typical price"] = L["typical price"] }
 local function sourceLabel(from)
-	return from == "auctionator" and "Auctionator" or from
+	return SOURCE_LABELS[from] or from
 end
 
 local function cheapest(id)
@@ -316,7 +318,7 @@ end
 -- An item's name: the catalogue's, else the client's, else "item <id>".
 function ns.itemName(id)
 	local _, _, _, _, name = itemInfo(id)
-	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or ("item " .. id)
+	return name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or string.format(L["item %d"], id)
 end
 
 local function enchanting()
