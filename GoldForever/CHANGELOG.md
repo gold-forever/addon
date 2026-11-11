@@ -3,6 +3,8 @@
 ## Unreleased
 
 - **Vendors know their side.** A vendor you visit now records whether you came as Horde or Alliance, as trainers already do, so the site can tell which side can buy a recipe there. A vendor seen by both sides counts as neutral. Vendors you visited before get a side the next time you open their window.
+- **One price block in item tooltips.** An item's tooltip now shows one block, in this order: Vendor (what a vendor pays), AH (the market value), AH (min) (the cheapest listing), Disenchant (the average value of disenchanting one, on items that can be disenchanted) and, in your bags, Suggestion (post, vendor, disenchant or keep, and why). On a stack each price reads total (each), for example "AH 4g 10s (20s 50c)". A line with no value is left out. The block replaces the separate price, scan, disenchant and verdict lines. Each line has its own setting under Settings, Tooltip: Vendor and AH show always, the rest with Shift. Your earlier choices carry over: AH and AH (min) take the price line's, Disenchant and Suggestion keep theirs.
+- **Throw away the cheapest stack.** While your bags are full, a "Throw away cheapest" button appears beside Blizzard's backpack. It deletes the stack the copper coin marks. That is never soulbound, a quest item, or anything on a shopping list or in the craft queue. The first press shows the item and its worth on the button. A second press within 5 seconds deletes it, and one chat line says what went and what it was worth. Turn it off under Settings, Modules, Throw-away button.
 
 ## 0.20.0 (2026-11-11)
 

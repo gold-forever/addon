@@ -1,5 +1,6 @@
 -- Gold Forever: a small mark on each item in Blizzard's bag and bank frames saying what to do with it (post,
--- vendor, disenchant; nothing for keep) and the same word as one tooltip line. SalePlan.verdict is the rule.
+-- vendor, disenchant; nothing for keep); the tooltip's price block says the word (Tooltips.lua). SalePlan.verdict
+-- is the rule.
 -- Nothing is moved, sold or recorded; the cheapest-item coin (BagMark.lua) keeps its corner.
 
 local _, ns = ...
@@ -17,7 +18,7 @@ local ICONS = {
 	disenchant = "Interface\\Icons\\INV_Enchant_Disenchant",
 }
 local textures = {} -- item button -> its mark, made the first time it is marked
-local shown = {} -- item button -> its verdict, with the item's id
+local shown = {} -- item button -> its verdict, with the item's id and stack count
 
 -- A verdict's word and a keep's reason (SalePlan.verdict) as the player reads them.
 local WORDS = { keep = L["keep"], disenchant = L["disenchant"], vendor = L["vendor"], post = L["post"] }
@@ -26,7 +27,7 @@ local WHY = {
 	["in the craft queue"] = L["in the craft queue"], ["soulbound gear"] = L["soulbound gear"], ["no price"] = L["no price"],
 }
 
--- The tooltip words of a verdict.
+-- A verdict's words for the tooltip's Suggestion line: the word and its reason.
 function BagVerdict.line(v, coins)
 	local why
 	if v.word == "keep" then
@@ -38,11 +39,11 @@ function BagVerdict.line(v, coins)
 	else
 		why = string.format(L["AH %s after the cut"], coins(v.sale)) .. (v.vendor and string.format(L[", vendor %s"], coins(v.vendor)) or "")
 	end
-	return string.format(L["Verdict: %s (%s)"], WORDS[v.word] or v.word, why)
+	return string.format(L["%s (%s)"], WORDS[v.word] or v.word, why)
 end
 
 -- What this character means to buy, item ID -> true: its shopping lists and an active profile's buy rules.
-local function wanted()
+function BagVerdict.wanted()
 	local s = ns.auctionSettings()
 	local guid = UnitGUID and ns.readable(UnitGUID("player"))
 	local out = {}
@@ -86,17 +87,15 @@ local function draw()
 		t:Hide()
 	end
 	shown = {}
-	if ns.settings("prices").bagVerdict == false then
-		return
-	end
-	local listed, queue = wanted(), ns.queueNeeds()
+	local marking = ns.settings("prices").bagVerdict ~= false -- off: no marks, the tooltip's words stay
+	local listed, queue = BagVerdict.wanted(), ns.queueNeeds()
 	for _, s in ipairs(ns.BagMark.shownButtons()) do
 		local info = C_Container.GetContainerItemInfo(s.bag, s.slot)
 		if info and info.itemID then
 			local v = verdictOf(s, info, listed, queue)
-			v.id = info.itemID
+			v.id, v.count = info.itemID, info.stackCount or 1
 			shown[s.button] = v
-			if ICONS[v.word] and not ns.BagMark.isMarked(s.button) then
+			if marking and ICONS[v.word] and not ns.BagMark.isMarked(s.button) then
 				place(s.button, v.word)
 			end
 		end
@@ -108,9 +107,15 @@ function BagVerdict.sample(buttons)
 	for _, s in ipairs(buttons) do
 		local info = C_Container.GetContainerItemInfo(s.bag, s.slot)
 		if info and info.itemID then
-			return s, info, verdictOf(s, info, wanted(), ns.queueNeeds())
+			return s, info, verdictOf(s, info, BagVerdict.wanted(), ns.queueNeeds())
 		end
 	end
+end
+
+-- The verdict drawn for this item button, when it still holds item `id`; nil otherwise.
+function BagVerdict.at(button, id)
+	local v = next(shown) and shown[button]
+	return v and v.id == id and v or nil
 end
 
 -- For /gf bags: how many verdict marks are showing.
@@ -141,19 +146,6 @@ ns.on("BAG_UPDATE", "bag verdict", soon)
 ns.on("PLAYERBANKSLOTS_CHANGED", "bag verdict", soon)
 ns.listen("bagMarkDrawn", "bag verdict", soon)
 ns.listen("pricesReady", "bag verdict", soon)
-
-if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
-	local function verdictTooltip(tooltip, data)
-		local v = tooltip == GameTooltip and data and next(shown) and shown[tooltip:GetOwner()]
-		if not v or v.id ~= data.id or not ns.tipLine("bagVerdict") then
-			return
-		end
-		tooltip:AddLine(ns.tipPrefix(tooltip) .. BagVerdict.line(v, ns.price.coins), 1, 1, 1)
-	end
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("bag verdict tooltip", verdictTooltip, tooltip, data)
-	end)
-end
 
 -- /gf bags: why the marks do or don't show (gf#331).
 local REPLACEMENT_BAG_ADDONS = { "Bagnon", "ArkInventory", "Baganator", "AdiBags" }

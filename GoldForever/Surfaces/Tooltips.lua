@@ -1,7 +1,6 @@
--- Gold Forever: tooltips. An item's gets how many each character holds (HeldView.lua), what the own scan
--- and disenchanting give for it, and the pool's prices (Prices.lua), one price a line with its label on
--- the left; no vendor value, as the game's own Sell Price line shows it (addon#20). A mob's gets what the
--- characters have looted from it (MobStats.lua).
+-- Gold Forever: tooltips. An item's gets how many each character holds (HeldView.lua) and one price
+-- block (vendor, AH, AH min, disenchant, suggestion), one price a line with its label on the left. A
+-- mob's gets what the characters have looted from it (MobStats.lua).
 
 local _, ns = ...
 local L = ns.L
@@ -9,24 +8,25 @@ local Encode = ns.Encode
 local Catalogue = ns.Catalogue
 local SaveView = ns.SaveView
 local price = ns.price
-local ownMarket, worth, disenchantWorth, enchanting, coins = price.own, price.worth, price.disenchant, price.enchanting, price.coins
+local worth, coins = price.worth, price.coins
 
 -- Tooltip lines -----------------------------------------------------------------------------------------------
 
 -- Every line the addon adds to a tooltip, in Settings' order; each is Off, shown with Shift, or Always
 -- (settings.tooltip, its defaults in Save.lua; addon#98).
 ns.TOOLTIP_LINES = {
-	{ key = "price", name = L["Auction prices"], blurb = L["Everyone's price from the companion's file, under every item."] },
+	{ key = "vendor", name = L["Vendor"], blurb = L["What a vendor pays for it."] },
+	{ key = "price", name = L["AH"], blurb = L["Its auction house market value: everyone's price, else your scan's."] },
+	{ key = "minBuyout", name = L["AH (min)"], blurb = L["The cheapest listing's buyout."] },
+	{ key = "disenchant", name = L["Disenchant"], blurb = L["What disenchanting one gives on average, on items that can be disenchanted."] },
+	{ key = "bagVerdict", name = L["Suggestion"], blurb = L["On a bag or bank item: post, vendor, disenchant or keep, and why."] },
 	{ key = "supply", name = L["Supply and post size"], blurb = L["How many sell a day, how long what is listed lasts, and how many to post."] },
 	{ key = "payback", name = L["Recipe payback"], blurb = L["On a recipe item: how many crafts pay back its price at today's margin."] },
-	{ key = "scan", name = L["Your scan"], blurb = L["The price your own auction house scan found."] },
 	{ key = "held", name = L["Held counts"], blurb = L["How many each of your characters holds, in bags, bank and mail."] },
-	{ key = "disenchant", name = L["Disenchant value"], blurb = L["What disenchanting it gives, and whether that beats selling."] },
 	{ key = "mob", name = L["Mob loot"], blurb = L["On a mob you have looted: what a loot is worth and its likeliest drops."] },
 	{ key = "starter", name = L["Quest starters"], blurb = L["On a mob: the quest-starting items it drops, and whether you did the quest."] },
 	{ key = "bestReward", name = L["Best quest reward"], blurb = L["On the quest reward worth the most: what it sells for."] },
 	{ key = "bagMark", name = L["Cheapest in your bags"], blurb = L["On the marked stack in full bags: what it is worth in all."] },
-	{ key = "bagVerdict", name = L["Bag verdict"], blurb = L["On a bag or bank item: post, vendor, disenchant or keep, and why."] },
 	{ key = "vendorResale", name = L["Vendor resale"], blurb = L["At a merchant, on an item that sells for more on the auction house: what it fetches."] },
 }
 
@@ -174,69 +174,71 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
+-- The price block (gf#360): one line each for what a vendor pays, the market value, the cheapest listing,
+-- disenchanting one and the bag's suggestion, in that order, each with its own mode; a line with no value
+-- is left out. On a stack, a price reads "total (each)".
+local BLOCK = {
+	{ key = "vendor", label = L["Vendor"] },
+	{ key = "price", label = L["AH"] },
+	{ key = "minBuyout", label = L["AH (min)"] },
+	{ key = "disenchant", label = L["Disenchant"] },
+	{ key = "bagVerdict", label = L["Suggestion"], text = true },
+}
+
+local TooltipBlock = {}
+ns.TooltipBlock = TooltipBlock
+
+local function priced(unit, count, coins)
+	if count > 1 then
+		return string.format(L["%s (%s)"], coins(unit * count), coins(unit))
+	end
+	return coins(unit)
+end
+
+-- The block's { label, value } rows for `count` of item `id`: values[key](id, slot) is asked only for a
+-- line that shows (shown(key)); a price is one unit's, the suggestion's value its words.
+function TooltipBlock.rows(id, count, values, shown, coins, slot)
+	local rows = {}
+	for _, line in ipairs(BLOCK) do
+		local value = shown(line.key) and values[line.key](id, slot)
+		if value and (line.text or value > 0) then
+			rows[#rows + 1] = { line.label, line.text and value or priced(value, count, coins) }
+		end
+	end
+	return rows
+end
+
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+	-- The bag verdict of the slot under the pointer, drawn for the item shown (BagVerdict.lua).
+	local function bagSlot(tooltip, id)
+		local owner = tooltip == GameTooltip and tooltip.GetOwner and tooltip:GetOwner()
+		return owner and ns.BagVerdict and ns.BagVerdict.at(owner, id)
+	end
+	local VALUES = {
+		vendor = function(id) return price.vendor(id) end,
+		price = function(id) return price.market(id) end,
+		minBuyout = function(id) return ns.Prices.cheapest(id) end,
+		disenchant = function(id) return (price.disenchant(id)) end,
+		bagVerdict = function(_, slot) return slot and ns.BagVerdict.line(slot, coins) end,
+	}
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
-	local function itemTooltip(tooltip, data)
-		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not SaveView.loaded() then
+	local function blockTooltip(tooltip, data)
+		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not data.id or not SaveView.loaded() or not ns.me() then
 			return
 		end
-		local m = ns.tipLine("scan") and ownMarket(data.id) -- the own scan's line; the pool has its own
-		if m then
-			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. L["Your scan"], coins(m), 1, 1, 1, 1, 1, 1)
-		end
-		if not ns.tipLine("disenchant") then
-			return
-		end
-		local de, skill = disenchantWorth(data.id)
-		if de and de > 0 then
-			local sale = worth(data.id) or 0
-			local verdict = de > sale and (" |cff56c98f" .. L["(better than selling)"] .. "|r") or ""
-			local short = enchanting() < skill and (" |cff999999" .. string.format(L["(needs Enchanting %d)"], skill) .. "|r") or ""
-			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. L["Disenchant"] .. verdict .. short, "~" .. coins(de), 1, 1, 1, 1, 1, 1)
+		local slot = bagSlot(tooltip, data.id)
+		local rows = TooltipBlock.rows(data.id, slot and slot.count or 1, VALUES, ns.tipLine, coins, slot)
+		for _, row in ipairs(rows) do
+			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. row[1], row[2], 1, 1, 1, 1, 1, 1)
 		end
 	end
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("appraiser tooltip", itemTooltip, tooltip, data)
+		ns.safely("price block tooltip", blockTooltip, tooltip, data)
 	end)
 end
 
--- The pool's prices from the companion's file (ReadModels/Prices.lua), under the own scan's line.
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
-	-- Each { label, value } row as a double line, greyed when stale.
-	local function addRows(tooltip, rows, stale)
-		if not rows then
-			return
-		end
-		local shade = stale and STALE_SHADE or 1
-		for _, row in ipairs(rows) do
-			tooltip:AddDoubleLine(ns.tipPrefix(tooltip) .. row[1], row[2], shade, shade, shade, shade, shade, shade)
-		end
-	end
-	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
-	local function poolTooltip(tooltip, data)
-		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() then
-			return
-		end
-		if not ns.tipLine("price") then
-			return
-		end
-		local Prices = ns.Prices -- loaded after this file
-		local now = GetServerTime()
-		-- In a zone with a neutral auction house, its market's rows first (design 009 decision 9).
-		local neutral = Prices.neutralMarkets()
-		if neutral then
-			addRows(tooltip, Prices.rows(GoldForever_Prices, neutral, data.id, now, L["Neutral AH"]))
-		end
-		addRows(tooltip, Prices.rows(GoldForever_Prices, Prices.mine(), data.id, now))
-		local value, from = price.valued(data.id)
-		if from == "auctionator" then
-			addRows(tooltip, { { price.sourceLabel(from), coins(value) } })
-		end
-	end
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("pool tooltip", poolTooltip, tooltip, data)
-	end)
 	-- How fast it sells and how many to post (gf#316), its own line: nothing without the file's sold.
 	local function supplyTooltip(tooltip, data)
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() or not ns.tipLine("supply") then

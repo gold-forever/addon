@@ -1,6 +1,7 @@
 -- Gold Forever: with no free bag slot, the stack worth least in the bags carries a small copper coin in its
 -- slot's corner and one tooltip line, "Cheapest in your bags: 3c", so a farming player knows what to drop
--- (addon#96). Blizzard's own bag frames only; nothing is moved or deleted: that stays the player's.
+-- (addon#96), and a "Throw away cheapest" button beside the backpack deletes that stack on two presses
+-- (gf#360). Blizzard's own bag frames only; nothing is moved or deleted but by that button.
 
 local _, ns = ...
 local L = ns.L
@@ -11,16 +12,18 @@ ns.BagMark = BagMark
 local QUEST_CLASS = 12 -- an item's class ID for quest items
 local ICON = "Interface\\MoneyFrame\\UI-CopperIcon"
 local ICON_SIZE = 12
+local ARM_SECONDS = 5 -- how long the throw-away button's first press waits for the second
 local marks = {} -- item button -> its coin texture, made the first time it is marked
 local marked -- the button marked now, with its { stack, total }
 local hooked = {} -- bag frames whose OnShow refreshes the mark
 
 -- The stack to make room with: the least worth in all (a unit's worth(id) times the stack), never soulbound,
--- a quest item or one without a price; on equal totals, the first in bag order. Returns it and its total.
+-- a quest item, one wanted (on a shopping list or in the craft queue) or one without a price; on equal
+-- totals, the first in bag order. Returns it and its total.
 function BagMark.pick(stacks, worth)
 	local best, least
 	for _, s in ipairs(stacks) do
-		local unit = not s.bound and not s.quest and worth(s.id)
+		local unit = not s.bound and not s.quest and not s.wanted and worth(s.id)
 		if unit and (not least or unit * s.count < least) then
 			best, least = s, unit * s.count
 		end
@@ -40,6 +43,7 @@ end
 -- free slot.
 local function fullBags()
 	local stacks = {}
+	local listed, queue = ns.BagVerdict.wanted(), ns.queueNeeds()
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		local free, kind = C_Container.GetContainerNumFreeSlots(bag)
 		if (kind or 0) == 0 then
@@ -49,8 +53,9 @@ local function fullBags()
 			for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
 				local info = C_Container.GetContainerItemInfo(bag, slot)
 				if info and info.itemID then
-					stacks[#stacks + 1] = { bag = bag, slot = slot, id = info.itemID, count = info.stackCount or 1,
-						bound = info.isBound, quest = BagMark.isQuest(bag, slot, info.itemID) }
+					local id = info.itemID
+					stacks[#stacks + 1] = { bag = bag, slot = slot, id = id, count = info.stackCount or 1, link = info.hyperlink,
+						bound = info.isBound, quest = BagMark.isQuest(bag, slot, id), wanted = listed[id] or queue[id] ~= nil }
 				end
 			end
 		end
@@ -142,6 +147,13 @@ local function buttonOf(bag, slot)
 	end
 end
 
+-- Whether a second press now deletes `stack`: the first press (armed, its stack and time) saw that same
+-- stack, in the same slot and as many, under ARM_SECONDS ago.
+function BagMark.armed(armed, stack, now)
+	return armed ~= nil and stack ~= nil and now - armed.at < ARM_SECONDS and armed.bag == stack.bag and armed.slot == stack.slot
+		and armed.id == stack.id and armed.count == stack.count
+end
+
 -- Whether the copper coin is on this button: its corner is the coin's, and a bag verdict gives way.
 function BagMark.isMarked(button)
 	return marked ~= nil and marked.button == button
@@ -174,21 +186,123 @@ local function hookFrames()
 	end
 end
 
+-- The throw-away button ---------------------------------------------------------------------------------
+
+local throwButtons = {} -- bag frame -> its button, made the first time the bags are full with it open
+local chosen -- the stack the coin marks now, with its total: what the button would throw away
+local armed -- that stack as the first press saw it, and when
+
+-- The shown frame holding the backpack: retail's combined bags, else the classic frame showing bag 0.
+local function backpackFrame()
+	for _, f in ipairs(bagFrames()) do
+		if f.frame:IsShown() and (not f.name or f.frame:GetID() == 0) then
+			return f.frame
+		end
+	end
+end
+
+local function stackWords(s)
+	local name = s.link or ns.itemName(s.id)
+	return s.count > 1 and string.format(L["%s x%d"], name, s.count) or name
+end
+
+local function isArmed()
+	return BagMark.armed(armed, chosen, GetTime())
+end
+
+local function label(button)
+	button:SetLabel(isArmed() and string.format(L["Press again: throw away %s (%s)"], stackWords(chosen), ns.price.coins(chosen.total))
+		or L["Throw away cheapest"])
+end
+
+-- The second press: the stack the first press named goes, when it is still the coin's pick and the cursor is free.
+local function throwAway(s)
+	if GetCursorInfo() then
+		return -- picking it up would swap it with what the cursor holds
+	end
+	local pickup = C_Container and C_Container.PickupContainerItem or PickupContainerItem
+	pickup(s.bag, s.slot)
+	local kind, id = GetCursorInfo()
+	if kind ~= "item" or id ~= s.id then
+		ClearCursor()
+		return
+	end
+	DeleteCursorItem()
+	ns.say(string.format(L["threw away %s, worth %s."], stackWords(s), ns.price.coins(s.total)))
+end
+
+local function press(button)
+	refresh() -- the bags as they are now, not as the last bag event left them
+	if not chosen then
+		return
+	end
+	if isArmed() then
+		armed = nil
+		throwAway(chosen)
+	else
+		armed = { bag = chosen.bag, slot = chosen.slot, id = chosen.id, count = chosen.count, at = GetTime() }
+		C_Timer.After(ARM_SECONDS, soon)
+	end
+	label(button)
+end
+
+local function throwButton(frame)
+	local b = throwButtons[frame]
+	if not b then
+		b = ns.UI.Button(frame, L["Throw away cheapest"], function(self)
+			ns.safely("throw away", press, self)
+		end, { width = 240, height = 22 })
+		b:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
+		throwButtons[frame] = b
+	end
+	return b
+end
+
+-- Shown beside the open backpack while the bags are full and a stack can go; hidden everywhere else.
+local function showThrowButton(on)
+	local frame = on and chosen and backpackFrame()
+	for f, b in pairs(throwButtons) do
+		if f ~= frame then
+			b:Hide()
+		end
+	end
+	if frame then
+		local b = throwButton(frame)
+		label(b)
+		b:Show()
+	end
+end
+
+-- For the smoke test: the button shown now.
+function BagMark.throwButton()
+	for _, b in pairs(throwButtons) do
+		if b:IsShown() then
+			return b
+		end
+	end
+end
+
+-- The coin -----------------------------------------------------------------------------------------------
+
 local function mark()
 	hookFrames()
 	if marked then
 		marks[marked.button]:Hide()
 		marked = nil
 	end
-	if ns.settings("prices").bagMark == false then
-		return
+	local prices = ns.settings("prices")
+	local coinOn, throwOn = prices.bagMark ~= false, prices.throwAway ~= false
+	local stacks = (coinOn or throwOn) and fullBags()
+	local s, total
+	if stacks then
+		s, total = BagMark.pick(stacks, ns.price.worth)
 	end
-	local stacks = fullBags()
-	if not stacks then
-		return
+	chosen = s
+	if s then
+		s.total = total
 	end
-	local s, total = BagMark.pick(stacks, ns.price.worth)
-	local button = s and buttonOf(s.bag, s.slot)
+	showThrowButton(throwOn)
+	local button = coinOn and s and buttonOf(s.bag, s.slot)
 	if button then
 		coin(button):Show()
 		marked = { button = button, id = s.id, total = total }

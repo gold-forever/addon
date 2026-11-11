@@ -498,7 +498,8 @@ local OUT_LOUD = { SAY = true, EMOTE = true, YELL = true, CHANNEL = true }
 local function spokenOutLoud(_, chatType) return OUT_LOUD[chatType] end
 local KEY_PRESS_ONLY = {
   globals = { SetRaidTarget = true, SendChatMessage = spokenOutLoud, TargetUnit = true, TargetLastTarget = true, TargetNearestEnemy = true, ClearTarget = true, FocusUnit = true, AssistUnit = true,
-    CastSpellByName = true, CastSpellByID = true, CastSpell = true, UseAction = true, UseItemByName = true, UseInventoryItem = true, RunMacroText = true },
+    CastSpellByName = true, CastSpellByID = true, CastSpell = true, UseAction = true, UseItemByName = true, UseInventoryItem = true, RunMacroText = true,
+    DeleteCursorItem = true },
   C_AuctionHouse = { PostItem = true, PostCommodity = true, ConfirmPostItem = true, ConfirmPostCommodity = true, PlaceBid = true, CancelAuction = true, StartCommoditiesPurchase = true },
   C_ChatInfo = { SendChatMessage = spokenOutLoud },
   C_Item = { UseItemByName = true },
@@ -1279,8 +1280,8 @@ fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 seen("BIG DROP ", tostring(raidNotices[1]), "Big drop: Leftover Abomination Skin - 6s 87c")
 GameTooltip.lines = {}
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 251962 }) end
--- No vendor value: the game's own Sell Price line shows it (addon#20).
-seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Disenchant |cff56c98f(better than selling)|r → ~53s 66c", "") -- no disenchant value on retail: the table is the classic one
+-- The price block (gf#360): what a vendor pays, and disenchanting one (on Shift, held here).
+seen("SASH TOOLTIP ", table.concat(GameTooltip.lines, " / "), "|cffe0ac45Gold Forever|r Vendor → 15s 85c / Disenchant → 53s 66c", "|cffe0ac45Gold Forever|r Vendor → 15s 85c") -- no disenchant value on retail: the table is the classic one
 bagsFull = true
 -- Where the merchant window has no junk button of its own (WoW: Forever), a Sell junk button on it sells
 -- junk with Blizzard's own call: the first press says what, the second sells, once. No window opens
@@ -2993,24 +2994,35 @@ seen("RARE ROWS ", tostring(GoldForeverDB.events["2026-10-20"] and GoldForeverDB
 seen("APPRAISER\n", tostring(ns.test.sessionText and ns.test.sessionText()), "Loot something to start a session.")
 for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
 seen("TOOLTIP ", tostring(GameTooltip.lines[1]), "looted 4x · ~4s 50c a loot", "looted 4x · ~2s 62c a loot")
--- The pool's prices from GoldForever_Data (contract T01): one price a double line for the player's own
--- market (addon#20), as "Market → 12s 34c / Min → 11s 0c", and the first line's shade; another label's line.
-local POOL_ROWS = { Typical = true, Min = true, Scanned = true }
+-- The market's prices in the price block (gf#360): the AH line and the AH (min) line under it, one price a
+-- double line, as "AH → 12s 34c / AH (min) → 11s 0c"; another label's line.
 local function poolLine(id, label)
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = id }) end
   local lines = GameTooltip.lines
   for k, l in ipairs(lines) do
-    if l:find(label or (T("Market") .. " "), 1, true) then
-      local rows = { l }
-      while GameTooltip.doubles[l] and lines[k + #rows] and GameTooltip.doubles[lines[k + #rows]] and POOL_ROWS[lines[k + #rows]:match("^(%a+) →")] do
-        rows[#rows + 1] = lines[k + #rows]
+    if l:find(label or (T("AH") .. " → "), 1, true) then
+      local nextLine = lines[k + 1]
+      if not label and nextLine and GameTooltip.doubles[nextLine] and nextLine:find("^" .. T("AH (min)"):gsub("%p", "%%%0") .. " → ") then
+        return l .. " / " .. nextLine, GameTooltip.shades[l]
       end
-      return table.concat(rows, " / "), GameTooltip.shades[l]
+      return l, GameTooltip.shades[l]
     end
   end  return nil
 end
-assert(poolLine(2589) == nil, "no pool line without GoldForever_Prices")
+-- What the block's two market lines say for an item, from the addon's prices (ns.price, Prices.cheapest).
+local function marketLines(id)
+  local ah, low = ns.price.market(id), ns.Prices.cheapest(id)
+  local text = ah and (T("AH") .. " → " .. ns.price.coins(ah)) or nil
+  if text and low and ns.tipLine("minBuyout") then text = text .. " / " .. T("AH (min)") .. " → " .. ns.price.coins(low) end
+  return text
+end
+local function saysMarket(id, why)
+  local line, want = poolLine(id), marketLines(id)
+  assert(want and line and line:find(want, 1, true), why .. ": " .. tostring(line) .. " for " .. tostring(want))
+end
+-- Without the companion's file: the own scan's price is the AH line's.
+saysMarket(2589, "the own scan's price as AH")
 -- gf#316: the supply line, its own Tooltip mode, With Shift by default; none with no sold.
 do
   local keep, shiftWas, count = GoldForever_Prices, shiftDown, C_Item.GetItemCount
@@ -3053,8 +3065,8 @@ assert(#said == 1 and said[1]:find("no prices file loaded", 1, true), "/gf price
 -- other side's.
 local POOL_MINE, POOL_OTHER = "forever-EU-normal-" .. side, "forever-EU-normal-" .. otherSide
 GoldForever_Prices = { v = 1, at = now, markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now - 7200 } } } }
-local pool = poolLine(2589)
-seen("POOL ", tostring(pool), "Market → 12s 34c / Min → 11s 0c", "nil")
+shiftDown = true -- AH (min) is on Shift by default
+saysMarket(2589, "the market lines with the file")
 do -- The public API on the running addon, each call on both clients.
   local function got(...) return table.concat({ tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)) }, " ") end
   local value, source = ns.Prices.value(2589)
@@ -3071,7 +3083,6 @@ do -- The public API on the running addon, each call on both clients.
   assert(GoldForeverAPI.version == 1, "the API's version")
 end
 if INTERFACE < 110000 then
-  assert(pool and pool:find("Market → 12s 34c / Min → 11s 0c", 1, true), "the pool line")
   -- A reagent with no own listing costs the pool's minimum, so a craft from it shows its profit.
   assert(ns.price.cheapest(2590) == nil and ns.price.buy(2590) == nil, "no price of 2590 anywhere")
   GoldForever_Prices.markets[POOL_MINE][2590] = { 1500, 1400, 2, now }
@@ -3080,12 +3091,12 @@ if INTERFACE < 110000 then
   assert(q.cost == 1400, "the craft's cost from the pool: " .. tostring(q.cost))
   GoldForever_Prices.markets[POOL_MINE][2590] = nil
 else
-  assert(pool == nil, "no Forever market on retail")
   -- Retail (T06): the connected group's market ("EU-AnotherRealm-alliance" here), then the region's commodities.
   GoldForever_Prices.markets = { ["retail-EU-AnotherRealm"] = { [2589] = { 100, 90, 2, now } },
     ["retail-EU"] = { [2589] = { 500, 490, 9, now }, [2590] = { 200, 190, 4, now } } }
-  assert((poolLine(2589) or ""):find("Market → 1s 0c / Min → 90c", 1, true), "retail: the group's price first")
-  assert((poolLine(2590) or ""):find("Market → 2s 0c / Min → 1s 90c", 1, true), "retail: the region's commodity price")
+  assert(ns.price.market(2589) == 100 and ns.Prices.cheapest(2589) == 90, "retail: the group's price first")
+  saysMarket(2589, "retail: the group's price")
+  assert((poolLine(2590) or ""):find("AH → 2s 0c / " .. T("AH (min)") .. " → 1s 90c", 1, true), "retail: the region's commodity price: " .. tostring(poolLine(2590)))
   do -- The API's players and age are those of the entry the price came from, past a malformed one.
     GoldForever_Prices.markets["retail-EU-AnotherRealm"][2594] = { "x", 1, 1, 1 }
     GoldForever_Prices.markets["retail-EU"][2594] = { 300, 290, 7, now - 5 }
@@ -3094,10 +3105,6 @@ else
     GoldForever_Prices.markets["retail-EU-AnotherRealm"][2594], GoldForever_Prices.markets["retail-EU"][2594] = nil, nil
   end
   assert(poolLine(2591) == nil, "retail: neither market has it")
-  -- A thin price says so on its Market line, a normal one says nothing extra.
-  GoldForever_Prices.markets["retail-EU"][2590].units = 2
-  assert((poolLine(2590) or ""):find("Market → 2s 0c (from 2 listings) / Min → 1s 90c", 1, true), "retail: a thin price: " .. tostring(poolLine(2590)))
-  assert(not (poolLine(2589) or ""):find("listing", 1, true), "retail: a normal price says nothing extra")
   GoldForever_Prices.markets = { [POOL_MINE] = { [2589] = { 1234, 1100, 3, now } } }
 end
 -- The typical price and the trend on it, when the companion's file carries the median of the 7 days before.
@@ -3106,68 +3113,43 @@ if INTERFACE < 110000 then
   e[5] = 1100
   local at = e[4]
   e[4] = now + 86400 -- newer than the own scan, which would win by far otherwise (Prices.pick)
-  assert((poolLine(2589) or ""):find("Market → 12s 34c / Typical → 11s 0c (+12%) / Min → 11s 0c", 1, true), "the pool line with its typical price: " .. tostring(poolLine(2589)))
+  assert((poolLine(2589) or ""):find("AH → 12s 34c / " .. T("AH (min)") .. " → 11s 0c", 1, true), "the pool's price, newer than the own scan: " .. tostring(poolLine(2589)))
   assert(select(3, ns.Prices.value(2589)) == 12, "Post gets the trend with the value")
   e[5], e[4] = nil, at
-  -- A thin price says so on its Market line, a normal one says nothing extra.
-  GoldForever_Prices.markets[POOL_MINE][2590] = { 1500, 1400, 2, now, units = 2 }
-  assert((poolLine(2590) or ""):find("Market → 15s 0c (from 2 listings) / Min → 14s 0c", 1, true), "a thin price: " .. tostring(poolLine(2590)))
-  assert((poolLine(2589) or ""):find("Market → 12s 34c / Min → 11s 0c", 1, true), "a normal price says nothing extra: " .. tostring(poolLine(2589)))
-  GoldForever_Prices.markets[POOL_MINE][2590] = nil
 end
-assert(poolLine(2590) == nil, "no pool line for an item without a price")
--- In a zone with a neutral auction house (Tanaris here, reached through a loading screen), the neutral
--- market's line comes first, on Forever only; elsewhere it is not shown (design 009 decision 9).
+assert(poolLine(2590) == nil, "no AH line for an item without a price")
+-- A trip to a zone with a neutral auction house (Tanaris, through a loading screen) and back: the zone rows
+-- the session records later.
 if INTERFACE < 110000 then
-  local neutralKey = POOL_MINE:gsub("%-" .. side .. "$", "-neutral")
-  GoldForever_Prices.markets[neutralKey] = { [2589] = { 5000, 4500, 2, now } }
-  assert(poolLine(2589, "Neutral AH ") == nil, "no neutral line outside a neutral zone")
   local where = C_Map.GetBestMapForUnit
   C_Map.GetBestMapForUnit = function() return 1446 end
   fire("PLAYER_ENTERING_WORLD", false, false)
-  GameTooltip.lines = {}
-  for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
-  local neutralAt, poolAt
-  for k, l in ipairs(GameTooltip.lines) do
-    if l:find("Neutral AH → 50s 0c", 1, true) then neutralAt = k end
-    if l:find("Market ", 1, true) then poolAt = k end
-  end
-  assert(neutralAt and poolAt and neutralAt < poolAt, "the neutral line before the faction's in Tanaris: " .. table.concat(GameTooltip.lines, " | "))
   C_Map.GetBestMapForUnit = where
   fire("ZONE_CHANGED_NEW_AREA")
-  GoldForever_Prices.markets[neutralKey] = nil
 end
--- Settings → Tooltip: the price line Off takes it away at once, and back.
+-- Settings → Tooltip: the AH line Off takes it away at once, and back.
 do
   local before = poolLine(2589)
   GoldForeverDB.settings.tooltip.price = "off"
-  assert(poolLine(2589) == nil, "no pool line with it Off")
+  assert(poolLine(2589) == nil, "no AH line with it Off")
   GoldForeverDB.settings.tooltip.price = "always"
   assert(poolLine(2589) == before, "and back as it was with it Always")
 end
 if INTERFACE < 110000 then
-  -- Older than three days: greyed, the words kept.
-  local fresh, freshShade = poolLine(2589)
-  assert(freshShade == 1, "a fresh price is white")
-  GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400 - 1
-  local old, oldShade = poolLine(2589)
-  assert(old:find("Scanned → 3d ago", 1, true) and oldShade < 1, "a price older than three days is greyed: " .. tostring(oldShade))
-  GoldForever_Prices.markets[POOL_MINE][2589][4] = now - 3 * 86400
-  assert(select(2, poolLine(2589)) == 1, "three days old is not greyed yet")
-  -- One line names the addon; the own scan has the appraiser's line, never a second one (manual test run
-  -- 001: three named lines were hard to read).
+  -- One price block: one line names the addon, one AH line, in the block's order (manual test run 001:
+  -- three named lines were hard to read; gf#360: the separate scan and pool lines overlapped).
   GameTooltip.lines = {}
   for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
-  local named, scans = 0, 0
+  local named, ah, order = 0, 0, {}
   for _, l in ipairs(GameTooltip.lines) do
     if l:find("Gold Forever", 1, true) then named = named + 1 end
-    if l:find(T("Your scan"), 1, true) then scans = scans + 1 end
+    if l:find(T("AH") .. " → ", 1, true) then ah = ah + 1 end
+    for _, label in ipairs({ T("Vendor"), T("AH"), T("AH (min)") }) do
+      if GameTooltip.doubles[l] and l:gsub("^|cffe0ac45Gold Forever|r ", ""):sub(1, #(label .. " → ")) == label .. " → " then order[#order + 1] = label end
+    end
   end
-  assert(not table.concat(GameTooltip.lines, " | "):lower():find("vendor", 1, true), "no vendor value beside the own scan's: " .. table.concat(GameTooltip.lines, " | "))
-  local own
-  for _, l in ipairs(GameTooltip.lines) do if l:find(T("Your scan"), 1, true) then own = l end end
-  assert(own and GameTooltip.doubles[own] and own:find("Your scan → ", 1, true), "the own scan's price a double line: " .. tostring(own))
-  assert(named <= 1 and scans <= 1, "one line named, one own-scan line: " .. table.concat(GameTooltip.lines, " | "))
+  assert(named <= 1 and ah == 1, "at most one line named, one AH line: " .. table.concat(GameTooltip.lines, " | "))
+  assert(table.concat(order, ",") == table.concat({ T("Vendor"), T("AH"), T("AH (min)") }, ","), "Vendor, AH, AH (min) in that order: " .. table.concat(GameTooltip.lines, " | "))
   -- /gf prices with a file: its age, each market's item count, this character's marked.
   said = {}
   local saved = print
@@ -3179,32 +3161,34 @@ if INTERFACE < 110000 then
   assert(said[2] and said[2]:find(POOL_MINE .. ": 1 item · this character's", 1, true), "/gf prices: the market")
 end
 GoldForever_Prices.markets = { [POOL_OTHER] = { [2589] = { 1234, 1100, 3, now } }, [ns.market(side)] = { [2589] = { 1234, 1100, 3, now } } }
-assert(poolLine(2589) == nil, "no pool line from another side's market or the addon's own key")
+assert(not (poolLine(2589) or ""):find("12s 34c", 1, true), "no price from another side's market or the addon's own key: " .. tostring(poolLine(2589)))
 GoldForever_Prices = { v = 1, markets = { [POOL_MINE] = { [2589] = { "x", 1100 } } } }
-assert(poolLine(2589) == nil, "no pool line from a malformed entry")
+saysMarket(2589, "past a malformed entry: the own scan's")
 GoldForever_Prices = { v = 1, markets = { [POOL_MINE] = "x" } }
-assert(poolLine(2589) == nil, "no pool line from a malformed market")
--- One file with both factions and two regions (contract T05): each character reads its own market.
+saysMarket(2589, "past a malformed market: the own scan's")
+-- One file with both factions and two regions (contract T05): each character reads its own market (newer
+-- than the own scan, which would win otherwise: Prices.pick).
+local later = now + 86400
 GoldForever_Prices = { v = 1, at = now, markets = {
-  ["forever-EU-normal-alliance"] = { [2589] = { 100, 90, 2, now } },
-  ["forever-EU-normal-horde"] = { [2589] = { 200, 190, 4, now } },
-  ["forever-NA-normal-horde"] = { [2589] = { 300, 290, 6, now } },
+  ["forever-EU-normal-alliance"] = { [2589] = { 100, 90, 2, later } },
+  ["forever-EU-normal-horde"] = { [2589] = { 200, 190, 4, later } },
+  ["forever-NA-normal-horde"] = { [2589] = { 300, 290, 6, later } },
 } }
 if INTERFACE < 110000 then
   local me, client = ns.me(), ns.db().client
   local faction, region = me.faction, client.region
   me.faction = "Alliance"
-  assert((poolLine(2589) or ""):find("Market → 1s 0c / Min → 90c", 1, true), "the Alliance character reads its market")
+  assert((poolLine(2589) or ""):find("AH → 1s 0c / " .. T("AH (min)") .. " → 90c", 1, true), "the Alliance character reads its market: " .. tostring(poolLine(2589)))
   me.faction = "Horde"
-  assert((poolLine(2589) or ""):find("Market → 2s 0c / Min → 1s 90c", 1, true), "a Horde character reads its market")
+  assert((poolLine(2589) or ""):find("AH → 2s 0c / " .. T("AH (min)") .. " → 1s 90c", 1, true), "a Horde character reads its market")
   client.region = "US"
-  assert((poolLine(2589) or ""):find("Market → 3s 0c / Min → 2s 90c", 1, true), "a Horde character in NA reads NA's")
+  assert((poolLine(2589) or ""):find("AH → 3s 0c / " .. T("AH (min)") .. " → 2s 90c", 1, true), "a Horde character in NA reads NA's")
   me.faction = "Alliance"
-  assert(poolLine(2589) == nil, "an Alliance character in NA has no market in the file")
+  assert(not (poolLine(2589) or ""):find("AH → 1s 0c", 1, true), "an Alliance character in NA has no market in the file")
   me.faction, client.region = faction, region
 end
 GoldForever_Prices = nil
-assert(not (GoldForeverDB.errors and GoldForeverDB.errors["pool tooltip"]), "the pool tooltip recorded no error")
+assert(not (GoldForeverDB.errors and GoldForeverDB.errors["price block tooltip"]), "the price block recorded no error")
 -- A client without TooltipDataProcessor loads the file without registering anything.
 do
   local saved, before = TooltipDataProcessor, #itemTooltipHooks
@@ -3661,10 +3645,14 @@ do
   GetMerchantNumItems, GetMerchantItemID, GetMerchantItemInfo, C_MerchantFrame, GoldForever_Prices = keep[1], keep[2], keep[3], keep[4], keep[5]
 end
 -- Bags full (addon#96): the stack worth least in all carries a copper coin on its slot in Blizzard's bag frame
--- and one tooltip line; a free slot, or the switch in Settings, takes it away. Nothing is moved or deleted,
--- nothing recorded (the bag frame is shown and refreshed by hand, so no bag event re-reads the bags).
+-- and one tooltip line; a free slot, or the switch in Settings, takes it away. Nothing is moved or deleted
+-- but by the throw-away button's second press (gf#360), nothing recorded (the bag frame is shown and
+-- refreshed by hand, so no bag event re-reads the bags).
 do
-  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem }
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem,
+    ns.BagVerdict.wanted, ns.queueNeeds }
+  local wanted = {}
+  ns.BagVerdict.wanted, ns.queueNeeds = function() return wanted end, function() return {} end
   local free, touched = 0, 0
   local items = { { itemID = 2589, stackCount = 7 }, { itemID = 2589, stackCount = 1 }, { itemID = 2592, stackCount = 1, isBound = true } }
   C_Container.GetContainerNumSlots = function(b) return b == 0 and #items or 0 end
@@ -3739,8 +3727,63 @@ do
   wait(0)
   assert(on(cheapest), "switched on: the mark")
   assert(touched == 0, "nothing picked up, moved or deleted")
+  -- The throw-away button (gf#360): beside the open backpack while the bags are full; the first press names
+  -- the coin's stack and its worth, a second deletes it, on the click alone (its 5 s: bagmark_test.lua).
+  local cursor, deleted, chat = nil, {}, {}
+  GetCursorInfo = function() if cursor then return "item", items[cursor].itemID end end
+  ClearCursor = function() cursor = nil end
+  C_Container.PickupContainerItem = function(_, slot) touched = touched + 1 cursor = slot end
+  DeleteCursorItem = function() deleted[#deleted + 1] = items[cursor].itemID .. "x" .. items[cursor].stackCount table.remove(items, cursor) cursor, free = nil, 1 end
+  local function throw() return ns.BagMark.throwButton() end
+  local function press(b) local said = print print = function(...) chat[#chat + 1] = table.concat({ ... }, " ") end b.scripts.OnClick(b) print = said end
+  local b = throw()
+  assert(b and b:IsShown() and b.parent == frame, "full bags: the button on the open backpack")
+  assert(b.label:GetText() == T("Throw away cheapest"), "its label: " .. tostring(b.label:GetText()))
+  free = 1
+  ns.BagMark.refresh()
+  wait(0)
+  assert(throw() == nil, "a free slot: no button")
+  free = 0
+  ns.BagMark.refresh()
+  wait(0)
+  b = throw()
+  press(b)
+  assert(#deleted == 0 and touched == 0, "the first press deletes nothing")
+  local armed = b.label:GetText()
+  assert(armed:find(ns.itemName(2589), 1, true) and armed:find(ns.price.coins(total), 1, true), "the first press names the stack and its worth: " .. armed)
+  wanted[2589] = true
+  press(b)
+  assert(#deleted == 0 and throw() == nil, "an item wanted since is never thrown away: " .. table.concat(deleted, ","))
+  wanted[2589] = nil
+  ns.BagMark.refresh()
+  wait(0)
+  b = throw()
+  press(b)
+  pressKey(function() return true end) -- another key between the presses changes nothing
+  local ok = pcall(DeleteCursorItem)
+  assert(not ok, "DeleteCursorItem is refused outside a press")
+  press(b)
+  assert(table.concat(deleted, ",") == "2589x1", "the second press deletes the coin's stack: " .. table.concat(deleted, ","))
+  local line = chat[#chat] or ""
+  assert(line:find(ns.itemName(2589), 1, true) and line:find(ns.price.coins(total), 1, true), "a chat line says what went and its worth: " .. line)
+  ns.BagMark.refresh()
+  wait(0)
+  assert(throw() == nil, "a slot free now: the button goes")
+  table.insert(items, 2, { itemID = 2589, stackCount = 1 })
+  free = 0
+  for _, r in ipairs(p.modules.rows) do if r.mod.name == T("Throw-away button") then row = r end end
+  assert(row and row.switch.on == true, "the button's switch, on by default in Settings, Modules")
+  row.mod.set(false)
+  wait(0)
+  assert(throw() == nil and on(cheapest), "switched off: no button, the coin stays")
+  row.mod.set(true)
+  wait(0)
+  assert(throw(), "switched on: the button")
+  GetCursorInfo, ClearCursor, DeleteCursorItem = nil, nil, nil
   frame:Hide()
   GoldForeverDB.settings.prices.bagMark = nil
+  GoldForeverDB.settings.prices.throwAway = nil
+  ns.BagVerdict.wanted, ns.queueNeeds = keep[5], keep[6]
   ContainerFrame1, GameTooltip.GetOwner, GameTooltip.lines = nil, nil, {}
   for i = 1, #items do _G["ContainerFrame1Item" .. i] = nil end
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem = keep[1], keep[2], keep[3], keep[4]
@@ -3804,17 +3847,17 @@ do
     GameTooltip.lines = {}
     GameTooltip.GetOwner = function() return b end
     for _, hook in ipairs(itemTooltipHooks) do hook(GameTooltip, { id = id }) end
-    for _, line in ipairs(GameTooltip.lines) do if line:find("Verdict:", 1, true) then return line end end
+    for _, line in ipairs(GameTooltip.lines) do if line:find(T("Suggestion") .. " → ", 1, true) then return (line:gsub("^.-" .. T("Suggestion") .. " → ", "")) end end
     return nil
   end
   shiftDown = true
-  assert((tip(buttons[1], POST) or ""):find("Verdict: post (AH", 1, true), "post's line: " .. tostring(tip(buttons[1], POST)))
-  assert((tip(buttons[2], VENDOR) or ""):find("Verdict: vendor (vendor", 1, true), "vendor's line")
-  assert((tip(buttons[3], DE) or ""):find("Verdict: disenchant (~", 1, true), "disenchant's line")
-  assert((tip(buttons[4], LISTED) or ""):find("Verdict: keep (on a shopping list)", 1, true), "listed: keep")
-  assert((tip(buttons[5], QUEUED) or ""):find("Verdict: keep (in the craft queue)", 1, true), "queued: keep")
-  assert((tip(buttons[6], GEAR) or ""):find("Verdict: keep (soulbound gear)", 1, true), "soulbound gear: keep")
-  assert((tip(buttons[7], QUEST) or ""):find("Verdict: keep (a quest item)", 1, true), "quest item: keep")
+  assert((tip(buttons[1], POST) or ""):find("post (AH", 1, true), "post's line: " .. tostring(tip(buttons[1], POST)))
+  assert((tip(buttons[2], VENDOR) or ""):find("vendor (vendor", 1, true), "vendor's line")
+  assert((tip(buttons[3], DE) or ""):find("disenchant (~", 1, true), "disenchant's line")
+  assert((tip(buttons[4], LISTED) or ""):find("keep (on a shopping list)", 1, true), "listed: keep")
+  assert((tip(buttons[5], QUEUED) or ""):find("keep (in the craft queue)", 1, true), "queued: keep")
+  assert((tip(buttons[6], GEAR) or ""):find("keep (soulbound gear)", 1, true), "soulbound gear: keep")
+  assert((tip(buttons[7], QUEST) or ""):find("keep (a quest item)", 1, true), "quest item: keep")
   assert(tip(buttons[1], VENDOR) == nil, "another item on the button since the draw: no stale line")
   shiftDown = false
   assert(tip(buttons[1], POST) == nil, "on Shift by default: Shift up, no line")
@@ -3862,7 +3905,7 @@ do
   assert(row and row.switch.on == true, "on by default in Settings, Modules")
   row.mod.set(false)
   wait(1)
-  assert(icon(buttons[2]) == nil and tip(buttons[2], VENDOR) == nil, "switched off: no mark, no line")
+  assert(icon(buttons[2]) == nil and tip(buttons[2], VENDOR), "switched off: no mark; the Suggestion line has its own mode")
   row.mod.set(true)
   wait(1)
   assert(icon(buttons[2]) ~= nil, "switched on: the mark")
@@ -3942,7 +3985,7 @@ do
   has(said, "ContainerFrame1: shown, named buttons, 2 buttons", "the frame, how its buttons are found and how many")
   has(said, "item buttons: 2", "the buttons found in all")
   local sample = has(said, "sample: bag 0 slot 1", "the first slot with an item")
-  assert(sample:find("[Test Ore]", 1, true) and sample:find("Verdict: post (AH", 1, true), "the sample's item and verdict: " .. sample)
+  assert(sample:find("[Test Ore]", 1, true) and sample:find("post (AH", 1, true), "the sample's item and verdict: " .. sample)
   has(said, "marks showing: 2 verdict, 0 coin", "the marks showing")
   has(said, "switches: bag mark on, bag verdict on", "both switches")
   has(said, "last error: bag verdict none, bag mark none", "no errors")
@@ -4004,7 +4047,7 @@ do
     for _, h in ipairs(itemTooltipHooks) do h(GameTooltip, { id = 2589 }) end
     for _, l in ipairs(GameTooltip.lines) do if l:find("Held ", 1, true) then return l end end
   end
-  assert(modes.price == "always" and modes.scan == "always" and modes.held == "shift" and modes.mob == "shift", "the defaults")
+  assert(modes.vendor == "always" and modes.price == "always" and modes.minBuyout == "shift" and modes.scan == nil and modes.held == "shift" and modes.mob == "shift", "the defaults")
   shiftDown = false
   assert(held() == nil, "held counts on Shift, Shift up: no line")
   shiftDown = true
@@ -4049,10 +4092,14 @@ do
   for k, v in pairs(saved) do modes[k] = v end
   GameTooltip.RefreshData = nil
   GameTooltip:Hide()
-  -- Settings → Tooltip: a row a line, each picker on its mode; a pick sets it at once.
+  -- Settings → Tooltip: a row a line, each picker on its mode; a pick sets it at once. The price block's
+  -- five lines come first, in its order (gf#360).
   local p = ns.hubWindow().pages.settings
   p.ensure("tooltip")
   assert(#p.tooltip.rows == #ns.TOOLTIP_LINES, "a row for every tooltip line")
+  local first = {}
+  for i = 1, 5 do first[i] = p.tooltip.rows[i].line.key .. "=" .. p.tooltip.rows[i].picker.selected end
+  assert(table.concat(first, " ") == "vendor=always price=always minBuyout=shift disenchant=shift bagVerdict=shift", "the block's lines and modes: " .. table.concat(first, " "))
   local row
   for _, r in ipairs(p.tooltip.rows) do if r.line.key == "held" then row = r end end
   assert(row and row.picker.selected == "shift", "the held counts' picker on With Shift")

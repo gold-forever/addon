@@ -207,6 +207,12 @@ local function fillModules(page, prefs)
 				prices.bagMark = on
 				ns.BagMark.refresh()
 			end },
+		{ icon = "backpack", name = L["Throw-away button"], blurb = L["With your bags full, a button beside them deletes the cheapest stack on two presses."],
+			on = function() return prices.throwAway ~= false end,
+			set = function(on)
+				prices.throwAway = on
+				ns.BagMark.refresh()
+			end },
 		{ icon = "backpack", name = L["Bag verdicts"], blurb = L["A small mark on each bag and bank item: post, vendor or disenchant."],
 			on = function() return prices.bagVerdict ~= false end,
 			set = function(on)

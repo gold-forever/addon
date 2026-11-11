@@ -93,7 +93,7 @@ noPrice("negative")
 standIn(function() return ns.Encode.MAX_COPPER + 1 end)
 noPrice("absurd")
 
--- The tooltip: a row labelled Auctionator only for a price that came from it, under the "price" setting.
+-- The tooltip: Auctionator's price is the AH line's value when it is the only one (gf#360), under the "price" setting.
 local postCalls = {}
 Enum = { TooltipDataType = { Item = 1, Unit = 2 } }
 TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
@@ -108,11 +108,11 @@ local tns = setmetatable({
 		own = function() end, worth = function() end, disenchant = function() end, enchanting = function() end,
 		coins = function(c) return c .. "c" end,
 		sourceLabel = price.sourceLabel,
-		valued = function(id)
+		market = function(id)
 			if id == ONLY_AUCTIONATOR then
-				return 5000, "auctionator"
+				return 5000
 			end
-			return 1234, "pool"
+			return 1234
 		end,
 	},
 	settings = function() return tipSettings end,
@@ -122,7 +122,7 @@ local tns = setmetatable({
 	safely = function(_, fn, ...) fn(...) end,
 	tipPrefix = function() return "" end,
 	Crafting = {}, Encode = {}, Catalogue = {}, SaveView = { loaded = function() return true end },
-	Prices = { neutralMarkets = function() end, rows = function() end, mine = function() return {} end, supply = function() end, supplyLine = function() end },
+	Prices = { cheapest = function() end, supply = function() end, supplyLine = function() end },
 }, { __index = ns })
 assert(load(SOURCES["Tooltips.lua"], "@Tooltips.lua"))("GoldForever", tns)
 GameTooltip = {}
@@ -135,10 +135,10 @@ local function tipLines(id)
 	end
 	return table.concat(lines, " / ")
 end
-eq(tipLines(ONLY_AUCTIONATOR), "Auctionator 5000c", "the tooltip's row")
-eq(tipLines(POOLED), "", "a pool price adds no Auctionator row")
+eq(tipLines(ONLY_AUCTIONATOR), "AH 5000c", "Auctionator's price as the AH line")
+eq(tipLines(POOLED), "AH 1234c", "a pool price: one AH line, no Auctionator row")
 tipSettings.price = "off"
-eq(tipLines(ONLY_AUCTIONATOR), "", "the row follows the price setting")
+eq(tipLines(ONLY_AUCTIONATOR), "", "the line follows the price setting")
 
 Auctionator, TooltipDataProcessor, Enum, GameTooltip, GetServerTime, GoldForever_Prices = nil, nil, nil, nil, nil, nil
 return checks()

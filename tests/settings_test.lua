@@ -45,7 +45,7 @@ local PINNED = {
 	craftQueue = "{ closed = false }",
 	scan = "{ auto = false }",
 	prices = "{  }",
-	tooltip = "{ bagMark = shift, bagVerdict = shift, bestReward = shift, disenchant = shift, held = shift, mob = shift, payback = shift, price = always, scan = always, starter = shift, supply = shift, vendorResale = always }",
+	tooltip = "{ bagMark = shift, bagVerdict = shift, bestReward = shift, disenchant = shift, held = shift, minBuyout = shift, mob = shift, payback = shift, price = always, starter = shift, supply = shift, vendor = always, vendorResale = always }",
 	auction = "{ duration = 2, rule = {  }, sellWide = false }",
 	mail = "{ helper = true }",
 	minimap = "{ angle = 225, hidden = false }",
@@ -69,6 +69,18 @@ eq(ns.DEFAULTS.auction.rule.markup, nil, "a nested default is copied")
 -- A section saved by an older version gets a default added since; what the player set stays.
 ns.db().settings.minimap = { angle = 90 }
 eq(show(ns.settings("minimap")), "{ angle = 90, hidden = false }", "a default added later reaches a saved section")
+
+-- The price block (gf#360): a save from before it keeps its modes; AH (min) takes the price line's, the own
+-- scan's line goes, the Vendor line comes Always.
+ns.db().settings.tooltip = { price = "off", scan = "always", disenchant = "always", bagVerdict = "off", held = "always" }
+local t = ns.settings("tooltip")
+eq(t.price .. " " .. t.minBuyout .. " " .. t.disenchant .. " " .. t.bagVerdict .. " " .. t.vendor, "off off always off always", "the old modes carried")
+eq(t.scan, nil, "no own-scan line")
+t.minBuyout = "always"
+eq(ns.settings("tooltip").minBuyout, "always", "AH (min) carried once: set after, it stays")
+ns.db().settings.tooltip, ns.db().settings.prices = nil, { tooltip = false }
+eq(ns.settings("tooltip").price .. " " .. ns.settings("tooltip").minBuyout, "off off", "the older price switch reaches AH (min) too")
+ns.db().settings.prices = {}
 
 -- The loot advisor is gone (addon#77): no default, and an old save's section stays as it was, unread.
 eq(ns.DEFAULTS.advisor, nil, "no loot advisor default")

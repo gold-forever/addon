@@ -21,9 +21,11 @@ ns.DEFAULTS = {
 	scan = { auto = false },
 	prices = {},
 	-- Each tooltip line's mode, "off", "shift" (shown while Shift is held) or "always" (Tooltips.lua,
-	-- addon#98): the prices and vendor resale always, the rest on Shift.
-	tooltip = { price = "always", scan = "always", held = "shift", disenchant = "shift", mob = "shift", starter = "shift",
-		bestReward = "shift", bagMark = "shift", vendorResale = "always", supply = "shift", bagVerdict = "shift", payback = "shift" },
+	-- addon#98): the vendor's and the AH's prices and vendor resale always, the rest on Shift. price is the
+	-- AH line and bagVerdict the Suggestion (gf#360), kept under their old keys so their modes carry.
+	tooltip = { vendor = "always", price = "always", minBuyout = "shift", held = "shift", disenchant = "shift", mob = "shift",
+		starter = "shift", bestReward = "shift", bagMark = "shift", vendorResale = "always", supply = "shift", bagVerdict = "shift",
+		payback = "shift" },
 	auction = { rule = {}, duration = 2, sellWide = false }, -- sellWide: the Sell tab's wide layout (addon#84)
 	mail = { helper = true },
 	minimap = { angle = 225, hidden = false },
@@ -35,6 +37,14 @@ ns.DEFAULTS = {
 -- settings.tooltip (addon#98): on is Always, off is Off, and the switch goes. A settings change, not a
 -- schema one: the server never reads settings. Run at every read, it finds nothing to do after the first.
 local CARRIED = { tooltip = "price", held = "held" }
+-- The price block (gf#360): AH (min) was part of the price line and takes its mode once; the own scan's
+-- line is gone into AH.
+local function carryPriceLine(tooltip)
+	if tooltip.minBuyout == nil and tooltip.price ~= nil then
+		tooltip.minBuyout = tooltip.price
+	end
+	tooltip.scan = nil
+end
 local function carryTooltipSwitches(s)
 	local prices = s.prices
 	if not prices or (prices.tooltip == nil and prices.held == nil) then
@@ -57,6 +67,9 @@ function ns.settings(name, defaults)
 	local s = ns.db().settings
 	if name == "tooltip" then
 		carryTooltipSwitches(s)
+		if s.tooltip then
+			carryPriceLine(s.tooltip)
+		end
 	end
 	if not s[name] then
 		s[name] = ns.copy(defaults)
