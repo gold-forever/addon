@@ -114,8 +114,9 @@ Theme.skins = {
 	classic = {
 		name = "classic",
 		label = L["Classic"],
-		font = "Fonts\\FRIZQT__.TTF",
-		fontMedium = "Fonts\\FRIZQT__.TTF",
+		-- Friz Quadrata in the client's alphabet (the Russian client's has Cyrillic).
+		font = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF",
+		fontMedium = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF",
 		-- GameFontNormalSmall 10, GameFontNormal 12, GameFontNormalLarge 16, GameFontNormalHuge 20.
 		text = { xs = 10, sm = 11, md = 12, lg = 14, xl = 16, xxl = 20 },
 		color = {
@@ -237,6 +238,15 @@ Theme.accents = {
 	{ hex = "#4a86e8", label = L["Alliance blue"] },
 	{ hex = "#a77bff", label = L["Violet"] },
 }
+
+-- Roboto and Exo 2 have Latin, Greek and Cyrillic but no Hangul or Han: on these clients every look draws
+-- in the client's own font, or their text would show as empty squares.
+local OWN_FONT = { koKR = true, zhCN = true, zhTW = true }
+if OWN_FONT[ns.Locale.code] then
+	for _, skin in pairs(Theme.skins) do
+		skin.font, skin.fontMedium = Theme.skins.classic.font, Theme.skins.classic.fontMedium
+	end
+end
 
 -- Text takes the same room in every look as in Classic, so a layout tested in one look fits in all of them
 -- (the Windows test, 2026-10-25: the Scan tab's switch label ran out of the panel in Web). Each look's fonts

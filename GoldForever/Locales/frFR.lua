@@ -2,6 +2,7 @@
 -- Blizzard's French client. tests/locale_test.lua fails on a text missing here or not in enUS.lua.
 
 local _, ns = ...
+if ns.Locale.code ~= "frFR" then return end -- another client's language is never built
 
 ns.Locale.add("frFR", {
 	-- Kernel
@@ -151,7 +152,7 @@ ns.Locale.add("frFR", {
 	["rares"] = "rares",
 	["%dg"] = "%d po",
 	["Session HUD"] = "HUD de session",
-	["Gold, XP and kills an hour while you farm or level, and the session's loot."] = "Or, XP et monstres tués par heure pendant que vous farmez ou montez de niveau, et le butin de la session.",
+	["Gold, XP and kills an hour while you farm or level, and the session's loot."] = "Or, XP et victimes par heure pendant que vous farmez ou montez de niveau, et le butin de la session.",
 	["When a session ends, a small card with what it came to."] = "À la fin d'une session, une petite carte avec ce qu'elle a rapporté.",
 	["Item goals"] = "Objectifs d'objets",
 	["On the HUD: up to 3 list items you farm for, how many you hold and the time to go."] = "Sur le HUD : jusqu'à 3 objets de vos listes que vous farmez, combien vous en avez et le temps restant.",
@@ -1035,7 +1036,7 @@ ns.Locale.add("frFR", {
 	["No profit at today's prices"] = "Aucun bénéfice aux prix du jour",
 	["Pays back in %d craft at today's margin (%s a craft)%s"] = "Rentabilisé en %d fabrication à la marge du jour (%s par fabrication)%s",
 	["Pays back in %d crafts at today's margin (%s a craft)%s"] = "Rentabilisé en %d fabrications à la marge du jour (%s par fabrication)%s",
-	["farming session reset."] = "session de farm réinitialisée.",
+	["farming session reset."] = "reset de la session de farm.",
 	-- Tools: Lists
 	["Profile: %s"] = "Profil : %s",
 })

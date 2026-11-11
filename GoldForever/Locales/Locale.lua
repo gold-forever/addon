@@ -2,7 +2,8 @@
 -- each file writes L["English text"], enUS.lua lists every such text, and a language's file (frFR.lua)
 -- gives its own for each. A text a language lacks shows in English. Another language is one more file
 -- like frFR.lua, listed in the TOCs after enUS.lua; a client whose language differs from another's in a few
--- words (esMX from esES) is a variant in that language's file. The save is never translated: only what is shown.
+-- words (esMX from esES) is a variant in that language's file. A language's file returns at once on another
+-- client, so only English and the client's language are ever built. The save is never translated: only what is shown.
 
 local _, ns = ...
 
@@ -11,7 +12,7 @@ ns.Locale = Locale
 
 Locale.code = GetLocale and GetLocale() or "enUS"
 Locale.english = {} -- text -> true, every text the addon shows (enUS.lua)
-Locale.languages = {} -- code -> { text -> translation }, every language's file, for the tests
+Locale.languages = {} -- code -> { text -> translation }, the client's language once built, for the tests
 local sources = {} -- a translation shown -> its English text
 
 -- How a language picks between a count's singular and plural: English's one is 1 alone, French's and
@@ -48,12 +49,16 @@ function Locale.add(code, texts)
 end
 
 -- A client's language that is another's but for a few words (esMX, esES's): every text of the base, with
--- those overridden. It follows the base's Locale.add.
+-- those overridden, built on that client alone. It follows the base's Locale.add, and lets the base go.
 function Locale.variant(code, base, overrides)
+	if code ~= Locale.code then
+		return
+	end
 	local texts = {}
 	for text, translated in pairs(Locale.languages[base]) do
 		texts[text] = translated
 	end
+	Locale.languages[base] = nil
 	for text, translated in pairs(overrides) do
 		texts[text] = translated
 	end

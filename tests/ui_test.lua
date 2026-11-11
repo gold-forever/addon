@@ -264,4 +264,26 @@ fresh.Theme.apply("web")
 eq(fresh.Theme.text.sm, 13, "unmeasured, the web's own sm")
 CreateFrame, UIParent = nil, nil
 
+-- Roboto and Exo 2 draw Latin, Greek and Cyrillic, no Hangul or Han: on a Korean or Chinese client every
+-- look draws in the client's own font (STANDARD_TEXT_FONT), so no text shows as empty squares. Classic
+-- takes the client's Friz Quadrata on every client: the Russian one's has Cyrillic.
+local function fonts(code)
+	STANDARD_TEXT_FONT = "Fonts\\CLIENT_" .. code .. ".TTF"
+	local t = { L = setmetatable({}, { __index = function(_, k) return k end }), Locale = { code = code } }
+	assert(load(SOURCES["Theme.lua"], "@Theme.lua"))("GoldForever", t)
+	STANDARD_TEXT_FONT = nil
+	local out = {}
+	for _, name in ipairs({ "web", "classic", "arcane" }) do
+		local skin = t.Theme.skins[name]
+		out[#out + 1] = name .. " " .. skin.font:match("[^\\]+$") .. " " .. skin.fontMedium:match("[^\\]+$")
+	end
+	return table.concat(out, ", ")
+end
+for _, code in ipairs({ "koKR", "zhCN", "zhTW" }) do
+	local own = "CLIENT_" .. code .. ".TTF"
+	eq(fonts(code), ("web X X, classic X X, arcane X X"):gsub("X", own), "a " .. code .. " client's looks draw in its own font")
+end
+eq(fonts("ruRU"), "web Roboto-Regular.ttf Roboto-Medium.ttf, classic CLIENT_ruRU.TTF CLIENT_ruRU.TTF, arcane Exo2-Regular.ttf Exo2-SemiBold.ttf", "a Russian client keeps the bundled fonts, Cyrillic in them")
+eq(fonts("enUS"), "web Roboto-Regular.ttf Roboto-Medium.ttf, classic CLIENT_enUS.TTF CLIENT_enUS.TTF, arcane Exo2-Regular.ttf Exo2-SemiBold.ttf", "an English client the bundled fonts")
+
 return checks()

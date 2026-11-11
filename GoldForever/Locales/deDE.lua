@@ -3,6 +3,7 @@
 -- missing here or not in enUS.lua.
 
 local _, ns = ...
+if ns.Locale.code ~= "deDE" then return end -- another client's language is never built
 
 ns.Locale.add("deDE", {
 	-- Kernel
@@ -10,7 +11,7 @@ ns.Locale.add("deDE", {
 	["%s commands:"] = "Befehle von %s:",
 	["  /gf - open or close the window"] = "  /gf - das Fenster öffnen oder schließen",
 	["  /gf hud - show or hide the session HUD"] = "  /gf hud - das Sitzungs-HUD zeigen oder verbergen",
-	["  /gf ah - show or hide the auction panel · /gf scan - scan the auction house"] = "  /gf ah - das Auktionsfenster zeigen oder verbergen · /gf scan - das Auktionshaus scannen",
+	["  /gf ah - show or hide the auction panel · /gf scan - scan the auction house"] = "  /gf ah - das Auktionshausfenster zeigen oder verbergen · /gf scan - das Auktionshaus scannen",
 	["  /gf shop - your crafts by profit"] = "  /gf shop - Eure Herstellungen nach Gewinn",
 	["  /gf look web|classic|arcane - change the look · /gf minimap - the minimap button"] = "  /gf look web|classic|arcane - den Stil wechseln · /gf minimap - die Minikartenschaltfläche",
 	["  /gf ui <page> - open a page · /gf session - the session in chat · /gf reset - a new session"] = "  /gf ui <page> - eine Seite öffnen · /gf session - die Sitzung im Chat · /gf reset - eine neue Sitzung",
@@ -21,7 +22,7 @@ ns.Locale.add("deDE", {
 	["off this session: %s"] = "für diese Sitzung aus: %s",
 	["%s: no command \"%s\". /gf help lists them."] = "%s: kein Befehl \"%s\". /gf help listet sie auf.",
 	["%s failed: %s"] = "%s fehlgeschlagen: %s",
-	["%s is turned off in the AddOns list: turn it on there to use the auction house panel."] = "%s ist in der AddOn-Liste deaktiviert: aktiviert es dort, um das Auktionsfenster zu nutzen.",
+	["%s is turned off in the AddOns list: turn it on there to use the auction house panel."] = "%s ist in der AddOn-Liste deaktiviert: aktiviert es dort, um das Auktionshausfenster zu nutzen.",
 	["the %s folder is not installed: reinstall Gold Forever, or in a developer install link both folders into AddOns."] = "der Ordner %s ist nicht installiert: installiert Gold Forever neu oder verknüpft in einer Entwicklerinstallation beide Ordner in AddOns.",
 	-- Surfaces: big drops and quest rewards
 	["Starts a quest: %s - right-click it in your bags to start it."] = "Startet eine Quest: %s - rechtsklickt darauf in Euren Taschen, um sie zu starten.",
@@ -62,13 +63,13 @@ ns.Locale.add("deDE", {
 	["Your next moves, from everyone's prices and your own bags."] = "Eure nächsten Schritte, aus den Preisen aller und Euren eigenen Taschen.",
 	["Where your money went and came from, your characters, and everything they hold."] = "Wohin Euer Geld ging und woher es kam, Eure Charaktere und alles, was sie besitzen.",
 	["Your recipes by profit: reagents at the cheaper of auction house and vendor, the item at its price after the cut."] = "Eure Rezepte nach Gewinn: Reagenzien zum günstigeren Preis von Auktionshaus und Händler, der Gegenstand zu seinem Preis nach Abzug der Gebühr.",
-	["What the auction panel's Buy tab buys: your lists, their items, the most you pay and how many."] = "Was der Kaufen-Reiter des Auktionsfensters kauft: Eure Listen, ihre Gegenstände, der Höchstpreis und wie viele.",
-	["How the auction panel's Sell tab prices your items: by these rules, or a sale profile."] = "Wie der Verkaufen-Reiter des Auktionsfensters Eure Gegenstände bepreist: nach diesen Regeln oder einem Verkaufsprofil.",
+	["What the auction panel's Buy tab buys: your lists, their items, the most you pay and how many."] = "Was der Kaufen-Reiter des Auktionshausfensters kauft: Eure Listen, ihre Gegenstände, der Höchstpreis und wie viele.",
+	["How the auction panel's Sell tab prices your items: by these rules, or a sale profile."] = "Wie der Verkaufen-Reiter des Auktionshausfensters Eure Gegenstände bepreist: nach diesen Regeln oder einem Verkaufsprofil.",
 	["Levelling at this character's pace, and every mob by what a loot of it is worth. The HUD shows the session live."] = "Leveln im Tempo dieses Charakters und jeder Gegner nach dem Wert seiner Beute. Das HUD zeigt die Sitzung live.",
 	["Every rare your characters have seen, where and when last, and what a loot of one has been worth."] = "Jeder Rare, den Eure Charaktere gesehen haben, wo und wann zuletzt, und was seine Beute wert war.",
 	["Everyone's prices in the game, and your save on the site: what the companion app has brought in."] = "Die Preise aller im Spiel und Euer Spielstand auf der Website: was die Begleit-App gebracht hat.",
 	["How Gold Forever looks and behaves. Changes apply at once."] = "Wie Gold Forever aussieht und sich verhält. Änderungen gelten sofort.",
-	["How to use Gold Forever: the auction house panel, crafting, the session, and the commands."] = "So nutzt Ihr Gold Forever: das Auktionsfenster, die Herstellung, die Sitzung und die Befehle.",
+	["How to use Gold Forever: the auction house panel, crafting, the session, and the commands."] = "So nutzt Ihr Gold Forever: das Auktionshausfenster, die Herstellung, die Sitzung und die Befehle.",
 	["Every part of the window kit with example data, in the look in use."] = "Jeder Teil des Fensterbaukastens mit Beispieldaten, im aktuellen Stil.",
 	-- Surfaces: merchant and rolls
 	[" (%s a day)"] = " (%s am Tag)",
@@ -136,7 +137,7 @@ ns.Locale.add("deDE", {
 	["nothing priced"] = "nichts bepreist",
 	["SESSION RECAP"] = "SITZUNGSRÜCKBLICK",
 	["Session recap"] = "Sitzungsrückblick",
-	["See it on the map: goldforever site > Sessions"] = "Auf der Karte ansehen: goldforever-Website > Sessions",
+	["See it on the map: goldforever site > Sessions"] = "Auf der Karte ansehen: goldforever-Website > Sitzungen",
 	-- Surfaces: HubSettings
 	["Display"] = "Anzeige",
 	["Look"] = "Stil",
@@ -156,7 +157,7 @@ ns.Locale.add("deDE", {
 	["When a session ends, a small card with what it came to."] = "Wenn eine Sitzung endet, eine kleine Karte mit ihrem Ergebnis.",
 	["Item goals"] = "Gegenstandsziele",
 	["On the HUD: up to 3 list items you farm for, how many you hold and the time to go."] = "Im HUD: bis zu 3 Listengegenstände, die Ihr farmt, wie viele Ihr habt und die verbleibende Zeit.",
-	["Auction house panel"] = "Auktionsfenster",
+	["Auction house panel"] = "Auktionshausfenster",
 	["Scan, buy, sell and your auctions, beside the auction house."] = "Scannen, kaufen, verkaufen und Eure Auktionen, neben dem Auktionshaus.",
 	["Deals after a scan"] = "Schnäppchen nach einem Scan",
 	["One chat line naming the list items listed at or under your price."] = "Eine Chatzeile mit den Listengegenständen, die zu oder unter Eurem Preis angeboten werden.",
@@ -256,7 +257,7 @@ ns.Locale.add("deDE", {
 	["Searching..."] = "Suche...",
 	["Asking the auction house for a price..."] = "Frage das Auktionshaus nach einem Preis...",
 	["%d for %s"] = "%d für %s",
-	["The price moved: %s (the deal was %s). Press again to buy anyway."] = "Der Preis hat sich geändert: %s (das Angebot war %s). Drückt erneut, um trotzdem zu kaufen.",
+	["The price moved: %s (the deal was %s). Press again to buy anyway."] = "Der Preis hat sich geändert: %s (das Schnäppchen war %s). Drückt erneut, um trotzdem zu kaufen.",
 	["Press again to buy %s."] = "Drückt erneut, um %s zu kaufen.",
 	["Bought."] = "Gekauft.",
 	["The purchase failed."] = "Der Kauf ist fehlgeschlagen.",
@@ -267,7 +268,7 @@ ns.Locale.add("deDE", {
 	["lowest"] = "niedrigster",
 	["market"] = "Markt",
 	["%d at %s"] = "%d zu %s",
-	["Deal"] = "Angebot",
+	["Deal"] = "Schnäppchen",
 	["over: %d for %s"] = "darüber: %d für %s",
 	["Nothing on this list yet: Edit lists adds items."] = "Noch nichts auf dieser Liste: Listen bearbeiten fügt Gegenstände hinzu.",
 	["Edit lists >"] = "Listen bearbeiten >",
@@ -323,8 +324,8 @@ ns.Locale.add("deDE", {
 	["Bank & mail: %d item · %s"] = "Bank & Post: %d Gegenstand · %s",
 	["Bank & mail: %d items · %s"] = "Bank & Post: %d Gegenstände · %s",
 	["The auction house refused it."] = "Das Auktionshaus hat es abgelehnt.",
-	["the auction panel no longer opens at the auction house; /gf ah there brings it back."] = "das Auktionsfenster öffnet sich nicht mehr am Auktionshaus; /gf ah dort holt es zurück.",
-	["the auction panel opens at the auction house again."] = "das Auktionsfenster öffnet sich wieder am Auktionshaus.",
+	["the auction panel no longer opens at the auction house; /gf ah there brings it back."] = "das Auktionshausfenster öffnet sich nicht mehr am Auktionshaus; /gf ah dort holt es zurück.",
+	["the auction panel opens at the auction house again."] = "das Auktionshausfenster öffnet sich wieder am Auktionshaus.",
 	-- Surfaces: HubLedger
 	["This character"] = "Dieser Charakter",
 	["All characters"] = "Alle Charaktere",
@@ -673,7 +674,7 @@ ns.Locale.add("deDE", {
 	["The companion uploads your save whenever the game writes it (at /reload or logout) and brings everyone's prices into the game every hour. It needs nothing from you in game."] = "Die Begleit-App lädt Euren Spielstand hoch, sobald das Spiel ihn schreibt (bei /reload oder Abmelden), und bringt jede Stunde die Preise aller ins Spiel. Im Spiel braucht sie nichts von Euch.",
 	["Connected: the companion's prices are loaded"] = "Verbunden: die Preise der Begleit-App sind geladen",
 	["No prices yet for %s: the pool fills as players scan there."] = "Noch keine Preise für %s: der Bestand füllt sich, während Spieler dort scannen.",
-	["Everyone's prices show in your tooltips and the auction panel."] = "Die Preise aller erscheinen in Euren Tooltips und im Auktionsfenster.",
+	["Everyone's prices show in your tooltips and the auction panel."] = "Die Preise aller erscheinen in Euren Tooltips und im Auktionshausfenster.",
 	["No companion data in the game"] = "Keine Daten der Begleit-App im Spiel",
 	["The companion app writes the GoldForever_Data addon; start it, then restart the game. Get it at gold-forever.app/companion."] = "Die Begleit-App schreibt das AddOn GoldForever_Data; startet sie und dann das Spiel neu. Ihr bekommt sie unter gold-forever.app/companion.",
 	["The companion's file is a newer version"] = "Die Datei der Begleit-App ist eine neuere Version",
@@ -707,7 +708,7 @@ ns.Locale.add("deDE", {
 	["The session HUD shows gold, XP and kills an hour; click it for the session. Big drops and rares get a message. The mail helper beside the mailbox opens auction mail a batch a press. Settings > Modules switches any part off; what the save records stays the same."] = "Das Sitzungs-HUD zeigt Gold, EP und Kills pro Stunde; klickt darauf für die Sitzung. Große Beute und Rares bringen eine Nachricht. Der Posthelfer neben dem Briefkasten öffnet Auktionspost stapelweise pro Druck. Einstellungen > Module schaltet jeden Teil aus; was der Spielstand aufzeichnet, bleibt gleich.",
 	["this window (and /gf help: every command)"] = "dieses Fenster (und /gf help: jeder Befehl)",
 	["the session HUD"] = "das Sitzungs-HUD",
-	["the auction panel"] = "das Auktionsfenster",
+	["the auction panel"] = "das Auktionshausfenster",
 	["a look (web, classic, arcane)"] = "ein Stil (web, classic, arcane)",
 	["an accent colour"] = "eine Akzentfarbe",
 	["a full scan at the auction house"] = "ein vollständiger Scan im Auktionshaus",
@@ -797,7 +798,7 @@ ns.Locale.add("deDE", {
 	["Prices only"] = "Nur Preise",
 	["Everyone's prices in your tooltips; nothing else on screen."] = "Die Preise aller in Euren Tooltips; sonst nichts auf dem Bildschirm.",
 	["Trader"] = "Kaufmann",
-	["Prices, the auction house panel and the crafting strip."] = "Preise, das Auktionsfenster und die Herstellungsleiste.",
+	["Prices, the auction house panel and the crafting strip."] = "Preise, das Auktionshausfenster und die Herstellungsleiste.",
 	["Everything"] = "Alles",
 	["All of it, the session HUD too. Switch any off later."] = "Alles davon, auch das Sitzungs-HUD. Schaltet später beliebiges aus.",
 	["What it records"] = "Was es aufzeichnet",
@@ -1036,7 +1037,7 @@ ns.Locale.add("deDE", {
 	["No profit at today's prices"] = "Kein Gewinn zu heutigen Preisen",
 	["Pays back in %d craft at today's margin (%s a craft)%s"] = "Amortisiert in %d Herstellung bei heutiger Marge (%s pro Herstellung)%s",
 	["Pays back in %d crafts at today's margin (%s a craft)%s"] = "Amortisiert in %d Herstellungen bei heutiger Marge (%s pro Herstellung)%s",
-	["farming session reset."] = "Farmsitzung zurückgesetzt.",
+	["farming session reset."] = "Reset der Farmsitzung.",
 	-- Tools: Lists
 	["Profile: %s"] = "Profil: %s",
 })

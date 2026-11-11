@@ -155,6 +155,8 @@ function shown(start)
 end
 -- Every widget made, so SetPoint can refuse an anchor that is no frame, as the client does.
 local widgets = setmetatable({}, { __mode = "k" })
+-- Every font file text was drawn in.
+local fontsUsed = {}
 local function widget(t)
   t = t or {}
   widgets[t] = true
@@ -179,6 +181,7 @@ local function widget(t)
     end
     if k == "ClearAllPoints" and METHODS[FLAVOUR][k] then return function(self) points[self] = nil end end
     if k == "SetTextColor" and METHODS[FLAVOUR][k] then return function(self, r, g, b) colours[self] = { r, g, b } end end
+    if k == "SetFont" and METHODS[FLAVOUR][k] then return function(_, file) fontsUsed[file] = true end end
     -- Only methods (capitalised, as the client's are); a missing field is nil, as on a real frame.
     if type(k) ~= "string" or not k:match("^%u") then return nil end
     if CHILDREN[k] then return widget() end
@@ -288,6 +291,8 @@ function GetBuildInfo() return "1.60.1", "70450", "", INTERFACE end
 function GetNormalizedRealmName() return "ClassicBetaPvE2" end
 C_AutoComplete = { GetAutoCompleteRealms = function() return { "ClassicBetaPvE2", "AnotherRealm" } end }
 function GetLocale() return LOCALE end
+-- The client's own font, in its alphabet: the Korean and Chinese clients' have Hangul and Han.
+STANDARD_TEXT_FONT = ({ koKR = "Fonts\\2002.TTF", zhCN = "Fonts\\ARKai_T.ttf", zhTW = "Fonts\\blei00d.TTF", ruRU = "Fonts\\FRIZQT___CYR.TTF" })[LOCALE] or "Fonts\\FRIZQT__.TTF"
 -- The client's message formats the addon reads, in English (clienttext.lua).
 dofile((dir or "GoldForever") .. "/../tests/clienttext.lua")
 function GetCurrentRegionName() return "" end
@@ -5312,6 +5317,19 @@ do
   assert(#failed == 1 and failed[1]:find("Store failed: this file was written by a newer version", 1, true),
     "the player is told once:\n" .. table.concat(failed, "\n"))
   GoldForeverDB.schema = 1
+end
+-- The addon's fonts (Roboto, Exo 2) lack Hangul and Han: on those clients no text is drawn in them.
+do
+  local bundled = {}
+  for file in pairs(fontsUsed) do
+    if file:find("GoldForever\\Media\\", 1, true) then bundled[#bundled + 1] = file end
+  end
+  table.sort(bundled)
+  if ({ koKR = true, zhCN = true, zhTW = true })[LOCALE] then
+    if #bundled > 0 then left[#left + 1] = "fonts: text drawn in the addon's own fonts on " .. LOCALE .. ": " .. table.concat(bundled, ", ") end
+  elseif #bundled == 0 then
+    left[#left + 1] = "fonts: the looks' own fonts were never drawn in, so the check above proves nothing"
+  end
 end
 do
   if LOCALE ~= "enUS" then io.write("WORDING " .. #wording .. " checks worded in English\n") end

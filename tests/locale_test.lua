@@ -29,9 +29,22 @@ eq(fr.Locale.translated(), true, "French is")
 eq(de.Locale.translated(), true, "German is")
 eq(es.Locale.translated() and mx.Locale.translated() and pt.Locale.translated(), true, "Spanish, both, and Portuguese are")
 
+-- Only the client's language is built: another language's file returns before its table, so a client keeps
+-- English and its own language, not the other ten.
+local function built(ns)
+	local codes = {}
+	for code in pairs(ns.Locale.languages) do codes[#codes + 1] = code end
+	table.sort(codes)
+	return table.concat(codes, " ")
+end
+eq(built(en), "", "an English client builds no other language")
+eq(built(fr), "frFR", "a French client builds French alone")
+eq(built(de) .. "|" .. built(es) .. "|" .. built(pt), "deDE|esES|ptBR", "a German, Spanish or Brazilian client its own alone")
+eq(built(mx), "esMX", "a Latin-American client builds its Spanish, not Spain's besides")
+
 -- esMX is esES but for the words its client says otherwise: every text, with only those overridden.
 do
-	local spain, mexico = en.Locale.languages.esES, en.Locale.languages.esMX
+	local spain, mexico = es.Locale.languages.esES, mx.Locale.languages.esMX
 	local differ = {}
 	for text, translated in pairs(mexico) do
 		if spain[text] ~= translated then differ[#differ + 1] = text end
@@ -89,7 +102,7 @@ eq(placeholders("%d of %s: 100%% at %.1f"), "%d %s %.1f", "placeholders are read
 local english = en.Locale.english
 for _, file in ipairs(LANGUAGES) do
 	local code = file:match("^(.-)%.lua$")
-	local texts = en.Locale.languages[code]
+	local texts = loaded(code).Locale.languages[code]
 	eq(type(texts), "table", file .. " adds " .. code)
 	local missing, extra, wrong = {}, {}, {}
 	for text in pairs(english) do
@@ -158,6 +171,48 @@ for file, source in pairs(SOURCES) do
 end
 table.sort(fallbacks)
 eq(table.concat(fallbacks, "\n"), "", "client strings with an English fallback")
+
+-- Every reader of the game's messages (Encode.matcher) is built from the client's global string: an
+-- UPPER_CASE global, or a local function's parameter that every call in its file gives one.
+local readers, notGlobal = 0, {}
+local function global(name) return string.find(name, "^%u[%u%d_]+$") ~= nil end
+for file, source in pairs(SOURCES) do
+	for arg in string.gmatch(source, "Encode%.matcher%(%s*([^,%)]+)") do
+		readers = readers + 1
+		local ok = global(arg)
+		local fn = not ok and string.match(source, "local function ([%w_]+)%(" .. arg .. "[,%)]")
+		if fn then
+			ok = true
+			for given in string.gmatch(source, "%f[%w_]" .. fn .. "%(%s*([^,%)]+)") do
+				ok = ok and (given == arg or global(given))
+			end
+		end
+		if not ok then notGlobal[#notGlobal + 1] = file .. ": Encode.matcher(" .. arg .. ")" end
+	end
+end
+table.sort(notGlobal)
+eq(readers >= 7, true, "the readers of the game's messages are found")
+eq(table.concat(notGlobal, "\n"), "", "readers of the game's messages not built from a client global string")
+
+-- And no file spells a message's wording itself: no literal piece of a client format (clienttext.lua's
+-- English) is in the addon's code, outside its comments.
+local spelt = {}
+for name, format in pairs(_G) do
+	if type(format) == "string" and global(name) and string.find(format, "%%") then
+		for piece in string.gmatch(format, "[^%%]+") do
+			piece = string.gsub(piece, "^[sd%d%$]*", "")
+			if #piece >= 8 and string.find(piece, "%a%a") then
+				for file, source in pairs(SOURCES) do
+					if string.find((string.gsub(source, "%-%-[^\n]*", "")), piece, 1, true) then
+						spelt[#spelt + 1] = file .. ": \"" .. piece .. "\" (" .. name .. ")"
+					end
+				end
+			end
+		end
+	end
+end
+table.sort(spelt)
+eq(table.concat(spelt, "\n"), "", "files that spell a client message's wording instead of reading its global string")
 
 -- The locale files load before every file that shows text.
 local toc = TOCS["GoldForever.toc"]

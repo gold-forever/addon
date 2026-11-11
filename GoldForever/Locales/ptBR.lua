@@ -3,6 +3,7 @@
 -- tests/locale_test.lua fails on a text missing here or not in enUS.lua.
 
 local _, ns = ...
+if ns.Locale.code ~= "ptBR" then return end -- another client's language is never built
 
 ns.Locale.add("ptBR", {
 	-- Kernel
@@ -136,7 +137,7 @@ ns.Locale.add("ptBR", {
 	["nothing priced"] = "nada com preço",
 	["SESSION RECAP"] = "RESUMO DA SESSÃO",
 	["Session recap"] = "Resumo da sessão",
-	["See it on the map: goldforever site > Sessions"] = "Veja no mapa: site goldforever > Sessions",
+	["See it on the map: goldforever site > Sessions"] = "Veja no mapa: site goldforever > Sessões",
 	-- Surfaces: HubSettings
 	["Display"] = "Exibição",
 	["Look"] = "Visual",
@@ -158,7 +159,7 @@ ns.Locale.add("ptBR", {
 	["On the HUD: up to 3 list items you farm for, how many you hold and the time to go."] = "No HUD: até 3 itens de lista que você farma, quantos você tem e o tempo restante.",
 	["Auction house panel"] = "Painel da Casa de Leilões",
 	["Scan, buy, sell and your auctions, beside the auction house."] = "Escanear, comprar, vender e seus leilões, ao lado da Casa de Leilões.",
-	["Deals after a scan"] = "Ofertas após a varredura",
+	["Deals after a scan"] = "Pechinchas após a varredura",
 	["One chat line naming the list items listed at or under your price."] = "Uma linha no chat com os itens da lista anunciados pelo seu preço ou abaixo.",
 	["Sale alert"] = "Alerta de venda",
 	["A coin sound and one chat line when one of your auctions sells."] = "Um som de moeda e uma linha no chat quando um leilão seu é vendido.",
@@ -256,7 +257,7 @@ ns.Locale.add("ptBR", {
 	["Searching..."] = "Buscando...",
 	["Asking the auction house for a price..."] = "Pedindo um preço à Casa de Leilões...",
 	["%d for %s"] = "%d por %s",
-	["The price moved: %s (the deal was %s). Press again to buy anyway."] = "O preço mudou: %s (a oferta era %s). Pressione de novo para comprar mesmo assim.",
+	["The price moved: %s (the deal was %s). Press again to buy anyway."] = "O preço mudou: %s (a pechincha era %s). Pressione de novo para comprar mesmo assim.",
 	["Press again to buy %s."] = "Pressione de novo para comprar %s.",
 	["Bought."] = "Comprado.",
 	["The purchase failed."] = "A compra falhou.",
@@ -267,7 +268,7 @@ ns.Locale.add("ptBR", {
 	["lowest"] = "menor",
 	["market"] = "mercado",
 	["%d at %s"] = "%d a %s",
-	["Deal"] = "Oferta",
+	["Deal"] = "Pechincha",
 	["over: %d for %s"] = "acima: %d por %s",
 	["Nothing on this list yet: Edit lists adds items."] = "Nada nesta lista ainda: Editar listas adiciona itens.",
 	["Edit lists >"] = "Editar listas >",
@@ -498,7 +499,7 @@ ns.Locale.add("ptBR", {
 	["Held counts"] = "Quantidades possuídas",
 	["How many each of your characters holds, in bags, bank and mail."] = "Quantos cada personagem seu tem, em bolsas, banco e correio.",
 	["Disenchant value"] = "Valor de desencantar",
-	["What disenchanting it gives, and whether that beats selling."] = "O que desencantá-lo rende e se isso supera vender.",
+	["What disenchanting it gives, and whether that beats selling."] = "O que o desencantamento rende e se isso supera vender.",
 	["Mob loot"] = "Saque de criatura",
 	["On a mob you have looted: what a loot is worth and its likeliest drops."] = "Numa criatura que você saqueou: quanto vale um saque e os itens mais prováveis.",
 	["Quest starters"] = "Iniciadores de missão",
@@ -700,7 +701,7 @@ ns.Locale.add("ptBR", {
 	["A panel opens beside the auction house. Its tabs follow Blizzard's. Scan runs a full scan when you press Scan now (one every 15 minutes; switch on \"Scan when I open the auction house\" to have it start by itself). Sell lists what your bags can sell, priced by your selling rules against the cheapest listing by someone else; alt-click an item in your bags to choose it, then click Post or press Space. A price far under the market or a vendor's asks for a second press. Your bag items' tooltips say what Sell would ask; the panel's top line says what your bank and mail hold worth posting."] = "Um painel abre ao lado da Casa de Leilões. As abas seguem as da Blizzard. Escanear faz uma varredura completa quando você pressiona Escanear agora (uma a cada 15 minutos; ative \"Escanear ao abrir a Casa de Leilões\" para que comece sozinha). Vender lista o que suas bolsas podem vender, com o preço dado pelas suas regras de venda contra o anúncio mais barato de outra pessoa; alt-clique num item das bolsas para escolhê-lo e depois clique em Anunciar ou pressione Espaço. Um preço muito abaixo do mercado ou do vendedor pede um segundo toque. As dicas dos itens das bolsas dizem quanto Vender pediria; a linha de cima do painel diz o que o banco e o correio guardam que vale anunciar.",
 	["Buy and Auctions"] = "Comprar e Leilões",
 	["Buy buys from a shopping list: choose a list, click an item to see its listings, and Buy next asks the auction house for a price; a second press buys. Lists are made on the Shopping lists page (Edit lists >): drop an item on its slot or shift-click it anywhere, then set the most you pay (under market, a fixed price or a share of the market value) and how many you want. Auctions checks your auctions and cancels the most undercut one a press (the item comes back by mail); click one to see its listings."] = "Comprar compra de uma lista de compras: escolha uma lista, clique num item para ver os anúncios dele, e Comprar próximo pede um preço à Casa de Leilões; um segundo toque compra. As listas são feitas na página Listas de compras (Editar listas >): solte um item no espaço dele ou shift-clique nele em qualquer lugar, depois defina o máximo que você paga (abaixo do mercado, um preço fixo ou uma porcentagem do valor de mercado) e quantos você quer. Leilões verifica seus leilões e cancela o mais rebaixado a cada toque (o item volta pelo correio); clique num deles para ver os anúncios.",
-	["Selling rules and profiles"] = "Regras e perfis de venda",
+	["Selling rules and profiles"] = "Regras de venda e perfis",
 	["The Selling rules page sets how you undercut, the floor and the normal price, and shows what that does to an item worth 10g; \"Rule for\" adds a rule for one item or a whole category (Rule > on the Sell tab opens it for the item in view). A sale profile (a GFP1 string, made at gold-forever.app/me/lists or shared by others) prices the items it names: keep so many, undercut, a fixed price or a point in the supply."] = "A página Regras de venda define como você rebaixa, o piso e o preço normal, e mostra o que isso faz com um item de 10o; \"Regra para\" adiciona uma regra para um item ou uma categoria inteira (Regra > na aba Vender a abre para o item em vista). Um perfil de venda (um texto GFP1, feito em gold-forever.app/me/lists ou compartilhado por outros) precifica os itens que nomeia: manter tantos, rebaixar, um preço fixo ou um ponto na oferta.",
 	["The Crafting page lists your recipes by profit; \"I have these\" counts what you hold at no cost. Queue crafts there or on the strip beside the profession window, and the Buy tab's \"Craft queue\" list buys only what is missing."] = "A página Criação lista suas receitas por lucro; \"Usar meus próprios ingredientes\" conta o que você possui sem custo. Enfileire criações lá ou na faixa ao lado da janela de profissão, e a lista \"Fila de criação\" da aba Comprar compra só o que falta.",
 	["While you play"] = "Enquanto você joga",
@@ -1036,7 +1037,7 @@ ns.Locale.add("ptBR", {
 	["No profit at today's prices"] = "Sem lucro com os preços de hoje",
 	["Pays back in %d craft at today's margin (%s a craft)%s"] = "Paga-se em %d criação com a margem de hoje (%s por criação)%s",
 	["Pays back in %d crafts at today's margin (%s a craft)%s"] = "Paga-se em %d criações com a margem de hoje (%s por criação)%s",
-	["farming session reset."] = "sessão de farm reiniciada.",
+	["farming session reset."] = "reset da sessão de farm.",
 	-- Tools: Lists
 	["Profile: %s"] = "Perfil: %s",
 })

@@ -35,6 +35,13 @@ const addonFiles = Object.keys(addonPaths)
 const source = (name) => fs.readFileSync(path.join(repo, addonOf[name], ...addonPaths[name].split('\\')), 'utf8')
 const tocs = addons.flatMap((addon) => fs.readdirSync(path.join(repo, addon)).filter((f) => f.endsWith('.toc')).map((toc) => ({ addon, toc })))
 const tests = fs.readdirSync(__dirname).filter((f) => f.endsWith('_test.lua'))
+// The glossary: GF_GLOSSARY, else gold-forever checked out beside this repository (beside its main checkout,
+// from a worktree). Without it glossary_test.lua fails, but on CI, which checks out this repository alone.
+const mainCheckout = path.dirname(path.resolve(repo, String(require('child_process').spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: repo }).stdout).trim() || '.git'))
+const glossaryPath = process.env.GF_GLOSSARY || path.join(mainCheckout, '..', 'gold-forever', 'docs', 'i18n', 'glossary.md')
+const glossary = fs.existsSync(glossaryPath) ? fs.readFileSync(glossaryPath, 'utf8') : null
+const skipGlossary = !glossary && Boolean(process.env.CI)
+if (skipGlossary) console.log(`- glossary_test.lua skipped on CI: no ${glossaryPath}`)
 
 function state() {
   const L = lauxlib.luaL_newstate()
@@ -87,6 +94,12 @@ function state() {
   const clientText = fs.readFileSync(path.join(__dirname, 'clienttext.lua'), 'utf8')
   if (lauxlib.luaL_dostring(L, to_luastring(clientText)) !== lua.LUA_OK) {
     throw new Error(`clienttext.lua: ${lua.lua_tojsstring(L, -1)}`)
+  }
+  // The shared glossary of the game's and the site's words (gold-forever docs/i18n/glossary.md), as GLOSSARY,
+  // when that repository is checked out beside this one or GF_GLOSSARY names the file (glossary_test.lua).
+  if (glossary) {
+    lua.lua_pushstring(L, to_luastring(glossary))
+    lua.lua_setglobal(L, to_luastring('GLOSSARY'))
   }
   // The shared harness: eq, near and checks() (helpers.lua).
   const helpers = fs.readFileSync(path.join(__dirname, 'helpers.lua'), 'utf8')
@@ -172,6 +185,12 @@ for (const name of addonFiles) {
   }
 }
 for (const name of tests) {
+  if (name === 'glossary_test.lua' && skipGlossary) continue
+  if (name === 'glossary_test.lua' && !glossary) {
+    console.error(`✗ glossary_test.lua: no glossary at ${glossaryPath}: check gold-forever out beside this repository, or set GF_GLOSSARY`)
+    failed++
+    continue
+  }
   const L = state()
   const source = fs.readFileSync(path.join(__dirname, name), 'utf8')
   const ok =
@@ -254,8 +273,9 @@ if (spawnSync('luajit', ['-v']).status === 0) {
   }
   // The same session on a French, German, Spanish (Spain's and Latin America's) and Brazilian client: what
   // the addon shows is in that language, and the save it writes is the English session's, byte for byte but
-  // for the client's language it records (only what is shown is translated).
-  for (const [locale, language] of [['frFR', 'French'], ['deDE', 'German'], ['esES', 'Spanish'], ['esMX', 'Latin-American Spanish'], ['ptBR', 'Brazilian Portuguese']]) {
+  // for the client's language it records (only what is shown is translated). On a Korean and a Chinese
+  // client, which the addon is not translated to yet, no text is drawn in the bundled fonts (smoke.lua).
+  for (const [locale, language] of [['frFR', 'French'], ['deDE', 'German'], ['esES', 'Spanish'], ['esMX', 'Latin-American Spanish'], ['ptBR', 'Brazilian Portuguese'], ['koKR', 'Korean'], ['zhCN', 'Chinese']]) {
     for (const interfaceNumber of ['16001', '120105']) {
       const name = updateGolden ? null : `session-${interfaceNumber}-alliance`
       const out = smoke(`${language} session on ${interfaceNumber}`, name, { GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_FACTION: 'Alliance', GF_SMOKE_LOCALE: locale },
