@@ -38,7 +38,7 @@ ns.FIELDS = {
 	scanItem = "item,class,subclass,stack",
 	-- qty is appended to design 002's columns: buy is the price of one purchase of qty items.
 	vendor = "buy,limited,t,qty",
-	merchant = "map,x,y,items",
+	merchant = "map,x,y,items,side",
 	trainerPlace = "map,x,y,side",
 	-- Trade.lua.
 	merchantTrade = "t,char,kind,item,qty,price,map",

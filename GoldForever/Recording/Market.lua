@@ -380,6 +380,9 @@ end
 
 -- Vendors ----------------------------------------------------------------------------------------
 
+-- The visitor's side, as KnowledgeTrainers.lua writes it for a trainer: empty for a neutral visitor.
+local SIDES = { Horde = "H", Alliance = "A" }
+
 local function readMerchant()
 	local vendor = ns.db().catalogue.vendor
 	local sold = {} -- every item this vendor sells, for "where to buy" (recipes in particular)
@@ -406,7 +409,7 @@ local function readMerchant()
 	local npc = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if npc and #sold > 0 then
 		local map, x, y = ns.position()
-		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"))
+		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"), SIDES[UnitFactionGroup("player")])
 	end
 end
 

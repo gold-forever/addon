@@ -1,5 +1,9 @@
 # Gold Forever
 
+## Unreleased
+
+- **Vendors know their side.** A vendor you visit now records whether you came as Horde or Alliance, as trainers already do, so the site can tell which side can buy a recipe there. A vendor seen by both sides counts as neutral. Vendors you visited before get a side the next time you open their window.
+
 ## 0.20.0 (2026-11-11)
 
 - **Gold Forever speaks Spanish and Brazilian Portuguese.** On a Spanish client (Spain's, and Latin America's, with its own words such as Calabozo) and on a Brazilian one, the addon is in that language, with the game's own terms (Casa de subastas, Casa de Leilões). Money shows as each client writes it (1o 9p 25c), and a price box takes it that way. As for French and German, the translation was made with AI and the addon says so once at login and at the top of Settings.
