@@ -9,7 +9,7 @@
 local addonName, ns = ...
 local L = ns.L
 
-local VERSION = "0.19.0"
+local VERSION = "0.20.0"
 ns.VERSION = VERSION
 
 -- The client this is, the one place a file asks: retail or WoW: Forever (Realms.lua knows the numbers).

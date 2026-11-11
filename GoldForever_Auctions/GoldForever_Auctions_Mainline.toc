@@ -6,7 +6,7 @@
 ## Interface: 120105, 120100, 120007, 120005, 120001, 120000
 ## Title: Gold Forever Auctions
 ## Notes: Gold Forever's auction house panel. Gold Forever loads it when the auction house opens.
-## Version: 0.19.0
+## Version: 0.20.0
 ## IconTexture: Interface\AddOns\GoldForever\Media\Icon.tga
 ## LoadOnDemand: 1
 ## Dependencies: GoldForever
