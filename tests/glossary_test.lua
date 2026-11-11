@@ -12,7 +12,7 @@ local OTHER_SENSE = {
 }
 
 local FILES = { frFR = "frFR.lua", deDE = "deDE.lua", esES = "esES.lua", esMX = "esES.lua", ptBR = "ptBR.lua",
-	koKR = "koKR.lua", zhCN = "zhCN.lua", zhTW = "zhTW.lua" }
+	koKR = "koKR.lua", zhCN = "zhCN.lua", zhTW = "zhTW.lua", itIT = "itIT.lua", ruRU = "ruRU.lua" }
 
 -- Every language's texts, as its own client builds them.
 local function texts(code)
@@ -56,14 +56,23 @@ eq(#terms > 10, true, "the glossary lists its terms")
 
 -- What a text says, for comparing: capitals (accented ones too), one apostrophe, no /gf command (a command
 -- is typed as it is, in every language).
+-- Cyrillic folded too (а-п \208\176-\191 to \208\144-\159, р-я \209\128-\143 to \208\160-\175, ё to Ё):
+-- the client's ns.upper folds Latin-1's letters alone.
+local function cyrillic(text)
+	text = string.gsub(text, "\208([\176-\191])", function(c) return "\208" .. string.char(string.byte(c) - 32) end)
+	return (string.gsub(text, "\209([\128-\143\145])", function(c)
+		return c == "\145" and "\208\129" or "\208" .. string.char(string.byte(c) + 32)
+	end))
+end
 local function said(text, upper)
 	text = string.gsub(text, "/gf[%w%s|<>#%[%]]*", " ")
-	return upper((string.gsub(text, "\226\128\153", "'")))
+	return cyrillic(upper((string.gsub(text, "\226\128\153", "'"))))
 end
+eq(said("Сессия ёжика · сессии", function(t) return t end), "СЕССИЯ ЁЖИКА · СЕССИИ", "Cyrillic compared in any case")
 local function escape(s) return (string.gsub(s, "[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")) end
 
 local found = {}
-for _, code in ipairs({ "frFR", "deDE", "esES", "esMX", "ptBR", "koKR", "zhCN", "zhTW" }) do
+for _, code in ipairs({ "frFR", "deDE", "esES", "esMX", "ptBR", "koKR", "zhCN", "zhTW", "itIT", "ruRU" }) do
 	local translated, english, upper = texts(code)
 	local wrong = {}
 	for _, term in ipairs(terms) do

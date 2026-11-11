@@ -9,9 +9,15 @@ local ALLOWED = { ["\194\183"] = true }
 -- French's letters and quotes (frFR.lua), Latin-1 as well: the French client's own text uses them. Not œ or
 -- the curly apostrophe, which are beyond it: French text writes oe and '.
 -- German's ß (deDE.lua) is Latin-1 too; its umlauts are among French's. Spanish's and Portuguese's letters
--- and Spanish's opening marks (esES.lua, ptBR.lua) as well.
-for ch in string.gmatch("àâäçéèêëîïôöùûüÿÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ«»ßáíóúñãõÁÍÓÚÑÃÕ¿¡", "[\192-\255][\128-\191]*") do
+-- and Spanish's opening marks (esES.lua, ptBR.lua) as well, and Italian's ì and ò (itIT.lua).
+for ch in string.gmatch("àâäçéèêëîïôöùûüÿÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ«»ßáíóúñãõÁÍÓÚÑÃÕ¿¡ìòÌÒ", "[\192-\255][\128-\191]*") do
 	ALLOWED[ch] = true
+end
+-- Cyrillic (А-я, Ё, ё) in ruRU.lua alone: the Russian client's fonts have it, and so do Roboto and Exo 2
+-- (checked against the files, gf#356); the other clients' Friz Quadrata does not.
+local CYRILLIC = {}
+for ch in string.gmatch("АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя", "[\192-\255][\128-\191]*") do
+	CYRILLIC[ch] = true
 end
 
 -- The string literals in a Lua source, comments left out: each as { line, text } (escapes kept as written).
@@ -59,7 +65,6 @@ end
 
 -- On the Korean and Chinese clients every look draws in the client's own font (Theme.lua), which has Hangul,
 -- Han, their punctuation and fullwidth forms: those files (koKR.lua, zhCN.lua, zhTW.lua) may hold them too.
-local OWN_FONT = { ["koKR.lua"] = true, ["zhCN.lua"] = true, ["zhTW.lua"] = true }
 local function codepoint(ch)
 	local b1, b2, b3 = string.byte(ch, 1, 3)
 	return #ch == 3 and ((b1 % 16) * 4096 + (b2 % 64) * 64 + b3 % 64) or nil
@@ -70,11 +75,15 @@ local function eastAsian(ch)
 		or (c >= 0x3000 and c <= 0x303F) or (c >= 0xFF01 and c <= 0xFF5E))
 end
 
--- The first character in `text` the fonts may not draw, else nil; `own` for a file drawn in a Korean or
--- Chinese client's font.
-local function undrawn(text, own)
+local function cyrillic(ch) return CYRILLIC[ch] == true end
+-- The letters a file may hold beyond ALLOWED, its client's font drawing them.
+local SCRIPT = { ["koKR.lua"] = eastAsian, ["zhCN.lua"] = eastAsian, ["zhTW.lua"] = eastAsian, ["ruRU.lua"] = cyrillic }
+
+-- The first character in `text` the fonts may not draw, else nil; `script` the letters its file may hold
+-- besides (SCRIPT).
+local function undrawn(text, script)
 	for ch in text:gmatch("[\192-\255][\128-\191]*") do
-		if not ALLOWED[ch] and not (own and eastAsian(ch)) then
+		if not ALLOWED[ch] and not (script and script(ch)) then
 			return ch
 		end
 	end
@@ -93,8 +102,12 @@ eq(undrawn("cœur"), "œ", "œ is beyond Latin-1")
 eq(undrawn("Größe für Bären"), nil, "German's letters pass")
 eq(undrawn("¿Añadir la misión? ¡Sí! · leilões, ação, Ú"), nil, "Spanish's and Portuguese's letters and marks pass")
 eq(undrawn("경매장 · 拍卖行，拍賣場：（AI）「」"), "경", "Hangul and Han are beyond the bundled fonts")
-eq(undrawn("경매장 · 拍卖行，拍賣場：（AI）「」", true), nil, "a Korean or Chinese client's own font draws them")
-eq(undrawn("경매장 → 拍卖行", true), "→", "but not an arrow")
+eq(undrawn("경매장 · 拍卖行，拍賣場：（AI）「」", eastAsian), nil, "a Korean or Chinese client's own font draws them")
+eq(undrawn("경매장 → 拍卖行", eastAsian), "→", "but not an arrow")
+eq(undrawn("Così è più facile: Ò, Ì"), nil, "Italian's letters pass")
+eq(undrawn("Ещё сегодня · «Аукцион»", cyrillic), nil, "Cyrillic passes in Russian's file")
+eq(undrawn("Аукцион"), "А", "Cyrillic is undrawn outside it")
+eq(undrawn("аукцион — дом", cyrillic), "—", "the em dash is beyond Latin-1 there too")
 
 local names = {}
 for name in pairs(SOURCES) do
@@ -104,7 +117,7 @@ table.sort(names)
 local bad = {}
 for _, name in ipairs(names) do
 	for _, lit in ipairs(literals(SOURCES[name])) do
-		local ch = undrawn(lit[2], OWN_FONT[name])
+		local ch = undrawn(lit[2], SCRIPT[name])
 		if ch then
 			bad[#bad + 1] = string.format("%s:%d %s in \"%s\"", name, lit[1], ch, lit[2])
 		end

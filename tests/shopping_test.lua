@@ -93,6 +93,29 @@ for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银
 	eq(S.parseGold("4" .. g .. "?"), nil, client[1] .. ": not a price")
 	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
 end
+-- On the Italian client: coins o, a, r; thousands grouped with a point.
+do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "o", "a", "r", "."
+	eq(S.parseGold("4o 50a 25r"), 45025, "Italian: oro, argento and rame")
+	eq(S.parseGold("4O50A"), 45000, "Italian: in capitals, run together")
+	eq(S.parseGold("1.234o 50a"), 12345000, "Italian: grouped gold, as the addon writes it")
+	eq(S.parseGold("4,5"), 45000, "Italian: a decimal comma")
+	eq(S.parseGold("4g 50s 10c"), 45010, "Italian: English letters still read")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
+-- On the Russian client: coins з, с, м (Cyrillic letters); thousands grouped with a space.
+do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "з", "с", "м", " "
+	eq(S.parseGold("4з 50с 25м"), 45025, "Russian: золото, серебро and медь")
+	eq(S.parseGold("4з50с"), 45000, "Russian: run together")
+	eq(S.parseGold("1 234з 50с"), 12345000, "Russian: grouped gold, as the addon writes it")
+	eq(S.parseGold("1 000"), 10000000, "Russian: a space groups thousands")
+	eq(S.parseGold("4,5"), 45000, "Russian: a decimal comma")
+	eq(S.parseGold("4g 50s"), 45000, "Russian: English letters still read")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
 eq(S.limit({ itemId = 1, pct = 80 }, nil), nil, "a share of no market is no limit")
 eq(S.line({ itemId = 7, pct = 80, upTo = 20 }), "item 7 pct 80 upto 20", "pct and upto in the line")
 eq(S.line({ itemId = 7, maxUnit = 500 }), "item 7 max 500", "an old entry's line as before")

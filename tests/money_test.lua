@@ -130,4 +130,17 @@ for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银
 	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
 end
 
+-- On the Italian client: coins o, a, r (oro, argento, rame), thousands grouped with points; on the Russian
+-- one з, с, м (золото, серебро, медь), grouped with spaces. Recalled, to confirm in game (gf#356).
+for _, client in ipairs({ { "itIT", "o", "a", "r", ".", "1o 9a 25r", "1.234.567" }, { "ruRU", "з", "с", "м", " ", "1з 9с 25м", "1 234 567" } }) do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = client[2], client[3], client[4], client[5]
+	local m = {}
+	loadEncode(m)
+	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", m)
+	eq(m.Money.format(10925), client[6], client[1] .. ": plain, in the client's coins")
+	eq(m.Money.group(1234567), client[7], client[1] .. ": grouped")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
+
 return checks()
