@@ -66,6 +66,20 @@ do
 	eq(S.parseGold("4.5"), 45000, "German: a point before one digit is still a decimal point")
 	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
 end
+-- On the Spanish and Brazilian clients: coins o, p, c; esES and ptBR group thousands with a point.
+do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "o", "p", "c", "."
+	eq(S.parseGold("4o 50p 25c"), 45025, "Spanish: oro, plata and cobre")
+	eq(S.parseGold("4O50P"), 45000, "Spanish: in capitals, run together")
+	eq(S.parseGold("1.234o 50p"), 12345000, "Spanish: grouped gold, as the addon writes it")
+	eq(S.parseGold("1.000,5"), 10005000, "Spanish: thousands, then a decimal comma")
+	eq(S.parseGold("4g 50s"), 45000, "Spanish: English letters still read")
+	LARGE_NUMBER_SEPARATOR = ","
+	eq(S.parseGold("1,000o"), 10000000, "esMX: a comma groups thousands")
+	eq(S.parseGold("4,5"), 45000, "esMX: a comma before one digit is a decimal point")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
 eq(S.limit({ itemId = 1, pct = 80 }, nil), nil, "a share of no market is no limit")
 eq(S.line({ itemId = 7, pct = 80, upTo = 20 }), "item 7 pct 80 upto 20", "pct and upto in the line")
 eq(S.line({ itemId = 7, maxUnit = 500 }), "item 7 max 500", "an old entry's line as before")

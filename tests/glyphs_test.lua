@@ -8,8 +8,9 @@
 local ALLOWED = { ["\194\183"] = true }
 -- French's letters and quotes (frFR.lua), Latin-1 as well: the French client's own text uses them. Not œ or
 -- the curly apostrophe, which are beyond it: French text writes oe and '.
--- German's ß (deDE.lua) is Latin-1 too; its umlauts are among French's.
-for ch in string.gmatch("àâäçéèêëîïôöùûüÿÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ«»ß", "[\192-\255][\128-\191]*") do
+-- German's ß (deDE.lua) is Latin-1 too; its umlauts are among French's. Spanish's and Portuguese's letters
+-- and Spanish's opening marks (esES.lua, ptBR.lua) as well.
+for ch in string.gmatch("àâäçéèêëîïôöùûüÿÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ«»ßáíóúñãõÁÍÓÚÑÃÕ¿¡", "[\192-\255][\128-\191]*") do
 	ALLOWED[ch] = true
 end
 
@@ -76,6 +77,7 @@ eq(undrawn("a · b"), nil, "the middle dot passes")
 eq(undrawn("la fenêtre « déjà »"), nil, "French's letters and quotes pass")
 eq(undrawn("cœur"), "œ", "œ is beyond Latin-1")
 eq(undrawn("Größe für Bären"), nil, "German's letters pass")
+eq(undrawn("¿Añadir la misión? ¡Sí! · leilões, ação, Ú"), nil, "Spanish's and Portuguese's letters and marks pass")
 
 local names = {}
 for name in pairs(SOURCES) do

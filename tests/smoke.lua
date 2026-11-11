@@ -1,9 +1,9 @@
 -- Smoke test: loads the addon with a stubbed game API and plays a short session.
 local dir = arg[1]
--- GF_SMOKE_LOCALE=frFR (or deDE) plays the session on a French (or German) client. The session's checks
--- of what the addon says are worded in English: on another language a check that fails is counted
--- (WORDING), not raised, and the run fails on an error the addon recorded or on one thrown. The save it
--- writes is English's (run.js).
+-- GF_SMOKE_LOCALE=frFR (or deDE, esES, esMX, ptBR) plays the session on that language's client. The
+-- session's checks of what the addon says are worded in English: on another language a check that fails is
+-- counted (WORDING), not raised, and the run fails on an error the addon recorded or on one thrown. The
+-- save it writes is English's (run.js).
 local LOCALE = os.getenv("GF_SMOKE_LOCALE") or "enUS"
 local wording = {}
 if LOCALE ~= "enUS" then

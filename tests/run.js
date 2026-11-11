@@ -252,10 +252,10 @@ if (spawnSync('luajit', ['-v']).status === 0) {
       if (out) console.log(`✓ session on ${interfaceNumber} as ${faction}: ${out.match(/SCAN BUDGET .*?mean [\d.]+ ms a frame/)?.[0] ?? ''}`)
     }
   }
-  // The same session on a French and a German client: what the addon shows is in that language, and the
-  // save it writes is the English session's, byte for byte but for the client's language it records (only
-  // what is shown is translated).
-  for (const [locale, language] of [['frFR', 'French'], ['deDE', 'German']]) {
+  // The same session on a French, German, Spanish (Spain's and Latin America's) and Brazilian client: what
+  // the addon shows is in that language, and the save it writes is the English session's, byte for byte but
+  // for the client's language it records (only what is shown is translated).
+  for (const [locale, language] of [['frFR', 'French'], ['deDE', 'German'], ['esES', 'Spanish'], ['esMX', 'Latin-American Spanish'], ['ptBR', 'Brazilian Portuguese']]) {
     for (const interfaceNumber of ['16001', '120105']) {
       const name = updateGolden ? null : `session-${interfaceNumber}-alliance`
       const out = smoke(`${language} session on ${interfaceNumber}`, name, { GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_FACTION: 'Alliance', GF_SMOKE_LOCALE: locale },

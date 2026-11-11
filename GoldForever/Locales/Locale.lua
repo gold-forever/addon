@@ -1,7 +1,8 @@
 -- Gold Forever: the text the addon shows, in the client's language (GetLocale()). English is the source:
 -- each file writes L["English text"], enUS.lua lists every such text, and a language's file (frFR.lua)
 -- gives its own for each. A text a language lacks shows in English. Another language is one more file
--- like frFR.lua, listed in the TOCs after enUS.lua. The save is never translated: only what is shown.
+-- like frFR.lua, listed in the TOCs after enUS.lua; a client whose language differs from another's in a few
+-- words (esMX from esES) is a variant in that language's file. The save is never translated: only what is shown.
 
 local _, ns = ...
 
@@ -13,9 +14,12 @@ Locale.english = {} -- text -> true, every text the addon shows (enUS.lua)
 Locale.languages = {} -- code -> { text -> translation }, every language's file, for the tests
 local sources = {} -- a translation shown -> its English text
 
--- How a language picks between a count's singular and plural: English's one is 1 alone, French's 0 and 1.
+-- How a language picks between a count's singular and plural: English's one is 1 alone, French's and
+-- Brazilian Portuguese's 0 and 1.
+local function zeroOrOne(n) return n >= 0 and n < 2 end
 local SINGULAR = {
-	frFR = function(n) return n >= 0 and n < 2 end,
+	frFR = zeroOrOne,
+	ptBR = zeroOrOne,
 }
 local function singular(n)
 	return (SINGULAR[Locale.code] or function(m) return m == 1 end)(n)
@@ -41,6 +45,19 @@ function Locale.add(code, texts)
 			sources[translated] = text
 		end
 	end
+end
+
+-- A client's language that is another's but for a few words (esMX, esES's): every text of the base, with
+-- those overridden. It follows the base's Locale.add.
+function Locale.variant(code, base, overrides)
+	local texts = {}
+	for text, translated in pairs(Locale.languages[base]) do
+		texts[text] = translated
+	end
+	for text, translated in pairs(overrides) do
+		texts[text] = translated
+	end
+	Locale.add(code, texts)
 end
 
 -- The English text of one shown in the client's language, for names the save keeps (an error's).

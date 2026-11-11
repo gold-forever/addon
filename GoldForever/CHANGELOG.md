@@ -1,5 +1,9 @@
 # Gold Forever
 
+## Unreleased
+
+- **Gold Forever speaks Spanish and Brazilian Portuguese.** On a Spanish client (Spain's, and Latin America's, with its own words such as Calabozo) and on a Brazilian one, the addon is in that language, with the game's own terms (Casa de subastas, Casa de Leilões). Money shows as each client writes it (1o 9p 25c), and a price box takes it that way. As for French and German, the translation was made with AI and the addon says so once at login and at the top of Settings.
+
 ## 0.19.0 (2026-11-11)
 
 - **Gold Forever speaks French.** On a French game client every window, tooltip, chat line and `/gf help` is in French, with the game's own terms (Hôtel des ventes, po/pa/pc). The translation was made with AI, and the addon says so once at login and at the top of Settings. Other clients stay in English. Sales, mail, reputation, XP and crafts are read in the client's own language, so they are recorded on a French client too. The saved file is the same in every language.

@@ -16,6 +16,8 @@ Locales\Locale.lua
 Locales\enUS.lua
 Locales\frFR.lua
 Locales\deDE.lua
+Locales\esES.lua
+Locales\ptBR.lua
 Store\Encode.lua
 Store\EncodeIds.lua
 Store\EncodeText.lua

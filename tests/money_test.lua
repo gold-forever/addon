@@ -103,4 +103,17 @@ do
 	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
 end
 
+-- On the Spanish and Brazilian clients: coins o, p, c (oro/ouro, plata/prata, cobre); esES and ptBR group
+-- with points, esMX with commas.
+for _, client in ipairs({ { "esES", "." }, { "esMX", "," }, { "ptBR", "." } }) do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "o", "p", "c", client[2]
+	local m = {}
+	loadEncode(m)
+	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", m)
+	eq(m.Money.format(10925), "1o 9p 25c", client[1] .. ": plain, in oro and plata")
+	eq(m.Money.group(1234567), client[2] == "." and "1.234.567" or "1,234,567", client[1] .. ": grouped")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
+
 return checks()
