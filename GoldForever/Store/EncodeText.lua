@@ -111,8 +111,10 @@ end
 -- format and the forms it may become. Korean's |1X;Y; is the particle X or Y the word before it takes
 -- (koKR LOOT_ITEM_CREATED_SELF "%s|1을;를; 만들었습니다."), French's "|2 " is "de " or "d'" before a name
 -- (frFR ERR_AUCTION_SOLD_S), Russian's |4A:B:C; the plural form of the number before it (ruRU
--- COMBATLOG_XPGAIN_FIRSTPERSON). Source: Ketho/BlizzardInterfaceResources, branch forever,
--- Resources/GlobalStrings/<locale>.lua (commit d1ee5698).
+-- COMBATLOG_XPGAIN_FIRSTPERSON), and retail Russian's |3-N(X) the word X declined into case N (live ruRU
+-- FACTION_STANDING_INCREASED "Отношение |3-7(%s) к вам..."), read as X: the name as the message spells it.
+-- Source: Ketho/BlizzardInterfaceResources, Resources/GlobalStrings/<locale>.lua, branch forever (commit
+-- d1ee5698), and live (f3b334b3) for |3.
 local MARKERS = {
 	{ "|1([^;|]*);([^;|]*);", function(a, b) return { a, b } end },
 	{ "|2 ", function() return { "de ", "d'" } end },
@@ -121,6 +123,7 @@ local MARKERS = {
 		for form in string.gmatch(forms .. ":", "([^:]*):") do out[#out + 1] = form end
 		return out
 	end },
+	{ "|3%-%d+%(([^)]*)%)", function(word) return { word } end },
 }
 
 -- Every form a format's message may take, its markers resolved each way: one, the format, without any.

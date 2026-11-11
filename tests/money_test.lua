@@ -93,54 +93,58 @@ eq(L.group(1234), "1,234", "UI.layout.group is Money.group")
 
 -- On a German client: its coin letters (g, s, k) and its thousands point, read when Money.lua loads.
 do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "g", "s", "k", "."
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = "g", "s", "k", "."
 	local de = {}
 	loadEncode(de)
 	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", de)
 	eq(de.Money.format(10925), "1g 9s 25k", "German: plain, in Kupfer")
 	eq(de.Money.group(1234567), "1.234.567", "German: grouped with points")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 
--- On the Spanish and Brazilian clients: coins o, p, c (oro/ouro, plata/prata, cobre); esES and ptBR group
--- with points, esMX with commas.
-for _, client in ipairs({ { "esES", "." }, { "esMX", "," }, { "ptBR", "." } }) do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "o", "p", "c", client[2]
+-- The clients' values are their GlobalStrings in Ketho/BlizzardInterfaceResources (Resources/GlobalStrings/
+-- <locale>.lua): branch live at f3b334b3 for itIT (forever's itIT, d1ee5698, is enUS's text), forever at
+-- d1ee5698 for the rest. The thousands separator is LARGE_NUMBER_SEPERATOR, Blizzard's spelling; esES,
+-- frFR and ruRU set it empty: they do not group.
+-- On the Spanish and Brazilian clients: coins o, p, c (oro/ouro, plata/prata, cobre); ptBR groups with
+-- points, esMX with commas, esES not at all.
+for _, client in ipairs({ { "esES", "" }, { "esMX", "," }, { "ptBR", "." } }) do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = "o", "p", "c", client[2]
 	local m = {}
 	loadEncode(m)
 	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", m)
 	eq(m.Money.format(10925), "1o 9p 25c", client[1] .. ": plain, in oro and plata")
-	eq(m.Money.group(1234567), client[2] == "." and "1.234.567" or "1,234,567", client[1] .. ": grouped")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	eq(m.Money.group(1234567), ({ [""] = "1234567", ["."] = "1.234.567", [","] = "1,234,567" })[client[2]], client[1] .. ": grouped")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 
 -- On the Korean and Chinese clients: one character a coin (골 실 코; 金 银 铜; 金 銀 銅), as their
 -- GOLD/SILVER/COPPER_AMOUNT_SYMBOL are (Ketho/BlizzardInterfaceResources, forever, GlobalStrings), commas grouping.
 for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银", "铜" }, { "zhTW", "金", "銀", "銅" } }) do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = client[2], client[3], client[4], ","
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = client[2], client[3], client[4], ","
 	local m = {}
 	loadEncode(m)
 	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", m)
 	eq(m.Money.format(10925), "1" .. client[2] .. " 9" .. client[3] .. " 25" .. client[4], client[1] .. ": plain, in its coins")
 	eq(m.Money.format(-150), "-1" .. client[3] .. " 50" .. client[4], client[1] .. ": a loss")
 	eq(m.Money.group(1234567), "1,234,567", client[1] .. ": grouped")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 
 -- On the Italian client: coins o, a, r (oro, argento, rame), thousands grouped with points; on the Russian
--- one з, с, м (золото, серебро, медь), grouped with spaces. Recalled, to confirm in game (gf#356).
-for _, client in ipairs({ { "itIT", "o", "a", "r", ".", "1o 9a 25r", "1.234.567" }, { "ruRU", "з", "с", "м", " ", "1з 9с 25м", "1 234 567" } }) do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = client[2], client[3], client[4], client[5]
+-- one з, с, м (золото, серебро, медь), not grouped.
+for _, client in ipairs({ { "itIT", "o", "a", "r", ".", "1o 9a 25r", "1.234.567" }, { "ruRU", "з", "с", "м", "", "1з 9с 25м", "1234567" } }) do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = client[2], client[3], client[4], client[5]
 	local m = {}
 	loadEncode(m)
 	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", m)
 	eq(m.Money.format(10925), client[6], client[1] .. ": plain, in the client's coins")
 	eq(m.Money.group(1234567), client[7], client[1] .. ": grouped")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 
 return checks()

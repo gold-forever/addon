@@ -1,43 +1,59 @@
 -- The game's own text on the Italian (itIT) and Russian (ruRU) clients, read by the addon's patterns from
 -- gf#341, as spanishportuguesetext_test.lua does Spanish's and Portuguese's: each of the client's formats
--- clienttext.lua sets in English, as each client words it, formatted as the game would and read back. The
--- wordings are recalled, not copied from a client: each is confirmed in game with /run print(NAME) (the
--- owner's manual test, gf#356); a wording that differs goes here first.
+-- clienttext.lua sets in English, as each client words it, formatted as the game would and read back.
+-- Copied from the clients' GlobalStrings in Ketho/BlizzardInterfaceResources, Resources/GlobalStrings/
+-- <locale>.lua: itIT from branch live at f3b334b3 (forever's itIT, at d1ee5698, is enUS's text word for
+-- word), ruRU from forever at d1ee5698 and, where retail words it otherwise, from live at f3b334b3.
+-- Russian's codes stay in its formats: |4one:few:many; picks a word by the number before it, |3-7(%s)
+-- declines a name (here into the genitive).
 
 local CLIENTS = {
 	itIT = {
 		LOOT_ITEM_CREATED_SELF = "Hai creato: %s.",
 		LOOT_ITEM_CREATED_SELF_MULTIPLE = "Hai creato: %sx%d.",
-		ERR_AUCTION_SOLD_S = "È stato trovato un acquirente per la tua asta di %s.",
-		AUCTION_SOLD_MAIL_SUBJECT = "Asta conclusa: %s",
+		ERR_AUCTION_SOLD_S = "È stato trovato un compratore per la tua asta di %s.",
+		AUCTION_SOLD_MAIL_SUBJECT = "Asta riuscita: %s",
 		AUCTION_EXPIRED_MAIL_SUBJECT = "Asta scaduta: %s",
 		AUCTION_REMOVED_MAIL_SUBJECT = "Asta annullata: %s",
 		AUCTION_WON_MAIL_SUBJECT = "Asta vinta: %s",
-		AUCTION_OUTBID_MAIL_SUBJECT = "Offerta superata per %s",
-		FACTION_STANDING_INCREASED = "La tua reputazione con %s è aumentata di %d.",
-		FACTION_STANDING_DECREASED = "La tua reputazione con %s è diminuita di %d.",
-		FACTION_STANDING_INCREASED_ACCOUNT_WIDE = "La reputazione della tua brigata con %s è aumentata di %d.",
-		FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "La reputazione della tua brigata con %s è diminuita di %d.",
-		COMBATLOG_XPGAIN_FIRSTPERSON = "%s muore, ottieni %d punti esperienza.",
-		ERR_ZONE_EXPLORED_XP = "Hai scoperto %s: %d punti esperienza ottenuti",
+		AUCTION_OUTBID_MAIL_SUBJECT = "Hanno rilanciato per %s",
+		FACTION_STANDING_INCREASED = "La reputazione con \"%s\" è aumentata di %d.",
+		FACTION_STANDING_DECREASED = "La reputazione con \"%s\" è diminuita di %d.",
+		FACTION_STANDING_INCREASED_ACCOUNT_WIDE = "La reputazione della Brigata con \"%s\" è aumentata di %d.",
+		FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "La reputazione della Brigata con \"%s\" è diminuita di %d.",
+		COMBATLOG_XPGAIN_FIRSTPERSON = "%s muore, guadagni %d esperienza.",
+		ERR_ZONE_EXPLORED_XP = "Hai scoperto: \"%s\". %d punti esperienza guadagnati.",
 	},
 	ruRU = {
 		LOOT_ITEM_CREATED_SELF = "Вы создаете: %s.",
 		LOOT_ITEM_CREATED_SELF_MULTIPLE = "Вы создаете: %sx%d.",
-		ERR_AUCTION_SOLD_S = "Найден покупатель на ваш лот: %s.",
+		ERR_AUCTION_SOLD_S = "На ваш товар \"%s\" нашелся покупатель.",
 		AUCTION_SOLD_MAIL_SUBJECT = "Аукцион состоялся: %s",
 		AUCTION_EXPIRED_MAIL_SUBJECT = "Аукцион не состоялся: %s",
-		AUCTION_REMOVED_MAIL_SUBJECT = "Аукцион отменен: %s",
-		AUCTION_WON_MAIL_SUBJECT = "Аукцион выигран: %s",
-		AUCTION_OUTBID_MAIL_SUBJECT = "Ваша ставка на %s перебита",
-		FACTION_STANDING_INCREASED = "Отношение фракции %s к вам улучшилось на %d.",
-		FACTION_STANDING_DECREASED = "Отношение фракции %s к вам ухудшилось на %d.",
-		FACTION_STANDING_INCREASED_ACCOUNT_WIDE = "Отношение фракции %s к вашему отряду улучшилось на %d.",
-		FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "Отношение фракции %s к вашему отряду ухудшилось на %d.",
-		COMBATLOG_XPGAIN_FIRSTPERSON = "%s погибает, вы получаете %d ед. опыта.",
-		ERR_ZONE_EXPLORED_XP = "Открыта местность: %s. Получено опыта: %d.",
+		AUCTION_REMOVED_MAIL_SUBJECT = "Аукцион отменен: %s.",
+		AUCTION_WON_MAIL_SUBJECT = "Вы выиграли торги: %s",
+		AUCTION_OUTBID_MAIL_SUBJECT = "Ваша ставка перебита (предмет: %s)",
+		FACTION_STANDING_INCREASED = "Отношение фракции \"%s\" к вам улучшилось на %d.",
+		FACTION_STANDING_DECREASED = "Отношение фракции \"%s\" к вам ухудшилось на %d.",
+		FACTION_STANDING_INCREASED_ACCOUNT_WIDE = "Отношение фракции \"%s\" к персонажам на вашей учетной записи улучшилось на %d.",
+		FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "Отношение фракции \"%s\" к персонажам на вашей учетной записи ухудшилось на %d.",
+		COMBATLOG_XPGAIN_FIRSTPERSON = "%s погибает, вы получаете %d |4очко:очка:очков; опыта.",
+		ERR_ZONE_EXPLORED_XP = "Открыта новая территория: %s. Получено %d |4очко:очка:очков; опыта.",
 	},
 }
+-- The retail Russian client: forever's but for its reputation lines.
+CLIENTS.ruRUretail = setmetatable({
+	FACTION_STANDING_INCREASED = "Отношение |3-7(%s) к вам улучшилось на %d.",
+	FACTION_STANDING_DECREASED = "Отношение |3-7(%s) к вам ухудшилось на %d.",
+	FACTION_STANDING_INCREASED_ACCOUNT_WIDE = "Отношение фракции \"%s\" к вашему отряду улучшилось на %d.",
+	FACTION_STANDING_DECREASED_ACCOUNT_WIDE = "Отношение фракции \"%s\" к вашему отряду ухудшилось на %d.",
+}, { __index = CLIENTS.ruRU })
+
+-- A message as the chat shows it: the game resolves Russian's codes before it sends one, |4 to the plural's
+-- "many" form (the numbers read here, 120 and 55, take it), |3 to the word declined (here left as it is).
+local function shown(message)
+	return (string.gsub(string.gsub(message, "|4[^:;]*:[^:;]*:([^;]*);", "%1"), "|3%-%d+%(([^)]*)%)", "%1"))
+end
 
 local ns = { on = function() end }
 loadEncode(ns)
@@ -55,6 +71,7 @@ local NAMES = {
 	ruRU = { link = "|cffffffff|Hitem:2996::::::::30|h[Рулон льняной ткани]|h|r", item = "Шерстяная ткань", faction = "Штормград",
 		warband = "Расхитители Совета", mob = "Кобольд", zone = "Холмы: Север", mail = "Железная руда (20)" },
 }
+NAMES.ruRUretail = NAMES.ruRU
 for code, F in pairs(CLIENTS) do
 	local N = NAMES[code]
 	-- Every English format has this client's one here.
@@ -64,7 +81,7 @@ for code, F in pairs(CLIENTS) do
 
 	-- A message as the game sends it, and what the addon's matcher reads from it.
 	local function read(name, whole, ...)
-		return table.concat({ E.matcher(F[name], whole)(string.format(F[name], ...)) }, "|")
+		return table.concat({ E.matcher(F[name], whole)(shown(string.format(F[name], ...))) }, "|")
 	end
 	eq(read("LOOT_ITEM_CREATED_SELF", false, N.link), N.link, code .. ": a craft")
 	eq(read("LOOT_ITEM_CREATED_SELF_MULTIPLE", false, N.link, 2), N.link .. "|2", code .. ": a craft of two")
@@ -85,5 +102,16 @@ for code, F in pairs(CLIENTS) do
 		eq(M.isAuction(string.format(F[name], N.mail), P), true, code .. ": " .. name)
 	end
 	eq(M.isAuction("RE: " .. string.format(F.AUCTION_SOLD_MAIL_SUBJECT, "lol"), P), false, code .. ": a player's reply is not")
+end
+
+-- Russian's messages as the chat shows them, the codes resolved: the plural's word chosen, the name declined.
+do
+	local F, R = CLIENTS.ruRU, CLIENTS.ruRUretail
+	local function read(format, text) return table.concat({ E.matcher(format)(text) }, "|") end
+	eq(read(F.COMBATLOG_XPGAIN_FIRSTPERSON, "Кобольд погибает, вы получаете 120 очков опыта."), "Кобольд|120", "ruRU: a kill's XP, many")
+	eq(read(F.COMBATLOG_XPGAIN_FIRSTPERSON, "Кобольд погибает, вы получаете 1 очко опыта."), "Кобольд|1", "ruRU: a kill's XP, one")
+	eq(read(F.ERR_ZONE_EXPLORED_XP, "Открыта новая территория: Холмы: Север. Получено 52 очка опыта."), "Холмы: Север|52", "ruRU: a discovery, few")
+	eq(read(R.FACTION_STANDING_INCREASED, "Отношение Штормграда к вам улучшилось на 250."), "Штормграда|250", "retail ruRU: reputation up, the faction's name declined")
+	eq(read(R.FACTION_STANDING_INCREASED, "Отношение Штормграда к вам ухудшилось на 250."), "", "retail ruRU: a loss is no gain")
 end
 return checks()

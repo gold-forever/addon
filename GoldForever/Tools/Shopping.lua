@@ -284,7 +284,7 @@ end
 
 -- The client's thousands separator taken out where it groups digits ("1.234g" on a German client).
 local function ungrouped(text)
-	local sep = string.gsub(LARGE_NUMBER_SEPARATOR or ",", "%p", "%%%0")
+	local sep = string.gsub(LARGE_NUMBER_SEPERATOR or ",", "%p", "%%%0")
 	local before
 	repeat
 		before = text

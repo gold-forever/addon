@@ -80,10 +80,27 @@ function ns.plural(n, one, other, ...)
 	return string.format(singular(n) and one or other, n, ...)
 end
 
--- A text in capitals, accented letters too (string.upper leaves é as it is): à-þ are the capitals'
--- second byte plus 32 in UTF-8, ÷ is no letter.
+-- A letter's UTF-8 bytes, for a code point under 0x800 (Latin-1, Latin Extended-A, Cyrillic).
+local function utf8(code)
+	return string.char(0xC0 + math.floor(code / 64), 0x80 + code % 64)
+end
+
+-- Each small letter string.upper leaves as it is, to its capital: Latin-1's à-þ (but ÷, no letter), ÿ and
+-- œ (capitals beyond Latin-1), and Cyrillic's а-я and ё. ß has no capital; Korean and Chinese no case.
+local CAPITALS = {}
+local function shifted(first, last, by)
+	for code = first, last do
+		CAPITALS[utf8(code)] = utf8(code - by)
+	end
+end
+shifted(0xE0, 0xFE, 0x20) -- à-þ: À-Þ
+CAPITALS[utf8(0xF7)] = nil -- ÷
+CAPITALS[utf8(0xFF)] = utf8(0x178) -- ÿ: Ÿ
+CAPITALS[utf8(0x153)] = utf8(0x152) -- œ: Œ
+shifted(0x430, 0x44F, 0x20) -- а-я: А-Я
+CAPITALS[utf8(0x451)] = utf8(0x401) -- ё: Ё
+
+-- A text in capitals, in every script that has them: ASCII by string.upper, the rest by CAPITALS.
 function ns.upper(text)
-	return (string.gsub(string.upper(text), "\195([\160-\190])", function(c)
-		return c == "\183" and "\195\183" or "\195" .. string.char(string.byte(c) - 32)
-	end))
+	return (string.gsub(string.upper(text), "[\192-\223][\128-\191]", CAPITALS))
 end

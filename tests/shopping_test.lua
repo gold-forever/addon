@@ -53,8 +53,8 @@ eq(S.parseGold("cheap"), nil, "not a price")
 eq(S.parseGold("0"), nil, "zero")
 -- On a German client: its coin letters (g, s, k) and its thousands point, as Money writes them ("1.234g").
 do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "g", "s", "k", "."
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = "g", "s", "k", "."
 	eq(S.parseGold("4g 50s 25k"), 45025, "German: gold, silver and Kupfer")
 	eq(S.parseGold("25K"), 25, "German: Kupfer in capitals")
 	eq(S.parseGold("1.000"), 10000000, "German: a point before three digits groups thousands")
@@ -64,26 +64,34 @@ do
 	eq(S.parseGold("1.000,5"), 10005000, "German: thousands, then a decimal comma")
 	eq(S.parseGold("4,5"), 45000, "German: a decimal comma")
 	eq(S.parseGold("4.5"), 45000, "German: a point before one digit is still a decimal point")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
--- On the Spanish and Brazilian clients: coins o, p, c; esES and ptBR group thousands with a point.
+-- The clients' values are their GlobalStrings in Ketho/BlizzardInterfaceResources (Resources/GlobalStrings/
+-- <locale>.lua): branch live at f3b334b3 for itIT (forever's itIT, d1ee5698, is enUS's text), forever at
+-- d1ee5698 for the rest. The thousands separator is LARGE_NUMBER_SEPERATOR, Blizzard's spelling; esES,
+-- frFR and ruRU set it empty: they do not group.
+-- On the Spanish and Brazilian clients: coins o, p, c; ptBR groups thousands with a point, esMX with a
+-- comma, esES not at all.
 do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "o", "p", "c", "."
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = "o", "p", "c", "."
 	eq(S.parseGold("4o 50p 25c"), 45025, "Spanish: oro, plata and cobre")
 	eq(S.parseGold("4O50P"), 45000, "Spanish: in capitals, run together")
-	eq(S.parseGold("1.234o 50p"), 12345000, "Spanish: grouped gold, as the addon writes it")
-	eq(S.parseGold("1.000,5"), 10005000, "Spanish: thousands, then a decimal comma")
+	eq(S.parseGold("1.234o 50p"), 12345000, "ptBR: grouped gold, as the addon writes it")
+	eq(S.parseGold("1.000,5"), 10005000, "ptBR: thousands, then a decimal comma")
+	LARGE_NUMBER_SEPERATOR = ""
+	eq(S.parseGold("1234o 50p"), 12345000, "esES: gold as the addon writes it, not grouped")
+	eq(S.parseGold("1000,5"), 10005000, "esES: a decimal comma")
 	eq(S.parseGold("4g 50s"), 45000, "Spanish: English letters still read")
-	LARGE_NUMBER_SEPARATOR = ","
+	LARGE_NUMBER_SEPERATOR = ","
 	eq(S.parseGold("1,000o"), 10000000, "esMX: a comma groups thousands")
 	eq(S.parseGold("4,5"), 45000, "esMX: a comma before one digit is a decimal point")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 -- On the Korean and Chinese clients: a coin is one character, typed after its number or run together.
 for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银", "铜" }, { "zhTW", "金", "銀", "銅" } }) do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = client[2], client[3], client[4], ","
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = client[2], client[3], client[4], ","
 	local g, s, c = client[2], client[3], client[4]
 	eq(S.parseGold("4" .. g .. " 50" .. s .. " 25" .. c), 45025, client[1] .. ": its three coins")
 	eq(S.parseGold("4" .. g .. "50" .. s), 45000, client[1] .. ": run together")
@@ -91,30 +99,30 @@ for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银
 	eq(S.parseGold("45" .. s), 4500, client[1] .. ": silver alone")
 	eq(S.parseGold("4g 50s"), 45000, client[1] .. ": English letters still read")
 	eq(S.parseGold("4" .. g .. "?"), nil, client[1] .. ": not a price")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 -- On the Italian client: coins o, a, r; thousands grouped with a point.
 do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "o", "a", "r", "."
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = "o", "a", "r", "."
 	eq(S.parseGold("4o 50a 25r"), 45025, "Italian: oro, argento and rame")
 	eq(S.parseGold("4O50A"), 45000, "Italian: in capitals, run together")
 	eq(S.parseGold("1.234o 50a"), 12345000, "Italian: grouped gold, as the addon writes it")
 	eq(S.parseGold("4,5"), 45000, "Italian: a decimal comma")
 	eq(S.parseGold("4g 50s 10c"), 45010, "Italian: English letters still read")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
--- On the Russian client: coins з, с, м (Cyrillic letters); thousands grouped with a space.
+-- On the Russian client: coins з, с, м (Cyrillic letters); thousands not grouped.
 do
-	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = "з", "с", "м", " "
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = "з", "с", "м", ""
 	eq(S.parseGold("4з 50с 25м"), 45025, "Russian: золото, серебро and медь")
 	eq(S.parseGold("4з50с"), 45000, "Russian: run together")
-	eq(S.parseGold("1 234з 50с"), 12345000, "Russian: grouped gold, as the addon writes it")
-	eq(S.parseGold("1 000"), 10000000, "Russian: a space groups thousands")
+	eq(S.parseGold("1234з 50с"), 12345000, "Russian: gold as the addon writes it")
+	eq(S.parseGold("1000"), 10000000, "Russian: a thousand")
 	eq(S.parseGold("4,5"), 45000, "Russian: a decimal comma")
 	eq(S.parseGold("4g 50s"), 45000, "Russian: English letters still read")
-	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPERATOR = was[1], was[2], was[3], was[4]
 end
 eq(S.limit({ itemId = 1, pct = 80 }, nil), nil, "a share of no market is no limit")
 eq(S.line({ itemId = 7, pct = 80, upTo = 20 }), "item 7 pct 80 upto 20", "pct and upto in the line")

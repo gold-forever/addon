@@ -112,6 +112,17 @@ eq(cn.upper("拍卖行 · ah"), "拍卖行 · AH", "Chinese has no capitals; Lat
 eq(es.upper("¿Subasta en año?"), "¿SUBASTA EN AÑO?", "Spanish ñ in capitals")
 eq(pt.upper("leilões à mão"), "LEILÕES À MÃO", "Portuguese tildes in capitals")
 eq(it.upper("più città · è così"), "PIÙ CITTÀ · È COSÌ", "Italian accents in capitals")
+-- Capitals by script, the same on every client (a heading may show a name in another language's letters).
+eq(en.upper("gold forever 1g 9s · a-z"), "GOLD FOREVER 1G 9S · A-Z", "Latin: ASCII")
+eq(en.upper("àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ"), "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ", "Latin: every Latin-1 small letter")
+eq(en.upper("ÿ œuvre"), "Ÿ ŒUVRE", "Latin: ÿ and œ, whose capitals are beyond Latin-1")
+eq(en.upper("ß ÷ × ª º µ"), "ß ÷ × ª º µ", "Latin: no capital for ß, signs and ordinals left as they are")
+eq(en.upper("ÀÉÜÑ déjà"), "ÀÉÜÑ DÉJÀ", "Latin: capitals stay")
+eq(en.upper("абвгдеёжзийклмнопрстуфхцчшщъыьэюя"), "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ", "Cyrillic: every small letter, ё too")
+eq(ru.upper("Итоги сессии · 1з 9с"), "ИТОГИ СЕССИИ · 1З 9С", "Cyrillic: a Russian heading")
+eq(en.upper("АБВ Ё"), "АБВ Ё", "Cyrillic: capitals stay")
+eq(en.upper("경매장 · 拍卖行 · 拍賣場"), "경매장 · 拍卖行 · 拍賣場", "Korean and Chinese have no case")
+eq(en.upper("€ · «» ¿¡"), "€ · «» ¿¡", "signs and marks are left as they are")
 
 -- The placeholders a text formats, in their order (%s, %d, %.1f, …; %% is a literal).
 local function placeholders(text)
@@ -184,7 +195,7 @@ eq(table.concat(unused, "\n"), "", "texts enUS.lua lists that no file shows")
 -- The game's own text is read in the client's language: a client global string (ERR_AUCTION_SOLD_S) is
 -- never backed by an English wording of the addon's, which would not match on a French client. The font
 -- path and the number separator are no wording.
-local NOT_WORDING = { STANDARD_TEXT_FONT = true, LARGE_NUMBER_SEPARATOR = true }
+local NOT_WORDING = { STANDARD_TEXT_FONT = true, LARGE_NUMBER_SEPERATOR = true }
 local fallbacks = {}
 for file, source in pairs(SOURCES) do
 	for name, text in string.gmatch(source, "%f[%w_]([%u][%u%d_]+) or \"([^\"]*)\"") do

@@ -25,10 +25,11 @@ function Money.paint(fn)
 	tint = fn
 end
 
--- A whole number in groups of three, with the client's separator ("3,000,000").
+-- A whole number in groups of three, with the client's separator ("3,000,000"; none on esES, frFR, ruRU).
+-- The client spells its global LARGE_NUMBER_SEPERATOR.
 function Money.group(n)
 	local sign, digits = string.match(tostring(math.floor(n or 0)), "^(%-?)(%d+)$")
-	local sep = LARGE_NUMBER_SEPARATOR or ","
+	local sep = LARGE_NUMBER_SEPERATOR or ","
 	local out = string.gsub(string.reverse(digits or "0"), "(%d%d%d)", "%1" .. sep)
 	out = string.reverse(out)
 	if string.sub(out, 1, #sep) == sep then
