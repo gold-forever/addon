@@ -116,4 +116,18 @@ for _, client in ipairs({ { "esES", "." }, { "esMX", "," }, { "ptBR", "." } }) d
 	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
 end
 
+-- On the Korean and Chinese clients: one character a coin (골 실 코; 金 银 铜; 金 銀 銅), commas grouping.
+-- Recalled, not copied from a client: the owner's manual test confirms them with /run print(GOLD_AMOUNT_SYMBOL).
+for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银", "铜" }, { "zhTW", "金", "銀", "銅" } }) do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = client[2], client[3], client[4], ","
+	local m = {}
+	loadEncode(m)
+	assert(load(SOURCES["Money.lua"], "@Money.lua"))("GoldForever", m)
+	eq(m.Money.format(10925), "1" .. client[2] .. " 9" .. client[3] .. " 25" .. client[4], client[1] .. ": plain, in its coins")
+	eq(m.Money.format(-150), "-1" .. client[3] .. " 50" .. client[4], client[1] .. ": a loss")
+	eq(m.Money.group(1234567), "1,234,567", client[1] .. ": grouped")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
+
 return checks()

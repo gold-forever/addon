@@ -80,6 +80,19 @@ do
 	eq(S.parseGold("4,5"), 45000, "esMX: a comma before one digit is a decimal point")
 	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
 end
+-- On the Korean and Chinese clients: a coin is one character, typed after its number or run together.
+for _, client in ipairs({ { "koKR", "골", "실", "코" }, { "zhCN", "金", "银", "铜" }, { "zhTW", "金", "銀", "銅" } }) do
+	local was = { GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR }
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = client[2], client[3], client[4], ","
+	local g, s, c = client[2], client[3], client[4]
+	eq(S.parseGold("4" .. g .. " 50" .. s .. " 25" .. c), 45025, client[1] .. ": its three coins")
+	eq(S.parseGold("4" .. g .. "50" .. s), 45000, client[1] .. ": run together")
+	eq(S.parseGold("1,234" .. g .. " 50" .. s), 12345000, client[1] .. ": grouped gold, as the addon writes it")
+	eq(S.parseGold("45" .. s), 4500, client[1] .. ": silver alone")
+	eq(S.parseGold("4g 50s"), 45000, client[1] .. ": English letters still read")
+	eq(S.parseGold("4" .. g .. "?"), nil, client[1] .. ": not a price")
+	GOLD_AMOUNT_SYMBOL, SILVER_AMOUNT_SYMBOL, COPPER_AMOUNT_SYMBOL, LARGE_NUMBER_SEPARATOR = was[1], was[2], was[3], was[4]
+end
 eq(S.limit({ itemId = 1, pct = 80 }, nil), nil, "a share of no market is no limit")
 eq(S.line({ itemId = 7, pct = 80, upTo = 20 }), "item 7 pct 80 upto 20", "pct and upto in the line")
 eq(S.line({ itemId = 7, maxUnit = 500 }), "item 7 max 500", "an old entry's line as before")

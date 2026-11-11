@@ -21,6 +21,9 @@ Locales\frFR.lua
 Locales\deDE.lua
 Locales\esES.lua
 Locales\ptBR.lua
+Locales\koKR.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
 Store\Encode.lua
 Store\EncodeIds.lua
 Store\EncodeText.lua

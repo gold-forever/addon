@@ -2,21 +2,30 @@
 -- English otherwise; every language's file has exactly English's texts, with the same placeholders; every
 -- text a file shows through ns.L is in enUS.lua, and every one listed there is shown somewhere.
 
-local LANGUAGES = { "frFR.lua", "deDE.lua", "esES.lua", "ptBR.lua" }
+local LANGUAGES = { "frFR.lua", "deDE.lua", "esES.lua", "ptBR.lua", "koKR.lua", "zhCN.lua", "zhTW.lua" }
 
 local function loaded(code)
 	GetLocale = function() return code end
 	local ns = {}
-	for _, file in ipairs({ "Locale.lua", "enUS.lua", "frFR.lua", "deDE.lua", "esES.lua", "ptBR.lua" }) do
+	for _, file in ipairs({ "Locale.lua", "enUS.lua", "frFR.lua", "deDE.lua", "esES.lua", "ptBR.lua", "koKR.lua", "zhCN.lua", "zhTW.lua" }) do
 		assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 	end
 	GetLocale = nil
 	return ns
 end
 
+-- The languages a client built.
+local function built(ns)
+	local codes = {}
+	for code in pairs(ns.Locale.languages) do codes[#codes + 1] = code end
+	table.sort(codes)
+	return table.concat(codes, " ")
+end
+
 local KEY = "Translated with AI: it may contain mistakes."
 local en, fr, de = loaded("enUS"), loaded("frFR"), loaded("deDE")
 local es, mx, pt = loaded("esES"), loaded("esMX"), loaded("ptBR")
+local ko, cn, tw = loaded("koKR"), loaded("zhCN"), loaded("zhTW")
 eq(en.L[KEY], KEY, "an English client shows the English text")
 eq(fr.L[KEY], "Traduction faite par une IA : elle peut contenir des erreurs.", "a French client shows the French text")
 eq(de.L[KEY], "Mit KI übersetzt: kann Fehler enthalten.", "a German client shows the German text")
@@ -28,15 +37,16 @@ eq(en.Locale.translated(), false, "English is not a translation")
 eq(fr.Locale.translated(), true, "French is")
 eq(de.Locale.translated(), true, "German is")
 eq(es.Locale.translated() and mx.Locale.translated() and pt.Locale.translated(), true, "Spanish, both, and Portuguese are")
+-- Korean and both Chinese: the notice names AI in each, as the glossary has it.
+for _, client in ipairs({ { ko, "koKR", "a Korean" }, { cn, "zhCN", "a Simplified Chinese" }, { tw, "zhTW", "a Traditional Chinese" } }) do
+	local ns, code, who = client[1], client[2], client[3]
+	eq(ns.Locale.translated(), true, who .. " client's addon is translated")
+	eq(ns.L[KEY] ~= KEY and string.find(ns.L[KEY], "AI", 1, true) ~= nil, true, who .. " client shows its own notice, naming AI")
+	eq(built(ns), code, who .. " client builds its own language alone")
+end
 
 -- Only the client's language is built: another language's file returns before its table, so a client keeps
 -- English and its own language, not the other ten.
-local function built(ns)
-	local codes = {}
-	for code in pairs(ns.Locale.languages) do codes[#codes + 1] = code end
-	table.sort(codes)
-	return table.concat(codes, " ")
-end
 eq(built(en), "", "an English client builds no other language")
 eq(built(fr), "frFR", "a French client builds French alone")
 eq(built(de) .. "|" .. built(es) .. "|" .. built(pt), "deDE|esES|ptBR", "a German, Spanish or Brazilian client its own alone")
@@ -86,6 +96,7 @@ eq(fr.Locale.sourceOf(fr.L[KEY]), KEY, "a French text's English, for a name the 
 eq(en.Locale.sourceOf("Total"), "Total", "an English text is its own")
 eq(fr.upper("Règles de vente · à l'hôtel"), "RÈGLES DE VENTE · À L'HÔTEL", "capitals, accented letters too")
 eq(de.upper("für Größe · über Bär"), "FÜR GRÖßE · ÜBER BÄR", "German umlauts in capitals; ß has none")
+eq(cn.upper("拍卖行 · ah"), "拍卖行 · AH", "Chinese has no capitals; Latin letters beside it do")
 eq(es.upper("¿Subasta en año?"), "¿SUBASTA EN AÑO?", "Spanish ñ in capitals")
 eq(pt.upper("leilões à mão"), "LEILÕES À MÃO", "Portuguese tildes in capitals")
 
@@ -216,7 +227,7 @@ eq(table.concat(spelt, "\n"), "", "files that spell a client message's wording i
 
 -- The locale files load before every file that shows text.
 local toc = TOCS["GoldForever.toc"]
-local first = toc:match("\n(Locales\\Locale%.lua)\nLocales\\enUS%.lua\nLocales\\frFR%.lua\nLocales\\deDE%.lua\nLocales\\esES%.lua\nLocales\\ptBR%.lua\n")
+local first = toc:match("\n(Locales\\Locale%.lua)\nLocales\\enUS%.lua\nLocales\\frFR%.lua\nLocales\\deDE%.lua\nLocales\\esES%.lua\nLocales\\ptBR%.lua\nLocales\\koKR%.lua\nLocales\\zhCN%.lua\nLocales\\zhTW%.lua\n")
 eq(first, "Locales\\Locale.lua", "the TOC loads Locale.lua, enUS.lua and every language's file together")
 eq(toc:find("Locales\\Locale.lua", 1, true) < toc:find("Store\\Encode.lua", 1, true), true, "before the addon's own files")
 return checks()

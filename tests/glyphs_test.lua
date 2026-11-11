@@ -57,10 +57,24 @@ local function literals(source)
 	return out
 end
 
--- The first character in `text` the fonts may not draw, else nil.
-local function undrawn(text)
+-- On the Korean and Chinese clients every look draws in the client's own font (Theme.lua), which has Hangul,
+-- Han, their punctuation and fullwidth forms: those files (koKR.lua, zhCN.lua, zhTW.lua) may hold them too.
+local OWN_FONT = { ["koKR.lua"] = true, ["zhCN.lua"] = true, ["zhTW.lua"] = true }
+local function codepoint(ch)
+	local b1, b2, b3 = string.byte(ch, 1, 3)
+	return #ch == 3 and ((b1 % 16) * 4096 + (b2 % 64) * 64 + b3 % 64) or nil
+end
+local function eastAsian(ch)
+	local c = codepoint(ch)
+	return c ~= nil and ((c >= 0xAC00 and c <= 0xD7A3) or (c >= 0x4E00 and c <= 0x9FFF)
+		or (c >= 0x3000 and c <= 0x303F) or (c >= 0xFF01 and c <= 0xFF5E))
+end
+
+-- The first character in `text` the fonts may not draw, else nil; `own` for a file drawn in a Korean or
+-- Chinese client's font.
+local function undrawn(text, own)
 	for ch in text:gmatch("[\192-\255][\128-\191]*") do
-		if not ALLOWED[ch] then
+		if not ALLOWED[ch] and not (own and eastAsian(ch)) then
 			return ch
 		end
 	end
@@ -78,6 +92,9 @@ eq(undrawn("la fenêtre « déjà »"), nil, "French's letters and quotes pass")
 eq(undrawn("cœur"), "œ", "œ is beyond Latin-1")
 eq(undrawn("Größe für Bären"), nil, "German's letters pass")
 eq(undrawn("¿Añadir la misión? ¡Sí! · leilões, ação, Ú"), nil, "Spanish's and Portuguese's letters and marks pass")
+eq(undrawn("경매장 · 拍卖行，拍賣場：（AI）「」"), "경", "Hangul and Han are beyond the bundled fonts")
+eq(undrawn("경매장 · 拍卖行，拍賣場：（AI）「」", true), nil, "a Korean or Chinese client's own font draws them")
+eq(undrawn("경매장 → 拍卖行", true), "→", "but not an arrow")
 
 local names = {}
 for name in pairs(SOURCES) do
@@ -87,7 +104,7 @@ table.sort(names)
 local bad = {}
 for _, name in ipairs(names) do
 	for _, lit in ipairs(literals(SOURCES[name])) do
-		local ch = undrawn(lit[2])
+		local ch = undrawn(lit[2], OWN_FONT[name])
 		if ch then
 			bad[#bad + 1] = string.format("%s:%d %s in \"%s\"", name, lit[1], ch, lit[2])
 		end

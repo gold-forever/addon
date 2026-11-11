@@ -11,7 +11,8 @@ local OTHER_SENSE = {
 	["On a bag or bank item: post, vendor, disenchant or keep, and why."] = "vendor",
 }
 
-local FILES = { frFR = "frFR.lua", deDE = "deDE.lua", esES = "esES.lua", esMX = "esES.lua", ptBR = "ptBR.lua" }
+local FILES = { frFR = "frFR.lua", deDE = "deDE.lua", esES = "esES.lua", esMX = "esES.lua", ptBR = "ptBR.lua",
+	koKR = "koKR.lua", zhCN = "zhCN.lua", zhTW = "zhTW.lua" }
 
 -- Every language's texts, as its own client builds them.
 local function texts(code)
@@ -62,7 +63,7 @@ end
 local function escape(s) return (string.gsub(s, "[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")) end
 
 local found = {}
-for _, code in ipairs({ "frFR", "deDE", "esES", "esMX", "ptBR" }) do
+for _, code in ipairs({ "frFR", "deDE", "esES", "esMX", "ptBR", "koKR", "zhCN", "zhTW" }) do
 	local translated, english, upper = texts(code)
 	local wrong = {}
 	for _, term in ipairs(terms) do
