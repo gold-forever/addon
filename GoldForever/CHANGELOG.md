@@ -4,6 +4,7 @@
 
 - **Gold Forever speaks Spanish and Brazilian Portuguese.** On a Spanish client (Spain's, and Latin America's, with its own words such as Calabozo) and on a Brazilian one, the addon is in that language, with the game's own terms (Casa de subastas, Casa de Leilões). Money shows as each client writes it (1o 9p 25c), and a price box takes it that way. As for French and German, the translation was made with AI and the addon says so once at login and at the top of Settings.
 - **Gold Forever speaks Korean and Chinese.** On a Korean client and on a mainland or Taiwanese Chinese one, the addon is in that language (Simplified or Traditional), with the game's own terms (경매장, 拍卖行, 拍賣場), drawn in the client's own font. Money shows in the client's coins (1골 9실 25코, 1金 9银 25铜), and a price box takes it that way. As for the other languages, the translation was made with AI and the addon says so once at login and at the top of Settings.
+- **Crafts, kill XP, reputation and auction sales are read on every client's wording.** Some clients write grammar into the game's messages (Korean's particles, French's "de"/"d'", Russian's plurals), and the addon missed those lines: Korean crafts and kill XP, French reputation and sold auctions. It now reads each form.
 
 ## 0.19.0 (2026-11-11)
 

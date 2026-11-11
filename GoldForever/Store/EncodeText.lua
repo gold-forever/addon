@@ -107,13 +107,41 @@ local function placeholder(format, i)
 	return tonumber(at), kind, after
 end
 
--- A reader for one of the client's own message formats ("You create: %sx%d.", its global string in the
--- client's language): reader(text) gives the values of its %s and %d in the format's argument order, or
--- nil when the text is not that message. So a message reads the same in every language the client
--- speaks, a language that numbers its placeholders ("%2$d ... %1$s") included. `whole`: the text is the
--- message and nothing more.
-local unpack = unpack or table.unpack
-function Encode.matcher(format, whole)
+-- The client's grammar markers, which the game resolves before it sends a message: each as a pattern on the
+-- format and the forms it may become. Korean's |1X;Y; is the particle X or Y the word before it takes
+-- (koKR LOOT_ITEM_CREATED_SELF "%s|1을;를; 만들었습니다."), French's "|2 " is "de " or "d'" before a name
+-- (frFR ERR_AUCTION_SOLD_S), Russian's |4A:B:C; the plural form of the number before it (ruRU
+-- COMBATLOG_XPGAIN_FIRSTPERSON). Source: Ketho/BlizzardInterfaceResources, branch forever,
+-- Resources/GlobalStrings/<locale>.lua (commit d1ee5698).
+local MARKERS = {
+	{ "|1([^;|]*);([^;|]*);", function(a, b) return { a, b } end },
+	{ "|2 ", function() return { "de ", "d'" } end },
+	{ "|4([^;|]*);", function(forms)
+		local out = {}
+		for form in string.gmatch(forms .. ":", "([^:]*):") do out[#out + 1] = form end
+		return out
+	end },
+}
+
+-- Every form a format's message may take, its markers resolved each way: one, the format, without any.
+local function resolved(format)
+	for _, marker in ipairs(MARKERS) do
+		local s, e, a, b = string.find(format, marker[1])
+		if s then
+			local out = {}
+			for _, form in ipairs(marker[2](a, b)) do
+				for _, rest in ipairs(resolved(string.sub(format, e + 1))) do
+					out[#out + 1] = string.sub(format, 1, s - 1) .. form .. rest
+				end
+			end
+			return out
+		end
+	end
+	return { format }
+end
+
+-- One marker-free format as a pattern, and its placeholders' argument positions in the order they come.
+local function compiled(format, whole)
 	local parts, order = {}, {}
 	local i = 1
 	while i <= #format do
@@ -132,18 +160,31 @@ function Encode.matcher(format, whole)
 		end
 	end
 	local pattern = table.concat(parts)
-	if whole then
-		pattern = "^" .. pattern .. "$"
+	return whole and "^" .. pattern .. "$" or pattern, order
+end
+
+-- A reader for one of the client's own message formats ("You create: %sx%d.", its global string in the
+-- client's language): reader(text) gives the values of its %s and %d in the format's argument order, or
+-- nil when the text is not that message. So a message reads the same in every language the client
+-- speaks, a language that numbers its placeholders ("%2$d ... %1$s") or writes grammar markers included
+-- (a message is read against each form the markers give). `whole`: the text is the message and nothing more.
+local unpack = unpack or table.unpack
+function Encode.matcher(format, whole)
+	local patterns, order = {}, nil
+	for _, form in ipairs(resolved(format)) do
+		patterns[#patterns + 1], order = compiled(form, whole)
 	end
 	return function(text)
-		local found = { string.match(text, pattern) }
-		if found[1] == nil then
-			return nil
+		for _, pattern in ipairs(patterns) do
+			local found = { string.match(text, pattern) }
+			if found[1] ~= nil then
+				local out = {}
+				for k, at in ipairs(order) do
+					out[at] = found[k]
+				end
+				return unpack(out, 1, #order)
+			end
 		end
-		local out = {}
-		for k, at in ipairs(order) do
-			out[at] = found[k]
-		end
-		return unpack(out, 1, #order)
+		return nil
 	end
 end
