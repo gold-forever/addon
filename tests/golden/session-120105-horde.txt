@@ -27610,7 +27610,6 @@ settings.tooltip.mob = "shift"
 settings.tooltip.payback = "shift"
 settings.tooltip.price = "always"
 settings.tooltip.starter = "shift"
-settings.tooltip.supply = "shift"
 settings.tooltip.vendor = "always"
 settings.tooltip.vendorResale = "always"
 settings.window.goal.by = 1793381535

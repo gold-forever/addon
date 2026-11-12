@@ -1,8 +1,9 @@
 -- The bag verdict: what to do with one bag item. SalePlan.verdict is the rule; BagVerdict.line its tooltip words.
 
-local ns = { on = function() end, listen = function() end, module = function() end, throttle = function(_, _, f) return f end, price = {}, BagMark = {}, commands = {} }
+local ns = { on = function() end, listen = function() end, module = function() end, throttle = function(_, _, f) return f end, price = { cut = 0.05 }, BagMark = {}, commands = {} }
 loadEncode(ns)
 assert(load(SOURCES["SalePlan.lua"], "@SalePlan.lua"))("GoldForever", ns)
+assert(load(SOURCES["Post.lua"], "@Post.lua"))("GoldForever", ns)
 assert(load(SOURCES["BagVerdict.lua"], "@BagVerdict.lua"))("GoldForever", ns)
 local verdict, line = ns.SalePlan.verdict, ns.BagVerdict.line
 local function coins(c) return c .. "c" end
@@ -13,8 +14,23 @@ local function item(over)
 end
 
 eq(verdict(item()).word, "post", "worth most after the cut on the auction house: post")
-eq(line(verdict(item()), coins), "post (AH 120c after the cut, vendor 15c)", "post's line")
-eq(line(verdict(item({ vendor = false })), coins), "post (AH 120c after the cut)", "no vendor price: only the AH")
+eq(line(verdict(item()), coins, 410), "Post at 410c (you get 389c)", "post's line: the listing price and what arrives after the 5% cut")
+eq(line(verdict(item({ vendor = false })), coins, 200), "Post at 200c (you get 190c)", "no vendor price: the same")
+
+-- The listing price: what the Sell tab would post at against the last scan's cheapest, else the market value.
+local cheapest, market = nil, 1000
+ns.price.valued = function() return market, "market", nil, nil end
+ns.price.cheapest = function() return cheapest end
+ns.price.itemInfo = function() return 1, 10, 7 end
+ns.Prices = { sellBase = function(value, from) return value, from end }
+ns.auctionSettings = function() return { rule = ns.Post.DEFAULT, overrides = {} } end
+eq(ns.BagVerdict.listing(2589), 1000, "no listing in the last scan: the market value")
+cheapest = 1050
+eq(ns.BagVerdict.listing(2589), 900, "a listing in the scan: the Sell tab's undercut, to the silver")
+cheapest = 500
+eq(ns.BagVerdict.listing(2589), 1000, "held under the floor: the market value")
+market = nil
+eq(ns.BagVerdict.listing(2589), nil, "no market value: no listing price")
 
 local v = verdict(item({ worth = 15, where = "vendor" }))
 eq(v.word, "vendor", "worth most to a vendor: vendor")

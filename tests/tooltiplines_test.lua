@@ -29,11 +29,12 @@ for _, line in ipairs(ns.TOOLTIP_LINES) do
 	keys[line.key] = true
 	eq(type(line.name) == "string" and type(line.blurb) == "string", true, line.key .. ": name and blurb")
 end
-eq(#ns.TOOLTIP_LINES, 13, "thirteen lines")
+eq(#ns.TOOLTIP_LINES, 12, "twelve lines")
+eq(keys.supply, nil, "no supply line in the tooltip (gf#367)")
 eq(ns.TOOLTIP_LINES[1].key .. " " .. ns.TOOLTIP_LINES[2].key .. " " .. ns.TOOLTIP_LINES[3].key .. " " .. ns.TOOLTIP_LINES[4].key .. " " .. ns.TOOLTIP_LINES[5].key,
-	"vendor price minBuyout disenchant bagVerdict", "the price block's five lines first, in its order")
+	"bagVerdict vendor price minBuyout disenchant", "the price block's five lines first, in its order")
 
--- The price block (gf#360): Vendor, AH, AH (min), Disenchant, Suggestion; "total (each)" on a stack; a line
+-- The price block (gf#367): Suggestion, Vendor, AH, AH (min), Disenchant; "total (each/each)" on a stack; a line
 -- with no value left out; a line not shown is never asked for its value.
 local rows = ns.TooltipBlock.rows
 local function coins(c) return c .. "c" end
@@ -51,17 +52,17 @@ local function text(r)
 	for i, row in ipairs(r) do out[i] = row[1] .. " " .. row[2] end
 	return table.concat(out, " / ")
 end
-local FULL = { vendor = 6, price = 20, minBuyout = 18, disenchant = 40, bagVerdict = "post (AH 19c after the cut)" }
-eq(text(rows(2589, 1, values(FULL), all, coins)), "Vendor 6c / AH 20c / AH (min) 18c / Disenchant 40c / Suggestion post (AH 19c after the cut)", "one item: each line in order")
-eq(text(rows(2589, 20, values(FULL), all, coins)), "Vendor 120c (6c) / AH 400c (20c) / AH (min) 360c (18c) / Disenchant 800c (40c) / Suggestion post (AH 19c after the cut)", "a stack of 20: total (each), the suggestion as it is")
-eq(text(rows(2589, 3, values({ price = 20, vendor = 0 }), all, coins)), "AH 60c (20c)", "no value, or none worth a copper: left out")
+local FULL = { vendor = 6, price = 20, minBuyout = 18, disenchant = 40, bagVerdict = "Post at 22c (you get 20c)" }
+eq(text(rows(2589, 1, values(FULL), all, coins)), "Suggestion Post at 22c (you get 20c) / Vendor 6c / AH 20c / AH (min) 18c / Disenchant 40c", "one item: the suggestion first, then each price alone")
+eq(text(rows(2589, 20, values(FULL), all, coins)), "Suggestion Post at 22c (you get 20c) / Vendor 120c (6c/each) / AH 400c (20c/each) / AH (min) 360c (18c/each) / Disenchant 800c (40c/each)", "a stack of 20: total (each/each), the suggestion as it is")
+eq(text(rows(2589, 3, values({ price = 20, vendor = 0 }), all, coins)), "AH 60c (20c/each)", "no value, or none worth a copper: left out")
 eq(text(rows(2589, 1, values({}), all, coins)), "", "nothing known: no block")
 asked = {}
 saved.tooltip = { vendor = "always", price = "always", minBuyout = "shift", disenchant = "off", bagVerdict = "shift" }
 eq(text(rows(2589, 1, values(FULL), ns.tipLine, coins)), "Vendor 6c / AH 20c", "Shift up: the Always lines alone")
 eq(asked.minBuyout or asked.disenchant or asked.bagVerdict, nil, "a line not shown is not looked up")
 shift = true
-eq(text(rows(2589, 1, values(FULL), ns.tipLine, coins)), "Vendor 6c / AH 20c / AH (min) 18c / Suggestion post (AH 19c after the cut)", "Shift held: the Shift lines too, Off stays off")
+eq(text(rows(2589, 1, values(FULL), ns.tipLine, coins)), "Suggestion Post at 22c (you get 20c) / Vendor 6c / AH 20c / AH (min) 18c", "Shift held: the Shift lines too, Off stays off")
 shift = false
 
 -- Shift pressed: the open tooltip is drawn again, only when a line is on Shift and only for Shift.
@@ -77,6 +78,9 @@ eq(refreshed, 2, "another key: not refreshed")
 saved.tooltip = { held = "always", mob = "off" }
 changed("LSHIFT", 1)
 eq(refreshed, 2, "no line on Shift: not refreshed")
+saved.tooltip = { held = "always", supply = "shift" }
+changed("LSHIFT", 1)
+eq(refreshed, 2, "a saved mode for the gone supply line is ignored")
 saved.tooltip = { mob = "shift" }
 GameTooltip.IsShown = function() return false end
 changed("LSHIFT", 1)

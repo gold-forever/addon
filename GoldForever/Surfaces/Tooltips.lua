@@ -15,12 +15,11 @@ local worth, coins = price.worth, price.coins
 -- Every line the addon adds to a tooltip, in Settings' order; each is Off, shown with Shift, or Always
 -- (settings.tooltip, its defaults in Save.lua; addon#98).
 ns.TOOLTIP_LINES = {
+	{ key = "bagVerdict", name = L["Suggestion"], blurb = L["On a bag or bank item: post, vendor, disenchant or keep, and why."] },
 	{ key = "vendor", name = L["Vendor"], blurb = L["What a vendor pays for it."] },
 	{ key = "price", name = L["AH"], blurb = L["Its auction house market value: everyone's price, else your scan's."] },
 	{ key = "minBuyout", name = L["AH (min)"], blurb = L["The cheapest listing's buyout."] },
 	{ key = "disenchant", name = L["Disenchant"], blurb = L["What disenchanting one gives on average, on items that can be disenchanted."] },
-	{ key = "bagVerdict", name = L["Suggestion"], blurb = L["On a bag or bank item: post, vendor, disenchant or keep, and why."] },
-	{ key = "supply", name = L["Supply and post size"], blurb = L["How many sell a day, how long what is listed lasts, and how many to post."] },
 	{ key = "payback", name = L["Recipe payback"], blurb = L["On a recipe item: how many crafts pay back its price at today's margin."] },
 	{ key = "held", name = L["Held counts"], blurb = L["How many each of your characters holds, in bags, bank and mail."] },
 	{ key = "mob", name = L["Mob loot"], blurb = L["On a mob you have looted: what a loot is worth and its likeliest drops."] },
@@ -40,9 +39,11 @@ function ns.tipLine(key)
 	return mode == "always" or (mode == "shift" and shiftHeld())
 end
 
+-- Only the lines there are: a saved mode for a line gone (supply, gf#367) waits on nothing.
 local function anyOnShift()
-	for _, mode in pairs(ns.settings("tooltip")) do
-		if mode == "shift" then
+	local modes = ns.settings("tooltip")
+	for _, line in ipairs(ns.TOOLTIP_LINES) do
+		if modes[line.key] == "shift" then
 			return true
 		end
 	end
@@ -174,15 +175,15 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
--- The price block (gf#360): one line each for what a vendor pays, the market value, the cheapest listing,
--- disenchanting one and the bag's suggestion, in that order, each with its own mode; a line with no value
--- is left out. On a stack, a price reads "total (each)".
+-- The price block (gf#360, gf#367): one line each for the bag's suggestion, what a vendor pays, the market
+-- value, the cheapest listing and disenchanting one, in that order, each with its own mode; a line with no
+-- value is left out. On a stack, a price reads "2s (50c/each)", one item the price alone.
 local BLOCK = {
+	{ key = "bagVerdict", label = L["Suggestion"], text = true },
 	{ key = "vendor", label = L["Vendor"] },
 	{ key = "price", label = L["AH"] },
 	{ key = "minBuyout", label = L["AH (min)"] },
 	{ key = "disenchant", label = L["Disenchant"] },
-	{ key = "bagVerdict", label = L["Suggestion"], text = true },
 }
 
 local TooltipBlock = {}
@@ -190,7 +191,7 @@ ns.TooltipBlock = TooltipBlock
 
 local function priced(unit, count, coins)
 	if count > 1 then
-		return string.format(L["%s (%s)"], coins(unit * count), coins(unit))
+		return string.format(L["%s (%s/each)"], coins(unit * count), coins(unit))
 	end
 	return coins(unit)
 end
@@ -219,7 +220,9 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		price = function(id) return price.market(id) end,
 		minBuyout = function(id) return ns.Prices.cheapest(id) end,
 		disenchant = function(id) return (price.disenchant(id)) end,
-		bagVerdict = function(_, slot) return slot and ns.BagVerdict.line(slot, coins) end,
+		bagVerdict = function(id, slot)
+			return slot and ns.BagVerdict.line(slot, coins, slot.word == "post" and ns.BagVerdict.listing(id) or nil)
+		end,
 	}
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.
 	local function blockTooltip(tooltip, data)
@@ -239,22 +242,6 @@ end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
 	local STALE_SHADE = 0.6 -- the tooltip's grey, as the addon's muted text (|cff999999)
-	-- How fast it sells and how many to post (gf#316), its own line: nothing without the file's sold.
-	local function supplyTooltip(tooltip, data)
-		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() or not ns.tipLine("supply") then
-			return
-		end
-		local Prices = ns.Prices -- loaded after this file
-		local sold, listed = Prices.supply(data.id)
-		local held = C_Item and C_Item.GetItemCount and C_Item.GetItemCount(data.id) or 0
-		local line = Prices.supplyLine(sold, listed, held)
-		if line then
-			tooltip:AddLine(ns.tipPrefix(tooltip) .. line, 0.8, 0.8, 0.8, true)
-		end
-	end
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-		ns.safely("supply tooltip", supplyTooltip, tooltip, data)
-	end)
 	ns.listen("recipesRead", "payback tooltip", ns.Crafting.forgetRecipeNames)
 	local function paybackTooltip(tooltip, data)
 		if (tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip) or not data or not ns.me() or not ns.tipLine("payback") then

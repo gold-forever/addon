@@ -45,7 +45,7 @@ local PINNED = {
 	craftQueue = "{ closed = false }",
 	scan = "{ auto = false }",
 	prices = "{  }",
-	tooltip = "{ bagMark = shift, bagVerdict = shift, bestReward = shift, disenchant = shift, held = shift, minBuyout = shift, mob = shift, payback = shift, price = always, starter = shift, supply = shift, vendor = always, vendorResale = always }",
+	tooltip = "{ bagMark = shift, bagVerdict = shift, bestReward = shift, disenchant = shift, held = shift, minBuyout = shift, mob = shift, payback = shift, price = always, starter = shift, vendor = always, vendorResale = always }",
 	auction = "{ duration = 2, rule = {  }, sellWide = false }",
 	mail = "{ helper = true }",
 	minimap = "{ angle = 225, hidden = false }",

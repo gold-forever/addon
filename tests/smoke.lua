@@ -3023,24 +3023,16 @@ local function saysMarket(id, why)
 end
 -- Without the companion's file: the own scan's price is the AH line's.
 saysMarket(2589, "the own scan's price as AH")
--- gf#316: the supply line, its own Tooltip mode, With Shift by default; none with no sold.
+-- gf#367: no supply line in the tooltip, even with sold in the file and a mode saved for it before.
 do
   local keep, shiftWas, count = GoldForever_Prices, shiftDown, C_Item.GetItemCount
   C_Item.GetItemCount = function(id) return id == 2589 and 7 or 0 end
   GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = {
-    [2589] = { 1234, 1100, 3, now, nil, sold = 14, listed = 20 }, [2590] = { 1234, 1100, 3, now } } } }
-  shiftDown = false
-  assert(poolLine(2589, "sell a day") == nil, "With Shift by default, Shift up: no supply line")
-  shiftDown = true
-  local line = poolLine(2589, "sell a day")
-  assert(line and line:find("about 2 sell a day · 20 listed: about 10 days of supply · post up to 4", 1, true), "the supply line: " .. tostring(line))
-  assert(poolLine(2590, "sell a day") == nil and poolLine(2590, "post up to") == nil, "no sold: no line")
-  GoldForeverDB.settings.tooltip.supply = "off"
-  assert(poolLine(2589, "sell a day") == nil, "Off: no line")
+    [2589] = { 1234, 1100, 3, now, nil, sold = 14, listed = 20 } } } }
   GoldForeverDB.settings.tooltip.supply = "always"
-  shiftDown = false
-  assert(poolLine(2589, "sell a day"), "Always: the line without Shift")
-  GoldForeverDB.settings.tooltip.supply = "shift"
+  shiftDown = true
+  assert(poolLine(2589, "sell a day") == nil and poolLine(2589, "post up to") == nil, "no supply line, a saved mode ignored")
+  GoldForeverDB.settings.tooltip.supply = nil
   GoldForever_Prices, shiftDown, C_Item.GetItemCount = keep, shiftWas, count
 end
 -- Held: how many each character holds, from the saved bags, bank and mail; its mode in Settings → Tooltip.
@@ -3791,7 +3783,7 @@ end
 -- Bag verdicts (gf#319): each bag and bank item carries post, vendor or disenchant, keep has no mark, and the
 -- tooltip says the word; the coin keeps its corner, combat draws nothing, the switch takes it all away.
 do
-  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem, C_Container.UseContainerItem, ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds }
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem, C_Container.UseContainerItem, ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds, ns.price.valued, ns.price.cheapest }
   local started = clock -- set back at the end, so the session's timers fall where they did
   local POST, VENDOR, DE, LISTED, QUEUED, GEAR, QUEST, BANKED = 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008
   local items = { { itemID = POST }, { itemID = VENDOR }, { itemID = DE }, { itemID = LISTED }, { itemID = QUEUED }, { itemID = GEAR, isBound = true }, { itemID = QUEST } }
@@ -3804,6 +3796,9 @@ do
   C_Container.GetContainerItemQuestInfo = function(_, s) return { isQuestItem = s == 7 } end
   ns.price.worth = function(id) if id == VENDOR then return 15, "vendor" end return 120, "auction" end
   ns.price.vendor = function() return 15 end
+  -- gf#367: a post lists at the market value with nobody in the scan to undercut.
+  ns.price.valued = function() return 12600, "market" end
+  ns.price.cheapest = function() return nil end
   ns.price.disenchant = function(id) if id == DE then return 500, 25 end end
   ns.price.enchanting = function() return 300 end
   ns.price.itemInfo = function(id) return 2, 20, id == GEAR and 4 or 7 end
@@ -3851,7 +3846,8 @@ do
     return nil
   end
   shiftDown = true
-  assert((tip(buttons[1], POST) or ""):find("post (AH", 1, true), "post's line: " .. tostring(tip(buttons[1], POST)))
+  local posted = string.format(T("Post at %s (you get %s)"), ns.price.coins(12600), ns.price.coins(11970))
+  assert(tip(buttons[1], POST) == posted, "post's line: the listing price and what arrives: " .. tostring(tip(buttons[1], POST)))
   assert((tip(buttons[2], VENDOR) or ""):find("vendor (vendor", 1, true), "vendor's line")
   assert((tip(buttons[3], DE) or ""):find("disenchant (~", 1, true), "disenchant's line")
   assert((tip(buttons[4], LISTED) or ""):find("keep (on a shopping list)", 1, true), "listed: keep")
@@ -3919,12 +3915,12 @@ do
   for slot = 1, #items do _G["ContainerFrame1Item" .. slot] = nil end
   _G["BankFrameItem1"] = nil
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, C_Container.PickupContainerItem, C_Container.UseContainerItem = keep[1], keep[2], keep[3], keep[4], keep[5]
-  ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds = keep[6], keep[7], keep[8], keep[9], keep[10], keep[11]
+  ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds, ns.price.valued, ns.price.cheapest = keep[6], keep[7], keep[8], keep[9], keep[10], keep[11], keep[12], keep[13]
   clock = started
 end
 -- /gf bags (gf#331): why bag marks do or don't show, one section a line, every read guarded.
 do
-  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds, C_AddOns, IsAddOnLoaded }
+  local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots, ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds, C_AddOns, IsAddOnLoaded, ns.price.valued, ns.price.cheapest }
   local started = clock
   local items = { { itemID = 9001, hyperlink = "[Test Ore]" }, { itemID = 9002 } }
   C_Container.GetContainerNumSlots = function(b) return b == 0 and #items or 0 end
@@ -3935,6 +3931,8 @@ do
   ns.price.disenchant = function() end
   ns.price.enchanting = function() return 300 end
   ns.price.itemInfo = function() return 2, 20, 7 end
+  ns.price.valued = function() return 12600, "market" end
+  ns.price.cheapest = function() return nil end
   ns.queueNeeds = function() return {} end
   local loaded = {}
   C_AddOns, IsAddOnLoaded = nil, function(name) return loaded[name] end
@@ -3985,7 +3983,7 @@ do
   has(said, "ContainerFrame1: shown, named buttons, 2 buttons", "the frame, how its buttons are found and how many")
   has(said, "item buttons: 2", "the buttons found in all")
   local sample = has(said, "sample: bag 0 slot 1", "the first slot with an item")
-  assert(sample:find("[Test Ore]", 1, true) and sample:find("post (AH", 1, true), "the sample's item and verdict: " .. sample)
+  assert(sample:find("[Test Ore]", 1, true) and sample:find(string.format(T("Post at %s (you get %s)"), ns.price.coins(12600), ns.price.coins(11970)), 1, true), "the sample's item and verdict: " .. sample)
   has(said, "marks showing: 2 verdict, 0 coin", "the marks showing")
   has(said, "switches: bag mark on, bag verdict on", "both switches")
   has(said, "last error: bag verdict none, bag mark none", "no errors")
@@ -4026,7 +4024,7 @@ do
   for slot = 1, #items do _G["ContainerFrame1Item" .. slot] = nil end
   C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_Container.GetContainerNumFreeSlots = keep[1], keep[2], keep[3]
   ns.price.worth, ns.price.vendor, ns.price.disenchant, ns.price.enchanting, ns.price.itemInfo, ns.queueNeeds = keep[4], keep[5], keep[6], keep[7], keep[8], keep[9]
-  C_AddOns, IsAddOnLoaded = keep[10], keep[11]
+  C_AddOns, IsAddOnLoaded, ns.price.valued, ns.price.cheapest = keep[10], keep[11], keep[12], keep[13]
   clock = started
 end
 do
@@ -4093,13 +4091,13 @@ do
   GameTooltip.RefreshData = nil
   GameTooltip:Hide()
   -- Settings → Tooltip: a row a line, each picker on its mode; a pick sets it at once. The price block's
-  -- five lines come first, in its order (gf#360).
+  -- five lines come first, in its order (gf#360, gf#367).
   local p = ns.hubWindow().pages.settings
   p.ensure("tooltip")
   assert(#p.tooltip.rows == #ns.TOOLTIP_LINES, "a row for every tooltip line")
   local first = {}
   for i = 1, 5 do first[i] = p.tooltip.rows[i].line.key .. "=" .. p.tooltip.rows[i].picker.selected end
-  assert(table.concat(first, " ") == "vendor=always price=always minBuyout=shift disenchant=shift bagVerdict=shift", "the block's lines and modes: " .. table.concat(first, " "))
+  assert(table.concat(first, " ") == "bagVerdict=shift vendor=always price=always minBuyout=shift disenchant=shift", "the block's lines and modes: " .. table.concat(first, " "))
   local row
   for _, r in ipairs(p.tooltip.rows) do if r.line.key == "held" then row = r end end
   assert(row and row.picker.selected == "shift", "the held counts' picker on With Shift")

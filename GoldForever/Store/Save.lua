@@ -24,7 +24,7 @@ ns.DEFAULTS = {
 	-- addon#98): the vendor's and the AH's prices and vendor resale always, the rest on Shift. price is the
 	-- AH line and bagVerdict the Suggestion (gf#360), kept under their old keys so their modes carry.
 	tooltip = { vendor = "always", price = "always", minBuyout = "shift", held = "shift", disenchant = "shift", mob = "shift",
-		starter = "shift", bestReward = "shift", bagMark = "shift", vendorResale = "always", supply = "shift", bagVerdict = "shift",
+		starter = "shift", bestReward = "shift", bagMark = "shift", vendorResale = "always", bagVerdict = "shift",
 		payback = "shift" },
 	auction = { rule = {}, duration = 2, sellWide = false }, -- sellWide: the Sell tab's wide layout (addon#84)
 	mail = { helper = true },

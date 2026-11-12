@@ -27,17 +27,37 @@ local WHY = {
 	["in the craft queue"] = L["in the craft queue"], ["soulbound gear"] = L["soulbound gear"], ["no price"] = L["no price"],
 }
 
--- A verdict's words for the tooltip's Suggestion line: the word and its reason.
-function BagVerdict.line(v, coins)
+-- What a "post" lists at, one unit: the Sell tab's suggestion against the last scan's cheapest listing
+-- (its default or override rule, AuctionSell.lua), else the market value; nil without a market value.
+function BagVerdict.listing(id)
+	local price = ns.price
+	local value, from, _, week = price.valued(id)
+	local market = ns.Prices.sellBase(value, from, week)
+	if not market then
+		return nil
+	end
+	local cheapest = price.cheapest(id)
+	local s = ns.auctionSettings()
+	local rule = ns.Post.resolve(s.rule, s.overrides, id, (select(3, price.itemInfo(id))))
+	local suggestion = cheapest and ns.Post.advise(rule, market, cheapest)
+	return suggestion and suggestion.unit or market
+end
+
+-- A verdict's words for the tooltip's Suggestion line: a post's listing price (BagVerdict.listing) and what
+-- arrives after the cut; the others' word and reason.
+function BagVerdict.line(v, coins, listing)
 	local why
-	if v.word == "keep" then
+	if v.word == "post" then
+		if not listing then
+			return WORDS.post
+		end
+		return string.format(L["Post at %s (you get %s)"], coins(listing), coins(math.floor(listing * (1 - ns.price.cut))))
+	elseif v.word == "keep" then
 		why = WHY[v.why] or v.why
 	elseif v.word == "disenchant" then
 		why = "~" .. coins(v.disenchant) .. (v.sale and string.format(L[", best sale %s"], coins(v.sale)) or "")
-	elseif v.word == "vendor" then
-		why = string.format(L["vendor %s"], coins(v.sale))
 	else
-		why = string.format(L["AH %s after the cut"], coins(v.sale)) .. (v.vendor and string.format(L[", vendor %s"], coins(v.vendor)) or "")
+		why = string.format(L["vendor %s"], coins(v.sale))
 	end
 	return string.format(L["%s (%s)"], WORDS[v.word] or v.word, why)
 end
@@ -179,7 +199,7 @@ local function sampleLine()
 		return L["no item in a shown slot"]
 	end
 	return string.format(L["bag %s slot %s, %s, %s"], tostring(s.bag), tostring(s.slot), info.hyperlink or string.format(L["item %d"], info.itemID),
-		BagVerdict.line(verdict, ns.price.coins))
+		BagVerdict.line(verdict, ns.price.coins, verdict.word == "post" and BagVerdict.listing(info.itemID) or nil))
 end
 
 local function errorWords(name)
