@@ -3999,6 +3999,44 @@ do
   shiftDown = false
   assert(tip(buttons[1], POST) == nil, "on Shift by default: Shift up, no line")
   shiftDown = true
+  -- gf#377: the slot read from the tooltip's own data, so another bag addon's button (no mark drawn on it), the
+  -- bank and a merchant each show what they hold.
+  do
+    local foreign = CreateFrame("Button", nil, UIParent)
+    local function block(getter, args, id, owner)
+      GameTooltip.lines = {}
+      GameTooltip.GetOwner = function() return owner or foreign end
+      GameTooltip.GetPrimaryTooltipInfo = function() return { getterName = getter, getterArgs = args } end
+      for _, hook in ipairs(itemTooltipHooks) do hook(GameTooltip, { id = id }) end
+      GameTooltip.GetPrimaryTooltipInfo = nil
+      local out = {}
+      for _, line in ipairs(GameTooltip.lines) do
+        local label, value = line:match("^(.-) → (.*)$")
+        if label then out[label:sub(1, #ns.PREFIX + 1) == ns.PREFIX .. " " and label:sub(#ns.PREFIX + 2) or label] = value end
+      end
+      return out
+    end
+    local each = string.format(T("%s (%s/each)"), ns.price.coins(60), ns.price.coins(15))
+    items[2] = { itemID = VENDOR, stackCount = 4 }
+    local b = block("GetBagItem", { 0, 2 }, VENDOR)
+    assert(b[T("Vendor")] == each, "another bag addon's button: the stack's total (each): " .. tostring(b[T("Vendor")]))
+    assert((b[T("Suggestion")] or ""):find("vendor (vendor", 1, true), "and its Suggestion, with no mark drawn: " .. tostring(b[T("Suggestion")]))
+    assert(block("GetBagItem", { 0, 2 }, POST)[T("Suggestion")] == nil, "the slot holds another item: no Suggestion")
+    items[2] = { itemID = VENDOR }
+    local numSlots = C_Container.GetContainerNumSlots
+    C_Container.GetContainerNumSlots = function(bag) return bag == -1 and 2 or numSlots(bag) end
+    local inv = BankButtonIDToInvSlotID
+    BankButtonIDToInvSlotID = function(slot) return 47 + slot end
+    local stack = C_Container.GetContainerItemInfo
+    C_Container.GetContainerItemInfo = function(bag, slot) if bag == -1 and slot == 1 then return { itemID = BANKED, stackCount = 4 } end return stack(bag, slot) end
+    b = block("GetInventoryItem", { "player", 48 }, BANKED)
+    assert(b[T("Vendor")] == each and b[T("Suggestion")], "the bank's own slot: total (each) and the Suggestion: " .. tostring(b[T("Vendor")]))
+    assert(block("GetInventoryItem", { "player", 16 }, BANKED)[T("Suggestion")] == nil, "worn gear is no bank slot")
+    BankButtonIDToInvSlotID, C_Container.GetContainerItemInfo, C_Container.GetContainerNumSlots = inv, stack, numSlots
+    -- Over a marked bag button, the data still wins: a merchant's item, one unit and no Suggestion.
+    b = block("GetMerchantItem", { 1 }, VENDOR, buttons[2])
+    assert(b[T("Vendor")] == ns.price.coins(15) and b[T("Suggestion")] == nil, "a merchant's item: one unit, no Suggestion: " .. tostring(b[T("Suggestion")]))
+  end
   -- Bags full: the coin goes on the cheapest priced stack, and that slot's verdict mark gives way to it.
   free = 0
   ns.price.worth = function(id) if id == VENDOR then return 1, "vendor" end return 120, "auction" end

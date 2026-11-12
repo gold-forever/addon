@@ -210,10 +210,51 @@ function TooltipBlock.rows(id, count, values, shown, coins, slot)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
-	-- The bag verdict of the slot under the pointer, drawn for the item shown (BagVerdict.lua).
+	local BANK_SLOTS = BANK_CONTAINER or -1
+
+	-- The bank's own slot shown as an inventory slot (classic's bank frame); nil for any other, worn gear too.
+	local function bankSlot(invSlot)
+		if not BankButtonIDToInvSlotID then
+			return nil
+		end
+		for slot = 1, C_Container.GetContainerNumSlots(BANK_SLOTS) or 0 do
+			if BankButtonIDToInvSlotID(slot) == invSlot then
+				return slot
+			end
+		end
+	end
+
+	-- The bag and slot the tooltip's own data names, whichever addon drew the button (gf#377); false when
+	-- it names something else (a merchant's, the auction house's), nil when it names nothing.
+	local function dataSlot(tooltip)
+		local info = tooltip.GetPrimaryTooltipInfo and tooltip:GetPrimaryTooltipInfo()
+		if not info or not info.getterName then
+			return nil
+		end
+		local args = info.getterArgs or {}
+		if info.getterName == "GetBagItem" then
+			return args[1], args[2]
+		elseif info.getterName == "GetInventoryItem" then
+			local slot = bankSlot(args[2])
+			return slot and BANK_SLOTS or false, slot
+		end
+		return false
+	end
+
+	-- The bag verdict of the slot shown, for the item shown (BagVerdict.lua): read from the tooltip's data,
+	-- else, on a client whose data names no slot, the mark drawn on the button under the pointer.
 	local function bagSlot(tooltip, id)
-		local owner = tooltip == GameTooltip and tooltip.GetOwner and tooltip:GetOwner()
-		return owner and ns.BagVerdict and ns.BagVerdict.at(owner, id)
+		if tooltip ~= GameTooltip or not ns.BagVerdict then
+			return nil
+		end
+		local bag, slot = dataSlot(tooltip)
+		if bag then
+			return slot and ns.BagVerdict.ofSlot(bag, slot, id)
+		elseif bag == false then
+			return nil
+		end
+		local owner = tooltip.GetOwner and tooltip:GetOwner()
+		return owner and ns.BagVerdict.at(owner, id)
 	end
 	local VALUES = {
 		vendor = function(id) return price.vendor(id) end,

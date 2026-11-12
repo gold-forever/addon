@@ -137,7 +137,20 @@ function BagVerdict.sample(buttons)
 	end
 end
 
--- The verdict drawn for this item button, when it still holds item `id`; nil otherwise.
+-- The verdict for whatever bag or bank slot holds item `id` now, with no mark drawn (gf#377); nil when the
+-- slot holds another item or none.
+function BagVerdict.ofSlot(bag, slot, id)
+	local info = C_Container.GetContainerItemInfo(bag, slot)
+	if not info or info.itemID ~= id then
+		return nil
+	end
+	local v = verdictOf({ bag = bag, slot = slot }, info, BagVerdict.wanted(), ns.queueNeeds())
+	v.id, v.count = id, info.stackCount or 1
+	return v
+end
+
+-- The verdict drawn for this item button, when it still holds item `id`; nil otherwise. The tooltip's
+-- fallback where its data names no slot (Tooltips.lua).
 function BagVerdict.at(button, id)
 	local v = next(shown) and shown[button]
 	return v and v.id == id and v or nil
