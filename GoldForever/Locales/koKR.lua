@@ -623,6 +623,7 @@ ns.Locale.add("koKR", {
 	["No price yet: scan first"] = "아직 가격 없음: 먼저 스캔하십시오",
 	[" (live)"] = " (실시간)",
 	[" (last scan, yours included)"] = " (마지막 스캔, 내 것 포함)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "일반 물품 검색 결과에는 판매자가 나오지 않습니다: 부캐릭터의 등록 물품도 다른 사람 것으로 셉니다.",
 	["typical %s"] = "일반 %s",
 	["market %s"] = "시세 %s",
 	["none listed"] = "등록 없음",

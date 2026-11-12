@@ -624,6 +624,7 @@ ns.Locale.add("esES", {
 	["No price yet: scan first"] = "Aún sin precio: escanea primero",
 	[" (live)"] = " (en directo)",
 	[" (last scan, yours included)"] = " (último escaneo, incluidos los tuyos)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "Los resultados de materiales no nombran vendedores: los anuncios de tus alters cuentan como de otros.",
 	["typical %s"] = "habitual %s",
 	["market %s"] = "mercado %s",
 	["none listed"] = "ninguno anunciado",

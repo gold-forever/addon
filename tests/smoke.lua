@@ -1659,6 +1659,8 @@ do
   assert(not chosen.suggestion.estimate, "the live search answered: the price posts")
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
+  -- gf#375: commodity results name no sellers, so the Sell tab says the alts' listings are counted.
+  assert(AP.panel().post.facts.text:find(T("Commodity results name no sellers: your alts' listings count as others'."), 1, true), "the alts' note: " .. tostring(AP.panel().post.facts.text))
   seen("AH POST ", tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit), "maximum 100", "maximum 300")
   -- The Sell list's price column is the typical price, and named so: the tooltip's "Market" is another
   -- number (addon#21). Without a typical price in the pool, nothing in it.
@@ -2388,6 +2390,53 @@ do
     assert(cancelled == 801, "Cancel next cancels the 590 one: " .. tostring(cancelled))
     fire("AUCTION_CANCELED", 801)
     C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo = keep[1], keep[2]
+  end
+  -- gf#375: gear the account's alts list counts as own: left out of the cheapest on Sell and of the
+  -- units ahead in the Cancel view; an auction a stranger shares with an alt does not.
+  do
+    local Sell = ns.AuctionSell
+    local GEAR = { itemID = 4321, itemLevel = 600 }
+    local keep = { C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_AuctionHouse.GetItemCommodityStatus,
+      C_AuctionHouse.GetItemKeyFromItem, C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo }
+    local me = ns.me()
+    GoldForeverDB.characters["Player-0-ALT"] = { name = "Altie", realm = me.realm, region = me.region }
+    local results = {
+      { auctionID = 951, quantity = 1, buyoutAmount = 500000, owners = { "Altie" } },
+      { auctionID = 952, quantity = 1, buyoutAmount = 600000, owners = { "Altie", "Stranger" } },
+      { auctionID = 953, quantity = 1, buyoutAmount = 700000, owners = { "Stranger" } },
+    }
+    C_Container.GetContainerNumSlots = function(b) return b == 0 and 1 or 0 end
+    C_Container.GetContainerItemInfo = function(b, s) return b == 0 and s == 1 and { itemID = 4321, stackCount = 1, quality = 3, hyperlink = "|Hitem:4321::::::::30|h[Gloves]|h" } or nil end
+    C_AuctionHouse.GetItemCommodityStatus = function() return 1 end
+    C_AuctionHouse.GetItemKeyFromItem = function() return GEAR end
+    C_AuctionHouse.GetNumItemSearchResults = function() return #results end
+    C_AuctionHouse.GetItemSearchResultInfo = function(_, i) return results[i] end
+    AP.tab("scan")
+    AP.tab("post")
+    ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
+    fire("ITEM_SEARCH_RESULTS_UPDATED", GEAR)
+    local _, gloves = AP.state()
+    assert(gloves and gloves.id == 4321 and gloves.cheapest == 600000, "the alt's 50g left out, the shared 60g kept: " .. tostring(gloves and gloves.cheapest))
+    local mine = { { auctionID = 960, itemKey = GEAR, status = 0, quantity = 1, buyoutAmount = 650000 } }
+    C_AuctionHouse.GetNumOwnedAuctions = function() return #mine end
+    C_AuctionHouse.GetOwnedAuctionInfo = function(i) return mine[i] end
+    C_AuctionHouse.GetItemKeyInfo = function() return { isCommodity = false, itemName = "Gloves" } end
+    GoldForeverDB.settings.auction.ahead = 0
+    Sell.showCancel(true)
+    Sell.checkOwned()
+    fire("OWNED_AUCTIONS_UPDATED")
+    fire("ITEM_SEARCH_RESULTS_UPDATED", GEAR)
+    wait(1)
+    local found = Sell.review()
+    assert(found.undercut[1] and found.undercut[1].ahead == 1, "one ahead: the stranger's shared one, not the alt's: " .. tostring(found.undercut[1] and found.undercut[1].ahead))
+    Sell.showCancel(false)
+    GoldForeverDB.settings.auction.ahead = nil
+    GoldForeverDB.characters["Player-0-ALT"] = nil
+    C_Container.GetContainerNumSlots, C_Container.GetContainerItemInfo, C_AuctionHouse.GetItemCommodityStatus,
+      C_AuctionHouse.GetItemKeyFromItem, C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo = unpack(keep, 1, 6)
+    AP.tab("scan")
+    AP.tab("post")
+    ns.test.AuctionPanelAltClick(nil, { bag = 0, slot = 1 })
   end
   -- The Sell tab's Cancel view (gf#369): 10 Linen at 50s with 10 others' at 40s under it (past 3 ahead),
   -- and 5 Wool at 30s alone now, others' at 60s (the rule would post at 59s): Space cancels one a press,

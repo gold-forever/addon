@@ -622,6 +622,7 @@ ns.Locale.source({
 	"No price yet: scan first",
 	" (live)",
 	" (last scan, yours included)",
+	"Commodity results name no sellers: your alts' listings count as others'.",
 	"typical %s",
 	"market %s",
 	"none listed",

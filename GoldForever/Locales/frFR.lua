@@ -623,6 +623,7 @@ ns.Locale.add("frFR", {
 	["No price yet: scan first"] = "Pas encore de prix : lancez d'abord une analyse",
 	[" (live)"] = " (en direct)",
 	[" (last scan, yours included)"] = " (dernière analyse, les vôtres comprises)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "Les résultats des marchandises ne nomment aucun vendeur : les annonces de vos rerolls comptent comme celles des autres.",
 	["typical %s"] = "habituel %s",
 	["market %s"] = "marché %s",
 	["none listed"] = "aucune annonce",

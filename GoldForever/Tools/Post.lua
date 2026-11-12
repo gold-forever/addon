@@ -184,6 +184,60 @@ function Post.ahead(unit, levels)
 	return n
 end
 
+-- The account's characters as an item search result's `owners` name them (gf#375): bare on the
+-- player's realm, "Name-Realm" (the realm without spaces or hyphens) on any realm of the region.
+function Post.ownerNames(characters, realm, region)
+	local names = {}
+	for _, c in pairs(characters or {}) do
+		if c.name and c.realm and (not region or not c.region or c.region == region) then
+			names[c.name .. "-" .. c.realm:gsub("[%s%-]", "")] = true
+			if c.realm == realm then
+				names[c.name] = true
+			end
+		end
+	end
+	return names
+end
+
+-- The names of the account's characters, as the auction house's owners list them, for the one playing.
+function Post.accountNames()
+	local me = ns.me() or {}
+	return Post.ownerNames(ns.db().characters, me.realm, me.region)
+end
+
+-- A gear book's levels with the account's other characters' auctions counted as own (gf#375): those
+-- whose `owners[auctionID]` are all in `names`. Commodity results name no owners, so this is for gear
+-- only. Returns the levels (a copy when any changed; the same table when none did) and the alts'
+-- auction ids as a set.
+function Post.withAlts(levels, owners, names)
+	if not levels then
+		return nil, {}
+	end
+	local out, alts = levels, {}
+	for i, l in ipairs(levels) do
+		local who = l.auctionID and owners[l.auctionID]
+		local all = who and #who > 0 and (l.own or 0) == 0
+		for _, name in ipairs(all and who or {}) do
+			all = all and names[name] == true
+		end
+		if all then
+			if out == levels then
+				out = {}
+				for j, x in ipairs(levels) do
+					out[j] = x
+				end
+			end
+			local copy = {}
+			for k, v in pairs(l) do
+				copy[k] = v
+			end
+			copy.own = l.quantity or 0
+			out[i], alts[l.auctionID] = copy, true
+		end
+	end
+	return out, alts
+end
+
 -- The Sell tab's Cancel view (gf#369), from owned auctions { unit, levels (their item's live book; nil
 -- before it is searched), repost (what the rule would post at now, nil to hold) }: `undercut`, more than
 -- `ahead` units listed under them, most ahead first; `higher`, the rule's price now more than

@@ -228,4 +228,42 @@ do
 	eq(P.readOwned(1, function() return infos[1] end, nil, function() end)[1].commodity, false, "a client without key info: not a commodity")
 end
 
+-- The account's characters as an auction's owners name them (gf#375): bare on the player's realm,
+-- "Name-Realm" (spaces and hyphens dropped) on any realm of the region.
+do
+	local chars = {
+		a = { name = "Main", realm = "Argent Dawn", region = "EU" },
+		b = { name = "Alt", realm = "Argent Dawn", region = "EU" },
+		c = { name = "Far", realm = "Azjol-Nerub", region = "EU" },
+		d = { name = "Yank", realm = "Argent Dawn", region = "US" },
+		e = { realm = "Argent Dawn", region = "EU" },
+	}
+	local names = P.ownerNames(chars, "Argent Dawn", "EU")
+	eq(tostring(names.Alt) .. tostring(names["Alt-ArgentDawn"]) .. tostring(names["Far-AzjolNerub"]), "truetruetrue", "same realm bare and suffixed, another realm suffixed")
+	eq(tostring(names.Far) .. tostring(names.Yank) .. tostring(names["Yank-ArgentDawn"]), "nilnilnil", "another realm never bare; another region never")
+	eq(next(P.ownerNames(nil, "Argent Dawn", "EU")), nil, "no characters: no names")
+end
+
+-- Gear levels with the account's alts' auctions counted as own (gf#375): an auction is the account's
+-- when every owner it names is one of its characters.
+do
+	local levels = {
+		{ unitPrice = 100, quantity = 1, own = 0, auctionID = 1 },
+		{ unitPrice = 110, quantity = 2, own = 0, auctionID = 2 },
+		{ unitPrice = 120, quantity = 1, own = 0, auctionID = 3 },
+		{ unitPrice = 130, quantity = 1, own = 1, auctionID = 4 },
+		{ unitPrice = 140, quantity = 1, own = 0 },
+	}
+	local owners = { [1] = { "Alt" }, [2] = { "Alt", "Stranger" }, [3] = {}, [4] = { "Main" } }
+	local names = { Alt = true, Main = true }
+	local marked, alts = P.withAlts(levels, owners, names)
+	eq(marked[1].own .. marked[2].own .. marked[3].own .. marked[4].own .. marked[5].own, "10010", "an alt's alone: own; with a stranger, none named or no id: not")
+	eq(tostring(alts[1]) .. tostring(alts[2]) .. tostring(alts[4]), "truenilnil", "the alts' auctions by id, the player's own not among them")
+	eq(levels[1].own, 0, "the book itself is left as it was")
+	eq(marked[2].auctionID, 2, "the other fields kept")
+	local same = P.withAlts(levels, { [2] = { "Stranger" } }, names)
+	eq(same == levels, true, "no alt among them: the same levels")
+	eq(P.withAlts(nil, owners, names), nil, "no levels: none")
+end
+
 return checks()

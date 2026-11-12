@@ -624,6 +624,7 @@ ns.Locale.add("ptBR", {
 	["No price yet: scan first"] = "Sem preço ainda: escaneie primeiro",
 	[" (live)"] = " (ao vivo)",
 	[" (last scan, yours included)"] = " (última varredura, incluindo os seus)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "Os resultados de mercadorias não mostram vendedores: os anúncios dos seus alts contam como de outros.",
 	["typical %s"] = "típico %s",
 	["market %s"] = "mercado %s",
 	["none listed"] = "nenhum anunciado",

@@ -624,6 +624,7 @@ ns.Locale.add("deDE", {
 	["No price yet: scan first"] = "Noch kein Preis: zuerst scannen",
 	[" (live)"] = " (live)",
 	[" (last scan, yours included)"] = " (letzter Scan, Eure eingeschlossen)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "Bei Massenwaren nennt die Suche keine Verkäufer: Angebote Eurer Twinks zählen als die anderer.",
 	["typical %s"] = "üblich %s",
 	["market %s"] = "Markt %s",
 	["none listed"] = "keine Angebote",

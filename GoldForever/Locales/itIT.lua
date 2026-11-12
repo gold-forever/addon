@@ -624,6 +624,7 @@ ns.Locale.add("itIT", {
 	["No price yet: scan first"] = "Ancora nessun prezzo: prima fai una scansione",
 	[" (live)"] = " (in diretta)",
 	[" (last scan, yours included)"] = " (ultima scansione, le tue incluse)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "I risultati delle merci non indicano i venditori: le inserzioni dei tuoi alt contano come altrui.",
 	["typical %s"] = "tipico %s",
 	["market %s"] = "mercato %s",
 	["none listed"] = "nessuna inserzione",

@@ -623,6 +623,7 @@ ns.Locale.add("zhTW", {
 	["No price yet: scan first"] = "尚無價格：請先掃描",
 	[" (live)"] = " （即時）",
 	[" (last scan, yours included)"] = " （上次掃描，含你的）",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "商品的搜尋結果不顯示賣家：你分身的上架按他人的計算。",
 	["typical %s"] = "常見 %s",
 	["market %s"] = "市價 %s",
 	["none listed"] = "無人上架",

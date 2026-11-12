@@ -623,6 +623,7 @@ ns.Locale.add("zhCN", {
 	["No price yet: scan first"] = "尚无价格：请先扫描",
 	[" (live)"] = " （实时）",
 	[" (last scan, yours included)"] = " （上次扫描，含你的挂单）",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "商品的搜索结果不显示卖家：你小号的挂单按他人的计算。",
 	["typical %s"] = "常见价 %s",
 	["market %s"] = "市场价 %s",
 	["none listed"] = "无挂单",

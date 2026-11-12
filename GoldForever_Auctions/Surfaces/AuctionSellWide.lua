@@ -107,6 +107,12 @@ local function because(r, sug)
 	return (sug.label or L["The sale plan's step"]) .. "."
 end
 
+-- A commodity's live price counts the account's alts' listings as others' (gf#375): its search results
+-- name no sellers. The note saying so, else nil.
+function Wide.altsNote(r)
+	return r.commodity and r.cheapestFrom == "live" and L["Commodity results name no sellers: your alts' listings count as others'."] or nil
+end
+
 -- Why the price is what it is, in a sentence, and the post size's reason (gf#368); until the live
 -- search answers, that it is searching (a price from the last scan is never posted).
 function Wide.why(r)
@@ -117,7 +123,8 @@ function Wide.why(r)
 	if sug.estimate then
 		return L["Searching the auction house for the live price..."]
 	end
-	return because(r, sug) .. (r.sizeReason and string.format(L[" Posting %s."], r.sizeReason) or "")
+	local note = Wide.altsNote(r)
+	return because(r, sug) .. (r.sizeReason and string.format(L[" Posting %s."], r.sizeReason) or "") .. (note and (" " .. note) or "")
 end
 
 -- The price line: the unit price, or Held under the floor; nil with no price.

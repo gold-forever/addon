@@ -67,10 +67,42 @@ local PLAN_REASONS = {
 	maximum = L["At the maximum (plan)"], ["under-vendor"] = L["Held: under the vendor price"],
 }
 
+-- Gear listed by the account's other characters counts as own too (gf#375): an item book's levels
+-- marked again from its search's `owners`, and its cheapest other listing found again. A commodity's
+-- book as it is: its results name no owners. Each book is read once (`marked`, by book).
+local marked = setmetatable({}, { __mode = "k" })
+
+local function ownersOf(itemKey)
+	local owners = {}
+	if not (C_AuctionHouse.GetNumItemSearchResults and C_AuctionHouse.GetItemSearchResultInfo) then
+		return owners
+	end
+	for i = 1, math.min(C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0, Books.LEVELS) do
+		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
+		if res and res.auctionID and res.owners then
+			owners[res.auctionID] = res.owners
+		end
+	end
+	return owners
+end
+
+local function sellBook(itemID, commodity, itemKey)
+	local book = (commodity or itemKey) and ah.live[bookKey(itemID, commodity, itemKey and itemKey.itemLevel)]
+	if commodity or not (book and book.levels) then
+		return book
+	end
+	if not marked[book] then
+		local levels, alts = Post.withAlts(book.levels, ownersOf(itemKey), Post.accountNames())
+		marked[book] = levels == book.levels and book
+			or { cheapest = Books.honest(levels, itemID), levels = levels, alts = alts, commodity = false, at = book.at }
+	end
+	return marked[book]
+end
+
 -- limits: Post.limits for the item, or nil without a market value.
 local function planned(r, rule, market, limits)
 	-- Gear's book is known once the row was searched, at its own item level.
-	local book = (r.commodity or r.itemKey) and ah.live[bookKey(r.id, r.commodity, r.itemKey and r.itemKey.itemLevel)]
+	local book = sellBook(r.id, r.commodity, r.itemKey)
 	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market, nil, Post.silver,
 		limits and { vendor = limits.vendor, maximum = limits.maximum })
 	local unit = step.unitPrice or (step.choices and step.choices.plan)
@@ -100,7 +132,8 @@ local function price(r, s)
 	r.typical = from == "typical price" and market or nil
 	local l = ah.live[r.key]
 	if l then
-		r.cheapest, r.cheapestFrom = l.cheapest, "live"
+		local book = not r.commodity and sellBook(r.id, false, r.itemKey)
+		r.cheapest, r.cheapestFrom = (book or l).cheapest, "live"
 	else
 		r.cheapest, r.cheapestFrom = ns.price.cheapest(r.id), "scan"
 	end
@@ -146,7 +179,7 @@ local function review(s)
 	s = s or settings()
 	for _, a in ipairs(ah.owned) do
 		local key = bookKey(a.itemID, a.commodity, a.itemKey and a.itemKey.itemLevel)
-		local book = ah.live[key]
+		local book = sellBook(a.itemID, a.commodity, a.itemKey)
 		a.levels, a.cheapest = book and book.levels, book and book.cheapest
 		local r = book and price({ key = key, id = a.itemID, count = a.quantity, commodity = a.commodity, itemKey = a.itemKey }, s)
 		a.repost = r and r.suggestion and r.suggestion.unit or nil
@@ -790,7 +823,7 @@ local function buildPost(page)
 			return
 		end
 		local live = ah.live[r.key]
-		local book = r.commodity and live or (r.itemKey and ah.live[bookKey(r.id, false, r.itemKey.itemLevel)])
+		local book = sellBook(r.id, r.commodity, r.itemKey)
 		local q, d = quantity(r), durationOf(r)
 		box:Draw({
 			r = r, quantity = q, duration = d, live = live, levels = live and book and book.levels or nil,
@@ -849,12 +882,14 @@ local function buildPost(page)
 		local base = r.typical and string.format(L["typical %s"], money(r.typical))
 			or (string.format(L["market %s"], r.market and money(r.market) or "-") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
 		facts:SetText(string.format(L["Cheapest other %s · %s%s · floor %s · maximum %s"], cheapest, base, trend,
-			sug and money(sug.floor) or "-", sug and sug.maximum and money(sug.maximum) or "-") .. (r.supplyLine and ("\n" .. r.supplyLine) or ""))
+			sug and money(sug.floor) or "-", sug and sug.maximum and money(sug.maximum) or "-") .. (r.supplyLine and ("\n" .. r.supplyLine) or "")
+			.. (Wide.altsNote(r) and ("\n" .. Wide.altsNote(r)) or ""))
 		local l = ah.live[r.key]
+		local alts = not r.commodity and l and (sellBook(r.id, false, r.itemKey) or {}).alts or {}
 		for i, line in ipairs(listed) do
 			local x = l and l.list and l.list[i]
 			line.unit:SetText(x and money(x.unit) or (i == 1 and (faint .. (l and L["none listed"] or L["searching..."]) .. "|r") or ""))
-			line.qty:SetText(x and ("x" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  " .. L["yours"] .. "|r") or "")) or "")
+			line.qty:SetText(x and ("x" .. x.qty .. ((x.own or alts[x.auctionID]) and (Theme.escape(Theme.color.accent) .. "  " .. L["yours"] .. "|r") or "")) or "")
 		end
 		listHead:SetText(l and l.total and l.total > LISTED and string.format(L["LISTINGS · CHEAPEST %d OF %d"], LISTED, l.total) or L["LISTINGS"])
 		local can = live and (sug.unit or r.anyway) and not busy()

@@ -624,6 +624,7 @@ ns.Locale.add("ruRU", {
 	["No price yet: scan first"] = "Цены еще нет: сначала отсканируйте",
 	[" (live)"] = " (сейчас)",
 	[" (last scan, yours included)"] = " (последнее сканирование, с вашими)",
+	["Commodity results name no sellers: your alts' listings count as others'."] = "В результатах по товарам продавцы не указаны: лоты ваших альтов считаются чужими.",
 	["typical %s"] = "обычная %s",
 	["market %s"] = "рынок %s",
 	["none listed"] = "никто не выставил",
