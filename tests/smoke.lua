@@ -2378,6 +2378,67 @@ do
     fire("AUCTION_CANCELED", 801)
     C_AuctionHouse.GetNumItemSearchResults, C_AuctionHouse.GetItemSearchResultInfo = keep[1], keep[2]
   end
+  -- The Sell tab's Cancel view (gf#369): 10 Linen at 50s with 10 others' at 40s under it (past 3 ahead),
+  -- and 5 Wool at 30s alone now, others' at 60s (the rule would post at 59s): Space cancels one a press,
+  -- the undercut first.
+  do
+    local Sell = ns.AuctionSell
+    local mine = { { auctionID = 901, itemKey = { itemID = 2589, itemLevel = 0 }, status = 0, quantity = 10, buyoutAmount = 5000 },
+      { auctionID = 902, itemKey = { itemID = 2592, itemLevel = 0 }, status = 0, quantity = 5, buyoutAmount = 3000 } }
+    local books = { [2589] = { { unitPrice = 4000, quantity = 10, numOwnerItems = 0 }, { unitPrice = 5000, quantity = 10, numOwnerItems = 10 } },
+      [2592] = { { unitPrice = 3000, quantity = 5, numOwnerItems = 5 }, { unitPrice = 6000, quantity = 8, numOwnerItems = 0 } } }
+    local keep = { C_AuctionHouse.GetNumCommoditySearchResults, C_AuctionHouse.GetCommoditySearchResultInfo, ns.Prices.value }
+    C_AuctionHouse.GetNumOwnedAuctions = function() return #mine end
+    C_AuctionHouse.GetOwnedAuctionInfo = function(i) return mine[i] end
+    C_AuctionHouse.GetItemKeyInfo = function(key) return { isCommodity = true, itemName = key.itemID == 2589 and "Linen Cloth" or "Wool Cloth" } end
+    C_AuctionHouse.GetNumCommoditySearchResults = function(id) return books[id] and #books[id] or 0 end
+    C_AuctionHouse.GetCommoditySearchResultInfo = function(id, i) return books[id] and books[id][i] end
+    ns.Prices.value = function() return nil end -- no market value: the cheapest other stands in
+    local space
+    for _, f in ipairs(frames) do if f.name == "GoldForeverPostKey" then space = f end end
+    AP.tab("post")
+    Sell.showCancel(true)
+    local view = AP.panel().post.cancelView
+    assert(view:IsShown() and AP.bound(), "the Cancel view shows on Sell, Space still bound")
+    Sell.checkOwned()
+    fire("OWNED_AUCTIONS_UPDATED")
+    fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
+    wait(1)
+    fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2592)
+    wait(1)
+    local found = Sell.review()
+    assert(#found.undercut == 1 and found.undercut[1].auctionID == 901 and found.undercut[1].ahead == 10,
+      "Linen undercut by 10: " .. #found.undercut .. " " .. tostring(found.undercut[1] and found.undercut[1].ahead))
+    assert(#found.higher == 1 and found.higher[1].auctionID == 902 and found.higher[1].repost == 5900,
+      "Wool would post at 59s now: " .. #found.higher .. " " .. tostring(found.higher[1] and found.higher[1].repost))
+    local reasons = { view.under.columns[3].text(found.undercut[1]), view.higher.columns[3].text(found.higher[1]) }
+    assert(reasons[1]:find("10", 1, true) and reasons[2]:find("96.7", 1, true), "each with its reason: " .. table.concat(reasons, " / "))
+    -- The tolerance: 10 ahead is not past 10.
+    GoldForeverDB.settings.auction.ahead = 10
+    assert(#Sell.review().undercut == 0, "not past a tolerance of 10")
+    GoldForeverDB.settings.auction.ahead = nil
+    cancelled = nil
+    local cancels = 0
+    local counting = C_AuctionHouse.CancelAuction
+    C_AuctionHouse.CancelAuction = function(id) cancels = cancels + 1 return counting(id) end
+    local ok = pcall(Sell.cancelNext)
+    assert(not ok and cancels == 0, "never outside a key press")
+    space.scripts.OnClick(space)
+    assert(cancelled == 901, "Space cancels the undercut Linen first: " .. tostring(cancelled))
+    space.scripts.OnClick(space)
+    assert(cancels == 1, "one a press: the next waits for the answer")
+    fire("AUCTION_CANCELED", 901)
+    space.scripts.OnClick(space)
+    assert(cancelled == 902 and cancels == 2, "then the Wool to post higher")
+    fire("AUCTION_CANCELED", 902)
+    assert(view.note:GetText():find(T("Cancelled: it comes back by mail."), 1, true), "the view says it comes back")
+    space.scripts.OnClick(space)
+    assert(cancels == 2 and view.note:GetText() == T("Nothing to cancel."), "none left")
+    Sell.showCancel(false)
+    assert(not view:IsShown(), "Back to the Sell list")
+    C_AuctionHouse.GetNumCommoditySearchResults, C_AuctionHouse.GetCommoditySearchResultInfo, ns.Prices.value = keep[1], keep[2], keep[3]
+    C_AuctionHouse.CancelAuction = counting
+  end
   for _, d in pairs(GoldForeverDB.events) do d.auctionEnd = nil end
   for k, f in pairs(saved) do C_AuctionHouse[k] = f end
   for _, k in ipairs({ "QueryOwnedAuctions", "GetNumOwnedAuctions", "GetOwnedAuctionInfo", "GetItemKeyInfo", "GetCancelCost" }) do if not saved[k] then C_AuctionHouse[k] = nil end end

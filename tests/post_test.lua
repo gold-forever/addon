@@ -83,6 +83,33 @@ local list = P.undercutList({ { id = 1, unit = 2100, cheapest = 1900 }, { id = 2
 eq(#list .. ":" .. list[1].id .. list[2].id, "2:31", "the 20% then the 9.5%; 1% and none left out")
 eq(list[1].under, 20, "its under set")
 
+-- Items ahead (gf#369): other players' units listed under the auction's price, own units left out.
+local book = { { unitPrice = 900, quantity = 5, own = 2 }, { unitPrice = 950, quantity = 1, own = 0 }, { unitPrice = 1000, quantity = 10, own = 10 }, { unitPrice = 1100, quantity = 4, own = 0 } }
+eq(P.ahead(1000, book), 4, "3 others at 90s and 1 at 95s; ours and the dearer ones not")
+eq(P.ahead(900, book), 0, "none under the cheapest")
+eq(P.ahead(1000, nil), 0, "no book: none")
+
+-- The Cancel view's two lists (gf#369): undercut by more than `ahead` items, most ahead first; and
+-- those the rule would post more than `tolerance` percent higher now, most gained first. Unsearched
+-- ones (no levels) are in neither.
+local review = P.cancelReview({
+	{ id = 1, unit = 1000, levels = book }, -- 4 ahead
+	{ id = 2, unit = 1000, levels = { { unitPrice = 990, quantity = 3, own = 0 } } }, -- 3 ahead: within
+	{ id = 3, unit = 1000, levels = { { unitPrice = 800, quantity = 20, own = 0 } } }, -- 20 ahead
+	{ id = 4, unit = 1000, levels = {}, repost = 1500 }, -- alone now: 50% higher
+	{ id = 5, unit = 1000, levels = {}, repost = 1040 }, -- 4% higher: within
+	{ id = 6, unit = 1000, levels = {}, repost = 1200 }, -- 20% higher
+	{ id = 7, unit = 1000, repost = 2000 }, -- not searched
+}, 3, 5)
+local function ids(l) local t = {} for _, a in ipairs(l) do t[#t + 1] = a.id end return table.concat(t, ",") end
+eq(ids(review.undercut), "3,1", "past 3 ahead, most ahead first")
+eq(review.undercut[1].ahead, 20, "its ahead set")
+eq(ids(review.higher), "4,6", "past 5% higher, most gained first")
+eq(review.higher[1].up, 50, "its up set, in percent")
+local twice = P.cancelReview({ { id = 8, unit = 1000, levels = { { unitPrice = 900, quantity = 9, own = 0 } }, repost = 5000 } }, 3, 5)
+eq(ids(twice.undercut) .. "|" .. ids(twice.higher), "8|", "undercut wins over higher")
+eq(#P.cancelReview({ { id = 9, unit = 1000, levels = {}, repost = nil } }, 3, 5).higher, 0, "held now: not higher")
+
 -- Overrides: an item's over its category's over the default; only the fields an override holds change.
 local base = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" }
 local overrides = { items = { [2589] = { floor = 50 } }, classes = { [7] = { undercut = "5%", normal = 150 } } }

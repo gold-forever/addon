@@ -130,6 +130,162 @@ local function price(r, s)
 	return r
 end
 
+-- The Cancel view (gf#369): the player's own auctions, each searched live (the Auctions tab's check), in
+-- two lists with their reasons: undercut by more units than the tolerance, and those the rule would post
+-- higher now that the cheaper listings sold. Cancel next, or Space while the view shows, cancels one a
+-- press (CancelAuction is a hardware event, and costs the deposit); the items come back by mail.
+local AHEADS = { 0, 3, 10 }
+local HIGHER_BY = 10 -- percent: reposting costs a new deposit, so only a clear gain is offered
+
+local function aheadTolerance()
+	return settings().ahead or 3
+end
+
+-- Each owned auction against its item's live book, and what the rule would post it at now.
+local function review(s)
+	s = s or settings()
+	for _, a in ipairs(ah.owned) do
+		local key = bookKey(a.itemID, a.commodity, a.itemKey and a.itemKey.itemLevel)
+		local book = ah.live[key]
+		a.levels, a.cheapest = book and book.levels, book and book.cheapest
+		local r = book and price({ key = key, id = a.itemID, count = a.quantity, commodity = a.commodity, itemKey = a.itemKey }, s)
+		a.repost = r and r.suggestion and r.suggestion.unit or nil
+	end
+	return Post.cancelReview(ah.owned, aheadTolerance(), HIGHER_BY)
+end
+
+-- The undercut first, then the higher.
+local function nextToCancel(list)
+	return list.undercut[1] or list.higher[1]
+end
+
+local function cancelView()
+	return ah.panel and ah.panel.post and ah.panel.post.cancelView
+end
+
+local function cancelNext()
+	local view = cancelView()
+	if not view or busy() or ah.checking then
+		return
+	end
+	local a = nextToCancel(review())
+	if not a then
+		view.note:SetText(L["Nothing to cancel."])
+		return
+	end
+	C_AuctionHouse.CancelAuction(a.auctionID)
+	await("cancel", "cancel:" .. a.auctionID, view.note)
+	view.note:SetText(string.format(L["Cancelling %s..."], a.name))
+end
+
+-- The Auctions tab's check, which writes its progress on that tab's page: built first, hidden.
+local function checkOwned()
+	ah.panel.ensure("cancel")
+	ns.AuctionCancel.startCheck()
+end
+
+local function showCancel(on)
+	ah.sellView = on and "cancel" or nil
+	local view = cancelView()
+	if view then
+		view:SetShown(on and true or false)
+	end
+	ah.refresh()
+end
+
+ns.on("AUCTION_CANCELED", "auction sell cancel", function()
+	local view = cancelView()
+	if view and view:IsShown() then
+		view.note:SetText(Theme.escape(Theme.color.success) .. L["Cancelled: it comes back by mail."] .. "|r")
+		ah.refresh()
+	end
+end)
+
+-- Why an auction is in its list: units listed under it and the cheapest, or the price it would get now.
+local function cancelReason(a)
+	if a.up then
+		return string.format(L["Cheaper ones sold: %s now (+%s%%)"], money(a.repost), tostring(a.up))
+	end
+	return string.format(L["%d ahead, cheapest %s"], a.ahead or 0, a.cheapest and money(a.cheapest) or "-")
+end
+
+-- Over the whole Sell page while it shows: Back, the tolerance and Check, the two lists, Cancel next.
+local function buildCancelView(page)
+	local v = UI.Panel(page, { color = Theme.color.bg })
+	v:SetAllPoints(page)
+	v:SetFrameLevel(page:GetFrameLevel() + 20)
+	v:EnableMouse(true)
+	v:Hide()
+	local back = UI.Button(v, L["< Sell"], function()
+		showCancel(false)
+	end, { kind = "ghost", width = 80, height = 24 })
+	back:SetPoint("TOPLEFT", 0, -2)
+	local check = UI.Button(v, L["Check my auctions"], function()
+		ns.safely("auction sell cancel", checkOwned)
+	end, { width = 150, height = 28 })
+	check:SetPoint("TOPRIGHT", 0, 0)
+	local choices = {}
+	for i, n in ipairs(AHEADS) do
+		choices[i] = { value = n, label = ns.plural(n, L["%d item"], L["%d items"]) }
+	end
+	local aheadLabel = UI.Text(v, L["Undercut by more than"], { size = "sm", tone = "muted" })
+	aheadLabel:SetPoint("TOPLEFT", 0, -45)
+	local ahead = UI.Dropdown(v, choices, aheadTolerance(), function(n)
+		settings().ahead = n
+		ah.refresh()
+	end)
+	ahead:SetPoint("LEFT", aheadLabel, "RIGHT", 10, 0)
+	ahead:SetWidth(100)
+	local function list(heading, empty, tone)
+		local head = UI.Text(v, heading, { size = "xs", medium = true, tone = "faint" })
+		local tbl = UI.Table(v, {
+			{ key = "name", title = L["Your auction"], flex = 2, color = function(r) return Theme.quality[r.quality] or Theme.color.text end,
+				text = function(r) return r.quantity > 1 and (r.name .. Theme.escape(Theme.color.textFaint) .. " x" .. r.quantity .. "|r") or r.name end },
+			{ key = "unit", title = L["Yours"], width = 74, align = "RIGHT", text = function(r) return money(r.unit) end },
+			{ key = "why", title = L["Why"], flex = 3, text = cancelReason, color = function() return Theme.color[tone] end },
+		}, { pageSize = 3, rowHeight = 22, empty = empty, itemId = function(r) return r.itemID end,
+			onRowClick = function(r)
+				Blizzard.browse(r.itemKey)
+			end })
+		tbl:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
+		tbl:SetPoint("RIGHT", v, "RIGHT")
+		return head, tbl
+	end
+	local underHead, under = list(L["UNDERCUT"], L["Check your auctions to see which are undercut."], "warning")
+	underHead:SetPoint("TOPLEFT", 0, -78)
+	local higherHead, higher = list(L["REPOST HIGHER"], L["None would sell higher now."], "accent")
+	higherHead:SetPoint("TOPLEFT", under, "BOTTOMLEFT", 0, -10)
+	v.under, v.higher = under, higher
+	local go = UI.Button(v, L["Cancel next"], function()
+		ns.safely("auction sell cancel", cancelNext)
+		ah.refresh()
+	end, { kind = "primary", width = 200, height = 30 })
+	go:SetPoint("TOPRIGHT", higher, "BOTTOMRIGHT", 0, -10)
+	v.go = go
+	v.note = UI.Text(v, L["Space cancels the next one while this view shows."], { size = "xs", tone = "faint", wrap = true })
+	v.note:SetPoint("TOPLEFT", higher, "BOTTOMLEFT", 0, -12)
+	v.note:SetPoint("RIGHT", go, "LEFT", -12, 0)
+	function v:Refresh()
+		ahead:Set(aheadTolerance())
+		local found = review()
+		under:SetRows(found.undercut, true)
+		higher:SetRows(found.higher, true)
+		local first = nextToCancel(found)
+		if ah.checking == 0 then
+			go:SetLabel(L["Reading..."])
+		elseif ah.checking then
+			go:SetLabel(string.format(L["Checking %d of %d..."], ah.checking, #ah.owned))
+		elseif first then
+			local cost = C_AuctionHouse.GetCancelCost and C_AuctionHouse.GetCancelCost(first.auctionID)
+			go:SetLabel(string.format(L["Cancel %s"], first.name) .. (cost and cost > 0 and (" (" .. money(cost) .. ")") or ""))
+		else
+			go:SetLabel(L["Cancel next"])
+		end
+		go:SetEnabled((first and not ah.checking and not busy()) and true or false)
+	end
+	return v
+end
+
 local lastArgs -- what the last post sent, for confirming it after the client's warning
 local postedAt -- when the panel last sent a post (GetTime)
 local WARNING_WINDOW = 2 -- seconds after the panel's own post in which the client's warning is for it
@@ -236,6 +392,11 @@ end
 
 -- Posts the chosen row: commodities all at once at the unit price, other items one location at a time.
 local function post()
+	-- In the Cancel view, Space cancels instead.
+	if ah.sellView == "cancel" then
+		cancelNext()
+		return
+	end
 	local r = ah.chosen
 	if not r or busy() or not r.suggestion then
 		return
@@ -259,7 +420,7 @@ end
 
 -- Post all: the chosen row's whole holding, past the days of supply.
 local function postAll()
-	if ah.chosen then
+	if ah.chosen and ah.sellView ~= "cancel" then
 		ah.allFor = ah.chosen.key
 		post()
 	end
@@ -419,7 +580,7 @@ local function buildPost(page)
 	page.detail = detail
 	local name = UI.Text(detail, "", { size = "md", medium = true })
 	name:SetPoint("TOPLEFT", 14, -12)
-	name:SetPoint("RIGHT", detail, "RIGHT", -166, 0)
+	name:SetPoint("RIGHT", detail, "RIGHT", -244, 0)
 	-- The selling rules live in the hub: this opens them on a rule for the item in view.
 	local function openRule()
 		ns.openPage("rules")
@@ -440,6 +601,11 @@ local function buildPost(page)
 	local layoutButton = UI.Button(detail, L["Wide"], toggleLayout, { kind = "ghost", width = 64, height = 24 })
 	layoutButton:SetPoint("RIGHT", ruleButton, "LEFT", -6, 0)
 	page.layoutButton = layoutButton
+	local function openCancel()
+		showCancel(true)
+	end
+	local cancelButton = UI.Button(detail, L["Cancel >"], openCancel, { kind = "ghost", width = 72, height = 24 })
+	cancelButton:SetPoint("RIGHT", layoutButton, "LEFT", -6, 0)
 	local reason = UI.Text(detail, "", { size = "sm" })
 	reason:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -8)
 	reason:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
@@ -502,7 +668,7 @@ local function buildPost(page)
 
 	-- Wide, the box beside the list (addon#91); quantity and duration remembered for the item as narrow's.
 	local box = Wide.build(page, {
-		post = press, postAll = pressAll, rule = openRule, toggle = toggleLayout,
+		post = press, postAll = pressAll, rule = openRule, toggle = toggleLayout, cancel = openCancel,
 		quantity = chooseQuantity,
 		duration = function(v)
 			if ah.chosen then
@@ -515,6 +681,7 @@ local function buildPost(page)
 	})
 	box:Hide()
 	page.box = box
+	page.cancelView = buildCancelView(page)
 	page.count = UI.Text(page, "", { size = "xs", tone = "faint" })
 
 	-- Under the wide list at its right: Previous, the page of how many, Next; the wheel still pages.
@@ -633,6 +800,11 @@ local function buildPost(page)
 	end
 
 	function page:Refresh()
+		page.cancelView:SetShown(ah.sellView == "cancel")
+		if ah.sellView == "cancel" then
+			page.cancelView:Refresh()
+			return
+		end
 		local faint = Theme.escape(Theme.color.textFaint)
 		if wideNow then
 			drawWide()
@@ -757,4 +929,5 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
-ns.AuctionSell = { key = "post", label = L["Sell"], build = buildPost, refresh = refresh, post = post, postAll = postAll, reread = reread, layout = layout, pager = pager }
+ns.AuctionSell = { key = "post", label = L["Sell"], build = buildPost, refresh = refresh, post = post, postAll = postAll, reread = reread, layout = layout, pager = pager,
+	showCancel = showCancel, checkOwned = checkOwned, review = review, cancelNext = cancelNext }

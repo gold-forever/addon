@@ -83,7 +83,7 @@ local Wide = wns.AuctionSellWide
 -- Geometry at the panel's real size: the box 416 x 436, content 388 wide.
 local g = Wide.geometry(416, 436)
 eq(g.inner, 388, "the box's content: 388 wide")
-eq(g.name, 388 - 46 - 140, "the name clips beside Narrow and Rule")
+eq(g.name, 388 - 46 - 210, "the name clips beside Cancel, Narrow and Rule")
 eq(g.fact, 129, "three facts, a third each")
 eq(g.slider, 152, "the slider from x 70 to the duration buttons' room")
 eq(g.note, 278, "the note line beside the deposit")

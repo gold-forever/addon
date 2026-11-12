@@ -173,6 +173,46 @@ function Post.undercutList(auctions, tolerance)
 	return out
 end
 
+-- How many of other players' units a book's levels { unitPrice, quantity, own } list under `unit`.
+function Post.ahead(unit, levels)
+	local n = 0
+	for _, l in ipairs(levels or {}) do
+		if l.unitPrice < unit then
+			n = n + math.max(0, (l.quantity or 0) - (l.own or 0))
+		end
+	end
+	return n
+end
+
+-- The Sell tab's Cancel view (gf#369), from owned auctions { unit, levels (their item's live book; nil
+-- before it is searched), repost (what the rule would post at now, nil to hold) }: `undercut`, more than
+-- `ahead` units listed under them, most ahead first; `higher`, the rule's price now more than
+-- `tolerance` percent over theirs (the cheaper listings sold), most gained first. Sets `ahead` and `up`.
+function Post.cancelReview(auctions, ahead, tolerance)
+	local undercut, higher = {}, {}
+	for _, a in ipairs(auctions) do
+		a.ahead, a.up = nil, nil
+		if a.levels then
+			a.ahead = Post.ahead(a.unit, a.levels)
+			if a.ahead > ahead then
+				undercut[#undercut + 1] = a
+			elseif a.repost and a.repost > a.unit then
+				a.up = math.floor((a.repost - a.unit) / a.unit * 1000 + 0.5) / 10
+				if a.up > tolerance then
+					higher[#higher + 1] = a
+				end
+			end
+		end
+	end
+	table.sort(undercut, function(x, y)
+		return x.ahead > y.ahead
+	end)
+	table.sort(higher, function(x, y)
+		return x.up > y.up
+	end)
+	return { undercut = undercut, higher = higher }
+end
+
 -- The player's own auctions, from the client's list of them: `info(i)` for i up to `n` (as
 -- C_AuctionHouse.GetOwnedAuctionInfo), `keyInfo(itemKey)` (GetItemKeyInfo, may be nil) and `itemInfo(id)`
 -- (quality, _, _, _, name). Active ones with a buyout only (status 0); sold ones wait in the list for their

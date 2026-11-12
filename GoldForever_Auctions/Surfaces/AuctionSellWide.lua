@@ -12,7 +12,7 @@ ns.AuctionSellWide = Wide
 
 local IN = 14 -- the box's inner inset
 local ICON = 36
-local SIDE = 140 -- the name's room left for Narrow and Rule beside it
+local SIDE = 210 -- the name's room left for Cancel, Narrow and Rule beside it
 local DEPOSIT = 110 -- the deposit at the note line's right
 local ALL = 100 -- Post all, beside Post
 local LIST_TOP = 256 -- the listings' heading, from the box's top
@@ -244,6 +244,8 @@ function Wide.build(page, act)
 	box.rule:SetPoint("TOPRIGHT", -IN, -12)
 	box.layoutButton = UI.Button(box, L["Narrow"], act.toggle, { kind = "ghost", width = 64, height = 22 })
 	box.layoutButton:SetPoint("TOPRIGHT", -(IN + 70), -12)
+	box.cancelButton = UI.Button(box, L["Cancel >"], act.cancel, { kind = "ghost", width = 64, height = 22 })
+	box.cancelButton:SetPoint("TOPRIGHT", -(IN + 140), -12)
 	local divider = UI.solid(box, "BORDER", Theme.color.border)
 	divider:SetPoint("TOPLEFT", IN, -52)
 	divider:SetPoint("TOPRIGHT", -IN, -52)
