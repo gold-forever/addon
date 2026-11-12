@@ -14,7 +14,9 @@ end
 -- Each feature's settings section and its defaults, in one place (db.settings[section]).
 ns.DEFAULTS = {
 	window = {}, -- the look, the accent, the hub's place and its pages' choices
-	appraiser = { shown = true, recap = true }, -- the session HUD and the card when a session ends
+	-- The session HUD, the card when a session ends, and the HUD's levelling pace line: "off", "shift" or
+	-- "always", as a tooltip line's mode (gf#379).
+	appraiser = { shown = true, recap = true, pace = "always" },
 	rares = { announce = true, mark = true },
 	crafting = { strip = true }, -- the crafting strip, and the craft queue's recipes
 	craftQueue = { closed = false },

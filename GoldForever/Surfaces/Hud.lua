@@ -45,7 +45,53 @@ end
 -- pace", the count from bags and bank, the pace from this session's loot only (Session.lua counts the loot
 -- stream); a tick and one chat line when one is reached. The session panel opens under them.
 local GOAL_ROW = 22
+local PACE_H = 24
 local reachedSeen = {} -- each goal's last state, so reaching it is told once
+
+-- The levelling pace (gf#379, HudPace.lua): a strip under the line while below the level cap, in its mode
+-- (Settings → General: Off, With Shift or Always); the item goals and the session panel open under it.
+local Pace = ns.HudPace
+local pace = Pace.new(GetTime())
+
+local function afk()
+	return UnitIsAFK and UnitIsAFK("player") and true or false
+end
+
+local function atCap()
+	if IsPlayerAtEffectiveMaxLevel then
+		return IsPlayerAtEffectiveMaxLevel()
+	end
+	return GetMaxPlayerLevel and UnitLevel("player") >= GetMaxPlayerLevel() or false
+end
+
+local function paceStatus()
+	local bar = { level = UnitLevel("player"), cur = UnitXP("player"), max = UnitXPMax("player"), rested = GetXPExhaustion() or 0, atCap = atCap() }
+	return Pace.status(pace, GetTime(), afk(), bar)
+end
+
+local function drawPace(hud)
+	local st = Pace.shown(settings().pace, IsShiftKeyDown and IsShiftKeyDown()) and paceStatus() or nil
+	hud.pace:SetShown(st ~= nil)
+	if st then
+		hud.pace.text:SetText(Pace.line(st, ns.Views))
+	end
+end
+
+local function paceTip(owner)
+	local Views = ns.Views
+	GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
+	GameTooltip:AddLine(L["Levelling pace"])
+	local st = paceStatus()
+	if st then
+		GameTooltip:AddLine(string.format(L["Last 15 minutes of play: %s XP/h"], st.rate and Views.short(st.rate) or "-"), 1, 1, 1)
+	end
+	local sum = Session.get() and ns.sessionSummary()
+	if sum and sum.rates.rated then
+		GameTooltip:AddLine(string.format(L["This session: %s XP/h"], Views.short(sum.rates.xpPerHour)), 1, 1, 1)
+	end
+	GameTooltip:AddLine(L["Time AFK is not counted."], 0.6, 0.6, 0.6)
+	GameTooltip:Show()
+end
 
 local function drawGoals(hud, session, sum)
 	local g, Theme = hud.goals, ns.Theme
@@ -69,8 +115,11 @@ local function drawGoals(hud, session, sum)
 	end
 	g:SetShown(#goals > 0)
 	g:SetHeight(#goals * GOAL_ROW + 8)
+	local above = hud.pace:IsShown() and hud.pace or hud
+	g:ClearAllPoints()
+	g:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -4)
 	hud.details:ClearAllPoints()
-	hud.details:SetPoint("TOPLEFT", #goals > 0 and g or hud, "BOTTOMLEFT", 0, -6)
+	hud.details:SetPoint("TOPLEFT", #goals > 0 and g or above, "BOTTOMLEFT", 0, -6)
 end
 
 local function refresh()
@@ -84,6 +133,7 @@ local function refresh()
 	local faint = Theme.escape(Theme.color.textFaint)
 	local session = Session.get()
 	local sum = session and ns.sessionSummary()
+	drawPace(hud)
 	drawGoals(hud, session, sum)
 	if not session then
 		hud.time:SetText("")
@@ -208,6 +258,21 @@ build = function()
 	end, { kind = "ghost", width = 64, height = 24 })
 	hud.stop:SetPoint("RIGHT", -6, 0)
 	hud.recap = UI.Button(hit, L["Recap"], ns.SessionRecap.reopen, { kind = "ghost", width = 64, height = 24 })
+
+	-- The levelling pace, under the line (drawPace).
+	local pc = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
+	pc:SetPoint("TOPLEFT", hud, "BOTTOMLEFT", 0, -4)
+	pc:SetSize(W, PACE_H)
+	pc:EnableMouse(true)
+	pc:SetScript("OnEnter", paceTip)
+	pc:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	pc:Hide()
+	pc.text = UI.Text(pc, "", { size = "sm" })
+	pc.text:SetPoint("LEFT", 12, 0)
+	pc.text:SetWidth(W - 24)
+	hud.pace = pc
 
 	-- Item goals, under the line (drawGoals).
 	local g = UI.Panel(hud, { color = Theme.color.surface, alpha = 0.94, borderColor = Theme.color.borderStrong })
@@ -393,6 +458,22 @@ ns.commands.hud = ns.commands.appraise
 ns.test.hud = function()
 	return huds.frame
 end
+
+-- Every XP gain, whatever earned it, feeds the pace; going AFK or back moves its play clock on.
+ns.listen("xpGained", "hud pace", function(gained)
+	Pace.gain(pace, GetTime(), afk(), gained)
+end)
+ns.on("PLAYER_FLAGS_CHANGED", "hud pace", function(unit)
+	if unit == "player" then
+		Pace.tick(pace, GetTime(), afk())
+	end
+end)
+-- With Shift: the line comes and goes with the key, not a second later.
+ns.on("MODIFIER_STATE_CHANGED", "hud pace", function()
+	if settings().pace == "shift" then
+		ns.safely("appraiser", refresh)
+	end
+end)
 
 Session.watch(function(how)
 	if how == "loot" or how == "restored" then

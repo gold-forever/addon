@@ -27528,6 +27528,7 @@ scans[3].t = 1792607200
 scans[3].zone = ""
 schema = 1
 settings.appraiser.autoSession = true
+settings.appraiser.pace = "always"
 settings.appraiser.recap = true
 settings.appraiser.shown = true
 settings.auction.duration = 2

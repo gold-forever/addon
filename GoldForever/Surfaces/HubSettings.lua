@@ -54,6 +54,9 @@ local function settingsCard(page, title, y, rows)
 	return card
 end
 
+-- A tooltip line's three modes (the Tooltip tab), for the HUD's levelling pace line too.
+local MODES = { { key = "off", label = L["Off"] }, { key = "shift", label = L["With Shift"] }, { key = "always", label = L["Always"] } }
+
 local function fillGeneral(page, prefs)
 	local window, appraiser, rares, minimap = prefs.window, prefs.appraiser, prefs.rares, prefs.minimap
 	-- General: only settings the addon has, each changed at once.
@@ -141,6 +144,14 @@ local function fillGeneral(page, prefs)
 			end
 			return c.party
 		end },
+		-- The HUD's levelling pace line (gf#379), in a tooltip line's three modes.
+		{ side = 1, row = 2, label = L["Levelling pace on the HUD"], make = function(cell)
+			c.pace = UI.TabBar(cell, MODES, function(mode)
+				appraiser.pace = mode
+			end)
+			c.pace:Select(appraiser.pace or "always")
+			return c.pace
+		end },
 		{ side = 1, row = 0, label = L["Big drop alert"], full = true, make = function(cell)
 			c.bigDrop = UI.Slider(cell, 0, 50, 1, bigDrop(), function(v)
 				appraiser.bigDrop = v * 10000
@@ -158,6 +169,7 @@ local function fillGeneral(page, prefs)
 		c.minimap:Set(not minimap.hidden)
 		c.scale:Set(math.floor((window.scale or 1) * 100 + 0.5))
 		c.hideInCombat:Set(appraiser.hideInCombat)
+		c.pace:Select(appraiser.pace or "always")
 		c.autoSession:Set(ns.Session.automatic())
 		c.mark:Set(rares.mark)
 		c.party:Set(rares.party == true)
@@ -294,7 +306,6 @@ end
 
 -- Tooltip: each line the addon adds to a tooltip (Tooltips.lua) with a three-way picker, Off, With Shift or
 -- Always, changed at once; a tooltip open with Shift held shows the Shift lines.
-local MODES = { { key = "off", label = L["Off"] }, { key = "shift", label = L["With Shift"] }, { key = "always", label = L["Always"] } }
 local function fillTooltip(page)
 	local t = page.tooltip
 	local modes = ns.settings("tooltip")

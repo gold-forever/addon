@@ -3560,7 +3560,8 @@ do
   SlashCmdList.GOLDFOREVER("look web")
   SlashCmdList.GOLDFOREVER("ui settings")
   print("SETTINGS FRAMES at opening: " .. (#frames - before))
-  assert((#frames - before) <= 50, "Settings builds at most 50 frames at opening: " .. (#frames - before))
+  -- 55: the HUD's levelling pace picker (gf#379) is a cell and a three-way tab bar.
+  assert((#frames - before) <= 55, "Settings builds at most 55 frames at opening: " .. (#frames - before))
 end
 -- The Guide names only commands the addon has.
 for _, c in ipairs(ns.test.GUIDE_COMMANDS) do
@@ -5334,6 +5335,33 @@ do
   xpcur = xpcur + 200; fire("PLAYER_XP_UPDATE")
   wait(5)
   seen("KILLS NOT FITTING THE GAIN ", newRows(before), "200,kill,|")
+  -- The levelling pace under the HUD line (gf#379): every gain above fed it; hidden at the cap, Off and,
+  -- With Shift, without Shift.
+  local appraiser = GoldForeverDB.settings.appraiser
+  local function paceLine()
+    ns2.setHud(true)
+    local hud = ns2.test.hud()
+    return hud.pace:IsShown() and hud.pace.text:GetText() or nil
+  end
+  local line = paceLine()
+  -- A rate, and so a time to the next level: not "-" for either.
+  assert(line and line:find(T(" XP/h"), 1, true) and not line:find(string.format(T("Level %d in %s"), UnitLevel("player") + 1, "-"), 1, true),
+    "the pace line shows the time to the next level: " .. tostring(line))
+  print("PACE LINE " .. line)
+  local maxLevel, atMax = GetMaxPlayerLevel, IsPlayerAtEffectiveMaxLevel
+  GetMaxPlayerLevel, IsPlayerAtEffectiveMaxLevel = function() return 30 end, nil
+  assert(paceLine() == nil, "hidden at the level cap")
+  GetMaxPlayerLevel, IsPlayerAtEffectiveMaxLevel = maxLevel, atMax
+  appraiser.pace = "off"
+  assert(paceLine() == nil, "Off: hidden")
+  appraiser.pace = "shift"
+  local held = shiftDown
+  shiftDown = false
+  assert(paceLine() == nil, "With Shift: hidden without it")
+  shiftDown = true
+  fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+  assert(ns2.test.hud().pace:IsShown(), "With Shift: shown as it is pressed")
+  shiftDown, appraiser.pace = held, "always"
   -- Messages the client keeps secret: still one kill each, the XP shared between them.
   local SECRET = secretValue()
   function issecretvalue(v) return rawequal(v, SECRET) end
