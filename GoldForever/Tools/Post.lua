@@ -11,13 +11,20 @@ local L = ns.L
 local Post = {}
 ns.Post = Post
 
--- The default rule: 1 silver under the cheapest (the auction house takes whole silver), a floor of 80%
--- of the market value, a normal price of 120% when alone, hold when the cheapest is under the floor, a
--- maximum of 3x the market (5x when highly volatile) against outliers, and a post size of 2 days of supply.
-Post.DEFAULT = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold", maximum = 3, volatileMaximum = 5, supplyDays = 2 }
+-- The default rule: the auction house's smallest step under the cheapest (1 copper where it takes copper,
+-- as Forever's does; 1 silver where it takes only silver), a floor of 80% of the market value, a normal
+-- price of 120% when alone, hold when the cheapest is under the floor, a maximum of 3x the market (5x when
+-- highly volatile) against outliers, and a post size of 2 days of supply.
+Post.DEFAULT = { undercut = "step", floor = 80, normal = 120, belowFloor = "hold", maximum = 3, volatileMaximum = 5, supplyDays = 2 }
 
--- The undercuts a player can pick: an amount in copper, or a share of the cheapest price.
+-- An amount undercut takes at most this share of the cheapest price: 1 silver off a 1s 50c listing would
+-- post at 50c (owner's screenshot, 2026-11-12); capped, it takes 7c.
+Post.UNDERCUT_MAX_PCT = 5
+
+-- The undercuts a player can pick: the auction house's smallest step, an amount in copper, or a share of
+-- the cheapest price.
 Post.UNDERCUTS = {
+	{ value = "step", label = L["The smallest step (1 copper, or 1 silver where the auction house takes only silver)"], step = true },
 	{ value = "1c", label = L["1 copper (where the auction house takes copper)"], copper = 1 },
 	{ value = "1s", label = L["1 silver"], copper = 100 },
 	{ value = "1%", label = L["1 percent"], pct = 1 },
@@ -45,13 +52,21 @@ local function up(copper)
 	return math.max(100, math.ceil(copper / 100) * 100)
 end
 
+-- The undercut's size in copper: the step, a share, or an amount at most UNDERCUT_MAX_PCT of the cheapest
+-- (at least 1 copper; rounding to whole silver then does the rest). An unknown value is the step.
 local function undercutBy(rule, cheapest)
+	local step = Post.copper and 1 or 100
 	for _, u in ipairs(Post.UNDERCUTS) do
 		if u.value == rule.undercut then
-			return u.copper or math.max(1, math.floor(cheapest * u.pct / 100 + 0.5))
+			if u.pct then
+				return math.max(1, math.floor(cheapest * u.pct / 100 + 0.5))
+			elseif u.copper then
+				return math.min(u.copper, math.max(1, math.floor(cheapest * Post.UNDERCUT_MAX_PCT / 100)))
+			end
+			return step
 		end
 	end
-	return 100
+	return step
 end
 
 -- The bounds of a post for an item worth `market`: { floor, floorBy ("market" or "vendor"), vendor (the
@@ -125,12 +140,13 @@ end
 
 -- The undercut a rule names, as Sell says it: an amount (money(copper)), or a share.
 local function undercutText(rule, money)
+	local step = Post.copper and 1 or 100
 	for _, u in ipairs(Post.UNDERCUTS) do
 		if u.value == (rule or Post.DEFAULT).undercut then
-			return u.copper and money(u.copper) or (u.pct .. "%")
+			return u.pct and (u.pct .. "%") or money(u.copper or step)
 		end
 	end
-	return money(100)
+	return money(step)
 end
 
 -- Why Sell suggests what it does, in a few words (gf#368): "Undercut 1s (live)", "At the maximum, 3x

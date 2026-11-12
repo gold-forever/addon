@@ -262,7 +262,7 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 		minBuyout = function(id) return ns.Prices.cheapest(id) end,
 		disenchant = function(id) return (price.disenchant(id)) end,
 		bagVerdict = function(id, slot)
-			return slot and ns.BagVerdict.line(slot, coins, slot.word == "post" and ns.BagVerdict.listing(id) or nil)
+			return slot and ns.BagVerdict.lineFor(slot, coins, id)
 		end,
 	}
 	-- Defined once and handed the arguments, so a tooltip shown makes no new closure.

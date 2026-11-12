@@ -28,8 +28,8 @@ local WHY = {
 }
 
 -- What a "post" lists at, one unit: the Sell tab's suggestion against the last scan's cheapest listing
--- (its default or override rule, AuctionSell.lua), alone its normal or today's price, held the market
--- value; nil without a market value.
+-- (its default or override rule, AuctionSell.lua), alone its normal or today's price; nil without a
+-- market value. Held, as the Sell tab holds it: nil and { floor, cheapest }.
 function BagVerdict.listing(id)
 	local price = ns.price
 	local value, from, _, week = price.valued(id)
@@ -45,14 +45,23 @@ function BagVerdict.listing(id)
 	local volatile, day = price.today(id)
 	local item = { vendor = price.vendor(id), cut = price.cut, volatile = volatile, day = day }
 	local suggestion = ns.Post.advise(rule, market, cheapest, item)
-	return suggestion and suggestion.unit or market
+	if suggestion and suggestion.unit then
+		return suggestion.unit
+	end
+	if suggestion and suggestion.reason == "hold" and cheapest then
+		return nil, { floor = suggestion.floor, cheapest = cheapest }
+	end
+	return market
 end
 
 -- A verdict's words for the tooltip's Suggestion line: a post's listing price (BagVerdict.listing) and what
--- arrives after the cut; the others' word and reason.
-function BagVerdict.line(v, coins, listing)
+-- arrives after the cut, or that the Sell tab holds it; the others' word and reason.
+function BagVerdict.line(v, coins, listing, held)
 	local why
 	if v.word == "post" then
+		if held then
+			return string.format(L["Hold: the cheapest, %s, is under your floor, %s"], coins(held.cheapest), coins(held.floor))
+		end
 		if not listing then
 			return WORDS.post
 		end
@@ -65,6 +74,14 @@ function BagVerdict.line(v, coins, listing)
 		why = string.format(L["vendor %s"], coins(v.sale))
 	end
 	return string.format(L["%s (%s)"], WORDS[v.word] or v.word, why)
+end
+
+-- The Suggestion line for item `id`'s verdict, with a post's listing price or hold.
+function BagVerdict.lineFor(v, coins, id)
+	if v.word ~= "post" then
+		return BagVerdict.line(v, coins)
+	end
+	return BagVerdict.line(v, coins, BagVerdict.listing(id))
 end
 
 -- What this character means to buy, item ID -> true: its shopping lists and an active profile's buy rules.
@@ -217,7 +234,7 @@ local function sampleLine()
 		return L["no item in a shown slot"]
 	end
 	return string.format(L["bag %s slot %s, %s, %s"], tostring(s.bag), tostring(s.slot), info.hyperlink or string.format(L["item %d"], info.itemID),
-		BagVerdict.line(verdict, ns.price.coins, verdict.word == "post" and BagVerdict.listing(info.itemID) or nil))
+		BagVerdict.lineFor(verdict, ns.price.coins, info.itemID))
 end
 
 local function errorWords(name)

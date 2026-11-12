@@ -9,6 +9,14 @@ function ns.auctionSettings()
 	local s = ns.db().settings.auction or ns.settings("auction")
 	s.durations = s.durations or {}
 	s.quantities = s.quantities or {}
+	-- Once: "1s" was the default written into every saved rule, so it moves to the new default, the
+	-- smallest step; a 1 silver chosen after this is kept.
+	if not s.undercutStep then
+		if s.rule.undercut == "1s" then
+			s.rule.undercut = nil
+		end
+		s.undercutStep = true
+	end
 	for k, v in pairs(Post.DEFAULT) do
 		if s.rule[k] == nil then
 			s.rule[k] = v

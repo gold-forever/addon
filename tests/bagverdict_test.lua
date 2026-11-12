@@ -39,10 +39,14 @@ volatile = true
 eq(ns.BagVerdict.listing(2589), 3900, "a volatile item: the 5x maximum, so the undercut stands")
 volatile = false
 cheapest, vendor = 1050, 950
-eq(ns.BagVerdict.listing(2589), 1000, "the undercut under the vendor floor after the cut: held, so the market value")
+local unit, held = ns.BagVerdict.listing(2589)
+eq(tostring(unit) .. " " .. held.cheapest .. " " .. held.floor, "nil 1050 1000", "the undercut under the vendor floor after the cut: held, with the cheapest and the floor")
 vendor = nil
 cheapest = 500
-eq(ns.BagVerdict.listing(2589), 1000, "held under the floor: the market value")
+unit, held = ns.BagVerdict.listing(2589)
+eq(tostring(unit) .. " " .. held.cheapest .. " " .. held.floor, "nil 500 800", "held under the floor: no listing price, the cheapest and the floor")
+eq(line(verdict(item()), coins, unit, held), "Hold: the cheapest, 500c, is under your floor, 800c", "the Suggestion says the Sell tab holds it, not a post price")
+eq(ns.BagVerdict.lineFor(verdict(item()), coins, 2589), "Hold: the cheapest, 500c, is under your floor, 800c", "lineFor: the same, from the item")
 market = nil
 eq(ns.BagVerdict.listing(2589), nil, "no market value: no listing price")
 

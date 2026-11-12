@@ -134,6 +134,18 @@ P.copper = false
 eq(P.suggest(rule, 10041, nil).unit, 12000, "silver mode: to the nearest silver")
 eq(P.suggest({ undercut = "1c", floor = 80, normal = 120 }, 10000, 9550).unit, 9500, "whole silver otherwise")
 
+-- The default undercut is the auction house's smallest step (owner's screenshot, 2026-11-12: Sweet Nectar
+-- at 1s 50c, "Post anyway" offered 50c, a whole silver off).
+eq(P.DEFAULT.undercut, "step", "the default undercut is the step")
+P.copper = true
+local loose = { undercut = "step", floor = 1, normal = 120 }
+eq(P.suggest(loose, 214, 150).unit, 149, "copper auction house: 1 copper under 1s 50c")
+eq(P.suggest({ undercut = "1s", floor = 1, normal = 120 }, 214, 150).unit, 143, "1 silver is capped at 5% of the cheapest: 7c off 1s 50c, not 50c")
+eq(P.suggest({ undercut = "1s", floor = 1, normal = 120 }, 100000, 90000).unit, 89900, "1 silver off a price it is under 5% of: a whole silver")
+P.copper = false
+eq(P.suggest(loose, 30000, 25000).unit, 24900, "silver auction house: 1 silver under")
+eq(P.suggest({ undercut = "nonsense", floor = 1, normal = 120 }, 30000, 25000).unit, 24900, "an unknown undercut is the step")
+
 -- The trend's advice: rising at 10% over the typical price (the 7-day median), falling at 10% under, else none.
 eq(P.trendHint(12), "rising: maybe wait", "well over the typical price")
 eq(P.trendHint(10), "rising: maybe wait", "at the threshold")
