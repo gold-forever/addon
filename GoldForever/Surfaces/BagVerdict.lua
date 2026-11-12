@@ -28,7 +28,8 @@ local WHY = {
 }
 
 -- What a "post" lists at, one unit: the Sell tab's suggestion against the last scan's cheapest listing
--- (its default or override rule, AuctionSell.lua), else the market value; nil without a market value.
+-- (its default or override rule, AuctionSell.lua), alone its normal or today's price, held the market
+-- value; nil without a market value.
 function BagVerdict.listing(id)
 	local price = ns.price
 	local value, from, _, week = price.valued(id)
@@ -39,7 +40,11 @@ function BagVerdict.listing(id)
 	local cheapest = price.cheapest(id)
 	local s = ns.auctionSettings()
 	local rule = ns.Post.resolve(s.rule, s.overrides, id, (select(3, price.itemInfo(id))))
-	local suggestion = cheapest and ns.Post.advise(rule, market, cheapest)
+	-- The Sell tab's inputs (AuctionSell.lua), so the line and the tab name the same price: the vendor
+	-- floor, the volatile maximum, and alone the normal price or today's (gf#374).
+	local volatile, day = price.today(id)
+	local item = { vendor = price.vendor(id), cut = price.cut, volatile = volatile, day = day }
+	local suggestion = ns.Post.advise(rule, market, cheapest, item)
 	return suggestion and suggestion.unit or market
 end
 

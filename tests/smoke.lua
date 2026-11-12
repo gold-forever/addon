@@ -3937,7 +3937,8 @@ do
     return nil
   end
   shiftDown = true
-  local posted = string.format(T("Post at %s (you get %s)"), ns.price.coins(12600), ns.price.coins(11970))
+  -- Nobody else lists it in the scan, so the Sell tab's price alone: 120% of the market value 12600, to the silver.
+  local posted = string.format(T("Post at %s (you get %s)"), ns.price.coins(15100), ns.price.coins(math.floor(15100 * (1 - ns.price.cut))))
   assert(tip(buttons[1], POST) == posted, "post's line: the listing price and what arrives: " .. tostring(tip(buttons[1], POST)))
   assert((tip(buttons[2], VENDOR) or ""):find("vendor (vendor", 1, true), "vendor's line")
   assert((tip(buttons[3], DE) or ""):find("disenchant (~", 1, true), "disenchant's line")
@@ -4074,7 +4075,7 @@ do
   has(said, "ContainerFrame1: shown, named buttons, 2 buttons", "the frame, how its buttons are found and how many")
   has(said, "item buttons: 2", "the buttons found in all")
   local sample = has(said, "sample: bag 0 slot 1", "the first slot with an item")
-  assert(sample:find("[Test Ore]", 1, true) and sample:find(string.format(T("Post at %s (you get %s)"), ns.price.coins(12600), ns.price.coins(11970)), 1, true), "the sample's item and verdict: " .. sample)
+  assert(sample:find("[Test Ore]", 1, true) and sample:find(string.format(T("Post at %s (you get %s)"), ns.price.coins(15100), ns.price.coins(math.floor(15100 * (1 - ns.price.cut)))), 1, true), "the sample's item and verdict: " .. sample)
   has(said, "marks showing: 2 verdict, 0 coin", "the marks showing")
   has(said, "switches: bag mark on, bag verdict on", "both switches")
   has(said, "last error: bag verdict none, bag mark none", "no errors")

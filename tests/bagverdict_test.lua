@@ -24,9 +24,23 @@ ns.price.cheapest = function() return cheapest end
 ns.price.itemInfo = function() return 1, 10, 7 end
 ns.Prices = { sellBase = function(value, from) return value, from end }
 ns.auctionSettings = function() return { rule = ns.Post.DEFAULT, overrides = {} } end
-eq(ns.BagVerdict.listing(2589), 1000, "no listing in the last scan: the market value")
+local vendor, volatile, day = nil, false, nil
+ns.price.vendor = function() return vendor end
+ns.price.today = function() return volatile, day end
+eq(ns.BagVerdict.listing(2589), 1200, "no listing in the last scan: the Sell tab's price alone, 120% of the market value")
+day = 1500
+eq(ns.BagVerdict.listing(2589), 1500, "alone with today's price above it: today's price, as the Sell tab")
+day = nil
 cheapest = 1050
 eq(ns.BagVerdict.listing(2589), 900, "a listing in the scan: the Sell tab's undercut, to the silver")
+cheapest = 4000
+eq(ns.BagVerdict.listing(2589), 3000, "everyone above 3x the market value: the maximum")
+volatile = true
+eq(ns.BagVerdict.listing(2589), 3900, "a volatile item: the 5x maximum, so the undercut stands")
+volatile = false
+cheapest, vendor = 1050, 950
+eq(ns.BagVerdict.listing(2589), 1000, "the undercut under the vendor floor after the cut: held, so the market value")
+vendor = nil
 cheapest = 500
 eq(ns.BagVerdict.listing(2589), 1000, "held under the floor: the market value")
 market = nil
