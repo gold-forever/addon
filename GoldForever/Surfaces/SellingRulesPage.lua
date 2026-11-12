@@ -89,14 +89,28 @@ local function buildRule(page)
 		undercuts[#undercuts + 1] = { value = u.value, label = u.label }
 	end
 	local v = shown()
+	-- A row every 64 from the top, under the scope's picker and its line.
+	local function at(n)
+		return -84 - (n - 1) * 64
+	end
+	local function times(x)
+		return x .. "x"
+	end
 	local controls = {
-		undercut = row(-84, L["Undercut by"], UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
+		undercut = row(at(1), L["Undercut by"], UI.Dropdown(page, undercuts, v.undercut, function(x) set("undercut", x) end),
 			L["How far under the cheapest other seller you post."]),
-		floor = row(-156, L["Never under"], UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
-			L["Your floor, as a share of the market value: nothing posts below it."]),
-		normal = row(-228, L["Normal price"], UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
-			L["What you ask when no one else sells it, or everyone asks more than this."]),
-		belowFloor = row(-300, L["Under the floor"], UI.Dropdown(page, { { value = "hold", label = L["Hold it"] }, { value = "floor", label = L["Post at the floor"] } }, v.belowFloor, function(x) set("belowFloor", x) end),
+		floor = row(at(2), L["Never under"], UI.Slider(page, 50, 100, 5, v.floor, function(x) set("floor", x) end, function(x) return x .. "%" end),
+			L["Your floor, as a share of the market value: nothing posts below it, nor below what a vendor pays after the cut."]),
+		normal = row(at(3), L["Alone"], UI.Slider(page, 100, 200, 5, v.normal, function(x) set("normal", x) end, function(x) return x .. "%" end),
+			L["What you ask when no one else sells it, or today's price where it is higher."]),
+		maximum = row(at(4), L["Maximum"], UI.Slider(page, 2, 10, 1, v.maximum, function(x) set("maximum", x) end, times),
+			L["Never over this many times the market value: above it, the cheapest is an outlier and you post at the maximum."]),
+		volatileMaximum = row(at(5), L["Volatile maximum"], UI.Slider(page, 2, 10, 1, v.volatileMaximum, function(x) set("volatileMaximum", x) end, times),
+			L["The maximum on an item the site tags highly volatile."]),
+		supplyDays = row(at(6), L["Post size"], UI.Slider(page, 0, 7, 1, v.supplyDays, function(x) set("supplyDays", x) end, function(x)
+			return x == 0 and L["all"] or ns.plural(x, L["%d day"], L["%d days"])
+		end), L["Holding more than this many days of sales, you post that many days' worth; Post all posts the rest. 0 posts all."]),
+		belowFloor = row(at(7), L["Under the floor"], UI.Dropdown(page, { { value = "hold", label = L["Hold it"] }, { value = "floor", label = L["Post at the floor"] } }, v.belowFloor, function(x) set("belowFloor", x) end),
 			L["When undercutting would go under your floor: keep the item, or post at the floor anyway."]),
 	}
 	local scopePick, removeButton
@@ -170,7 +184,7 @@ local function buildRule(page)
 	scopeLine:SetPoint("TOPLEFT", 0, -34)
 	scopeLine:SetWidth(LEFT)
 	local note = UI.Text(page, L["The market value is everyone's price from the companion, else your own last scan. Prices are whole silver."], { size = "xs", tone = "faint", wrap = true })
-	note:SetPoint("TOPLEFT", 0, -376)
+	note:SetPoint("TOPLEFT", 0, at(8) + 8)
 	note:SetWidth(LEFT)
 
 	-- Sale profiles (GFP1 strings from the site or other players): one active at a time.

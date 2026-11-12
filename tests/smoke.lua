@@ -1639,11 +1639,27 @@ do
   fireNow("PLAYER_REGEN_ENABLED")
   assert(not AP.bound(), "freed when the fight ends")
   AP.tab("post")
+  -- gf#368: until the live search answers, the last scan prices the list only; a press posts nothing.
+  do
+    -- A scan price that would post: only the wait for the live search holds it.
+    local keptCheapest = ns.price.cheapest
+    ns.price.cheapest = function() return 4250 end
+    AP.tab("scan")
+    AP.tab("post")
+    local _, early = AP.state()
+    assert(early and early.suggestion and early.suggestion.estimate and early.suggestion.unit and early.cheapestFrom == "scan", "before the live search: an estimate from the scan")
+    local before = #posts
+    AP.post()
+    AP.post() -- a second press too: a warned price posts on it
+    assert(#posts == before, "an estimate is never posted")
+    ns.price.cheapest = keptCheapest
+  end
   fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2589)
   local rows, chosen = AP.state()
+  assert(not chosen.suggestion.estimate, "the live search answered: the price posts")
   assert(#rows >= 1 and chosen and chosen.id == 2589 and chosen.count == 7, "the bags' Linen is the row")
   assert(chosen.cheapest == 4250 and chosen.cheapestFrom == "live", "own listings left out of the cheapest")
-  seen("AH POST ", tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit), "normal 100")
+  seen("AH POST ", tostring(chosen.suggestion and chosen.suggestion.reason) .. " " .. tostring(chosen.suggestion and chosen.suggestion.unit), "maximum 100", "maximum 300")
   -- The Sell list's price column is the typical price, and named so: the tooltip's "Market" is another
   -- number (addon#21). Without a typical price in the pool, nothing in it.
   do
@@ -1686,7 +1702,10 @@ do
     facts = AP.panel().post.facts.text
     assert(facts:find("about 2 sell a day · 20 listed: about 10 days of supply · post up to 4", 1, true), "the supply line on Post: " .. facts)
     assert(drawnQuantity(AP.panel().post.quantity, AP.panel().post) == 4, "Post's default is the suggested size: " .. tostring(drawnQuantity(AP.panel().post.quantity, AP.panel().post)))
+    -- gf#368: the size names its reason, and Post all is one press away.
     local supplyRow = select(2, AP.state())
+    assert(supplyRow.sizeReason == ns.Post.supplyReason(2), "the post size's reason: " .. tostring(supplyRow.sizeReason))
+    assert(AP.panel().post.allButton:IsShown(), "Post all beside a post of 2 days of supply")
     GoldForeverDB.settings.auction.quantities[supplyRow.key] = 6
     AP.tab("scan")
     AP.tab("post")

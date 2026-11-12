@@ -14,6 +14,7 @@ local IN = 14 -- the box's inner inset
 local ICON = 36
 local SIDE = 140 -- the name's room left for Narrow and Rule beside it
 local DEPOSIT = 110 -- the deposit at the note line's right
+local ALL = 100 -- Post all, beside Post
 local LIST_TOP = 256 -- the listings' heading, from the box's top
 local LIST_HEADING = 18
 local LIST_HEADER = 22
@@ -74,7 +75,7 @@ end
 
 local BADGES = {
 	undercut = { label = L["Undercut"], tone = "accent" }, alone = { label = L["No one else"], tone = "success" },
-	normal = { label = L["Normal price"], tone = "info" }, floor = { label = L["At floor"], tone = "warning" },
+	maximum = { label = L["At the maximum"], tone = "info" }, floor = { label = L["At floor"], tone = "warning" },
 	hold = { label = L["Hold"], tone = "danger" },
 }
 
@@ -89,25 +90,34 @@ function Wide.badge(sug)
 	return BADGES[sug.reason]
 end
 
--- Why the price is what it is, in a sentence.
+local function because(r, sug)
+	local reason = sug.reason
+	if reason == "undercut" and r.cheapest and sug.unit then
+		return string.format(L["%s under the cheapest other listing, above your floor."], money(r.cheapest - sug.unit))
+	elseif reason == "alone" then
+		return sug.day and L["No one else lists it: today's price."] or L["No one else lists it: your normal price."]
+	elseif reason == "maximum" then
+		return string.format(L["The others ask more than %sx the market: posted at the maximum."], tostring(sug.times))
+	elseif reason == "floor" then
+		return L["An undercut would go under your floor: posted at the floor."]
+	elseif reason == "hold" then
+		return (sug.floorBy == "vendor" and L["The cheapest other is under the vendor price after the cut: held."] or L["The cheapest other is under your floor: held."])
+			.. (r.anyway and string.format(L[" Anyway: %s."], money(r.anyway)) or "")
+	end
+	return (sug.label or L["The sale plan's step"]) .. "."
+end
+
+-- Why the price is what it is, in a sentence, and the post size's reason (gf#368); until the live
+-- search answers, that it is searching (a price from the last scan is never posted).
 function Wide.why(r)
 	local sug = r.suggestion
 	if not sug then
 		return L["No price yet: scan first."]
 	end
-	local reason = sug.reason
-	if reason == "undercut" and r.cheapest and sug.unit then
-		return string.format(L["%s under the cheapest other listing, above your floor."], money(r.cheapest - sug.unit))
-	elseif reason == "alone" then
-		return L["No one else lists it: your normal price."]
-	elseif reason == "normal" then
-		return L["The others ask more than your normal price: posted at normal."]
-	elseif reason == "floor" then
-		return L["An undercut would go under your floor: posted at the floor."]
-	elseif reason == "hold" then
-		return L["The cheapest other is under your floor: held."] .. (r.anyway and string.format(L[" Anyway: %s."], money(r.anyway)) or "")
+	if sug.estimate then
+		return L["Searching the auction house for the live price..."]
 	end
-	return (sug.label or L["The sale plan's step"]) .. "."
+	return because(r, sug) .. (r.sizeReason and string.format(L[" Posting %s."], r.sizeReason) or "")
 end
 
 -- The price line: the unit price, or Held under the floor; nil with no price.
@@ -126,6 +136,9 @@ end
 -- once pressed (`armed`) it asks for the second press.
 function Wide.button(r, quantity, armed, busy)
 	local sug = r and r.suggestion
+	if sug and sug.estimate then
+		return { label = L["Searching..."], kind = "primary", enabled = false }
+	end
 	if sug and sug.unit then
 		return { label = string.format(L["Post %d x %s"], quantity, money(sug.unit)), kind = "primary", enabled = not busy }
 	end
@@ -280,11 +293,16 @@ function Wide.build(page, act)
 		box.durations[d.value] = pair
 	end
 	-- Post, primary; Post anyway under the floor, the plain one. The same press either way.
+	box.inner = g.inner
 	box.post = UI.Button(box, L["Post"], act.post, { kind = "primary", width = g.inner, height = 32 })
 	box.anyway = UI.Button(box, L["Post anyway"], act.post, { kind = "default", width = g.inner, height = 32 })
 	for _, b in ipairs({ box.post, box.anyway }) do
 		b:SetPoint("TOPLEFT", IN, -196)
 	end
+	-- Post all, beside Post while the post is a few days of supply of more held (gf#368).
+	box.all = UI.Button(box, L["Post all"], act.postAll, { kind = "default", width = ALL, height = 32 })
+	box.all:SetPoint("TOPRIGHT", -IN, -196)
+	box.all:Hide()
 	box.hint = UI.Text(box, L["Space posts · one press, one post"], { size = "xs", tone = "faint" })
 	box.hint:SetPoint("TOPLEFT", IN, -234)
 	box.hint:SetWidth(g.note)
@@ -322,7 +340,7 @@ function Wide.build(page, act)
 	end
 
 	-- `v`: the chosen row and what goes with it: { r, quantity, duration, armed, busy, live, levels,
-	-- deposit, note }.
+	-- deposit, note, all (Post all offered) }.
 	function box:Draw(v)
 		local r = v.r
 		local faint = Theme.escape(Theme.color.textFaint)
@@ -337,6 +355,8 @@ function Wide.build(page, act)
 			badge(nil)
 			self.post:Show()
 			self.anyway:Hide()
+			self.all:Hide()
+			self.post:SetWidth(self.inner)
 			self.post:SetLabel(L["Post"])
 			self.post:SetEnabled(false)
 			return
@@ -367,6 +387,8 @@ function Wide.build(page, act)
 			pair.ghost:SetShown(value ~= v.duration)
 		end
 		local b = Wide.button(r, v.quantity, v.armed, v.busy)
+		self.all:SetShown(v.all and true or false)
+		self.post:SetWidth(v.all and (self.inner - ALL - 6) or self.inner)
 		local shown = b.kind == "primary" and self.post or self.anyway
 		self.post:SetShown(shown == self.post)
 		self.anyway:SetShown(shown == self.anyway)

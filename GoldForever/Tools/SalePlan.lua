@@ -85,8 +85,11 @@ end
 -- What one sell rule does now: { action = "post"|"ask"|"hold"|"skip", reason, quantity, unitPrice,
 -- choices = { plan, undercut } for "ask", ignored (units left out as outliers), floor }. `round` (the
 -- auction house's step, Post.silver in game) is applied before the floor is checked, so a price rounded
--- down never posts under the floor.
-function SalePlan.sell(rule, held, levels, market, guard, round)
+-- down never posts under the floor. `limits` (Post.limits, gf#368): { vendor, maximum }, the vendor price
+-- after the cut as a floor too ("under-vendor") and the maximum against outliers ("maximum"); a fixed
+-- price is the player's own and keeps neither.
+function SalePlan.sell(rule, held, levels, market, guard, round, limits)
+	limits = limits or {}
 	local quantity = math.max(0, held - rule.keep)
 	local kept, out = SalePlan.clean(levels, guard, market)
 	local ignored = 0
@@ -94,6 +97,10 @@ function SalePlan.sell(rule, held, levels, market, guard, round)
 		ignored = ignored + l.quantity
 	end
 	local floor = (market and rule.floorPct > 0) and math.ceil(market * rule.floorPct / 100) or nil
+	local byVendor = limits.vendor and limits.vendor > (floor or 0)
+	if byVendor then
+		floor = limits.vendor
+	end
 	local function step(action, reason, unitPrice, extra)
 		local s = { action = action, reason = reason, quantity = quantity, unitPrice = unitPrice, ignored = ignored, floor = floor }
 		for k, v in pairs(extra or {}) do
@@ -106,9 +113,12 @@ function SalePlan.sell(rule, held, levels, market, guard, round)
 	end
 	local cheapest = kept[1] and kept[1].unitPrice or nil
 	local function guarded(price, reason)
+		if limits.maximum and price > limits.maximum then
+			price, reason = limits.maximum, "maximum"
+		end
 		price = round and round(price) or price
 		if floor and price < floor then
-			return step("hold", "under-floor", nil)
+			return step("hold", byVendor and "under-vendor" or "under-floor", nil)
 		end
 		return step("post", reason, price)
 	end

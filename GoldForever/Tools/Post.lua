@@ -1,7 +1,8 @@
--- Gold Forever: the price to post at (design 009, Auction house module), as the web playground's
--- suggestPost has it: undercut the cheapest listing by someone else, never under a floor of the market
--- value, never over a normal price; with nobody to undercut, the normal price. Pure Lua 5.1 with no game
--- API, so it is tested outside the client.
+-- Gold Forever: the price to post at (design 009, Auction house module; gf#368): undercut the cheapest
+-- listing by someone else, from a live search; never over a maximum of 3x the market value (5x on a highly
+-- volatile item), never under a floor of the market value or of the vendor price after the cut; with
+-- nobody to undercut, the higher of the normal price and today's. Pure Lua 5.1 with no game API, so it is
+-- tested outside the client.
 
 local _, ns = ...
 ns = ns or {}
@@ -11,8 +12,9 @@ local Post = {}
 ns.Post = Post
 
 -- The default rule: 1 silver under the cheapest (the auction house takes whole silver), a floor of 80%
--- of the market value, a normal price of 120%, and hold when the cheapest is under the floor.
-Post.DEFAULT = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold" }
+-- of the market value, a normal price of 120% when alone, hold when the cheapest is under the floor, a
+-- maximum of 3x the market (5x when highly volatile) against outliers, and a post size of 2 days of supply.
+Post.DEFAULT = { undercut = "1s", floor = 80, normal = 120, belowFloor = "hold", maximum = 3, volatileMaximum = 5, supplyDays = 2 }
 
 -- The undercuts a player can pick: an amount in copper, or a share of the cheapest price.
 Post.UNDERCUTS = {
@@ -35,6 +37,14 @@ function Post.silver(copper)
 	return math.max(100, math.floor(copper / 100) * 100)
 end
 
+-- Up to the next price the auction house takes, so a floor rounded to it stays at or over its bound.
+local function up(copper)
+	if Post.copper then
+		return math.max(1, math.ceil(copper))
+	end
+	return math.max(100, math.ceil(copper / 100) * 100)
+end
+
 local function undercutBy(rule, cheapest)
 	for _, u in ipairs(Post.UNDERCUTS) do
 		if u.value == rule.undercut then
@@ -44,42 +54,64 @@ local function undercutBy(rule, cheapest)
 	return 100
 end
 
--- The price for one unit from the market value and the cheapest buyout by someone else (nil: nobody).
--- Returns { unit (nil to hold), reason, floor, normal }; reason is "undercut", "alone" (nobody else),
--- "normal" (everyone dearer than the normal price), "floor" (posted at the floor) or "hold".
-function Post.suggest(rule, market, cheapest)
+-- The bounds of a post for an item worth `market`: { floor, floorBy ("market" or "vendor"), vendor (the
+-- vendor price after the cut, up to the auction house's step; nil without one), maximum, times }. item:
+-- { vendor, cut, volatile } (each optional). Sell and the sale plans share them.
+function Post.limits(rule, market, item)
+	rule, item = rule or Post.DEFAULT, item or {}
+	local floor, floorBy = Post.silver(math.ceil(market * (rule.floor or 80) / 100)), "market"
+	local vendor = item.vendor and item.vendor > 0 and up(item.vendor / (1 - (item.cut or 0.05))) or nil
+	if vendor and vendor > floor then
+		floor, floorBy = vendor, "vendor"
+	end
+	local times = item.volatile and (rule.volatileMaximum or Post.DEFAULT.volatileMaximum) or (rule.maximum or Post.DEFAULT.maximum)
+	return { floor = floor, floorBy = floorBy, vendor = vendor, maximum = math.max(floor, Post.silver(market * times)), times = times }
+end
+
+-- The price for one unit from the market value and the cheapest buyout by someone else (nil: nobody);
+-- item: { vendor, cut, volatile, day (today's price) }. Returns { unit (nil to hold), reason, floor,
+-- floorBy, normal (the price alone), maximum, times, day (alone at today's price) }; reason is "undercut",
+-- "alone" (nobody else), "maximum" (everyone over the maximum), "floor" (posted at the floor) or "hold".
+function Post.suggest(rule, market, cheapest, item)
 	rule = rule or Post.DEFAULT
-	local floor = Post.silver(math.ceil(market * (rule.floor or 80) / 100))
+	local b = Post.limits(rule, market, item)
+	local floor = b.floor
+	local function out(unit, reason, day)
+		return { unit = unit, reason = reason, floor = floor, floorBy = b.floorBy, normal = b.normal, maximum = b.maximum, times = b.times, day = day or false }
+	end
 	-- To the nearest silver where the auction house takes silver; where it takes copper, to the copper.
-	local normal = math.max(floor, Post.silver(market * (rule.normal or 120) / 100 + (Post.copper and 0 or 50)))
+	local normal = Post.silver(market * (rule.normal or 120) / 100 + (Post.copper and 0 or 50))
+	local day = item and item.day and Post.silver(item.day)
+	local atDay = day and day > normal
+	b.normal = math.max(floor, math.min(b.maximum, atDay and day or normal))
 	if not cheapest then
-		return { unit = normal, reason = "alone", floor = floor, normal = normal }
+		return out(b.normal, "alone", atDay)
 	end
 	local under = cheapest - undercutBy(rule, cheapest)
-	if under > normal then
-		return { unit = normal, reason = "normal", floor = floor, normal = normal }
+	if under > b.maximum then
+		return out(b.maximum, "maximum")
 	end
 	if under >= floor then
 		-- What the auction house takes (whole silver, or copper), and still under the cheapest one.
 		local unit = Post.copper and math.floor(under) or math.floor(under / 100) * 100
 		if unit >= floor then
-			return { unit = unit, reason = "undercut", floor = floor, normal = normal }
+			return out(unit, "undercut")
 		end
 	end
 	if rule.belowFloor == "floor" then
-		return { unit = floor, reason = "floor", floor = floor, normal = normal }
+		return out(floor, "floor")
 	end
-	return { unit = nil, reason = "hold", floor = floor, normal = normal }
+	return out(nil, "hold")
 end
 
 -- What Sell suggests from a rule, the market value and the cheapest other listing (nil: nobody): the
 -- suggestion, nil with neither price (with no market value the cheapest stands in for it); and for one
 -- held under the floor, what undercutting would ask anyway (Post anyway, owner's answer, 2026-10-24).
-function Post.advise(rule, market, cheapest)
+function Post.advise(rule, market, cheapest, item)
 	if not market then
-		return cheapest and Post.suggest(rule, cheapest, cheapest) or nil, nil
+		return cheapest and Post.suggest(rule, cheapest, cheapest, item) or nil, nil
 	end
-	local s = Post.suggest(rule, market, cheapest)
+	local s = Post.suggest(rule, market, cheapest, item)
 	if s.reason ~= "hold" or not cheapest then
 		return s, nil
 	end
@@ -88,7 +120,41 @@ function Post.advise(rule, market, cheapest)
 		loose[k] = x
 	end
 	loose.floor = 1
-	return s, Post.suggest(loose, market, cheapest).unit
+	return s, Post.suggest(loose, market, cheapest, item and { volatile = item.volatile, day = item.day }).unit
+end
+
+-- The undercut a rule names, as Sell says it: an amount (money(copper)), or a share.
+local function undercutText(rule, money)
+	for _, u in ipairs(Post.UNDERCUTS) do
+		if u.value == (rule or Post.DEFAULT).undercut then
+			return u.copper and money(u.copper) or (u.pct .. "%")
+		end
+	end
+	return money(100)
+end
+
+-- Why Sell suggests what it does, in a few words (gf#368): "Undercut 1s (live)", "At the maximum, 3x
+-- market", "Held: under the vendor price", "Alone: today's price". `live`: the cheapest is from a live
+-- search, not the last scan. Nil without a suggestion.
+function Post.label(s, rule, money, live)
+	if not s then
+		return nil
+	end
+	if s.reason == "undercut" then
+		return string.format(live and L["Undercut %s (live)"] or L["Undercut %s (last scan)"], undercutText(rule, money))
+	elseif s.reason == "maximum" then
+		return string.format(L["At the maximum, %sx market"], tostring(s.times))
+	elseif s.reason == "hold" then
+		return s.floorBy == "vendor" and L["Held: under the vendor price"] or L["Held: under your floor"]
+	elseif s.reason == "alone" then
+		return s.day and L["Alone: today's price"] or string.format(L["Alone: %s%% of market"], tostring((rule or Post.DEFAULT).normal or 120))
+	end
+	return Post.REASONS[s.reason]
+end
+
+-- The post size's reason: "2 days of supply".
+function Post.supplyReason(days)
+	return ns.plural(days, L["%d day of supply"], L["%d days of supply"])
 end
 
 -- Cancel undercut: the auctions { unit, cheapest } undercut by more than `tolerance` percent, most
@@ -140,7 +206,7 @@ function Post.examples(rule, money, market)
 		out[#out + 1] = s.unit and string.format(L["%s: you post at %s (%s)"], situation, money(s.unit), string.lower(Post.REASONS[s.reason]))
 			or string.format(L["%s: you hold it, as it is under your floor"], situation)
 	end
-	local near, low, high = math.floor(market * 0.95), math.floor(market / 2), market * 2
+	local near, low, high = math.floor(market * 0.95), math.floor(market / 2), market * 4
 	say(string.format(L["Someone lists it at %s"], money(near)), near)
 	say(L["No one else lists it"], nil)
 	say(string.format(L["The cheapest is %s"], money(low)), low)
@@ -167,7 +233,7 @@ end
 Post.REASONS = {
 	undercut = L["Undercut"],
 	alone = L["No one else"],
-	normal = L["Normal price"],
+	maximum = L["At the maximum"],
 	floor = L["At floor"],
 	hold = L["Under your floor"], -- not "Hold", read as "keep this many" (manual test run 001)
 	plan = L["Plan"], -- a sale plan's step; the panel shows the step's own label

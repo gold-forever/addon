@@ -17,9 +17,11 @@ s = P.suggest(rule, 10000, 9550)
 eq(s.reason, "undercut", "undercut")
 eq(s.unit, 9400, "a silver under 95s 50c, in whole silver")
 
+-- A rising market (gf#368): the cheapest well over 120% of the market is still undercut.
+s = P.suggest(rule, 10000, 15000)
+eq(s.reason .. s.unit, "undercut14900", "a rising market: a silver under the cheapest, over 1.2x")
 s = P.suggest(rule, 10000, 30000)
-eq(s.reason, "normal", "everyone dearer than normal")
-eq(s.unit, 12000, "capped at normal")
+eq(s.reason .. s.unit, "undercut29900", "up to 3x the market: still undercut")
 
 s = P.suggest(rule, 10000, 7000)
 eq(s.reason, "hold", "the cheapest is under the floor")
@@ -118,9 +120,60 @@ eq(#ex, 4, "four situations")
 eq(ex[1], "Someone lists it at 95000c: you post at 94900c (undercut)", "a little under the market")
 eq(ex[2], "No one else lists it: you post at 120000c (no one else)", "alone")
 eq(ex[3], "The cheapest is 50000c: you hold it, as it is under your floor", "under the floor, held")
-eq(ex[4], "The cheapest is 200000c: you post at 120000c (normal price)", "far over")
+eq(ex[4], "The cheapest is 400000c: you post at 300000c (at the maximum)", "far over: the maximum")
 local atFloor = P.examples({ undercut = "1s", floor = 80, normal = 120, belowFloor = "floor" }, function(c) return c .. "c" end)
 eq(atFloor[3], "The cheapest is 50000c: you post at 80000c (at floor)", "or posted at the floor")
+
+-- gf#368: the maximum against outliers, the vendor floor, the day price when alone, the reasons.
+do
+	-- An outlier over 3x the market: posted at the maximum, never over it.
+	local o = P.suggest(rule, 10000, 40000)
+	eq(o.reason .. o.unit .. ":" .. o.times, "maximum30000:3", "an outlier over 3x: at the maximum, 3x")
+	-- Highly volatile: 5x.
+	o = P.suggest(rule, 10000, 40000, { volatile = true })
+	eq(o.reason .. o.unit, "undercut39900", "volatile: 4x is under its 5x maximum, undercut")
+	o = P.suggest(rule, 10000, 60000, { volatile = true })
+	eq(o.reason .. o.unit .. ":" .. o.times, "maximum50000:5", "volatile: at the maximum, 5x")
+	-- The maximums are the rule's, changeable.
+	o = P.suggest({ undercut = "1s", floor = 80, normal = 120, maximum = 2, volatileMaximum = 4 }, 10000, 40000)
+	eq(o.reason .. o.unit, "maximum20000", "a maximum of 2x")
+	-- The floor: the higher of 80% of the market and the vendor price after the cut (9000 / 0.95, up to the silver).
+	o = P.suggest(rule, 10000, 9550, { vendor = 9000, cut = 0.05 })
+	eq(o.reason .. ":" .. o.floor .. ":" .. o.floorBy, "hold:9500:vendor", "under the vendor price after the cut: held")
+	o = P.suggest(rule, 10000, 9550, { vendor = 5000, cut = 0.05 })
+	eq(o.reason .. o.unit .. ":" .. o.floor .. ":" .. o.floorBy, "undercut9400:8000:market", "a low vendor price: the market's floor")
+	o = P.suggest({ undercut = "1s", floor = 80, normal = 120, belowFloor = "floor" }, 10000, 9550, { vendor = 9000, cut = 0.05 })
+	eq(o.reason .. o.unit, "floor9500", "post at the floor: the vendor floor")
+	-- Post anyway under the vendor floor: what undercutting would ask.
+	local held, anyway = P.advise(rule, 10000, 9550, { vendor = 9000, cut = 0.05 })
+	eq(held.reason .. ":" .. tostring(anyway), "hold:9400", "held under the vendor price, Post anyway at the undercut")
+	-- Alone: the higher of 120% and today's price, at most the maximum.
+	o = P.suggest(rule, 10000, nil, { day = 15000 })
+	eq(o.reason .. o.unit .. ":" .. tostring(o.day), "alone15000:true", "alone with a day price over 120%: today's price")
+	o = P.suggest(rule, 10000, nil, { day = 11000 })
+	eq(o.reason .. o.unit .. ":" .. tostring(o.day), "alone12000:false", "a day price under 120%: 120%")
+	o = P.suggest(rule, 10000, nil, { day = 90000 })
+	eq(o.reason .. o.unit, "alone30000", "a day price over the maximum: the maximum")
+	o = P.suggest(rule, 10000, nil, { vendor = 20000, cut = 0.05 })
+	eq(o.unit, 21100, "alone, the vendor floor over 120%: the floor")
+
+	-- The reasons, as Sell names them.
+	local function m(c) return c .. "c" end
+	eq(P.label(P.suggest(rule, 10000, 9550), rule, m, true), "Undercut 100c (live)", "undercut, live")
+	eq(P.label(P.suggest(rule, 10000, 9550), rule, m, false), "Undercut 100c (last scan)", "undercut, from the scan for the list")
+	eq(P.label(P.suggest({ undercut = "5%" }, 10000, 9550), { undercut = "5%" }, m, true), "Undercut 5% (live)", "a share")
+	eq(P.label(P.suggest(rule, 10000, 40000), rule, m, true), "At the maximum, 3x market", "the maximum")
+	eq(P.label(P.suggest(rule, 10000, 60000, { volatile = true }), rule, m, true), "At the maximum, 5x market", "the volatile maximum")
+	eq(P.label(P.suggest(rule, 10000, 9550, { vendor = 9000, cut = 0.05 }), rule, m, true), "Held: under the vendor price", "held by the vendor price")
+	eq(P.label(P.suggest(rule, 10000, 7000), rule, m, true), "Held: under your floor", "held by the floor")
+	eq(P.label(P.suggest(rule, 10000, nil, { day = 15000 }), rule, m, true), "Alone: today's price", "alone at the day price")
+	eq(P.label(P.suggest(rule, 10000, nil), rule, m, true), "Alone: 120% of market", "alone at 120%")
+	eq(P.label(nil, rule, m, true), nil, "no suggestion: no label")
+	eq(P.DEFAULT.maximum .. P.DEFAULT.volatileMaximum .. P.DEFAULT.supplyDays, "352", "the defaults: 3x, 5x, 2 days")
+	-- The day count of the post size, worded for any number.
+	eq(P.supplyReason(2), "2 days of supply", "two days")
+	eq(P.supplyReason(1), "1 day of supply", "one day")
+end
 
 -- The player's own auctions as the Auctions tab reads them (review C-14).
 do

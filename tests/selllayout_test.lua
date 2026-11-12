@@ -120,6 +120,12 @@ eq(Wide.why({ suggestion = { reason = "undercut", unit = 600 }, cheapest = 699 }
 eq(Wide.why({ suggestion = { reason = "alone" } }), "No one else lists it: your normal price.", "alone")
 eq(Wide.why({ suggestion = { reason = "hold" }, anyway = 38999 }), "The cheapest other is under your floor: held. Anyway: 38999c.", "held, with Post anyway's price")
 eq(Wide.why({}), "No price yet: scan first.", "no price")
+-- gf#368: the maximum, the vendor floor, today's price, the post size.
+eq(Wide.why({ suggestion = { reason = "maximum", times = 3 } }), "The others ask more than 3x the market: posted at the maximum.", "at the maximum")
+eq(Wide.why({ suggestion = { reason = "hold", floorBy = "vendor" } }), "The cheapest other is under the vendor price after the cut: held.", "held by the vendor price")
+eq(Wide.why({ suggestion = { reason = "alone", day = true } }), "No one else lists it: today's price.", "alone at today's price")
+eq(Wide.why({ suggestion = { reason = "undercut", unit = 600 }, cheapest = 699, sizeReason = "2 days of supply" }), "99c under the cheapest other listing, above your floor. Posting 2 days of supply.", "the post size's reason")
+eq(Wide.why({ suggestion = { reason = "undercut", unit = 600, estimate = true }, cheapest = 699 }), "Searching the auction house for the live price...", "from the scan: waits for the live search")
 
 -- The badge: the reason in a word, in its tone.
 local b = Wide.badge({ reason = "hold" })
@@ -128,6 +134,8 @@ b = Wide.badge({ reason = "undercut" })
 eq(b.label .. " " .. b.tone, "Undercut accent", "undercut")
 eq(Wide.badge({ reason = "plan", label = "Fixed price (plan)", unit = 5 }).label, "Fixed price (plan)", "a plan's step by its label")
 eq(Wide.badge(nil), nil, "no price: no badge")
+b = Wide.badge({ reason = "maximum" })
+eq(b.label .. " " .. b.tone, "At the maximum info", "the maximum")
 
 -- Post, and Post anyway under the floor: the plain button, a second press, its own words.
 local post = Wide.button({ suggestion = { reason = "undercut", unit = 600 } }, 15, false)
@@ -142,6 +150,9 @@ eq(Wide.underFloor(held), "Under your floor of 43200c.", "armed: the note names 
 eq(Wide.button({ suggestion = { reason = "hold" } }, 1, false).enabled, false, "held with no one to undercut: off")
 eq(Wide.button(nil, 1, false).enabled, false, "no price: off")
 eq(Wide.button({ suggestion = { reason = "undercut", unit = 600 } }, 1, false, true).enabled, false, "busy: off")
+eq(Wide.button({ suggestion = { reason = "undercut", unit = 600, estimate = true } }, 1, false).enabled, false, "from the scan: off until the live search")
+eq(Wide.button({ suggestion = { reason = "undercut", unit = 600, estimate = true } }, 1, false).label, "Searching...", "from the scan: searching")
+eq(Wide.button({ suggestion = { reason = "hold", estimate = true }, anyway = 5 }, 1, false).enabled, false, "Post anyway waits for the live search too")
 eq(Wide.price({ suggestion = { reason = "hold" }, anyway = 1 }).held, true, "held: the price line reads Held")
 eq(Wide.price({ suggestion = { reason = "undercut", unit = 600 } }).text, "600c", "the unit price")
 return checks()

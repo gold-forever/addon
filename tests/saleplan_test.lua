@@ -65,6 +65,21 @@ local pct = { itemID = 1, keep = 0, price = { kind = "percentile", pct = 90 }, f
 s = P.sell(pct, 5, { lv(10, 1), lv(100, 10), lv(300, 90) }, nil)
 eq(s.action .. s.reason .. s.unitPrice .. ":" .. s.ignored, "postpercentile300:1", "a point in the supply")
 
+-- gf#368: a plan prices with Sell's maximum and vendor floor; own listings never count.
+local limited = { itemID = 1, keep = 0, price = { kind = "undercut", by = 1 }, floorPct = 80 }
+s = P.sell(limited, 10, { lv(9000, 20) }, 2000, nil, nil, { maximum = 6000 })
+eq(s.action .. s.reason .. s.unitPrice, "postmaximum6000", "an outlier over the maximum: at the maximum")
+s = P.sell(limited, 10, { lv(1900, 20) }, 2000, nil, nil, { vendor = 2100, maximum = 6000 })
+eq(s.action .. s.reason .. s.floor, "holdunder-vendor2100", "under the vendor floor: held, by the vendor price")
+s = P.sell(limited, 10, {}, 2000, nil, nil, { vendor = 2100 })
+eq(s.action .. s.reason, "holdunder-vendor", "nobody else, the market under the vendor floor: held")
+s = P.sell({ itemID = 1, keep = 0, price = { kind = "percentile", pct = 50 }, floorPct = 0 }, 10, { lv(9000, 20) }, 2000, nil, nil, { maximum = 6000 })
+eq(s.reason .. s.unitPrice, "maximum6000", "a percentile price is capped too")
+s = P.sell(limited, 10, { lv(1500, 30, 30), lv(1900, 20) }, 2000, nil, nil, { maximum = 6000 })
+eq(s.reason .. s.unitPrice, "undercut1899", "the player's own cheapest listing is not undercut")
+s = P.sell(fixed, 20, { lv(1900, 20) }, 2000, nil, nil, { maximum = 1000 })
+eq(s.reason .. s.unitPrice, "fixed2000", "a fixed price is the player's own: not capped")
+
 -- planBuy
 local b = P.buy({ itemID = 1, upTo = 200, maxUnit = 2000 }, 170, { lv(1900, 20), lv(500, 1), lv(2100, 50) })
 eq(b.quantity .. ":" .. b.topUnit .. ":" .. b.total, "21:1900:" .. (500 + 20 * 1900), "cheapest first up to the target")

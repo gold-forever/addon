@@ -1,7 +1,7 @@
 -- Gold Forever: the auction panel's Sell tab: the bag items the auction house takes, each priced by the
--- rule (Post.lua) or the sale plan against the cheapest listing by someone else (a live search when the
--- row is chosen, else the last scan), with the reason; one click, or Space while the panel shows, posts
--- the chosen row and moves on. Posting is a hardware event (the click or the key); the result is
+-- rule (Post.lua) or the sale plan against the cheapest listing by someone else, with the reason. A row
+-- posts only from a live search of it (made when it is chosen); the last scan prices the list until then
+-- (gf#368). One click, or Space while the panel shows, posts the chosen row and moves on. Posting is a hardware event (the click or the key); the result is
 -- confirmed by its event before the next press is taken. Own auctions are left out of "cheapest", so the
 -- player never undercuts themself.
 
@@ -64,12 +64,15 @@ end
 local PLAN_REASONS = {
 	undercut = L["Undercut (plan)"], fixed = L["Fixed price (plan)"], percentile = L["Percentile (plan)"], ["no-competition"] = L["No one else (plan)"],
 	["market-moved"] = L["The market moved (plan)"], ["under-floor"] = L["Hold: under the plan's floor"], keeping = L["Keeping"], ["no-price"] = L["No price yet"],
+	maximum = L["At the maximum (plan)"], ["under-vendor"] = L["Held: under the vendor price"],
 }
 
-local function planned(r, rule, market)
+-- limits: Post.limits for the item, or nil without a market value.
+local function planned(r, rule, market, limits)
 	-- Gear's book is known once the row was searched, at its own item level.
 	local book = (r.commodity or r.itemKey) and ah.live[bookKey(r.id, r.commodity, r.itemKey and r.itemKey.itemLevel)]
-	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market, nil, Post.silver)
+	local step = ns.SalePlan.sell(rule, heldHere(r.id, r.count), book and book.levels or {}, market, nil, Post.silver,
+		limits and { vendor = limits.vendor, maximum = limits.maximum })
 	local unit = step.unitPrice or (step.choices and step.choices.plan)
 	local label = PLAN_REASONS[step.reason] or step.reason
 	if step.reason == "keeping" then
@@ -81,11 +84,13 @@ local function planned(r, rule, market)
 		floor = step.floor or 0, normal = unit or 0,
 		ask = step.action == "ask" or nil,
 		quantity = step.quantity,
+		estimate = not book or nil,
 	}
 end
 
--- A row priced: market value, the cheapest other listing (live or from the scan) and the suggestion.
--- `s`: the settings, read once for every row of a refresh.
+-- A row priced: market value, the cheapest other listing (live, else the last scan's for the list) and
+-- the suggestion; one priced without a live search is an estimate, never posted. `s`: the settings,
+-- read once for every row of a refresh.
 local function price(r, s)
 	s = s or settings()
 	r.priced = true
@@ -100,20 +105,28 @@ local function price(r, s)
 		r.cheapest, r.cheapestFrom = ns.price.cheapest(r.id), "scan"
 	end
 	r.vendor = ns.price.vendor(r.id)
+	-- The rule: an override for the item, or its category, over the default.
+	local _, _, class = ns.price.itemInfo(r.id)
+	local postRule, ruleFrom = Post.resolve(s.rule, s.overrides, r.id, class)
+	-- The price file carries no volatile tag nor day price yet: both read as absent.
+	local item = { vendor = r.vendor, cut = ns.price.cut }
+	local days = postRule.supplyDays or Post.DEFAULT.supplyDays
 	local sold, listed = ns.Prices.supply(r.id)
-	r.postSize, r.supplyLine = ns.Prices.postSize(sold, r.count), ns.Prices.supplyLine(sold, listed, r.count)
-	local rule = ns.SalePlan.ruleFor(activeProfile(s), r.id)
-	if rule then
-		r.suggestion = planned(r, rule, market)
+	r.postSize, r.supplyLine = ns.Prices.postSize(sold, r.count, days), ns.Prices.supplyLine(sold, listed, r.count, days)
+	local plan = ns.SalePlan.ruleFor(activeProfile(s), r.id)
+	if plan then
+		r.suggestion = planned(r, plan, market, market and Post.limits(postRule, market, item))
 	else
-		-- The rule: an override for the item, or its category, over the default.
-		local _, _, class = ns.price.itemInfo(r.id)
-		local postRule, from = Post.resolve(s.rule, s.overrides, r.id, class)
-		r.suggestion, r.anyway = Post.advise(postRule, market, r.cheapest)
-		if r.suggestion and from ~= "default" then
-			r.suggestion.label = (Post.REASONS[r.suggestion.reason] or "") .. (from == "item" and L[" (item rule)"] or L[" (category rule)"])
+		r.suggestion, r.anyway = Post.advise(postRule, market, r.cheapest, item)
+		if r.suggestion then
+			r.suggestion.estimate = not l or nil
+			r.suggestion.label = Post.label(r.suggestion, postRule, money, l ~= nil)
+				.. (ruleFrom == "item" and L[" (item rule)"] or ruleFrom == "category" and L[" (category rule)"] or "")
 		end
 	end
+	-- Holding more than the days of supply, the suggested post is that many days' worth.
+	local sized = r.commodity and not plan and not s.quantities[r.key] and r.postSize and r.postSize < r.count
+	r.sizeReason = sized and Post.supplyReason(days) or nil
 	return r
 end
 
@@ -132,6 +145,10 @@ end
 local function quantity(r)
 	if not r.commodity then
 		return 1
+	end
+	-- Post all: the whole holding, for this press only.
+	if ah.allFor == r.key then
+		return r.count
 	end
 	local picked = settings().quantities[r.key]
 	-- A sale plan's quantity (what is over its keep) unless the player chose a number.
@@ -223,6 +240,11 @@ local function post()
 	if not r or busy() or not r.suggestion then
 		return
 	end
+	if r.suggestion.estimate then
+		ah.panel.post.note:SetText(L["Searching the auction house for the live price..."])
+		search(r, false)
+		return
+	end
 	local unit, forced = unitToPost(r)
 	if not unit or confirmWarned(r, unit) then
 		return
@@ -235,12 +257,20 @@ local function post()
 	send(r, unit)
 end
 
+-- Post all: the chosen row's whole holding, past the days of supply.
+local function postAll()
+	if ah.chosen then
+		ah.allFor = ah.chosen.key
+		post()
+	end
+end
+
 local function posted()
 	if not ah.waits.post then
 		return -- not the panel's post (Blizzard's own Sell window)
 	end
 	local key = ah.waits.post.key
-	ah.waits.post = nil
+	ah.waits.post, ah.allFor = nil, nil
 	ah.live[key] = nil
 	-- The next row; the bags update a moment later and the list follows.
 	local next
@@ -378,7 +408,7 @@ local function buildPost(page)
 			if wideNow and ah.armed then
 				page.note:SetText("")
 			end
-			ah.chosen, ah.armed, ah.confirm = r, nil, nil
+			ah.chosen, ah.armed, ah.confirm, ah.allFor = r, nil, nil, nil
 			search(r, true)
 			ah.refresh()
 		end,
@@ -442,16 +472,24 @@ local function buildPost(page)
 	page.duration = duration
 	-- How many of a commodity to post, remembered for it; hidden for gear (one at a time).
 	local qtyLabel = UI.Text(detail, L["Post"], { size = "sm", tone = "muted" })
-	local qty = UI.Slider(detail, 1, 2, 1, 1, function(v)
+	local function chooseQuantity(v)
 		if ah.chosen then
-			settings().quantities[ah.chosen.key] = v
+			settings().quantities[ah.chosen.key], ah.allFor = v, nil
 			ah.refresh()
 		end
-	end, function(v)
+	end
+	local qty = UI.Slider(detail, 1, 2, 1, 1, chooseQuantity, function(v)
 		return tostring(v)
 	end)
+	local function pressAll()
+		ns.safely("auction post all", postAll)
+		ah.refresh()
+	end
+	local allButton = UI.Button(detail, L["Post all"], pressAll, { kind = "ghost", width = 90, height = 24 })
+	allButton:SetPoint("BOTTOMRIGHT", -14, 52)
+	page.allButton = allButton
 	qty:SetPoint("LEFT", qtyLabel, "RIGHT", 12, 0)
-	qty:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
+	qty:SetPoint("RIGHT", allButton, "LEFT", -10, 0)
 	page.quantity = qty
 	duration:SetWidth(110)
 	local function press()
@@ -464,13 +502,8 @@ local function buildPost(page)
 
 	-- Wide, the box beside the list (addon#91); quantity and duration remembered for the item as narrow's.
 	local box = Wide.build(page, {
-		post = press, rule = openRule, toggle = toggleLayout,
-		quantity = function(v)
-			if ah.chosen then
-				settings().quantities[ah.chosen.key] = v
-				ah.refresh()
-			end
-		end,
+		post = press, postAll = pressAll, rule = openRule, toggle = toggleLayout,
+		quantity = chooseQuantity,
 		duration = function(v)
 			if ah.chosen then
 				settings().durations[ah.chosen.key] = v
@@ -595,6 +628,7 @@ local function buildPost(page)
 		box:Draw({
 			r = r, quantity = q, duration = d, live = live, levels = live and book and book.levels or nil,
 			armed = ah.armed == r.key .. ":anyway", busy = busy(), deposit = deposit(r, d, q), note = page.note:GetText(),
+			all = r.commodity and q < r.count and r.suggestion and r.suggestion.unit and not r.suggestion.estimate and not busy() or false,
 		})
 	end
 
@@ -609,6 +643,7 @@ local function buildPost(page)
 			reason:SetText("")
 			facts:SetText(L["Space posts the chosen item while this panel shows."])
 			button:SetEnabled(false)
+			allButton:Hide()
 			return
 		end
 		local r = ah.chosen
@@ -616,17 +651,21 @@ local function buildPost(page)
 		local many = r.commodity and r.count > 1
 		qtyLabel:SetShown(many)
 		qty:SetShown(many)
+		local sug = r.suggestion
+		local live = sug and not sug.estimate
+		allButton:SetShown(many and quantity(r) < r.count and live and sug.unit and true or false)
+		allButton:SetEnabled(not busy())
 		if many then
 			qty:SetRange(1, r.count)
 			qty:Set(quantity(r))
 		end
-		local sug = r.suggestion
 		name:SetText(Theme.escape(Theme.quality[r.quality] or Theme.color.text) .. r.name .. "|r" .. faint .. "  x" .. quantity(r) .. (r.commodity and "" or L[" (one at a time)"]) .. "|r")
 		local tone = not sug and Theme.color.textFaint or sug.reason == "hold" and Theme.color.warning or Theme.color.accent
 		local hint = Post.trendHint(r.trend)
 		reason:SetText(Theme.escape(tone) .. (sug and (sug.label or Post.REASONS[sug.reason]) or L["No price yet: scan first"]) .. "|r"
 			.. (sug and sug.unit and ("  " .. money(sug.unit) .. faint .. L[" each"] .. "|r") or "")
-			.. (hint and ("  " .. Theme.escape(r.trend > 0 and Theme.color.warning or Theme.color.textFaint) .. hint .. "|r") or ""))
+			.. (hint and ("  " .. Theme.escape(r.trend > 0 and Theme.color.warning or Theme.color.textFaint) .. hint .. "|r") or "")
+			.. (r.sizeReason and ("  " .. faint .. r.sizeReason .. "|r") or ""))
 		local cheapest = r.cheapest and (money(r.cheapest) .. faint .. (r.cheapestFrom == "live" and L[" (live)"] or L[" (last scan, yours included)"]) .. "|r") or (faint .. L["none"] .. "|r")
 		-- The market's trend on the week, when the pool carries one: green rising, red falling.
 		local trend = ""
@@ -637,8 +676,8 @@ local function buildPost(page)
 		-- The price Sell measures against, named for what it is: the typical price, or the market value and its source.
 		local base = r.typical and string.format(L["typical %s"], money(r.typical))
 			or (string.format(L["market %s"], r.market and money(r.market) or "-") .. (r.marketFrom and (faint .. " (" .. r.marketFrom .. ")|r") or ""))
-		facts:SetText(string.format(L["Cheapest other %s · %s%s · floor %s · normal %s"], cheapest, base, trend,
-			sug and money(sug.floor) or "-", sug and money(sug.normal) or "-") .. (r.supplyLine and ("\n" .. r.supplyLine) or ""))
+		facts:SetText(string.format(L["Cheapest other %s · %s%s · floor %s · maximum %s"], cheapest, base, trend,
+			sug and money(sug.floor) or "-", sug and sug.maximum and money(sug.maximum) or "-") .. (r.supplyLine and ("\n" .. r.supplyLine) or ""))
 		local l = ah.live[r.key]
 		for i, line in ipairs(listed) do
 			local x = l and l.list and l.list[i]
@@ -646,9 +685,11 @@ local function buildPost(page)
 			line.qty:SetText(x and ("x" .. x.qty .. (x.own and (Theme.escape(Theme.color.accent) .. "  " .. L["yours"] .. "|r") or "")) or "")
 		end
 		listHead:SetText(l and l.total and l.total > LISTED and string.format(L["LISTINGS · CHEAPEST %d OF %d"], LISTED, l.total) or L["LISTINGS"])
-		local can = sug and (sug.unit or r.anyway) and not busy()
+		local can = live and (sug.unit or r.anyway) and not busy()
 		if can then
 			button:SetLabel(sug.unit and string.format(L["Post %d x %s"], quantity(r), money(sug.unit)) or string.format(L["Post anyway: %s"], string.format("%d x %s", quantity(r), money(r.anyway))))
+		elseif sug and sug.estimate then
+			button:SetLabel(L["Searching..."])
 		else
 			button:SetLabel(sug and sug.reason == "hold" and L["Under your floor"] or L["Post"])
 		end
@@ -716,4 +757,4 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 	end)
 end
 
-ns.AuctionSell = { key = "post", label = L["Sell"], build = buildPost, refresh = refresh, post = post, reread = reread, layout = layout, pager = pager }
+ns.AuctionSell = { key = "post", label = L["Sell"], build = buildPost, refresh = refresh, post = post, postAll = postAll, reread = reread, layout = layout, pager = pager }

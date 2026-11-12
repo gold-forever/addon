@@ -395,6 +395,9 @@ eq(P.postSize(1, 100), 1, "a slow item: at least 1")
 eq(P.postSize(11, 100), 3, "rounded: 22 / 7")
 eq(P.postSize(nil, 100), nil, "no sold: no size")
 eq(P.postSize(42, 0), nil, "nothing held: no size")
+-- gf#368: the days are the rule's; 0 posts all.
+eq(P.postSize(42, 100, 3), 18, "three days of 6 a day")
+eq(P.postSize(42, 100, 0), nil, "0 days: no size, post all")
 
 eq(P.perDay(42), "6", "per day")
 eq(P.perDay(2), "under 1", "under a half a day")

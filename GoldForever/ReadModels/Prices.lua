@@ -147,7 +147,7 @@ function Prices.supplyOf(data, markets, id)
 end
 
 local SOLD_DAYS = 7 -- the days the file's sold covers
-local POST_DAYS = 2 -- the post size: about this many days of sales
+local POST_DAYS = 2 -- the post size: about this many days of sales, unless the rule says otherwise
 
 local function rounded(x)
 	return math.floor(x + 0.5)
@@ -164,12 +164,14 @@ function Prices.perDay(sold)
 	return n < 1 and L["under 1"] or grouped(n)
 end
 
--- About two days of sales, at least 1 and at most what is held; nil without sold or with nothing held.
-function Prices.postSize(sold, held)
-	if not sold or not held or held < 1 then
+-- About `days` (2 unless given) of sales, at least 1 and at most what is held; nil without sold, with
+-- nothing held, or with 0 days (post all).
+function Prices.postSize(sold, held, days)
+	days = days or POST_DAYS
+	if not sold or not held or held < 1 or days <= 0 then
 		return nil
 	end
-	return math.min(held, math.max(1, rounded(sold * POST_DAYS / SOLD_DAYS)))
+	return math.min(held, math.max(1, rounded(sold * days / SOLD_DAYS)))
 end
 
 local function saleRate(sold)
@@ -204,8 +206,8 @@ local function listedPart(sold, listed)
 end
 
 -- "about 6 sell a day · 84 listed: about 14 days of supply · post up to 12"; nil without sold. A part the
--- file or the bags cannot say is left out (gf#316).
-function Prices.supplyLine(sold, listed, held)
+-- file or the bags cannot say is left out (gf#316). days: the post size's (Prices.postSize).
+function Prices.supplyLine(sold, listed, held, days)
 	if not sold then
 		return nil
 	end
@@ -213,7 +215,7 @@ function Prices.supplyLine(sold, listed, held)
 	if listed then
 		parts[#parts + 1] = listedPart(sold, listed)
 	end
-	local size = Prices.postSize(sold, held)
+	local size = Prices.postSize(sold, held, days)
 	if size then
 		parts[#parts + 1] = string.format(L["post up to %s"], grouped(size))
 	end
