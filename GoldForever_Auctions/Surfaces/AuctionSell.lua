@@ -108,8 +108,8 @@ local function price(r, s)
 	-- The rule: an override for the item, or its category, over the default.
 	local _, _, class = ns.price.itemInfo(r.id)
 	local postRule, ruleFrom = Post.resolve(s.rule, s.overrides, r.id, class)
-	-- The price file carries no volatile tag nor day price yet: both read as absent.
-	local item = { vendor = r.vendor, cut = ns.price.cut }
+	local volatile, day = ns.price.today(r.id)
+	local item = { vendor = r.vendor, cut = ns.price.cut, volatile = volatile, day = day }
 	local days = postRule.supplyDays or Post.DEFAULT.supplyDays
 	local sold, listed = ns.Prices.supply(r.id)
 	r.postSize, r.supplyLine = ns.Prices.postSize(sold, r.count, days), ns.Prices.supplyLine(sold, listed, r.count, days)

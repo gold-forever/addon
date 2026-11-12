@@ -33,17 +33,25 @@ local function positive(x)
 	return amount(x) and x > 0 and x or nil
 end
 
--- The first market's valid entry for the item: value, minimum buyout, players, scan time, week, units.
+-- The first market's entry for the item whose four figures are usable; nil without one.
+-- entry: its value, minimum buyout, players, scan time, week, units.
 -- An item's entry: { market value, min buyout, players, scanned at[, week: the typical price, the median of
 -- its daily values over the 7 full days before the scan's day, absent with fewer than 3 or in a reset]
 -- [, units = the units on sale, only for a thin price] }. A file without the fifth, or with it unusable,
 -- shows no typical price and no trend; without units, or with them unusable, the price is not called thin.
-local function entry(data, markets, id)
+local function validEntry(data, markets, id)
 	for _, market in ipairs(markets) do
 		local e = field(field(field(data, F.markets), market), id)
 		if e and amount(e[ITEM.value]) and amount(e[ITEM.minBuyout]) and amount(e[ITEM.players]) and amount(e[ITEM.scannedAt]) then
-			return e[ITEM.value], e[ITEM.minBuyout], e[ITEM.players], e[ITEM.scannedAt], positive(e[ITEM.week]), positive(e[F.units])
+			return e
 		end
+	end
+end
+
+local function entry(data, markets, id)
+	local e = validEntry(data, markets, id)
+	if e then
+		return e[ITEM.value], e[ITEM.minBuyout], e[ITEM.players], e[ITEM.scannedAt], positive(e[ITEM.week]), positive(e[F.units])
 	end
 end
 
@@ -137,13 +145,24 @@ function Prices.supplyOf(data, markets, id)
 	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
 		return nil, nil
 	end
-	for _, market in ipairs(markets) do
-		local e = field(field(field(data, F.markets), market), id)
-		if e and amount(e[ITEM.value]) and amount(e[ITEM.minBuyout]) and amount(e[ITEM.players]) and amount(e[ITEM.scannedAt]) then
-			return amount(e[F.sold]) and e[F.sold] or nil, amount(e[F.listed]) and e[F.listed] or nil
-		end
+	local e = validEntry(data, markets, id)
+	if not e then
+		return nil, nil
 	end
-	return nil, nil
+	return amount(e[F.sold]) and e[F.sold] or nil, amount(e[F.listed]) and e[F.listed] or nil
+end
+
+-- The item's volatile tag and day price (gf#374) from the first market with a valid entry: volatile true
+-- only when the file says true, else false; dayPrice nil when missing or unusable, 0 kept.
+function Prices.todayOf(data, markets, id)
+	if not Prices.loaded(data) or type(markets) ~= "table" or id == nil then
+		return false, nil
+	end
+	local e = validEntry(data, markets, id)
+	if not e then
+		return false, nil
+	end
+	return e[F.volatile] == true, amount(e[F.dayPrice]) and e[F.dayPrice] or nil
 end
 
 local SOLD_DAYS = 7 -- the days the file's sold covers
@@ -323,6 +342,11 @@ end
 -- The item's sold and listed in the character's market (Prices.supplyOf).
 function Prices.supply(id)
 	return Prices.supplyOf(GoldForever_Prices, mine(), id)
+end
+
+-- The item's volatile tag and day price in the character's market (Prices.todayOf).
+function Prices.today(id)
+	return Prices.todayOf(GoldForever_Prices, mine(), id)
 end
 
 -- What buying one costs at the auction house: the pool's minimum buyout, picked against the own scan's

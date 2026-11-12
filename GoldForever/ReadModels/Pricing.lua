@@ -213,6 +213,11 @@ local function market(id)
 	return (valued(id))
 end
 
+-- The item's volatile tag (false without one) and today's price (nil without one) from the price file.
+local function today(id)
+	return ns.Prices.today(id)
+end
+
 -- A source as a player reads it.
 local SOURCE_LABELS = { auctionator = "Auctionator", pool = L["pool"], scan = L["scan"], ["typical price"] = L["typical price"] }
 local function sourceLabel(from)
@@ -356,5 +361,5 @@ end)
 ns.price = {
 	market = market, valued = valued, sourceLabel = sourceLabel, own = ownMarket, cheapest = cheapest, buy = buy, vendor = vendor, vendorBuy = vendorBuy, worth = worth, itemInfo = itemInfo,
 	disenchant = disenchantWorth, enchanting = enchanting, coins = coins, cut = CUT,
-	latestScan = latestScan,
+	latestScan = latestScan, today = today,
 }

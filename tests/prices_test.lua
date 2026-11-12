@@ -387,6 +387,27 @@ eq(tostring(P.supplyOf({ v = 2, markets = {} }, { MARKET }, 2589)), "nil", "anot
 local withSupply = { 1234, 1100, 3, NOW - 3 * 3600, sold = 42, listed = 84 }
 eq(line(data(withSupply), { MARKET }, 2589, NOW), line(data(good), { MARKET }, 2589, NOW), "the price rows do not change")
 
+-- The item's volatile tag and day price (gf#374): keyed beside the figures, volatile only when true,
+-- dayPrice absent when missing or unusable, 0 kept.
+local function today(fields)
+	local e = { 1234, 1100, 3, NOW }
+	for k, v in pairs(fields) do e[k] = v end
+	local volatile, day = P.todayOf(data(e), { MARKET }, 2589)
+	return tostring(volatile) .. " " .. tostring(day)
+end
+eq(today({ volatile = true, dayPrice = 20000 }), "true 20000", "volatile and dayPrice read")
+eq(today({ dayPrice = 0 }), "false 0", "0 is known, not absent")
+eq(today({}), "false nil", "a file without them: not volatile, no day price")
+eq(today({ volatile = 1, dayPrice = "x" }), "false nil", "another type: absent")
+eq(today({ volatile = "true", dayPrice = -1 }), "false nil", "a string tag or a negative: absent")
+eq(today({ dayPrice = ns.Encode.MAX_COPPER + 1 }), "false nil", "an absurd day price: absent")
+eq(today({ volatile = true, dayPrice = 5, [1] = "x" }), "false nil", "an item whose price is unusable: absent")
+eq(tostring(P.todayOf(nil, { MARKET }, 2589)), "false", "no file: not volatile")
+eq(tostring(P.todayOf({ v = 2, markets = {} }, { MARKET }, 2589)), "false", "another version: not volatile")
+local withToday = { 1234, 1100, 3, NOW - 3 * 3600, volatile = true, dayPrice = 20000 }
+eq(line(data(withToday), { MARKET }, 2589, NOW), line(data(good), { MARKET }, 2589, NOW), "the price rows do not change")
+eq(both({ sold = 42, listed = 84, volatile = true, dayPrice = 7 }), "42 84", "sold and listed read beside them")
+
 -- Two days of sales, at least 1, at most what is held; nil without a rate or with nothing held.
 eq(P.postSize(42, 100), 12, "two days of 6 a day")
 eq(P.postSize(42, 5), 5, "at most what is held")

@@ -1786,6 +1786,17 @@ do
       AP.tab("post")
       assert(box.supply.text == "about 2 sell a day · 20 listed: about 10 days of supply · post up to 4", "the supply line in the wide box: " .. tostring(box.supply.text))
       assert(drawnQuantity(box.quantity, pg) == 4, "wide: Post's default is the suggested size: " .. tostring(drawnQuantity(box.quantity, pg)))
+      -- gf#374: without the tags, 3x the market and today's price unused; volatile, 5x, and alone at today's
+      -- 90s up to that maximum. The market is the pool's 50s on 120105, the newer own scan's on 16001.
+      local plain = select(2, AP.state()).suggestion -- the row is priced again in place
+      assert(plain.times == 3 and plain.normal < 9000, "untagged: 3x, no day price: " .. tostring(plain.times) .. " " .. tostring(plain.normal))
+      GoldForever_Prices = { v = 1, at = now, markets = { [ns.Prices.mine()[1]] = { [2589] = { 9000, 8000, 3, now, 5000, volatile = true, dayPrice = 9000 } } } }
+      AP.tab("scan")
+      AP.tab("post")
+      local _, tagged = AP.state()
+      local t = tagged.suggestion
+      assert(t.times == 5 and t.normal == math.min(t.maximum, 9000) and t.normal > plain.normal,
+        "volatile, today at 90s: 5x, alone at 90s up to the maximum: " .. tostring(t.times) .. " " .. tostring(t.normal) .. " " .. tostring(t.maximum))
       GoldForever_Prices = supplyFile
       AP.tab("scan")
       AP.tab("post")
