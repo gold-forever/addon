@@ -222,7 +222,7 @@ do
 	end)
 	eq(#owned, 3, "active ones with a buyout: sold, no buyout and missing left out")
 	eq(owned[1].unit .. " " .. tostring(owned[1].commodity) .. " " .. owned[1].name .. " " .. owned[1].quality, "120 true Linen Cloth 1", "a commodity: its buyout is the unit price")
-	eq(owned[2].unit .. " " .. owned[2].quantity .. " " .. owned[2].name .. " " .. owned[2].quality .. " " .. owned[2].itemKey.itemLevel, "4501 2 Runecloth 3 30", "an item: the auction's buyout a unit, rounded")
+	eq(owned[2].unit .. " " .. owned[2].quantity .. " " .. owned[2].name .. " " .. owned[2].quality .. " " .. owned[2].itemKey.itemLevel, "9001 2 Runecloth 3 30", "an item: its buyout is per unit too, not divided by the quantity")
 	eq(owned[3].name .. " " .. owned[3].quantity .. " " .. tostring(owned[3].commodity), "item 4306 1 false", "no names and no key info: by its id, one, not a commodity")
 	eq(#P.readOwned(0, nil, nil, nil), 0, "no auctions")
 	eq(P.readOwned(1, function() return infos[1] end, nil, function() end)[1].commodity, false, "a client without key info: not a commodity")

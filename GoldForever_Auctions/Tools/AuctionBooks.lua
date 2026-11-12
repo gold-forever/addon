@@ -91,7 +91,9 @@ ns.on("ITEM_SEARCH_RESULTS_UPDATED", "auction panel", function(itemKey)
 	for i = 1, math.min(n, Books.LEVELS) do
 		local res = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
 		if res and res.buyoutAmount and res.buyoutAmount > 0 then
-			local unit = math.floor(res.buyoutAmount / math.max(1, res.quantity or 1) + 0.5)
+			-- An item's buyoutAmount is per item, as Blizzard's own sell window shows it ("Buyout Price per item"):
+			-- a row of 23 Large Knapsacks at 1g each is 1g, not 1g / 23 (owner's screenshot, 2026-11-12).
+			local unit = res.buyoutAmount
 			all[#all + 1] = { unit = unit, qty = res.quantity or 1, own = res.containsOwnerItem and true or false,
 				auctionID = res.auctionID, buyout = res.buyoutAmount }
 		end

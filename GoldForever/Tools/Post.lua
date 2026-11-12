@@ -279,8 +279,9 @@ function Post.readOwned(n, info, keyInfo, itemInfo)
 			local key = keyInfo and keyInfo(a.itemKey)
 			local commodity = key and key.isCommodity or false
 			local qty = a.quantity or 1
-			-- ASSUMED: a commodity's buyoutAmount is its unit price, an item's the whole auction's.
-			local unit = commodity and a.buyoutAmount or math.floor(a.buyoutAmount / math.max(1, qty) + 0.5)
+			-- buyoutAmount is per unit for a commodity and an item alike, as Blizzard's windows show it and as
+			-- Recording/Auctions.lua records it (the per-auction reading undercut items by the stack, 2026-11-12).
+			local unit = a.buyoutAmount
 			local quality, _, _, _, name = itemInfo(a.itemKey.itemID)
 			owned[#owned + 1] = { auctionID = a.auctionID, itemID = a.itemKey.itemID, itemKey = a.itemKey, quantity = qty,
 				unit = unit, commodity = commodity, name = (key and key.itemName) or name or string.format(L["item %d"], a.itemKey.itemID), quality = quality or 1 }
