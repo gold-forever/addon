@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.21.0 (2026-11-13)
 
 - **Levelling pace on the HUD.** Below the level cap, a line under the HUD reads "Level 28 in ~41m · 38k XP/h · rested 12%": XP an hour over your last 15 minutes of play, from every kind of XP, the time to the next level at that pace, and the rested XP left as a share of the level. Time AFK is not counted, and it shows "-" for the first 2 minutes after a login or /reload. Hover it for this session's XP an hour. Choose Off, With Shift or Always under Settings, General, Levelling pace on the HUD; it is on by default and hidden at the level cap.
 - **Undercut by the smallest step.** The default undercut is now the auction house's smallest step: 1 copper on Forever, whose auction house takes copper, and 1 silver where it takes only silver. A fixed amount never takes more than 5% off the cheapest listing, so 1 silver off a 1s 50c item is 7c, not a third of the price (Sweet Nectar offered "Post anyway" at 50c under 1s 50c). A saved "1 silver" that was only the old default moves to the new one once; choose 1 silver again in Selling rules to keep it.
