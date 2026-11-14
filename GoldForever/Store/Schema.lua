@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 10
+ns.SCHEMA = 11
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
@@ -59,8 +59,9 @@ ns.FIELDS = {
 	npc = "name,minLevel,maxLevel,classification,type",
 	object = "name",
 	map = "name,type,parent",
-	-- On Forever GetTrainerServiceInfo returns name, category, icon; the columns follow that order.
-	trainerService = "name,category,icon,cost,skill,skillRank,level",
+	-- On Forever GetTrainerServiceInfo returns name, category, icon; the columns follow that order. spell: the
+	-- spell the service teaches, from a tooltip's GetSpell (from schema 11); empty where the client cannot tell.
+	trainerService = "name,category,icon,cost,skill,skillRank,level,spell",
 	-- Character.lua.
 	currency = "name",
 	faction = "name",

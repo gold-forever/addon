@@ -219,7 +219,13 @@ local function run(f, script)
     if c.shown then run(c, script) end
   end
 end
-function CreateFrame(_, name, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {}, name = name })
+function CreateFrame(kind, name, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {}, name = name })
+  -- Retail's tooltip names the spell a trainer's service teaches (SERVICE_SPELLS); Forever's is not probed yet.
+  if kind == "GameTooltip" and FLAVOUR == "retail" then
+    function f:SetOwner() self.service = nil end
+    function f:SetTrainerService(i) self.service = i end
+    function f:GetSpell() local id = self.service and SERVICE_SPELLS[self.service] if id then return "Spell " .. id, id end end
+  end
   if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
   -- One unit's event only: the client passes the unit first, and calls the frame for no other.
@@ -348,6 +354,26 @@ C_Map = { GetBestMapForUnit = function() return 1429 end,
 Enum = { TooltipDataType = { Item = 0, Unit = 2 }, GameRule = { XpRate = 1, NoTrade = 2 }, LootSlotType = { None = 0, Item = 1, Money = 2 }, BagIndex = { Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, Bank = -1, BankBag_1 = 6 } }
 -- Retail's interaction manager names its windows as well as the older events do.
 if INTERFACE >= 110000 then Enum.PlayerInteractionType = { TradePartner = 1, Merchant = 5, TaxiNode = 6, Trainer = 7, MailInfo = 17, Auctioneer = 21 }; Enum.TradeskillRecipeType = { Item = 1, Salvage = 2, Enchant = 3, Recraft = 4, Gathering = 5 } end
+SERVICE_SPELLS = {}
+-- The spellbook: General, then the class. Forever has the older tab calls, retail C_SpellBook.
+SPELLBOOK = { general = { 6603 }, class = { 2050, 585, 17 }, future = 591 }
+if INTERFACE >= 110000 then
+  Enum.SpellBookSpellBank = { Player = 0 }; Enum.SpellBookItemType = { Spell = 1, FutureSpell = 2 }
+  C_SpellBook = { GetNumSpellBookSkillLines = function() return 2 end,
+    GetSpellBookSkillLineInfo = function(i) if i == 1 then return { name = "General", itemIndexOffset = 0, numSpellBookItems = #SPELLBOOK.general } end
+      return { name = "Holy", itemIndexOffset = #SPELLBOOK.general, numSpellBookItems = #SPELLBOOK.class + 1 } end,
+    GetSpellBookItemInfo = function(slot) local g = #SPELLBOOK.general
+      if slot <= g then return { itemType = 1, spellID = SPELLBOOK.general[slot] } end
+      if SPELLBOOK.class[slot - g] then return { itemType = 1, spellID = SPELLBOOK.class[slot - g] } end
+      return { itemType = 2, spellID = SPELLBOOK.future } end }
+else
+  function GetNumSpellTabs() return 2 end
+  function GetSpellTabInfo(tab) if tab == 1 then return "General", 0, 0, #SPELLBOOK.general end return "Holy", 0, #SPELLBOOK.general, #SPELLBOOK.class + 1 end
+  function GetSpellBookItemInfo(slot) local g = #SPELLBOOK.general
+    if slot <= g then return "SPELL", SPELLBOOK.general[slot] end
+    if SPELLBOOK.class[slot - g] then return "SPELL", SPELLBOOK.class[slot - g] end
+    return "FUTURESPELL", SPELLBOOK.future end
+end
 bagFree = 10
 C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return bagFree, 0 end return 0, 0 end, GetContainerNumSlots = function(b) return b == 0 and (bagsFull and 3 or 2) or 0 end,
   GetContainerItemInfo = function(b, s)
@@ -3386,9 +3412,18 @@ do
   GetTrainerServiceSkillReq = function() return nil end
   GetTrainerServiceLevelReq = function(i) return ({ 31, 31, 24 })[i] end
   GetTrainerServiceCost = function(i) return ({ 5000, 4000, 3000 })[i] end
+  SERVICE_SPELLS = { 591, 139, 585 }
+  local me = GoldForeverDB.characters["Player-4620-006C0FC1"]
+  seen("SPELLS AT LOGIN ", tostring(me.spells), "17,585,2050", "17,585,2050")
   fire("TRAINER_SHOW") wait(2)
   GetNumTrainerServices, GetTrainerServiceInfo, GetTrainerServiceSkillReq, GetTrainerServiceLevelReq, GetTrainerServiceCost = unpack(saved)
+  SERVICE_SPELLS = {}
   seen("TRAINER CLASS ", tostring(GoldForeverDB.catalogue.trainerClasses and GoldForeverDB.catalogue.trainerClasses[8661]), "PRIEST")
+  -- Smite (591) trained there: the spellbook is read again once the trainer closes.
+  table.insert(SPELLBOOK.class, 591)
+  SPELLBOOK.future = 8092
+  if INTERFACE >= 110000 then fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", Enum.PlayerInteractionType.Trainer) else fire("TRAINER_CLOSED") end
+  seen("SPELLS AFTER TRAINER ", tostring(me.spells), "17,585,591,2050", "17,585,591,2050")
 end
 
 -- A faction and a currency under closed headers keep what was read before; what shows is updated.

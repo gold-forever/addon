@@ -83,6 +83,7 @@ Recording\Knowledge.lua
 Recording\KnowledgeTrainers.lua
 Recording\KnowledgeClient.lua
 Recording\Character.lua
+Recording\Spellbook.lua
 Recording\Reputation.lua
 Recording\Legacy.lua
 Recording\Achievements.lua

@@ -4,6 +4,7 @@
 
 - **The auction house says when it is being scanned.** While Gold Forever's full scan runs, a yellow line at the top right of the auction house window pulses "Currently scanning AH, please do not close". When the scan is in, it turns into a green "AH scanned", which fades after 10 seconds. A scan cut short (the window closed while it read) or one the server did not answer says so in red until you close the window.
 - **The scan starts by itself.** "Scan when I open the auction house" on the Scan tab is now on by default, for new and existing players: opening the auction house starts a full scan whenever the 15-minute limit allows. A saved off was the old default and moves to on once; switch it off again on the Scan tab to keep it off.
+- **Training money leaves out what you already know.** Each character now records the class spells in its spellbook (the class tabs only, by spell ID), at login, after you learn a spell, and when you close a trainer. A trainer's list now also records the spell each service teaches. With both, the site's Training money panel no longer counts spells you have already trained, in every language. Visit your class trainer once with this version so its list gains the spells. The saved file is schema 11; upload it to a Gold Forever site that reads schema 11.
 
 ## 0.21.0 (2026-11-13)
 

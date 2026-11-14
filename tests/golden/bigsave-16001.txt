@@ -135,6 +135,7 @@
 + characters["Player-3666-0000000A"].reputation.t = 1792835263
 + characters["Player-3666-0000000A"].seen = 1792835263
 + characters["Player-3666-0000000A"].skills = {}
++ characters["Player-3666-0000000A"].spells = "17,585,2050"
 - characters["Player-3666-0000000A"].statistics: [60001] [60002] [60003] [60004] [60005] [60006] [60007] [60008] [60009] [60010] [60011] [60012] [60013] [60014] [60015] [60016]
 - characters["Player-3666-0000000A"].statistics: [60017] [60018] [60019] [60020] [60021] [60022] [60023] [60024] [60025] [60026] [60027] [60028] [60029] [60030] [60031] [60032]
 - characters["Player-3666-0000000A"].statistics: [60033] [60034] [60035] [60036] [60037] [60038] [60039] [60040] [60041] [60042] [60043] [60044] [60045] [60046] [60047] [60048]
@@ -337,7 +338,7 @@
 + fields.sys = "t,char,kind"
 + fields.taxiNode = "name"
 + fields.trainerPlace = "map,x,y,side"
-+ fields.trainerService = "name,category,icon,cost,skill,skillRank,level"
++ fields.trainerService = "name,category,icon,cost,skill,skillRank,level,spell"
 + fields.vendor = "buy,limited,t,qty"
 + fields.xp = "t,char,xp,kind,rested,instance,map,level,x,y,mob,instanceId"
 + fields.zone = "t,char,map,instance,instanceId"
@@ -374,9 +375,12 @@
 + migrated[9].from = 9
 + migrated[9].t = 1792835263
 + migrated[9].to = 10
++ migrated[10].from = 10
++ migrated[10].t = 1792835263
++ migrated[10].to = 11
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-horde@1792820863 EU-Shadowsong-neutral@1792828063
-+ schema = 10
++ schema = 11
 + settings.appraiser.pace = "always"
 + settings.appraiser.recap = true
 + settings.appraiser.shown = false

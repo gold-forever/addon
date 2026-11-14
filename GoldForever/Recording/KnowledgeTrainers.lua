@@ -39,6 +39,35 @@ local function recordPlace(catalogue, id)
 	catalogue.trainerPlaces[id] = Encode.row(map, x, y, SIDES[UnitFactionGroup("player")])
 end
 
+-- A hidden tooltip of the addon's own, so the one the player looks at is never changed; made at the first read.
+local tip
+local function scanTip()
+	tip = tip or CreateFrame("GameTooltip", "GoldForeverTrainerTip", nil, "GameTooltipTemplate")
+	return tip
+end
+
+-- The spell service i teaches, from the tooltip's GetSpell; nil where the client's tooltip cannot show a
+-- trainer's service (not yet probed on Forever), names no spell or raises: the service's other columns are
+-- kept either way. GetSpell's spell ID is its one number.
+local function readSpell(i)
+	local t = scanTip()
+	if not (t.SetTrainerService and t.GetSpell) then
+		return nil
+	end
+	t:SetOwner(WorldFrame, "ANCHOR_NONE")
+	t:SetTrainerService(i)
+	for _, v in ipairs({ t:GetSpell() }) do
+		if type(v) == "number" then
+			return v
+		end
+	end
+end
+
+local function serviceSpell(i)
+	local ok, id = pcall(readSpell, i)
+	return ok and id or nil
+end
+
 -- The service's catalogue row, and whether it is a class spell (a level and no profession skill); nil for a
 -- header.
 local function serviceRow(i)
@@ -52,7 +81,7 @@ local function serviceRow(i)
 	end
 	local level = GetTrainerServiceLevelReq and GetTrainerServiceLevelReq(i)
 	local cost = GetTrainerServiceCost and GetTrainerServiceCost(i)
-	return Encode.row(Encode.name(name), category, icon, cost, skill and Encode.name(skill) or nil, skillRank, level),
+	return Encode.row(Encode.name(name), category, icon, cost, skill and Encode.name(skill) or nil, skillRank, level, serviceSpell(i)),
 		not skill and (level or 0) > 0
 end
 

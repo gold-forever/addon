@@ -84,6 +84,13 @@ ns.MIGRATIONS = {
 		to = 10,
 		run = function() end,
 	},
+	-- A trainer's service may end in the spell it teaches (KnowledgeTrainers.lua), and a character may hold
+	-- its known class spells (Spellbook.lua); the rows kept read as before.
+	{
+		from = 10,
+		to = 11,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.
