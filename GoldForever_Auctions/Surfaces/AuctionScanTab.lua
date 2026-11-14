@@ -1,6 +1,6 @@
 -- Gold Forever: the auction panel's Scan tab: the full scan made visible: asking, reading N of M, the
 -- cooldown, the last result. And the scan's line on the title row of Gold Forever's auction window
--- (gf#394), whichever tab is open: "Currently scanning AH, please do not close" while it runs, then how it
+-- (gf#394), whichever tab is open: "Scanning, don't close" while it runs, then how it
 -- ended.
 
 local _, ns = ...
@@ -84,14 +84,14 @@ local Line = {
 	RED = { 1, 0.3, 0.3 },
 	PULSE = 1.6, -- seconds a pulse takes, full to dim and back
 	DIM = 0.45, -- the pulse's lowest alpha: dimmed, never gone
-	SHOWN = 10, -- seconds "AH scanned" stays before it fades
+	SHOWN = 10, -- seconds "Scan complete" stays before it fades
 	FADE = 1.5,
 }
 ns.ScanLine = Line
 
 local FAILED = {
-	["cut short"] = L["AH scan cut short: not used for prices"],
-	throttled = L["AH scan failed: the server did not answer"],
+	["cut short"] = L["Scan cut short"],
+	throttled = L["Scan failed"],
 }
 
 function Line.idle()
@@ -112,13 +112,13 @@ function Line.view(state, now)
 	local elapsed = now - (state.since or now)
 	if state.phase == "scanning" then
 		local wave = (1 + math.cos(2 * math.pi * elapsed / Line.PULSE)) / 2
-		return { text = L["Currently scanning AH, please do not close"], color = Line.YELLOW, alpha = Line.DIM + (1 - Line.DIM) * wave }
+		return { text = L["Scanning, don't close"], color = Line.YELLOW, alpha = Line.DIM + (1 - Line.DIM) * wave }
 	elseif state.phase == "scanned" then
 		local fade = elapsed - Line.SHOWN
 		if fade >= Line.FADE then
 			return nil
 		end
-		return { text = L["AH scanned"], color = Line.GREEN, alpha = fade > 0 and 1 - fade / Line.FADE or 1 }
+		return { text = L["Scan complete"], color = Line.GREEN, alpha = fade > 0 and 1 - fade / Line.FADE or 1 }
 	elseif state.phase == "failed" then
 		return { text = FAILED[state.reason] or FAILED.throttled, color = Line.RED, alpha = 1 }
 	end
@@ -132,8 +132,9 @@ function Line.frame()
 	return frame
 end
 
--- In Gold Forever's own auction window (owner, 2026-11-14), on its title row, left of the bank-and-mail
--- line: the window is rebuilt when the look changes, so the line follows whichever one is current.
+-- In Gold Forever's own auction window (owner, 2026-11-14): on the title row, at its right edge, in the
+-- bank-and-mail line's small size. The window is rebuilt when the look changes, so the line follows
+-- whichever one is current.
 local function home()
 	local panel = ns.ah.panel
 	if not panel or frame.home == panel then
@@ -143,7 +144,22 @@ local function home()
 	frame:SetParent(panel)
 	frame:SetFrameLevel(panel:GetFrameLevel() + 20)
 	frame:ClearAllPoints()
-	frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -248, -16)
+	frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, -16)
+end
+
+-- The bank-and-mail line steps left of the scan line while it shows, back to the edge when it goes.
+local function makeRoom(shown)
+	local away = frame.home and frame.home.away
+	if not away or away.besideScan == shown then
+		return
+	end
+	away.besideScan = shown
+	away:ClearAllPoints()
+	if shown then
+		away:SetPoint("TOPRIGHT", frame, "TOPLEFT", -12, 0)
+	else
+		away:SetPoint("TOPRIGHT", frame.home, "TOPRIGHT", -16, -16)
+	end
 end
 
 -- Drawn every frame while the panel shows (the pulse and the fade); text set only as it changes.
@@ -151,6 +167,7 @@ local function draw()
 	home()
 	local v = Line.view(state, GetTime())
 	frame.text:SetShown(v ~= nil)
+	makeRoom(v ~= nil)
 	if not v then
 		return
 	end
@@ -158,6 +175,8 @@ local function draw()
 		frame.shown = v.text
 		frame.text:SetText(v.text)
 		frame.text:SetTextColor(unpack(v.color))
+		-- As wide as its words, so the line hugs the window's right edge.
+		frame:SetWidth(math.ceil((frame.text:GetStringWidth() or 0) + 2))
 	end
 	frame.text:SetAlpha(v.alpha)
 end
@@ -168,8 +187,8 @@ local function make()
 		return frame
 	end
 	frame = CreateFrame("Frame", nil, ns.ah.panel)
-	frame:SetSize(360, 18)
-	frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	frame:SetSize(160, 18)
+	frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	frame.text:SetAllPoints()
 	frame.text:SetJustifyH("RIGHT")
 	frame:SetScript("OnUpdate", function()

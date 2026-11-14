@@ -1,6 +1,6 @@
 -- The auction house scan's status line (gf#394): Market.lua says where the scan stands (scanning, then
--- scanned or failed, cut short or throttled), and the Scan tab's line turns that into "Currently scanning
--- AH, please do not close" in yellow, pulsing, then a green "AH scanned" that fades, or a line saying why
+-- scanned or failed, cut short or throttled), and the Scan tab's line turns that into "Scanning, don't
+-- close" in yellow, pulsing, then a green "Scan complete" that fades, or a line saying why
 -- it failed.
 
 -- Market.lua on a stand-in auction house of three listings; `given` is how many of them the client gives.
@@ -100,7 +100,7 @@ local s = Line.idle()
 eq(Line.view(s, 0), nil, "idle: no line")
 s = Line.heard(s, "scanning", nil, 100)
 local v = Line.view(s, 100)
-eq(v.text, "Currently scanning AH, please do not close", "scanning: the warning")
+eq(v.text, "Scanning, don't close", "scanning: the warning")
 eq(v.color, Line.YELLOW, "scanning: yellow")
 -- A gentle pulse: full at the start, never gone, back to full after a period.
 eq(v.alpha, 1, "scanning: full at the start of a pulse")
@@ -113,7 +113,7 @@ eq(Line.heard(s, "opened", nil, 120).phase, "scanning", "reopened while scanning
 
 s = Line.heard(s, "scanned", nil, 130)
 v = Line.view(s, 130)
-eq(v.text, "AH scanned", "scanned: AH scanned")
+eq(v.text, "Scan complete", "scanned: Scan complete")
 eq(v.color, Line.GREEN, "scanned: green")
 eq(v.alpha, 1, "scanned: steady")
 eq(Line.view(s, 130 + Line.SHOWN).alpha, 1, "scanned: shown for its seconds")
@@ -123,9 +123,9 @@ eq(Line.view(s, 130 + Line.SHOWN + Line.FADE), nil, "faded: no line")
 eq(Line.heard(s, "opened", nil, 135).phase, "idle", "the next visit starts idle")
 
 local cut = Line.view(Line.heard(Line.idle(), "failed", "cut short", 200), 9999)
-eq(cut.text, "AH scan cut short: not used for prices", "cut short: says so, and stays")
+eq(cut.text, "Scan cut short", "cut short: says so, and stays")
 eq(cut.color, Line.RED, "failed: red")
-eq(Line.view(Line.heard(Line.idle(), "failed", "throttled", 200), 200).text, "AH scan failed: the server did not answer", "throttled: says so")
+eq(Line.view(Line.heard(Line.idle(), "failed", "throttled", 200), 200).text, "Scan failed", "throttled: says so")
 eq(Line.heard(Line.heard(Line.idle(), "failed", "throttled", 200), "opened", nil, 300).phase, "idle", "a failure is not carried to the next visit")
 
 return checks()

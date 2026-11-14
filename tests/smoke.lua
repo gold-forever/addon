@@ -2584,11 +2584,11 @@ do
   fire("AUCTION_HOUSE_SHOW")
   wait(2)
   local line = ns.ScanLine.frame()
-  assert(line and line.text:GetText() == T("Currently scanning AH, please do not close"), "the line while scanning: " .. tostring(line and line.text:GetText()))
+  assert(line and line.text:GetText() == T("Scanning, don't close"), "the line while scanning: " .. tostring(line and line.text:GetText()))
   assert(line:GetParent() == ns.ah.panel, "the line sits in Gold Forever's auction window, not Blizzard's")
   fire("REPLICATE_ITEM_LIST_UPDATE")
   wait(70)
-  assert(line.text:GetText() == T("AH scanned"), "the line after: " .. tostring(line.text:GetText()))
+  assert(line.text:GetText() == T("Scan complete"), "the line after: " .. tostring(line.text:GetText()))
   -- Taken out again: the session's scans stay as they were.
   GoldForeverDB.scans = scans
   ns.lastScan = lastScanRead
