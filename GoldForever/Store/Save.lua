@@ -20,7 +20,7 @@ ns.DEFAULTS = {
 	rares = { announce = true, mark = true },
 	crafting = { strip = true }, -- the crafting strip, and the craft queue's recipes
 	craftQueue = { closed = false },
-	scan = { auto = false },
+	scan = { auto = true }, -- a full scan when the auction house opens (gf#394)
 	prices = {},
 	-- Each tooltip line's mode, "off", "shift" (shown while Shift is held) or "always" (Tooltips.lua,
 	-- addon#98): the vendor's and the AH's prices and vendor resale always, the rest on Shift. price is the
@@ -61,6 +61,15 @@ local function carryTooltipSwitches(s)
 	end
 end
 
+-- Auto-scan came on by default (gf#394): a saved off was the old default, not a choice, and moves to on
+-- once; the marker keeps an off chosen after it. A new save gets the marker with its defaults.
+local function moveAutoScanOn(scan)
+	if not scan.autoMoved then
+		scan.auto = true
+		scan.autoMoved = true
+	end
+end
+
 -- A feature's settings table in the saved file, made with its defaults the first time (ns.DEFAULTS
 -- unless others are given). A default added in a later version reaches a table saved before it; what the
 -- player set stays.
@@ -82,6 +91,9 @@ function ns.settings(name, defaults)
 				saved[key] = ns.copy(value)
 			end
 		end
+	end
+	if name == "scan" then
+		moveAutoScanOn(s.scan)
 	end
 	return s[name]
 end

@@ -27604,6 +27604,7 @@ settings.rares.mark = true
 settings.retentionDays = 14
 settings.sampleSeconds = 5
 settings.scan.auto = true
+settings.scan.autoMoved = true
 settings.share = false
 settings.tooltip.bagMark = "shift"
 settings.tooltip.bagVerdict = "shift"

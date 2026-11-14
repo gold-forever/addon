@@ -43,7 +43,7 @@ local PINNED = {
 	rares = "{ announce = true, mark = true }",
 	crafting = "{ strip = true }",
 	craftQueue = "{ closed = false }",
-	scan = "{ auto = false }",
+	scan = "{ auto = true, autoMoved = true }",
 	prices = "{  }",
 	tooltip = "{ bagMark = shift, bagVerdict = shift, bestReward = shift, disenchant = shift, held = shift, minBuyout = shift, mob = shift, payback = shift, price = always, starter = shift, vendor = always, vendorResale = always }",
 	auction = "{ duration = 2, rule = {  }, sellWide = false }",
@@ -107,6 +107,18 @@ eq(ns.db().settings.prices.bagMark, false, "the other prices settings stay")
 ns.db().settings.tooltip.held = "always"
 ns.settings("tooltip")
 eq(ns.db().settings.tooltip.held, "always", "read again: a mode set since stays")
+
+-- Auto-scan is on by default (gf#394): a saved off from before was only the old default and moves to on
+-- once; an off chosen after that stays off, read after read.
+ns.db().settings.scan = { auto = false }
+eq(ns.settings("scan").auto, true, "an old save's off moves to on")
+ns.settings("scan").auto = false
+eq(ns.settings("scan").auto, false, "switched off after the move: it stays off")
+eq(ns.settings("scan").auto, false, "and at every read after")
+ns.db().settings.scan = nil
+local fresh = ns.settings("scan")
+fresh.auto = false
+eq(ns.settings("scan").auto, false, "a new save switched off stays off: the move is not run on it")
 
 -- Defaults given still win over ns.DEFAULTS (a section the tests make).
 eq(show(ns.settings("smoke", { a = 1 })), "{ a = 1 }", "defaults given")

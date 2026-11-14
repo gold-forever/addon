@@ -1,5 +1,10 @@
 # Gold Forever
 
+## Unreleased
+
+- **The auction house says when it is being scanned.** While Gold Forever's full scan runs, a yellow line at the top right of the auction house window pulses "Currently scanning AH, please do not close". When the scan is in, it turns into a green "AH scanned", which fades after 10 seconds. A scan cut short (the window closed while it read) or one the server did not answer says so in red until you close the window.
+- **The scan starts by itself.** "Scan when I open the auction house" on the Scan tab is now on by default, for new and existing players: opening the auction house starts a full scan whenever the 15-minute limit allows. A saved off was the old default and moves to on once; switch it off again on the Scan tab to keep it off.
+
 ## 0.21.0 (2026-11-13)
 
 - **Levelling pace on the HUD.** Below the level cap, a line under the HUD reads "Level 28 in ~41m · 38k XP/h · rested 12%": XP an hour over your last 15 minutes of play, from every kind of XP, the time to the next level at that pace, and the rested XP left as a share of the level. Time AFK is not counted, and it shows "-" for the first 2 minutes after a login or /reload. Hover it for this session's XP an hour. Choose Off, With Shift or Always under Settings, General, Levelling pace on the HUD; it is on by default and hidden at the level cap.

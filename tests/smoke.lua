@@ -1195,6 +1195,9 @@ do
   local day = GoldForeverDB.events[ns.Encode.day(now)]
   local rows = {}
   for i, chunk in ipairs(day.money or {}) do rows[i] = chunk end
+  -- On by default (gf#394); off for this visit, which is about money, not a scan.
+  assert(ns.settings("scan").auto == true, "Scan when I open is on by default")
+  ns.settings("scan").auto = false
   fire("AUCTION_HOUSE_SHOW")
   if Enum.PlayerInteractionType then fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", Enum.PlayerInteractionType.Auctioneer) end
   money = money - 20; fire("PLAYER_MONEY")
@@ -1208,14 +1211,14 @@ do
   day.money = rows
   wait(10)
 end
--- No scan at the auction house until the player switches it on (manual test run 001).
+-- A scan at the auction house by itself unless the player switches it off; on by default (gf#394).
 do
   local before = GoldForeverDB.lastReplicate
   fire("AUCTION_HOUSE_SHOW")
   wait(2)
   assert(GoldForeverDB.lastReplicate == before, "no scan by itself while Scan when I open is off")
   fire("AUCTION_HOUSE_CLOSED")
-  ns.settings("scan", {}).auto = true
+  ns.settings("scan").auto = true
 end
 fire("AUCTION_HOUSE_SHOW")
 fire("REPLICATE_ITEM_LIST_UPDATE")
@@ -1611,7 +1614,8 @@ do
   local framesBefore = #frames
   fire("AUCTION_HOUSE_SHOW")
   print("AH PANEL FRAMES at opening: " .. (#frames - framesBefore))
-  assert((#frames - framesBefore) <= 21, "the auction panel builds at most 21 frames at opening: " .. (#frames - framesBefore))
+  -- 22 with the scan's line on Blizzard's window (gf#394), made once.
+  assert((#frames - framesBefore) <= 22, "the auction panel builds at most 22 frames at opening: " .. (#frames - framesBefore))
   local AP = ns.AuctionPanel
   -- The presses the panel's buttons make (its smoke seam calls what they call).
   for _, press in ipairs({ "post", "shopBuy", "cancelNext" }) do AP[press] = pressing(AP[press]) end
@@ -2546,6 +2550,21 @@ do
   GoldForeverDB.lastReplicate = now
   fire("AUCTION_HOUSE_SHOW")
   assert(p.tab == "cancel", "in the cooldown: opens on Blizzard's tab, Auctions, not " .. tostring(p.tab))
+  fire("AUCTION_HOUSE_CLOSED")
+  -- The scan's line on Blizzard's window (gf#394): the warning while it scans, AH scanned after.
+  GoldForeverDB.lastReplicate = 0
+  ns.settings("scan").auto = true
+  local scans, lastScanRead = { unpack(GoldForeverDB.scans) }, ns.lastScan
+  fire("AUCTION_HOUSE_SHOW")
+  wait(2)
+  local line = ns.ScanLine.frame()
+  assert(line and line.text:GetText() == T("Currently scanning AH, please do not close"), "the line while scanning: " .. tostring(line and line.text:GetText()))
+  fire("REPLICATE_ITEM_LIST_UPDATE")
+  wait(70)
+  assert(line.text:GetText() == T("AH scanned"), "the line after: " .. tostring(line.text:GetText()))
+  -- Taken out again: the session's scans stay as they were.
+  GoldForeverDB.scans = scans
+  ns.lastScan = lastScanRead
   GoldForeverDB.lastReplicate = lastScan
   ns.settings("scan", {}).auto = auto
   f:SetDisplayMode(M.CommoditiesSell)

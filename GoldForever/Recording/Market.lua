@@ -171,6 +171,13 @@ local function store(s, n, partial, rows, prices)
 	if n > 0 and not partial then
 		ns.emit("scanSaved")
 	end
+	-- Where the scan ended, for the line on the auction house (AuctionScanTab.lua): a scan read whole is
+	-- scanned; a part, or no answer from the server, failed and says which.
+	if n > 0 and not partial then
+		ns.emit("scanState", "scanned")
+	else
+		ns.emit("scanState", "failed", partial and "cut short" or "throttled")
+	end
 	if partial then
 		ns.say(string.format(L["scan cut short: %d of %d listings read, so it is not used for prices. Stay at the auction house until reading ends."], s.read or 0, n))
 	else
@@ -314,6 +321,7 @@ local function start(manual)
 	}
 	ns.say(L["scanning the auction house..."])
 	C_AuctionHouse.ReplicateItems()
+	ns.emit("scanState", "scanning")
 	-- No update within a minute: the client is throttling; record that instead of waiting forever.
 	local mine = scan
 	ns.after(60, "scan", function()
@@ -325,7 +333,8 @@ end
 
 local auctionOpen = false
 
--- A scan starts by itself at the auction house only when the player switched that on (the Scan tab).
+-- A scan starts by itself at the auction house unless the player switched that off (the Scan tab; on by
+-- default, gf#394).
 local function auctionOpened()
 	if auctionOpen then
 		return

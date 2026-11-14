@@ -1,5 +1,7 @@
 -- Gold Forever: the auction panel's Scan tab: the full scan made visible: asking, reading N of M, the
--- cooldown, the last result.
+-- cooldown, the last result. And the scan's line on Blizzard's auction house window (gf#394), shown
+-- whether the panel is or not: "Currently scanning AH, please do not close" while it runs, then how it
+-- ended.
 
 local _, ns = ...
 local L = ns.L
@@ -18,7 +20,7 @@ local function buildScan(page)
 		ns.startScan()
 	end, { kind = "primary", width = 140, height = 30 })
 	button:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, -14)
-	-- Off at first: a scan starts when the player asks (manual test run 001).
+	-- On at first (gf#394): a scan starts at every visit the cooldown allows.
 	local scanSettings = ns.settings("scan")
 	local auto = UI.Switch(page, scanSettings.auto, function(on)
 		scanSettings.auto = on
@@ -72,3 +74,120 @@ end
 ns.AuctionScanTab = { key = "scan", label = L["Scan"], build = buildScan, refresh = function(page)
 	page:Refresh()
 end }
+
+-- The status line -------------------------------------------------------------------------------------
+
+-- The line's state, from Market.lua's "scanState" and the auction house opening: { phase, reason, since }.
+local Line = {
+	YELLOW = { 1, 0.82, 0 }, -- the game's own yellow, as GameFontNormal's
+	GREEN = { 0.25, 1, 0.25 },
+	RED = { 1, 0.3, 0.3 },
+	PULSE = 1.6, -- seconds a pulse takes, full to dim and back
+	DIM = 0.45, -- the pulse's lowest alpha: dimmed, never gone
+	SHOWN = 10, -- seconds "AH scanned" stays before it fades
+	FADE = 1.5,
+}
+ns.ScanLine = Line
+
+local FAILED = {
+	["cut short"] = L["AH scan cut short: not used for prices"],
+	throttled = L["AH scan failed: the server did not answer"],
+}
+
+function Line.idle()
+	return { phase = "idle" }
+end
+
+-- The state after `event` ("scanning", "scanned", "failed" with its reason, or "opened") at `now`. A new
+-- visit starts idle unless a scan still runs: the last visit's result is not this one's.
+function Line.heard(state, event, reason, now)
+	if event == "opened" then
+		return state.phase == "scanning" and state or Line.idle()
+	end
+	return { phase = event, reason = reason, since = now }
+end
+
+-- What the line shows at `now`: { text, color, alpha }, or nil for nothing.
+function Line.view(state, now)
+	local elapsed = now - (state.since or now)
+	if state.phase == "scanning" then
+		local wave = (1 + math.cos(2 * math.pi * elapsed / Line.PULSE)) / 2
+		return { text = L["Currently scanning AH, please do not close"], color = Line.YELLOW, alpha = Line.DIM + (1 - Line.DIM) * wave }
+	elseif state.phase == "scanned" then
+		local fade = elapsed - Line.SHOWN
+		if fade >= Line.FADE then
+			return nil
+		end
+		return { text = L["AH scanned"], color = Line.GREEN, alpha = fade > 0 and 1 - fade / Line.FADE or 1 }
+	elseif state.phase == "failed" then
+		return { text = FAILED[state.reason] or FAILED.throttled, color = Line.RED, alpha = 1 }
+	end
+	return nil
+end
+
+local state = Line.idle()
+local frame -- on AuctionHouseFrame, made at the first visit
+-- For the smoke test.
+function Line.frame()
+	return frame
+end
+
+-- Drawn every frame while the auction house shows (the pulse and the fade); text set only as it changes.
+local function draw()
+	local v = Line.view(state, GetTime())
+	frame.text:SetShown(v ~= nil)
+	if not v then
+		return
+	end
+	if frame.shown ~= v.text then
+		frame.shown = v.text
+		frame.text:SetText(v.text)
+		frame.text:SetTextColor(unpack(v.color))
+	end
+	frame.text:SetAlpha(v.alpha)
+end
+
+-- At the top right of Blizzard's window, left of its close button, over its own frames. The panel beside
+-- it never replaces the window, so the line stays on Blizzard's.
+local function make()
+	if frame or not AuctionHouseFrame then
+		return frame
+	end
+	frame = CreateFrame("Frame", nil, AuctionHouseFrame)
+	frame:SetFrameLevel(AuctionHouseFrame:GetFrameLevel() + 50)
+	frame:SetPoint("TOPRIGHT", AuctionHouseFrame, "TOPRIGHT", -30, -4)
+	frame:SetSize(380, 16)
+	frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	frame.text:SetAllPoints()
+	frame.text:SetJustifyH("RIGHT")
+	frame:SetScript("OnUpdate", function()
+		ns.safely("scan line", draw)
+	end)
+	return frame
+end
+
+ns.listen("scanState", "scan line", function(phase, reason)
+	state = Line.heard(state, phase, reason, GetTime())
+	if make() then
+		draw()
+	end
+end)
+local function opened()
+	state = Line.heard(state, "opened", nil, GetTime())
+	-- A scan that started before this file loaded is heard from where it stands.
+	if state.phase ~= "scanning" and ns.scanState().phase ~= "idle" then
+		state = Line.heard(state, "scanning", nil, GetTime())
+	end
+	if make() then
+		draw()
+	end
+end
+ns.on("AUCTION_HOUSE_SHOW", "scan line", opened)
+-- Loaded as the auction house opened (on demand): that visit's opening came before this file.
+ns.module("ScanLine", {
+	enable = function()
+		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+			opened()
+		end
+	end,
+})
