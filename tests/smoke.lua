@@ -2577,7 +2577,7 @@ do
   fire("AUCTION_HOUSE_SHOW")
   assert(p.tab == "cancel", "in the cooldown: opens on Blizzard's tab, Auctions, not " .. tostring(p.tab))
   fire("AUCTION_HOUSE_CLOSED")
-  -- The scan's line on Blizzard's window (gf#394): the warning while it scans, AH scanned after.
+  -- The scan's line in Gold Forever's auction window (gf#394): the warning while it scans, AH scanned after.
   GoldForeverDB.lastReplicate = 0
   ns.settings("scan").auto = true
   local scans, lastScanRead = { unpack(GoldForeverDB.scans) }, ns.lastScan
@@ -2585,6 +2585,7 @@ do
   wait(2)
   local line = ns.ScanLine.frame()
   assert(line and line.text:GetText() == T("Currently scanning AH, please do not close"), "the line while scanning: " .. tostring(line and line.text:GetText()))
+  assert(line:GetParent() == ns.ah.panel, "the line sits in Gold Forever's auction window, not Blizzard's")
   fire("REPLICATE_ITEM_LIST_UPDATE")
   wait(70)
   assert(line.text:GetText() == T("AH scanned"), "the line after: " .. tostring(line.text:GetText()))

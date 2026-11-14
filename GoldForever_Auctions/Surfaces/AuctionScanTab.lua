@@ -1,6 +1,6 @@
 -- Gold Forever: the auction panel's Scan tab: the full scan made visible: asking, reading N of M, the
--- cooldown, the last result. And the scan's line on Blizzard's auction house window (gf#394), shown
--- whether the panel is or not: "Currently scanning AH, please do not close" while it runs, then how it
+-- cooldown, the last result. And the scan's line on the title row of Gold Forever's auction window
+-- (gf#394), whichever tab is open: "Currently scanning AH, please do not close" while it runs, then how it
 -- ended.
 
 local _, ns = ...
@@ -132,8 +132,23 @@ function Line.frame()
 	return frame
 end
 
--- Drawn every frame while the auction house shows (the pulse and the fade); text set only as it changes.
+-- In Gold Forever's own auction window (owner, 2026-11-14), on its title row, left of the bank-and-mail
+-- line: the window is rebuilt when the look changes, so the line follows whichever one is current.
+local function home()
+	local panel = ns.ah.panel
+	if not panel or frame.home == panel then
+		return
+	end
+	frame.home = panel
+	frame:SetParent(panel)
+	frame:SetFrameLevel(panel:GetFrameLevel() + 20)
+	frame:ClearAllPoints()
+	frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -248, -16)
+end
+
+-- Drawn every frame while the panel shows (the pulse and the fade); text set only as it changes.
 local function draw()
+	home()
 	local v = Line.view(state, GetTime())
 	frame.text:SetShown(v ~= nil)
 	if not v then
@@ -147,16 +162,13 @@ local function draw()
 	frame.text:SetAlpha(v.alpha)
 end
 
--- At the top right of Blizzard's window, left of its close button, over its own frames. The panel beside
--- it never replaces the window, so the line stays on Blizzard's.
+-- Made once, then placed in Gold Forever's panel by home(); none until the panel exists.
 local function make()
-	if frame or not AuctionHouseFrame then
+	if frame or not ns.ah.panel then
 		return frame
 	end
-	frame = CreateFrame("Frame", nil, AuctionHouseFrame)
-	frame:SetFrameLevel(AuctionHouseFrame:GetFrameLevel() + 50)
-	frame:SetPoint("TOPRIGHT", AuctionHouseFrame, "TOPRIGHT", -30, -4)
-	frame:SetSize(380, 16)
+	frame = CreateFrame("Frame", nil, ns.ah.panel)
+	frame:SetSize(360, 18)
 	frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.text:SetAllPoints()
 	frame.text:SetJustifyH("RIGHT")
