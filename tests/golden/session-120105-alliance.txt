@@ -3486,6 +3486,7 @@ legacyTrace.calls["C_FakePerks.GetPerkRanks"].result[2].id = "working-overtime"
 legacyTrace.calls["C_FakePerks.GetPerkRanks"].result[2].rank = 3
 legacyTrace.calls["C_FakePerks.Spend"].args = {}
 legacyTrace.t = 1792517415
+reread.done = true
 salesSeen["1|Wool Cloth, bundle|1900|120|20"][1795105095] = 1792517415
 salesSeen["1|Wool Cloth, bundle|1900|120|20"][1795109448.5999999] = 1792517535
 salesSeen["1|Wool Cloth, bundle|1900|120|20"][1795152735] = 1792517535

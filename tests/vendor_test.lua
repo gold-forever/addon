@@ -93,10 +93,17 @@ visit()
 eq(save.catalogue.merchants[12345], "2393,0.5,0.5,2589+238560,H,2589:8:76+238560:7:", "a faction not catalogued: no ID; a feminine label reads too")
 
 tooltips = {}
-for _, odd in ipairs({ 0, 9, 5.5, "6" }) do
+-- Friendly and below are written as unknown: a vendor of no reputation faction reads Friendly too, and its
+-- price has no discount to undo.
+for _, odd in ipairs({ 5, 4, 1, 0, 9, 6.5, "6" }) do
 	reaction = odd
 	visit()
-	eq(save.catalogue.vendor[2589], "50,,1792517535,1,", "a reaction that is no standing is none: " .. tostring(odd))
+	eq(save.catalogue.vendor[2589], "50,,1792517535,1,", "no standing recorded for a reaction of " .. tostring(odd))
+end
+for _, high in ipairs({ 6, 7, 8 }) do
+	reaction = high
+	visit()
+	eq(save.catalogue.vendor[2589], "50,,1792517535,1," .. high, "Honored and up recorded: " .. high)
 end
 eq(save.catalogue.merchants[12345], "2393,0.5,0.5,2589+238560,H,", "no ware needs a standing: requires empty")
 
@@ -118,9 +125,12 @@ function CreateFrame(kind, name)
 	end
 	return tip
 end
+reaction = 8
+visit()
+eq(save.catalogue.vendor[2589], "50,,1792517535,1,8", "Forever: Exalted")
 reaction = 5
 visit()
-eq(save.catalogue.vendor[2589], "50,,1792517535,1,5", "Forever: Friendly")
+eq(save.catalogue.vendor[2589], "50,,1792517535,1,", "Forever: Friendly is unknown")
 eq(save.catalogue.merchants[12345], "2393,0.5,0.5,2589+238560,H,238560:7:76", "Forever: the hidden tooltip's requirement")
 
 -- A client where the calls are missing or raise: the rows as before, their new columns empty, no error.

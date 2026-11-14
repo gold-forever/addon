@@ -956,6 +956,13 @@ if SAVE then
   SlashCmdList.GOLDFOREVER("ui")
   timed("auction house: close", function() fire("AUCTION_HOUSE_CLOSED") end)
   timed("mailbox", function() fire("MAIL_SHOW") fire("MAIL_CLOSED") end)
+  -- The catalogue's background re-read of rows without readAt (gf#392): ten seconds of its ticker.
+  do
+    local before = GoldForeverDB.reread and GoldForeverDB.reread.after
+    timed("catalogue re-read: 40 beats", function() for _ = 1, 40 do if running(0.25) == 0 then break end tick(0.25) end end)
+    local after = GoldForeverDB.reread and (GoldForeverDB.reread.after or GoldForeverDB.reread.done)
+    assert(after and after ~= before, "the re-read moved on: " .. tostring(before) .. " to " .. tostring(after))
+  end
   -- /gf export, the whole save (review B-1: 19 s in one call at level 9): built over frames, no frame's
   -- share over GF_SMOKE_FRAME_MS (100 by default, as the client stops a script far later), into one
   -- stream that inflates to the text of what it holds.

@@ -3,6 +3,7 @@
 -- Each session, an item seen is read from the game again and its row rewritten, stamped with readAt
 -- (schema 12, gf#392): a row carried from an earlier session is no evidence of today's price.
 
+local lastDelay -- the seconds of the latest ns.after
 local NOW = 1792600000 -- ns.now() in the session under test
 local T = tostring(NOW)
 local clock = 0 -- ns.frameStart()'s milliseconds; nil for a client without the timer
@@ -36,6 +37,7 @@ end
 -- One session of the addon on the saved table db: Catalogue.lua loaded afresh, its timers in `tick`.
 local function session(db, lean)
 	local scheduled = {}
+	local handlers = {} -- event -> its handlers, for ns.fire
 	local catalogueModule
 	local ns = {
 		lean = lean,
@@ -43,13 +45,17 @@ local function session(db, lean)
 		db = function()
 			return db
 		end,
-		after = function(_, _, fn)
+		after = function(seconds, _, fn)
+			lastDelay = seconds
 			scheduled[#scheduled + 1] = fn
 		end,
 		safely = function(_, fn, ...)
 			return fn(...)
 		end,
-		on = function() end,
+		on = function(event, _, fn)
+			handlers[event] = handlers[event] or {}
+			table.insert(handlers[event], fn)
+		end,
 		module = function(_, def)
 			catalogueModule = def
 		end,
@@ -74,6 +80,12 @@ local function session(db, lean)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Catalogue.lua"], "@Catalogue.lua"))("GoldForever", ns)
+	-- The game firing an event.
+	ns.fire = function(event, ...)
+		for _, fn in ipairs(handlers[event] or {}) do
+			fn(...)
+		end
+	end
 	-- The game enabling the module at login.
 	ns.enableCatalogue = function()
 		catalogueModule.enable()
@@ -361,11 +373,167 @@ local fNs, fTick = session(foreverOld, false)
 fNs.enableCatalogue()
 while fTick() do
 end
-eq(foreverOld.catalogue.items[400002], OLD, "Forever, after login: a row with its tooltip is not asked")
+eq(foreverOld.catalogue.items[400002], OLD, "Forever, after login, no ticker: a row with its tooltip is not queued")
 fNs.catalogueItem(400001)
 while fTick() do
 end
 eq(foreverOld.catalogue.items[400001], string.format(ROW, 400001) .. "," .. T, "Forever: an old row seen is rewritten, no tier")
 C_TradeSkillUI = nil
+
+-- The background re-read (gf#392): every row without readAt is read once, one each PASS on a ticker, out of
+-- combat and while neither the auction house nor a profession window is open; where it stands is saved
+-- (reread.after, then reread.done), so the next session goes on from there and no item is read twice.
+local tickers = {}
+C_Timer = {
+	NewTicker = function(seconds, fn)
+		local t = { every = seconds, fn = fn }
+		function t:Cancel()
+			self.cancelled = true
+		end
+		tickers[#tickers + 1] = t
+		return t
+	end,
+}
+-- One beat of every ticker still running; false when none is.
+local function beat()
+	local any = false
+	for _, t in ipairs(tickers) do
+		if not t.cancelled then
+			any = true
+			t.fn()
+		end
+	end
+	return any
+end
+local function rereadSave(n, from)
+	local items, tooltips = {}, {}
+	for k = 1, n do
+		items[from + k] = "Old " .. k .. ",1,1,7,5,20,99,0,1,1,"
+		tooltips[from + k] = "kept" -- no tooltip backfill: only the re-read
+	end
+	return { catalogue = { items = items, tooltips = tooltips } }
+end
+local function withReadAt(db)
+	local n = 0
+	for _, row in pairs(db.catalogue.items) do
+		if string.match(row, "," .. T .. "$") then
+			n = n + 1
+		end
+	end
+	return n
+end
+local function readRows(n, from, db)
+	for k = 1, n do
+		db.catalogue.items[from + k] = "Read,1,1,7,5,20,1,0,1,1,,1790000000"
+		db.catalogue.tooltips[from + k] = "kept"
+	end
+	return db
+end
+-- A session at login: the backfill's turn, then the re-read's start (its first item).
+local function login(db)
+	tickers = {}
+	local s, t = session(db, false)
+	s.enableCatalogue()
+	t()
+	t()
+	return s, t
+end
+
+-- Pacing: one item a beat, four beats a second.
+local paceDb = rereadSave(5, 710000)
+login(paceDb)
+local reads = { withReadAt(paceDb) }
+for _ = 1, 4 do
+	beat()
+	reads[#reads + 1] = withReadAt(paceDb)
+end
+eq(table.concat(reads, " "), "1 2 3 4 5", "one item a beat, the first at the start")
+eq(tickers[1].every, 0.25, "a beat every quarter second: four items a second")
+beat()
+eq(paceDb.reread and paceDb.reread.done, true, "once every row is read: done, saved")
+eq(paceDb.reread.after, nil, "and the place dropped")
+eq(beat(), false, "and the ticker stopped")
+eq(paceDb.catalogue.items[710001], "Item 710001,1,1,7,5,20,1,0,1,1,," .. T, "a row re-read from the game, readAt stamped")
+
+-- Rows already read are skipped, a bounded number a beat: without the client's timer, 200.
+local skipDb = readRows(300, 720000, rereadSave(3, 720300))
+login(skipDb)
+eq(withReadAt(skipDb), 0, "the start checks 200 rows already read and reads none")
+beat()
+eq(withReadAt(skipDb), 1, "the next beat reaches the first row without readAt")
+
+-- With the timer: a beat stops checking once its millisecond is spent (each check costs 0.015 ms here).
+timed = true
+local frameDb = readRows(300, 730000, rereadSave(1, 730300))
+local realGsub = string.gsub
+string.gsub = function(...)
+	clock = clock + 0.015
+	return realGsub(...)
+end
+login(frameDb)
+local steps = 1
+while withReadAt(frameDb) == 0 and steps < 10 do
+	beat()
+	steps = steps + 1
+end
+string.gsub = realGsub
+timed = false
+eq(steps, 5, "67 checks a beat: four beats skip the 300 rows read, the fifth reads (200 a beat without the timer)")
+
+-- Paused while the auction house or a profession window is open, and never in combat.
+local busyDb = rereadSave(4, 740000)
+tickers = {}
+local busyNs, busyTick = session(busyDb, false)
+busyNs.enableCatalogue()
+busyTick()
+busyNs.fire("AUCTION_HOUSE_SHOW")
+busyTick()
+beat()
+beat()
+eq(withReadAt(busyDb), 0, "the auction house open: nothing read")
+busyNs.fire("AUCTION_HOUSE_CLOSED")
+beat()
+eq(withReadAt(busyDb), 1, "closed: the re-read goes on")
+busyNs.fire("TRADE_SKILL_SHOW")
+beat()
+eq(withReadAt(busyDb), 1, "a profession window open: nothing read")
+busyNs.fire("TRADE_SKILL_CLOSE")
+beat()
+eq(withReadAt(busyDb), 2, "closed: on again")
+fighting = true
+beat()
+eq(withReadAt(busyDb), 2, "in combat: nothing read")
+endFight()
+beat()
+eq(withReadAt(busyDb), 3, "after the fight: on again")
+
+-- Resume: a session that ends partway leaves its place; the next goes on after it, and an item the game
+-- never answered is not asked again.
+local resumeDb = rereadSave(4, 750000)
+local realInfo2 = GetItemInfo
+GetItemInfo = function(id)
+	if id == 750002 then
+		asked[id] = (asked[id] or 0) + 1
+		return nil -- never loads (no Item API in this stand-in)
+	end
+	return realInfo2(id)
+end
+login(resumeDb)
+beat()
+eq(resumeDb.reread.after, 750002, "two taken, the place saved")
+eq(withReadAt(resumeDb), 1, "750001 read; 750002 asked, no answer")
+login(resumeDb) -- logout, login
+eq(withReadAt(resumeDb), 2, "next session: on after the place")
+beat()
+beat()
+GetItemInfo = realInfo2
+eq(asked[750002], 1, "the unanswered item is not asked again")
+eq(withReadAt(resumeDb), 3, "the rest read")
+eq(resumeDb.reread.done, true, "and the re-read done")
+local askedBefore = asked[750001]
+login(resumeDb)
+eq(beat(), false, "a session after it is done starts no ticker")
+eq(asked[750001], askedBefore, "and reads nothing again")
+C_Timer = nil
 
 return checks()

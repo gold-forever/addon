@@ -399,16 +399,19 @@ local SIDES = { Horde = "H", Alliance = "A" }
 
 -- The game's reactions, 1 Hated … 8 Exalted: FACTION_STANDING_LABEL1..8 (and _FEMALE, where a locale has one).
 local STANDINGS = 8
+local HONORED = 6
 
 -- The visitor's standing with the vendor (gf#393): its reaction to the player, which for a vendor of a
--- reputation faction is the player's standing with it. Nil where the client has no answer or one that is no
--- standing; the price is recorded either way.
+-- reputation faction is the player's standing with it. Recorded from Honored up only: a vendor of no
+-- reputation faction reads Friendly as well, and the server would undo a 5% discount it never gave. Nil
+-- (unknown) below that, where the client has no answer, or for one that is no standing; the price is
+-- recorded either way.
 local function visitorStanding()
 	if not UnitReaction then
 		return nil
 	end
 	local ok, reaction = pcall(UnitReaction, "npc", "player")
-	if ok and type(reaction) == "number" and reaction >= 1 and reaction <= STANDINGS and reaction % 1 == 0 then
+	if ok and type(reaction) == "number" and reaction >= HONORED and reaction <= STANDINGS and reaction % 1 == 0 then
 		return reaction
 	end
 	return nil

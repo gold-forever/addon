@@ -189,22 +189,116 @@ function ns.catalogueItem(key)
 	end
 end
 
--- Reads again after login, through the queue: on Forever the items catalogued before 0.4.0 without a
--- tooltip, on retail the rows written without tier and expansion.
+-- The re-read (gf#392): every row without readAt, seen this session or not, is read from the game once, in
+-- the background: one item each PASS seconds (four a second, on a ticker), out of combat, never while the
+-- auction house or a profession window is open (a scan or a craft has the frames), and a tick checks rows
+-- already read for at most PASS_BUDGET_MS (PASS_CHECKS where the client has no timer). save.reread.after is
+-- the last item taken, in ID order, so the next session goes on after it and an item the game never answered
+-- is not asked twice; save.reread.done once the walk is through. A row written since always has readAt.
+local PASS, PASS_START, PASS_BUDGET_MS, PASS_CHECKS = 0.25, 30, 1, 200
+local busy = {} -- "auction house", "profession" -> true while that window is open
+local walk -- { ids, at, ticker }: this session's item IDs after the saved place, in order
+
+local function lacksReadAt(row)
+	return commas(row) < READ_AT - 1
+end
+
+local function finish(state)
+	state.done, state.after = true, nil
+	if walk.ticker then
+		walk.ticker:Cancel()
+	end
+	walk = nil
+end
+
+local function step()
+	local state = ns.db().reread
+	if not walk or ns.inCombat() or next(busy) then
+		return
+	end
+	local items = ns.db().catalogue.items
+	local started, checked = ns.frameStart(), 0
+	while true do
+		local id = walk.ids[walk.at]
+		if not id then
+			finish(state)
+			return
+		end
+		walk.at = walk.at + 1
+		state.after = id
+		local row = items[id]
+		if row and lacksReadAt(row) and not (pending[id] or queued[id] or tried[id]) then
+			tried[id] = true
+			load(id)
+			return
+		end
+		checked = checked + 1
+		if started and ns.frameStart() - started >= PASS_BUDGET_MS or not started and checked >= PASS_CHECKS then
+			return
+		end
+	end
+end
+
+-- The walk's IDs, after the saved place, in order: one frame's work once a session, until it is done.
+local function startWalk()
+	local db = ns.db()
+	db.reread = db.reread or {}
+	if db.reread.done or not (C_Timer and C_Timer.NewTicker) then
+		return
+	end
+	local after, ids = db.reread.after or 0, {}
+	for id in pairs(db.catalogue.items) do
+		if type(id) == "number" and id > after then
+			ids[#ids + 1] = id
+		end
+	end
+	table.sort(ids)
+	walk = { ids = ids, at = 1 }
+	walk.ticker = C_Timer.NewTicker(PASS, function()
+		ns.safely("catalogue", step)
+	end)
+	step()
+end
+
+local function windowOpened(window)
+	busy[window] = true
+end
+local function windowClosed(window)
+	busy[window] = nil
+end
+ns.on("AUCTION_HOUSE_SHOW", "catalogue", function() windowOpened("auction house") end)
+ns.on("AUCTION_HOUSE_CLOSED", "catalogue", function() windowClosed("auction house") end)
+ns.on("TRADE_SKILL_SHOW", "catalogue", function() windowOpened("profession") end)
+ns.on("TRADE_SKILL_CLOSE", "catalogue", function() windowClosed("profession") end)
+-- Newer clients open the auction house through the interaction manager.
+local INTERACTION = Enum and Enum.PlayerInteractionType or {}
+ns.on("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "catalogue", function(kind)
+	if kind and kind == INTERACTION.Auctioneer then
+		windowOpened("auction house")
+	end
+end)
+ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "catalogue", function(kind)
+	if kind and kind == INTERACTION.Auctioneer then
+		windowClosed("auction house")
+	end
+end)
+
+-- After login: on Forever the items catalogued before 0.4.0 without a tooltip, on retail the rows written
+-- without tier and expansion, through the queue; then the re-read.
 ns.module("Catalogue", {
 	requires = { "Store" },
 	enable = function()
-		if ns.lean and not TIERED then
-			return
-		end
-		ns.after(5, "catalogue", function()
-			local catalogue = ns.db().catalogue
-			for id, row in pairs(catalogue.items) do
-				if unfilled(row) or not (ns.lean or catalogue.tooltips[id]) then
-					ns.catalogueItem(id)
+		if not (ns.lean and not TIERED) then
+			ns.after(5, "catalogue", function()
+				local catalogue = ns.db().catalogue
+				for id, row in pairs(catalogue.items) do
+					if unfilled(row) or not (ns.lean or catalogue.tooltips[id]) then
+						ns.catalogueItem(id)
+					end
 				end
-			end
-		end)
+			end)
+		end
+		ns.after(PASS_START, "catalogue", startWalk)
 	end,
 })
 
