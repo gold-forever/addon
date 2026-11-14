@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 11
+ns.SCHEMA = 13
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
@@ -14,8 +14,9 @@ ns.FIELDS = {
 	-- Catalogue.lua. minLevel and equipLoc are appended to design 002's columns. Retail appends tier (from
 	-- schema 9), an item's crafting-quality tier (a reagent's 1–3, a crafted item's 1–5), empty and left off
 	-- the row's end for an untiered item, and expansion, GetItemInfo's expansionID, left off when unknown;
-	-- Forever declares neither column.
-	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc" .. (ns.retail and ",tier,expansion" or ""),
+	-- Forever declares neither column. readAt (from schema 12): when this session read the row from the game,
+	-- ns.now(); a row carried from an earlier session keeps its own, and one from before has none.
+	item = "name,quality,ilvl,class,subclass,stack,sell,bind,icon,minLevel,equipLoc" .. (ns.retail and ",tier,expansion" or "") .. ",readAt",
 	-- Loot.lua. fish is appended to design 002's columns: set when the loot is a fishing catch. instanceId:
 	-- GetInstanceInfo()'s instance ID (catalogue.instances), set only where the game gives no map (old
 	-- raids such as Molten Core); empty elsewhere and in rows written before it.
@@ -36,9 +37,13 @@ ns.FIELDS = {
 	scan = "item,unit,qty,auctions,left",
 	-- Retail only: each distinct item a scan names, for telling commodities from gear (Encode.itemRow).
 	scanItem = "item,class,subclass,stack",
-	-- qty is appended to design 002's columns: buy is the price of one purchase of qty items.
-	vendor = "buy,limited,t,qty",
-	merchant = "map,x,y,items,side",
+	-- qty is appended to design 002's columns: buy is the price of one purchase of qty items. standing (from
+	-- schema 13): the visitor's reaction with the vendor, 1 Hated … 8 Exalted, as the price was seen at; empty
+	-- when unknown. requires (from schema 13): the wares whose tooltip says "Requires <faction> - <standing>",
+	-- each "item:standing:faction" (the faction's ID, empty when its name is not in catalogue.factions), joined
+	-- by "+"; empty when none does.
+	vendor = "buy,limited,t,qty,standing",
+	merchant = "map,x,y,items,side,requires",
 	trainerPlace = "map,x,y,side",
 	-- Trade.lua.
 	merchantTrade = "t,char,kind,item,qty,price,map",

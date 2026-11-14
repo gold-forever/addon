@@ -226,6 +226,17 @@ function CreateFrame(kind, name, parent) local f = widget({ events = {}, shown =
     function f:SetTrainerService(i) self.service = i end
     function f:GetSpell() local id = self.service and SERVICE_SPELLS[self.service] if id then return "Spell " .. id, id end end
   end
+  -- Every client's tooltip shows a merchant's ware, its lines in the fontstrings named <name>TextLeft<n>.
+  if kind == "GameTooltip" then
+    local setOwner = f.SetOwner
+    function f:SetOwner(...) self.lines = {} if setOwner then setOwner(self, ...) end end
+    function f:ClearLines() self.lines = {} end
+    function f:SetMerchantItem(i)
+      self.lines = MERCHANT_TOOLTIPS[i] or {}
+      for n = 1, #self.lines do local text = self.lines[n]; _G[name .. "TextLeft" .. n] = { GetText = function() return text end } end
+    end
+    function f:NumLines() return #(self.lines or {}) end
+  end
   if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
   function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
   -- One unit's event only: the client passes the unit first, and calls the frame for no other.
@@ -320,7 +331,20 @@ function UnitIsPlayer(u) return false end
 function UnitIsDead(u) return false end
 function UnitClassification() return "normal" end
 function UnitCreatureType() return "Humanoid" end
-C_TooltipInfo = { GetItemByID = function(id) return { lines = { { leftText = "Item " .. id }, { leftText = "Binds when picked up" }, { leftText = "Two-Hand", rightText = "Staff" } } } end }
+-- An item's tooltip: the one the save keeps where this script seeded it (the game's word for it, read again
+-- each session, gf#392), else a stand-in.
+C_TooltipInfo = { GetItemByID = function(id)
+  local kept = GoldForeverDB and GoldForeverDB.catalogue and GoldForeverDB.catalogue.tooltips and GoldForeverDB.catalogue.tooltips[id]
+  if kept then
+    local lines = {}
+    for text in string.gmatch(kept .. "\n", "([^\n]*)\n") do
+      local left, right = string.match(text, "^([^\t]*)\t(.*)$")
+      lines[#lines + 1] = { leftText = left or text, rightText = right }
+    end
+    return { lines = lines }
+  end
+  return { lines = { { leftText = "Item " .. id }, { leftText = "Binds when picked up" }, { leftText = "Two-Hand", rightText = "Staff" } } }
+end }
 C_CurrencyInfo = { GetCurrencyListSize = function() return 2 end, GetCurrencyListInfo = function(i) if i == 1 then return { isHeader = true, name = "Misc" } end return { name = "Favor, of the Forever", quantity = 12 } end,
   GetCurrencyListLink = function(i) return i == 2 and "|Hcurrency:3001|h[Favor]|h" or nil end }
 C_Reputation = { GetNumFactions = function() return 2 end, GetFactionDataByIndex = function(i) if i == 1 then return { isHeader = true, factionID = 0, name = "Alliance" } end return { factionID = 72, name = "Stormwind", reaction = 5, currentStanding = 3200 } end }
@@ -334,6 +358,10 @@ filters = { available = true, unavailable = false, used = false }
 function GetTrainerServiceTypeFilter(f) return filters[f] end
 function SetTrainerServiceTypeFilter(f, on) filters[f] = on end
 function UnitGUID(u) if u == "npc" then return "Creature-0-4620-0-12-8661-000A" end return "Player-4620-006C0FC1" end
+-- The merchant's reaction to the player, which for a reputation faction's vendor is the player's standing.
+function UnitReaction(unit, other) if unit == "npc" and other == "player" then return 6 end end
+-- A merchant's wares' tooltip lines, by index: the first needs Honored with a faction (gf#393).
+MERCHANT_TOOLTIPS = { { "Water", "Requires Orgrimmar - Honored" } }
 function UnitFactionGroup(u) if u == "npc" then return nil end return SIDE end
 function GetMaxPlayerLevel() return 60 end
 xpmax = 47400
@@ -383,7 +411,20 @@ C_Container = { GetContainerNumFreeSlots = function(bag) if bag == 0 then return
     if s == 3 and bagsFull then return { itemID = 271206, stackCount = 1, isBound = true, hyperlink = "|Hitem:271206::::::::30|h[Skin]|h" } end
   end,
   GetContainerItemID = function() return 2589 end, PickupContainerItem = function() end }
-C_Item = { GetItemInfo = function(id) return "Item, " .. id, nil, 1, 10, 1, "", "", 20, "", 132889, 13, 7, 5, 0, 10 end,
+-- The game's answer for an item: what the save's row says where the session wrote one (the addon reads each
+-- item it sees again, gf#392, and a row this script seeds is the game's word for it), else a stand-in.
+local function rowInfo(id)
+  local row = GoldForeverDB and GoldForeverDB.catalogue and GoldForeverDB.catalogue.items[id]
+  if not row then return nil end
+  local c = {}
+  for v in string.gmatch(row .. ",", "([^,]*),") do c[#c + 1] = v end
+  local n = function(i) return tonumber(c[i]) end
+  return (string.gsub(c[1], "\226\128\154", ",")), nil, n(2), n(3), n(10), "", "", n(6), c[11] or "", n(9), n(7), n(4), n(5), n(8)
+end
+C_Item = { GetItemInfo = function(id)
+    if rowInfo(id) then return rowInfo(id) end
+    return "Item, " .. id, nil, 1, 10, 1, "", "", 20, "", 132889, 13, 7, 5, 0, 10
+  end,
   GetItemInfoInstant = function(id) return id, "Tradeskill", "Cloth", "", 132889, 7, 5 end,
   GetItemMaxStackSizeByID = function(id) return id == 2589 and 1000 or nil end }
 C_TradeSkillUI = { GetAllRecipeIDs = function() return { 2963, 3915 } end, GetRecipeInfo = function(id) return { learned = id == 2963, name = "Bolt of Linen" } end,
@@ -1117,6 +1158,10 @@ do
 end
 fire("TRADE_SKILL_SHOW")
 fire("MERCHANT_SHOW")
+wait(1)
+-- The vendor price with the visitor's standing, the ware that needs one (gf#393).
+seen("VENDOR STANDING ", tostring(string.match(GoldForeverDB.catalogue.vendor[159] or "", "^25,,%d+,5,(%d*)$")), "6")
+seen("WARE NEEDS ", tostring(string.match(GoldForeverDB.catalogue.merchants[8661] or "", ",([^,]*)$")), "159:6:")
 -- The trainer was left without its close event; its frame is hidden, so the sale is the vendor's alone.
 ClassTrainerFrame = { IsShown = function() return false end }
 money = money + 37; fire("PLAYER_MONEY")
@@ -4784,7 +4829,7 @@ assert(GoldForeverDB.events["2026-09-24"] and GoldForeverDB.events["2026-10-01"]
 GoldForeverDB.events["2026-09-24"], GoldForeverDB.events["2026-10-01"] = nil, nil
 GoldForeverDB.exportedAt = exportedBefore
 local after = ns2.test.sessionText and ns2.test.sessionText() or ""
-seen("AFTER RELOAD\n", tostring(after), "Farming 5:32\nCoin: 90c\nItems: 13c\n|cffffffffTotal: 1s 3c|r\n|cffffd100Per hour: 11s 15c|r\nXP: 44400 · 480722/h · level 31 in 6m (~213 kills)\nBags: 8 free\n|cffaaaaaa1x Item, 765: 13c|r")
+seen("AFTER RELOAD\n", tostring(after), "Farming 5:32\nCoin: 90c\nItems: 13c\n|cffffffffTotal: 1s 3c|r\n|cffffd100Per hour: 11s 15c|r\nXP: 44400 · 480433/h · level 31 in 6m (~213 kills)\nBags: 8 free\n|cffaaaaaa1x Item, 765: 13c|r")
 do
   local kinds = {}
   for _, sc in ipairs(GoldForeverDB.scans) do kinds[#kinds + 1] = sc.kind .. "@" .. tostring(sc.t) end

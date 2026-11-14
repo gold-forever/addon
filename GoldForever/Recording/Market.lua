@@ -240,6 +240,7 @@ local function read()
 	-- background and a /reload can come first.
 	local instant, stack = itemApis()
 	local timeLeft = C_AuctionHouse.GetReplicateItemTimeLeft
+	local named = {} -- the items named to the catalogue, each once a scan (gf#392)
 	if ns.retail then
 		s.items = {}
 	end
@@ -254,6 +255,11 @@ local function read()
 			-- read too, though it has no buyout to price.
 			if itemID and count and count > 0 then
 				s.read = (s.read or 0) + 1
+				-- Every item seen, a bid-only one too: the catalogue reads it from the game at its own pace.
+				if not named[itemID] then
+					named[itemID] = true
+					ns.catalogueItem(itemID)
+				end
 				if buyout and buyout > 0 then
 					local key = Encode.itemKey(C_AuctionHouse.GetReplicateItemLink(index)) or tostring(itemID)
 					local unit = math.floor(buyout / count + 0.5)
@@ -263,7 +269,6 @@ local function read()
 					if not b then
 						b = { item = key, unit = unit, qty = 0, auctions = 0, left = left }
 						buckets[bucket] = b
-						ns.catalogueItem(key)
 					end
 					b.qty = b.qty + count
 					b.auctions = b.auctions + 1
@@ -392,9 +397,107 @@ end
 -- The visitor's side, as KnowledgeTrainers.lua writes it for a trainer: empty for a neutral visitor.
 local SIDES = { Horde = "H", Alliance = "A" }
 
+-- The game's reactions, 1 Hated … 8 Exalted: FACTION_STANDING_LABEL1..8 (and _FEMALE, where a locale has one).
+local STANDINGS = 8
+
+-- The visitor's standing with the vendor (gf#393): its reaction to the player, which for a vendor of a
+-- reputation faction is the player's standing with it. Nil where the client has no answer or one that is no
+-- standing; the price is recorded either way.
+local function visitorStanding()
+	if not UnitReaction then
+		return nil
+	end
+	local ok, reaction = pcall(UnitReaction, "npc", "player")
+	if ok and type(reaction) == "number" and reaction >= 1 and reaction <= STANDINGS and reaction % 1 == 0 then
+		return reaction
+	end
+	return nil
+end
+
+-- A standing by its label, as the client's own strings spell it.
+local function standingNamed(label)
+	for i = 1, STANDINGS do
+		if label == _G["FACTION_STANDING_LABEL" .. i] or label == _G["FACTION_STANDING_LABEL" .. i .. "_FEMALE"] then
+			return i
+		end
+	end
+	return nil
+end
+
+-- ITEM_REQ_REPUTATION ("Requires %s - %s") as a pattern capturing the faction and the standing, made from
+-- the client's string at the first read; nil without it.
+local requiresPattern
+local function requires()
+	local text = ITEM_REQ_REPUTATION
+	if not requiresPattern and type(text) == "string" then
+		local escaped = string.gsub(text, "([%^%$%(%)%.%[%]%*%+%-%?])", "%%%1")
+		requiresPattern = "^" .. string.gsub(escaped, "%%s", "(.-)") .. "$"
+	end
+	return requiresPattern
+end
+
+-- A faction's ID by its name, from the factions the character's reputation list named (Character.lua).
+local function factionNamed(name)
+	local encoded = Encode.name(name)
+	for id, known in pairs(ns.db().catalogue.factions or {}) do
+		if known == encoded then
+			return id
+		end
+	end
+	return nil
+end
+
+-- A hidden tooltip of the addon's own, for a client without C_TooltipInfo (Forever); made at the first read.
+local TIP = "GoldForeverMerchantTip"
+local tip
+local function merchantLines(i)
+	if C_TooltipInfo and C_TooltipInfo.GetMerchantItem then
+		local data = C_TooltipInfo.GetMerchantItem(i)
+		local lines = {}
+		for n, line in ipairs(data and data.lines or {}) do
+			lines[n] = line.leftText
+		end
+		return lines
+	end
+	tip = tip or CreateFrame("GameTooltip", TIP, nil, "GameTooltipTemplate")
+	tip:SetOwner(WorldFrame, "ANCHOR_NONE")
+	tip:ClearLines()
+	tip:SetMerchantItem(i)
+	local lines = {}
+	for n = 1, tip:NumLines() do
+		local left = _G[TIP .. "TextLeft" .. n]
+		lines[n] = left and left:GetText()
+	end
+	return lines
+end
+
+-- The standing ware i needs, "standing:faction" (the faction empty when not catalogued); nil when its tooltip
+-- names none, or cannot be read.
+local function readRequirement(i)
+	local pattern = requires()
+	if not pattern then
+		return nil
+	end
+	for _, text in ipairs(merchantLines(i)) do
+		local name, label = string.match(text or "", pattern)
+		local standing = label and standingNamed(label)
+		if standing then
+			return standing .. ":" .. (factionNamed(name) or "")
+		end
+	end
+	return nil
+end
+
+local function requirement(i)
+	local ok, needs = pcall(readRequirement, i)
+	return ok and needs or nil
+end
+
 local function readMerchant()
 	local vendor = ns.db().catalogue.vendor
 	local sold = {} -- every item this vendor sells, for "where to buy" (recipes in particular)
+	local needs = {} -- "item:standing:faction" for each ware that needs a standing
+	local standing = visitorStanding()
 	for i = 1, GetMerchantNumItems() do
 		local id = GetMerchantItemID(i)
 		local price, quantity, available, extended
@@ -410,15 +513,20 @@ local function readMerchant()
 		if id then
 			sold[#sold + 1] = id
 			ns.catalogueItem(id) -- whatever its cost: an item sold for currency is named too
+			local need = requirement(i)
+			if need then
+				needs[#needs + 1] = id .. ":" .. need
+			end
 		end
 		if id and price and price > 0 and not extended then
-			vendor[id] = Encode.row(price, available and available >= 0 or nil, ns.now(), quantity)
+			vendor[id] = Encode.row(price, available and available >= 0 or nil, ns.now(), quantity, standing)
 		end
 	end
 	local npc = Encode.npcId(ns.readable(UnitGUID("npc")))
 	if npc and #sold > 0 then
 		local map, x, y = ns.position()
-		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"), SIDES[UnitFactionGroup("player")])
+		ns.db().catalogue.merchants[npc] = Encode.row(map, x, y, table.concat(sold, "+"), SIDES[UnitFactionGroup("player")],
+			table.concat(needs, "+"))
 	end
 end
 

@@ -1,5 +1,7 @@
 -- Gold Forever: the item catalogue (design 002, State: catalogue). Every collector that records an
--- item key calls ns.catalogueItem, which writes the item's info once it has loaded.
+-- item key calls ns.catalogueItem, which reads the item's info from the game once a session, when it has
+-- loaded, and rewrites its row stamped with readAt (gf#392): the server takes a sell price as the game's
+-- only from a row read since launch, never from one carried over from the beta.
 --
 -- From 0.4.0 each item also keeps its tooltip text: Forever-only items exist nowhere else once
 -- the game is gone. Items catalogued before that are filled in by a slow pass after login.
@@ -69,36 +71,20 @@ local function expansion(value)
 end
 
 -- A retail row may end before its tier (catalogued before schema 9, addon#72) or its expansion, and an item
--- with neither looks the same; such a row is filled once a session, in place. A short row from before
--- minLevel and equipLoc is padded so each value lands in its column.
+-- with neither looks the same; such a row is read again after login. Values after the row's end are placed
+-- in their columns, the ones between left empty.
 local TIER_AT = TIERED and Encode.columns(ns.FIELDS.item).tier
 local EXPANSION_AT = TIERED and Encode.columns(ns.FIELDS.item).expansion
+local READ_AT = Encode.columns(ns.FIELDS.item).readAt
 local function commas(row)
 	local _, count = string.gsub(row, ",", "")
 	return count
-end
-local function lacksTier(row)
-	return TIERED and commas(row) < TIER_AT - 1
 end
 local function unfilled(row)
 	return TIERED and commas(row) < EXPANSION_AT - 1
 end
 local function place(row, at, value)
 	return row .. string.rep(",", at - 1 - commas(row)) .. value
-end
-
-local function fill(id)
-	local catalogue = ns.db().catalogue
-	local row = catalogue.items[id]
-	local itemTier = lacksTier(row) and tier(id)
-	if itemTier then
-		row = place(row, TIER_AT, itemTier)
-	end
-	local itemExpansion = expansion((select(15, GetItemInfo(id))))
-	if itemExpansion then
-		row = place(row, EXPANSION_AT, itemExpansion)
-	end
-	catalogue.items[id] = row
 end
 
 local function write(id)
@@ -118,20 +104,17 @@ local function write(id)
 	if itemExpansion then
 		row = place(row, EXPANSION_AT, itemExpansion)
 	end
-	catalogue.items[id] = row
+	catalogue.items[id] = place(row, READ_AT, ns.now())
 	if not ns.lean then
 		catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
 	end
 	return true
 end
 
--- fn now, or on retail in a fight once it ends: the tier is never asked in combat.
+-- fn now, or in a fight once it ends: the tier is never asked in combat, and an AH scan's thousands of
+-- items never cost a fight's frames.
 local function outOfFight(fn)
-	if TIERED then
-		ns.afterCombat("catalogue", fn)
-	else
-		ns.safely("catalogue", fn)
-	end
+	ns.afterCombat("catalogue", fn)
 end
 
 local function load(id)
@@ -149,10 +132,10 @@ local function load(id)
 	end
 end
 
--- Items to catalogue, oldest first, BATCH every PAUSE seconds: a scan names thousands of items at
--- once, and asking the client (and through it the server) for all of them in one frame stutters
--- the game and gets throttled. One queue serves loot, scans, bags and the backfill below.
-local BATCH, PAUSE = 20, 0.2
+-- Items to catalogue, oldest first, BATCH every PAUSE seconds and at most BUDGET_MS of a frame: a scan
+-- names thousands of items at once, and asking the client (and through it the server) for all of them in
+-- one frame stutters the game and gets throttled. One queue serves loot, scans, bags and the backfill below.
+local BATCH, PAUSE, BUDGET_MS = 20, 0.2, 2
 -- head and tail are explicit: # on a table emptied from the front is any border, and an append at
 -- #queue + 1 then landed behind head and was never drained (half of a retail scan's items, 0.14.0).
 local queue, head, tail = {}, 1, 0
@@ -160,11 +143,18 @@ local queued = {} -- item ID -> true while it waits in the queue
 local tried = {} -- item IDs asked for this session: one with no tooltip is not asked again and again
 local draining = false
 
+-- After a batch that read anything the next waits PAUSE, so items named meanwhile (a scan's, a frame at a
+-- time) queue for it instead of each being read at once.
 local function drain()
-	if TIERED and ns.inCombat() then
+	if ns.inCombat() then
 		ns.afterCombat("catalogue", drain)
 		return
 	end
+	if not queue[head] then
+		draining = false
+		return
+	end
+	local started = ns.frameStart()
 	for _ = 1, BATCH do
 		local id = queue[head]
 		if not id then
@@ -174,26 +164,20 @@ local function drain()
 		head = head + 1
 		queued[id] = nil
 		tried[id] = true
-		local row = ns.db().catalogue.items[id]
-		if row and unfilled(row) then
-			fill(id)
-		elseif not pending[id] then
+		if not pending[id] then
 			load(id)
 		end
+		if started and ns.frameStart() - started >= BUDGET_MS then
+			break
+		end
 	end
-	if queue[head] then
-		ns.after(PAUSE, "catalogue", drain)
-	else
-		draining = false
-	end
+	ns.after(PAUSE, "catalogue", drain)
 end
 
--- Records the catalogue entry for an item key ("14047", "10221:612" or a number), once.
+-- Reads an item key's ("14047", "10221:612" or a number) catalogue entry from the game, once a session.
 function ns.catalogueItem(key)
 	local id = Encode.itemId(key)
-	local catalogue = ns.db().catalogue
-	local row = id and catalogue.items[id]
-	if not id or (row and not unfilled(row) and (ns.lean or catalogue.tooltips[id])) or pending[id] or queued[id] or tried[id] then
+	if not id or pending[id] or queued[id] or tried[id] then
 		return
 	end
 	queued[id] = true
@@ -205,8 +189,8 @@ function ns.catalogueItem(key)
 	end
 end
 
--- Fills in, through the queue once a session: on Forever the tooltips (and the new columns) of items
--- catalogued before 0.4.0, on retail the tiers and expansions of rows written without them.
+-- Reads again after login, through the queue: on Forever the items catalogued before 0.4.0 without a
+-- tooltip, on retail the rows written without tier and expansion.
 ns.module("Catalogue", {
 	requires = { "Store" },
 	enable = function()

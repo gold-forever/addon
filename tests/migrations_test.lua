@@ -54,9 +54,9 @@ end
 -- Today's schema, two migrations on from the baseline.
 GoldForeverDB = nil
 local started, shipped = load()
-eq(shipped.SCHEMA, 11, "schema 11 is today's")
-eq(#shipped.MIGRATIONS, 10, "ten migrations beyond the baseline")
-eq(GoldForeverDB.schema, 11, "a new save starts at the current schema")
+eq(shipped.SCHEMA, 13, "schema 13 is today's")
+eq(#shipped.MIGRATIONS, 12, "twelve migrations beyond the baseline")
+eq(GoldForeverDB.schema, 13, "a new save starts at the current schema")
 eq(GoldForeverDB.migrated, nil, "with no migration recorded")
 eq(started, "init, enable", "and the modules that require the Store start")
 
@@ -90,39 +90,47 @@ eq(npcs[2], ",10,12,elite,Humanoid", "and the client's own word for it")
 eq(npcs[3], "Thornspine,80,80,normal,Beast", "a real name is kept")
 eq(npcs[4], ",70,70,,", "a row without a name is as it was")
 UNKNOWNOBJECT = nil
-eq(shipped.upgrade({ schema = 3 }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800).schema, 11, "a save without a catalogue upgrades")
+eq(shipped.upgrade({ schema = 3 }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800).schema, 13, "a save without a catalogue upgrades")
 
 -- 4 to 5: the new mail stream; the save is otherwise as it was.
 upgraded = shipped.upgrade({ schema = 4, characters = { a = { name = "Ann" } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
-eq(upgraded.schema .. " " .. upgraded.characters.a.name, "11 Ann", "a schema 4 save upgrades, the rest kept")
+eq(upgraded.schema .. " " .. upgraded.characters.a.name, "13 Ann", "a schema 4 save upgrades, the rest kept")
 
 -- 5 to 6: each character's cooldowns are new (Cooldowns.lua); a schema 5 save has none and is otherwise as it was.
 upgraded = shipped.upgrade({ schema = 5, characters = { a = { name = "Ann", guild = { name = "Vault" } } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
 eq(upgraded.schema .. " " .. upgraded.characters.a.name .. " " .. upgraded.characters.a.guild.name .. " " .. tostring(upgraded.characters.a.cooldowns),
-	"11 Ann Vault nil", "a schema 5 save upgrades, no cooldowns known yet")
+	"13 Ann Vault nil", "a schema 5 save upgrades, no cooldowns known yet")
 
 -- 6 to 7: the mail stream's to may name a character of yours on another WoW account; the save is as it was.
 upgraded = shipped.upgrade({ schema = 6, characters = { a = { name = "Ann", cooldowns = { [18560] = 1761200000 } } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
-eq(upgraded.schema .. " " .. upgraded.characters.a.name .. " " .. upgraded.characters.a.cooldowns[18560], "11 Ann 1761200000", "a schema 6 save upgrades, the rest kept")
+eq(upgraded.schema .. " " .. upgraded.characters.a.name .. " " .. upgraded.characters.a.cooldowns[18560], "13 Ann 1761200000", "a schema 6 save upgrades, the rest kept")
 
 -- 7 to 8: an xp row's kind may be gather (Levelling.lua); the save is as it was.
 upgraded = shipped.upgrade({ schema = 7, characters = { a = { name = "Ann" } }, events = { ["2026-10-30"] = { xp = { "1792517535,1,40,other,,,1429,30,412,679," } } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
-eq(upgraded.schema .. " " .. upgraded.characters.a.name .. " " .. upgraded.events["2026-10-30"].xp[1], "11 Ann 1792517535,1,40,other,,,1429,30,412,679,", "a schema 7 save upgrades, its xp rows kept")
+eq(upgraded.schema .. " " .. upgraded.characters.a.name .. " " .. upgraded.events["2026-10-30"].xp[1], "13 Ann 1792517535,1,40,other,,,1429,30,412,679,", "a schema 7 save upgrades, its xp rows kept")
 
 -- 8 to 9: an item row may end in tier, the item's crafting-quality tier (Catalogue.lua); the save is as it was.
 upgraded = shipped.upgrade({ schema = 8, catalogue = { items = { [210796] = "Argentleaf,1,1,7,9,1000,0,0,1,1,,2", [2589] = "Linen Cloth,1,5,7,5,200,1,0,1,1," } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
 eq(upgraded.schema .. " " .. upgraded.catalogue.items[210796] .. " " .. upgraded.catalogue.items[2589],
-	"11 Argentleaf,1,1,7,9,1000,0,0,1,1,,2 Linen Cloth,1,5,7,5,200,1,0,1,1,", "a schema 8 save upgrades, its item rows kept")
+	"13 Argentleaf,1,1,7,9,1000,0,0,1,1,,2 Linen Cloth,1,5,7,5,200,1,0,1,1,", "a schema 8 save upgrades, its item rows kept")
 
 -- 9 to 10: a recipe's reagents may name a slot of choices, "a/b/c*n" (Professions.lua); the rows kept are
 -- read as before, and the profession window rewrites them.
 upgraded = shipped.upgrade({ schema = 9, catalogue = { recipes = { [2963] = "197,2996,1,1,2589*2,Bolt of Linen Cloth" } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
-eq(upgraded.schema .. " " .. upgraded.catalogue.recipes[2963], "11 197,2996,1,1,2589*2,Bolt of Linen Cloth", "a schema 9 save upgrades, its recipe rows kept")
+eq(upgraded.schema .. " " .. upgraded.catalogue.recipes[2963], "13 197,2996,1,1,2589*2,Bolt of Linen Cloth", "a schema 9 save upgrades, its recipe rows kept")
 
 -- 10 to 11: a trainer's service may end in its spell (KnowledgeTrainers.lua) and a character hold its known
 -- spells (Spellbook.lua); the rows kept read as before.
 upgraded = shipped.upgrade({ schema = 10, characters = { a = { name = "Ann" } }, catalogue = { trainers = { [8661] = "Smite,available,135924,100,,,4" } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
-eq(upgraded.schema .. " " .. upgraded.catalogue.trainers[8661] .. " " .. tostring(upgraded.characters.a.spells), "11 Smite,available,135924,100,,,4 nil", "a schema 10 save upgrades, its trainer rows kept, no spells known yet")
+eq(upgraded.schema .. " " .. upgraded.catalogue.trainers[8661] .. " " .. tostring(upgraded.characters.a.spells), "13 Smite,available,135924,100,,,4 nil", "a schema 10 save upgrades, its trainer rows kept, no spells known yet")
+
+-- 11 to 12: an item row may end in readAt (Catalogue.lua); 12 to 13: a vendor price in the visitor's standing
+-- and a merchant in the wares that need one (Market.lua). The rows kept read as before.
+upgraded = shipped.upgrade({ schema = 11, catalogue = { items = { [2589] = "Linen Cloth,1,5,7,5,200,13,0,1,1," },
+	vendor = { [159] = "25,,1792517535,5" }, merchants = { [3312] = "1454,0.5,0.5,159+2589,H" } } }, shipped.SCHEMA, shipped.MIGRATIONS, 1761148800)
+eq(upgraded.schema .. " " .. upgraded.catalogue.items[2589] .. " " .. upgraded.catalogue.vendor[159] .. " " .. upgraded.catalogue.merchants[3312],
+	"13 Linen Cloth,1,5,7,5,200,13,0,1,1, 25,,1792517535,5 1454,0.5,0.5,159+2589,H", "a schema 11 save upgrades, its item, vendor and merchant rows kept")
+eq(#upgraded.migrated, 2, "through 12 to 13")
 
 -- Two migrations in order, recorded with their time.
 GoldForeverDB = { schema = 1, events = {} }

@@ -91,6 +91,20 @@ ns.MIGRATIONS = {
 		to = 11,
 		run = function() end,
 	},
+	-- An item row may end in readAt, when a session read it from the game (Catalogue.lua); the rows kept read as
+	-- before, and each item seen is read again.
+	{
+		from = 11,
+		to = 12,
+		run = function() end,
+	},
+	-- A vendor price may end in the visitor's standing, and a merchant in the wares that need one (Market.lua);
+	-- the rows kept read as before.
+	{
+		from = 12,
+		to = 13,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

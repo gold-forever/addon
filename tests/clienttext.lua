@@ -19,3 +19,7 @@ ITEM_STARTS_QUEST = "This Item Begins a Quest"
 GOLD_AMOUNT_SYMBOL = "g"
 SILVER_AMOUNT_SYMBOL = "s"
 COPPER_AMOUNT_SYMBOL = "c"
+-- A merchant ware's tooltip line for the standing it needs (Market.lua, gf#393), and the standings' labels.
+ITEM_REQ_REPUTATION = "Requires %s - %s"
+FACTION_STANDING_LABEL1, FACTION_STANDING_LABEL2, FACTION_STANDING_LABEL3, FACTION_STANDING_LABEL4 = "Hated", "Hostile", "Unfriendly", "Neutral"
+FACTION_STANDING_LABEL5, FACTION_STANDING_LABEL6, FACTION_STANDING_LABEL7, FACTION_STANDING_LABEL8 = "Friendly", "Honored", "Revered", "Exalted"

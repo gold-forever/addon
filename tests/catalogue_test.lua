@@ -1,5 +1,12 @@
 -- Catalogue.lua: every item a scan names reaches the catalogue. A retail scan names about 19,000 items
 -- while the queue is draining; on the owner's first retail scan (2026-10-22) exactly half never did.
+-- Each session, an item seen is read from the game again and its row rewritten, stamped with readAt
+-- (schema 12, gf#392): a row carried from an earlier session is no evidence of today's price.
+
+local NOW = 1792600000 -- ns.now() in the session under test
+local T = tostring(NOW)
+local clock = 0 -- ns.frameStart()'s milliseconds; nil for a client without the timer
+local timed = false
 
 local asked = {} -- item ID -> how often its info was asked for
 local links = {} -- item ID -> the link GetItemInfo answers (none by default)
@@ -48,6 +55,12 @@ local function session(db, lean)
 		end,
 		inCombat = function()
 			return fighting
+		end,
+		now = function()
+			return NOW
+		end,
+		frameStart = function()
+			return timed and clock or nil
 		end,
 		afterCombat = function(_, fn)
 			if fighting then
@@ -108,7 +121,7 @@ end
 eq(catalogued, N, "items catalogued after a scan named them while the queue drained")
 eq(count(db.catalogue.items), N, "a row for each in the saved catalogue")
 eq(count(db.catalogue.tooltips), N, "and its tooltip")
-eq(db.catalogue.items[100001], "Item 100001,1,1,7,5,20,1,0,1,1,", "the item's row")
+eq(db.catalogue.items[100001], "Item 100001,1,1,7,5,20,1,0,1,1,," .. T, "the item's row, read now")
 eq(db.catalogue.tooltips[100001], "Item 100001\nTwo-Hand\tStaff", "the item's tooltip")
 
 -- Asked again in the same session: nothing queued, nothing asked.
@@ -117,17 +130,24 @@ while tick() do
 end
 eq(asked[100001], 1, "an item catalogued is not asked for again")
 
--- The next session on the same save: an item with its row and tooltip is not asked for; one with a row
--- and no tooltip (catalogued before 0.4.0) is.
+-- The next session on the same save: an item seen is read again, its row rewritten with this session's
+-- readAt, even with its row and tooltip kept; an item not seen keeps its row as it was.
 db.catalogue.tooltips[100002] = nil
+db.catalogue.items[100001] = "Item 100001,1,1,7,5,20,960,0,1,1,,1780000000" -- a beta-era price, carried
+NOW = NOW + 86400
+local T2 = tostring(NOW)
 ns, tick = session(db, false)
 ns.catalogueItem(100001)
 ns.catalogueItem(100002)
+ns.catalogueItem(100001)
 while tick() do
 end
-eq(asked[100001], 1, "next session: a catalogued item is not asked for")
-eq(asked[100002], 2, "next session: an item without its tooltip is")
+eq(asked[100001], 2, "next session: a catalogued item seen is asked for again, once")
+eq(db.catalogue.items[100001], "Item 100001,1,1,7,5,20,1,0,1,1,," .. T2, "and rewritten from the game: today's price and readAt")
+eq(asked[100002], 2, "next session: an item without its tooltip is asked for")
 eq(db.catalogue.tooltips[100002], "Item 100002\nTwo-Hand\tStaff", "and its tooltip is written")
+eq(db.catalogue.items[100003], "Item 100003,1,1,7,5,20,1,0,1,1,," .. T, "an item not seen this session keeps its row and its readAt")
+NOW = NOW - 86400
 
 -- A lean (retail) save keeps rows and no tooltips: a row is enough.
 local leanDb = { catalogue = { items = {}, tooltips = {} } }
@@ -136,7 +156,7 @@ ns.catalogueItem(200001)
 ns.catalogueItem("200002:612")
 while tick() do
 end
-eq(leanDb.catalogue.items[200001], "Item 200001,1,1,7,5,20,1,0,1,1,", "lean: the item's row")
+eq(leanDb.catalogue.items[200001], "Item 200001,1,1,7,5,20,1,0,1,1,,,," .. T, "lean: the item's row, readAt after tier and expansion")
 eq(leanDb.catalogue.items[200002] ~= nil, true, "lean: an item key's item")
 eq(count(leanDb.catalogue.tooltips), 0, "lean: no tooltips kept")
 ns.catalogueItem(200001)
@@ -148,7 +168,7 @@ ns, tick = session(leanDb, true)
 ns.catalogueItem(200001)
 while tick() do
 end
-eq(asked[200001], 1, "lean, next session: a row without a tooltip is not asked for")
+eq(asked[200001], 2, "lean, next session: an item seen is read again, though a lean save keeps no tooltip")
 
 -- Columns read by name (ns.FIELDS), not by place.
 local rowsDb = { catalogue = { items = { [7] = "Linen Cloth,1,5,7,5,20,13", [8] = ",3,5", [9] = "Odd" }, npcs = { [42] = "Hogger,9,11,elite" }, tooltips = {} } }
@@ -183,19 +203,20 @@ local answers = { [300001] = 3, [300004] = 1 }
 local retail = { GetItemReagentQualityByItemInfo = function(id) return answers[id] end }
 local failing = { GetItemReagentQualityByItemInfo = function() error("no such item") end }
 
-eq(catalogued(300001, retail, PLAIN), string.format(ROW, 300001) .. ",3", "retail: the API's tier after equipLoc")
-eq(catalogued(300002, retail, PLAIN), string.format(ROW, 300002), "retail: an untiered item has no tier column")
-eq(catalogued(300003, retail, TIER2), string.format(ROW, 300003) .. ",2", "retail: the link's markup when the API answers nil")
-eq(catalogued(300004, retail, TIER2), string.format(ROW, 300004) .. ",1", "the API's answer before the link's")
-eq(catalogued(300005, nil, nil), string.format(ROW, 300005), "Forever: no C_TradeSkillUI and no link, no tier")
-eq(catalogued(300006, {}, PLAIN), string.format(ROW, 300006), "Forever: C_TradeSkillUI without the call, no tier")
-eq(catalogued(300007, nil, TIER2), string.format(ROW, 300007) .. ",2", "no API: the link's markup still counts")
-eq(catalogued(300008, failing, PLAIN), string.format(ROW, 300008), "an API that errors: no error, no tier")
-eq(catalogued(300009, failing, TIER2), string.format(ROW, 300009) .. ",2", "an API that errors: the link's markup")
-eq(catalogued(300010, { GetItemReagentQualityByItemInfo = function() return "x" end }, PLAIN), string.format(ROW, 300010),
+eq(catalogued(300001, retail, PLAIN), string.format(ROW, 300001) .. ",3,," .. T, "retail: the API's tier after equipLoc")
+eq(catalogued(300002, retail, PLAIN), string.format(ROW, 300002) .. ",,," .. T, "retail: an untiered item has no tier column")
+eq(catalogued(300003, retail, TIER2), string.format(ROW, 300003) .. ",2,," .. T, "retail: the link's markup when the API answers nil")
+eq(catalogued(300004, retail, TIER2), string.format(ROW, 300004) .. ",1,," .. T, "the API's answer before the link's")
+eq(catalogued(300005, nil, nil), string.format(ROW, 300005) .. ",,," .. T, "Forever: no C_TradeSkillUI and no link, no tier")
+eq(catalogued(300006, {}, PLAIN), string.format(ROW, 300006) .. ",,," .. T, "Forever: C_TradeSkillUI without the call, no tier")
+eq(catalogued(300007, nil, TIER2), string.format(ROW, 300007) .. ",2,," .. T, "no API: the link's markup still counts")
+eq(catalogued(300008, failing, PLAIN), string.format(ROW, 300008) .. ",,," .. T, "an API that errors: no error, no tier")
+eq(catalogued(300009, failing, TIER2), string.format(ROW, 300009) .. ",2,," .. T, "an API that errors: the link's markup")
+eq(catalogued(300010, { GetItemReagentQualityByItemInfo = function() return "x" end }, PLAIN), string.format(ROW, 300010) .. ",,," .. T,
 	"an answer that is not a tier is none")
-eq(ns.FIELDS.item:match(",([^,]*),[^,]*$"), "tier", "retail: tier is the schema's last item column but one")
-eq(ns.FIELDS.item:match(",([^,]*)$"), "expansion", "retail: expansion is its last")
+eq(ns.FIELDS.item:match(",([^,]*),([^,]*),([^,]*)$"), "tier", "retail: tier, expansion, readAt end the item columns")
+eq(ns.FIELDS.item:match(",([^,]*),[^,]*$"), "expansion", "retail: expansion is the last but one")
+eq(ns.FIELDS.item:match(",([^,]*)$"), "readAt", "retail: readAt is the last")
 
 -- A crafted item (gear, a consumable) answers GetItemCraftedQualityByItemInfo, 1–5; a reagent answers the
 -- reagent call, 1–3.
@@ -204,9 +225,9 @@ local both = {
 	GetItemReagentQualityByItemInfo = function(id) return answers[id] end,
 	GetItemCraftedQualityByItemInfo = function(id) return craftedAnswers[id] end,
 }
-eq(catalogued(300012, both, PLAIN), string.format(ROW, 300012) .. ",5", "retail: a crafted item's tier")
-eq(catalogued(300001, both, PLAIN), string.format(ROW, 300001) .. ",3", "retail: a reagent's tier")
-eq(catalogued(300002, both, PLAIN), string.format(ROW, 300002), "retail: an item without tiers has none")
+eq(catalogued(300012, both, PLAIN), string.format(ROW, 300012) .. ",5,," .. T, "retail: a crafted item's tier")
+eq(catalogued(300001, both, PLAIN), string.format(ROW, 300001) .. ",3,," .. T, "retail: a reagent's tier")
+eq(catalogued(300002, both, PLAIN), string.format(ROW, 300002) .. ",,," .. T, "retail: an item without tiers has none")
 
 -- Never in combat: an item named in a fight is catalogued, its tier with it, once the fight ends.
 fighting = true
@@ -221,7 +242,7 @@ endFight()
 while fightTick() do
 end
 C_TradeSkillUI = nil
-eq(fightDb.catalogue.items[300012], string.format(ROW, 300012) .. ",5", "after the fight: the row and its tier")
+eq(fightDb.catalogue.items[300012], string.format(ROW, 300012) .. ",5,," .. T, "after the fight: the row and its tier")
 
 -- Forever: no tier column declared, and none written even where the client would answer one.
 C_TradeSkillUI = retail
@@ -233,62 +254,88 @@ ns.catalogueItem(300011)
 while tick() do
 end
 C_TradeSkillUI = nil
-eq(ns.FIELDS.item:match(",([^,]*)$"), "equipLoc", "Forever: the schema's item columns end with equipLoc")
-eq(foreverDb.catalogue.items[300001], string.format(ROW, 300001), "Forever: no tier from the API")
-eq(foreverDb.catalogue.items[300011], string.format(ROW, 300011), "Forever: no tier from the link")
+eq(ns.FIELDS.item:match(",([^,]*,[^,]*)$"), "equipLoc,readAt", "Forever: the schema's item columns end with equipLoc, readAt")
+eq(foreverDb.catalogue.items[300001], string.format(ROW, 300001) .. "," .. T, "Forever: no tier from the API")
+eq(foreverDb.catalogue.items[300011], string.format(ROW, 300011) .. "," .. T, "Forever: no tier from the link")
 
--- Retail rows catalogued before schema 9 (addon#72): the test save had 25,121 rows and not one tier, while
--- the client answered the tier. They get it once a session, after login and on sight, from C_TradeSkillUI
--- alone: their row is already there, so GetItemInfo is not asked.
-local tierAsked = {}
-local function counting(answers)
-	return function(id)
-		tierAsked[id] = (tierAsked[id] or 0) + 1
-		return answers[id]
-	end
+-- A retail item's expansion, GetItemInfo's 15th return, after tier: 0 is Classic, and a value the server would
+-- not store (the 254 the client's docs give for Classic clients) is none.
+expansions[500001], expansions[500002], expansions[500003], expansions[500004] = 10, 10, 0, 99
+expansions[500005], expansions[500006], expansions[500007], expansions[500008] = 254, 100, 1.5, "x"
+expansions[500009] = -1
+local reagent = { GetItemReagentQualityByItemInfo = function(id) return id == 500002 and 3 or nil end }
+eq(catalogued(500001, nil, nil), string.format(ROW, 500001) .. ",,10," .. T, "retail: an untiered item's expansion, its tier column empty")
+eq(catalogued(500002, reagent, nil), string.format(ROW, 500002) .. ",3,10," .. T, "retail: the expansion after the tier")
+eq(catalogued(500003, nil, nil), string.format(ROW, 500003) .. ",,0," .. T, "retail: expansion 0 is written")
+eq(catalogued(500004, nil, nil), string.format(ROW, 500004) .. ",,99," .. T, "retail: the server's highest")
+for id = 500005, 500009 do
+	eq(catalogued(id, nil, nil), string.format(ROW, id) .. ",,," .. T, "retail: not an expansion, nothing written: " .. tostring(expansions[id]))
 end
-local oldApi = {
-	GetItemReagentQualityByItemInfo = counting({ [400001] = 2, [400004] = 3, [400005] = 1 }),
-	GetItemCraftedQualityByItemInfo = counting({ [400002] = 5 }),
-}
+
+local foreverExpansion = { catalogue = { items = {}, tooltips = {} } }
+ns, tick = session(foreverExpansion, false)
+ns.catalogueItem(500001)
+while tick() do
+end
+eq(foreverExpansion.catalogue.items[500001], string.format(ROW, 500001) .. "," .. T, "Forever: no expansion even where the client answers one")
+
+-- Forever too: an item named in a fight is read once it ends (an AH scan's thousands never stutter a fight).
+fighting = true
+local foreverFightDb = { catalogue = { items = {}, tooltips = {} } }
+local foreverFightNs, foreverFightTick = session(foreverFightDb, false)
+foreverFightNs.catalogueItem(300013)
+while foreverFightTick() do
+end
+eq(foreverFightDb.catalogue.items[300013], nil, "Forever, in combat: nothing is read")
+endFight()
+while foreverFightTick() do
+end
+eq(foreverFightDb.catalogue.items[300013], string.format(ROW, 300013) .. "," .. T, "Forever, after the fight: the row")
+
+-- A frame budget: a batch stops once its milliseconds are spent, and the rest follows in the next one.
+timed = true
+local budgetDb = { catalogue = { items = {}, tooltips = {} } }
+local realInfo = GetItemInfo
+GetItemInfo = function(...)
+	clock = clock + 1 -- each read costs a millisecond
+	return realInfo(...)
+end
+local budgetNs, budgetTick = session(budgetDb, false) -- after the stand-in: Catalogue.lua keeps the one it loads with
+for n = 1, 10 do
+	budgetNs.catalogueItem(310000 + n)
+end
+eq(count(budgetDb.catalogue.items), 1, "the first item at once; the rest named meanwhile wait for the queue")
+budgetTick()
+eq(count(budgetDb.catalogue.items), 3, "the next batch stops at its 2 ms: two more")
+while budgetTick() do
+end
+eq(count(budgetDb.catalogue.items), 10, "the rest in the next batches")
+GetItemInfo = realInfo
+timed = false
+
+-- Rows catalogued before a column (a retail row without tier or expansion, before schema 9, addon#72; the
+-- test save had 25,121 rows and not one tier) are read again after login, in the queue, and rewritten whole.
 local OLD = "Azeroot,1,1,7,5,20,1,0,1,1,INVTYPE_NON_EQUIP_IGNORE"
 local function oldSave()
 	return { catalogue = { items = {
 		[400001] = OLD, -- a reagent
 		[400002] = OLD, -- a crafted item
-		[400003] = OLD, -- untiered
 		[400004] = "Old,1,1,7,5,20,1,0,1", -- a row from before minLevel and equipLoc
-		[400005] = OLD .. ",1", -- already has its tier
+		[400006] = OLD .. ",1,9," .. T, -- read this way already
 	}, tooltips = {} } }
 end
-C_TradeSkillUI = oldApi
+C_TradeSkillUI = both
+answers[400001], craftedAnswers[400002], expansions[400002] = 2, 5, 9
 local oldDb = oldSave()
 local oldNs, oldTick = session(oldDb, true)
 oldNs.enableCatalogue()
 while oldTick() do
 end
-eq(oldDb.catalogue.items[400001], OLD .. ",2", "old retail save, after login: a reagent's row gets its tier")
-eq(oldDb.catalogue.items[400002], OLD .. ",5", "old retail save, after login: a crafted item's row gets its tier")
-eq(oldDb.catalogue.items[400003], OLD, "old retail save: an untiered item's row is unchanged")
-eq(oldDb.catalogue.items[400004], "Old,1,1,7,5,20,1,0,1,,,3", "a short row: the tier in the tier column")
-eq(oldDb.catalogue.items[400005], OLD .. ",1", "a row with its tier is unchanged")
-eq(tierAsked[400005], nil, "a row with its tier is not asked again")
-eq(asked[400001], 1, "the fill asks the item's info once, for its expansion")
-oldNs.catalogueItem(400003)
-oldNs.catalogueItem(400001)
-while oldTick() do
-end
-eq(tierAsked[400003], 2, "an untiered item is asked once a session (both calls)")
-eq(tierAsked[400001], 1, "a filled item is not asked again")
-
--- On sight: an old row named by loot, a bag or a scan gets its tier, without the login pass.
-local sightDb = oldSave()
-local sightNs, sightTick = session(sightDb, true)
-sightNs.catalogueItem(400001)
-while sightTick() do
-end
-eq(sightDb.catalogue.items[400001], OLD .. ",2", "old retail row seen: its tier")
-eq(asked[400001], 2, "old retail row seen: its info is asked once more, in this new session")
+eq(oldDb.catalogue.items[400001], string.format(ROW, 400001) .. ",2,," .. T, "old retail row, after login: rewritten, its tier and readAt")
+eq(oldDb.catalogue.items[400002], string.format(ROW, 400002) .. ",5,9," .. T, "a crafted item's: its tier and expansion")
+eq(oldDb.catalogue.items[400004], string.format(ROW, 400004) .. ",,," .. T, "a short row: rewritten whole")
+eq(oldDb.catalogue.items[400006], OLD .. ",1,9," .. T, "a row read since: not asked at login")
+eq(asked[400006], nil, "and its info not asked")
 
 -- Never in combat.
 fighting = true
@@ -297,109 +344,28 @@ local combatNs, combatTick = session(combatDb, true)
 combatNs.enableCatalogue()
 while combatTick() do
 end
-eq(combatDb.catalogue.items[400001], OLD, "in combat: no tier asked")
+eq(combatDb.catalogue.items[400001], OLD, "in combat: nothing asked")
 endFight()
 while combatTick() do
 end
-eq(combatDb.catalogue.items[400001], OLD .. ",2", "after the fight: the tier")
+eq(combatDb.catalogue.items[400001], string.format(ROW, 400001) .. ",2,," .. T, "after the fight: the row")
+C_TradeSkillUI = nil
 
--- Forever: its rows never get a tier column.
+-- Forever: an old row seen gets readAt, never a tier or an expansion column.
 local foreverOld = oldSave()
 for id in pairs(foreverOld.catalogue.items) do
 	foreverOld.catalogue.tooltips[id] = "kept"
 end
+C_TradeSkillUI = both
 local fNs, fTick = session(foreverOld, false)
 fNs.enableCatalogue()
+while fTick() do
+end
+eq(foreverOld.catalogue.items[400002], OLD, "Forever, after login: a row with its tooltip is not asked")
 fNs.catalogueItem(400001)
 while fTick() do
 end
-eq(foreverOld.catalogue.items[400001], OLD, "Forever: an old row gets no tier")
-C_TradeSkillUI = nil
-
--- A retail item's expansion, GetItemInfo's 15th return, after tier: 0 is Classic, and a value the server would
--- not store (the 254 the client's docs give for Classic clients) is none.
-expansions[500001], expansions[500002], expansions[500003], expansions[500004] = 10, 10, 0, 99
-expansions[500005], expansions[500006], expansions[500007], expansions[500008] = 254, 100, 1.5, "x"
-expansions[500009] = -1
-local reagent = { GetItemReagentQualityByItemInfo = function(id) return id == 500002 and 3 or nil end }
-eq(catalogued(500001, nil, nil), string.format(ROW, 500001) .. ",,10", "retail: an untiered item's expansion, its tier column empty")
-eq(catalogued(500002, reagent, nil), string.format(ROW, 500002) .. ",3,10", "retail: the expansion after the tier")
-eq(catalogued(500003, nil, nil), string.format(ROW, 500003) .. ",,0", "retail: expansion 0 is written")
-eq(catalogued(500004, nil, nil), string.format(ROW, 500004) .. ",,99", "retail: the server's highest")
-for id = 500005, 500009 do
-	eq(catalogued(id, nil, nil), string.format(ROW, id), "retail: not an expansion, nothing written: " .. tostring(expansions[id]))
-end
-
-local foreverExpansion = { catalogue = { items = {}, tooltips = {} } }
-ns, tick = session(foreverExpansion, false)
-ns.catalogueItem(500001)
-while tick() do
-end
-eq(foreverExpansion.catalogue.items[500001], string.format(ROW, 500001), "Forever: no expansion even where the client answers one")
-
--- Rows catalogued before the column are filled once a session, in place: the rest of the row is left alone.
-expansions[600001], expansions[600002], expansions[600003], expansions[600004] = 9, 9, 9, 9
-expansions[600006] = 254
-tierAsked = {}
-C_TradeSkillUI = { GetItemReagentQualityByItemInfo = counting({ [600002] = 2 }) }
-local function expansionSave()
-	return { catalogue = { items = {
-		[600001] = OLD, -- no tier
-		[600002] = OLD, -- its tier not asked yet
-		[600003] = OLD .. ",1", -- a tier, no expansion
-		[600004] = "Old,1,1,7,5,20,1,0,1", -- a row from before minLevel and equipLoc
-		[600005] = OLD .. ",,7", -- already has its expansion
-		[600006] = OLD .. ",2", -- an expansion that is none
-	}, tooltips = {} } }
-end
-local fillDb = expansionSave()
-local fillNs, fillTick = session(fillDb, true)
-fillNs.enableCatalogue()
-while fillTick() do
-end
-local filled = fillDb.catalogue.items
-eq(filled[600001], OLD .. ",,9", "old retail row: its expansion, the tier column empty")
-eq(filled[600002], OLD .. ",2,9", "old retail row: its tier and its expansion")
-eq(filled[600003], OLD .. ",1,9", "old retail row with a tier: its expansion after it")
-eq(filled[600004], "Old,1,1,7,5,20,1,0,1,,,,9", "a short row: the expansion in its column")
-eq(filled[600005], OLD .. ",,7", "a row with its expansion is unchanged")
-eq(asked[600005], nil, "a row with its expansion is not asked")
-eq(tierAsked[600005], nil, "nor for its tier")
-eq(tierAsked[600003], nil, "a row with a tier is not asked for it again")
-eq(filled[600006], OLD .. ",2", "not an expansion: the row is unchanged")
-
--- The next session: a filled row is not asked again.
-local askedBefore = asked[600001]
-fillNs, fillTick = session(fillDb, true)
-fillNs.enableCatalogue()
-while fillTick() do
-end
-eq(asked[600001], askedBefore, "next session: a filled row is not asked")
-
--- Never in combat.
-fighting = true
-local expansionFightDb = expansionSave()
-local expansionFightNs, expansionFightTick = session(expansionFightDb, true)
-expansionFightNs.enableCatalogue()
-while expansionFightTick() do
-end
-eq(expansionFightDb.catalogue.items[600001], OLD, "in combat: no expansion asked")
-endFight()
-while expansionFightTick() do
-end
-eq(expansionFightDb.catalogue.items[600001], OLD .. ",,9", "after the fight: the expansion")
-
--- Forever: its rows never get the column.
-local foreverRows = expansionSave()
-for id in pairs(foreverRows.catalogue.items) do
-	foreverRows.catalogue.tooltips[id] = "kept"
-end
-local foreverRowsNs, foreverRowsTick = session(foreverRows, false)
-foreverRowsNs.enableCatalogue()
-foreverRowsNs.catalogueItem(600001)
-while foreverRowsTick() do
-end
-eq(foreverRows.catalogue.items[600001], OLD, "Forever: an old row gets no expansion")
+eq(foreverOld.catalogue.items[400001], string.format(ROW, 400001) .. "," .. T, "Forever: an old row seen is rewritten, no tier")
 C_TradeSkillUI = nil
 
 return checks()
