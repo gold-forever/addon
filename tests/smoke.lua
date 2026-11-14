@@ -537,7 +537,7 @@ end
 -- (the markets, an item's figures, the lists) stand empty in front of their fields,
 -- so each field asked of them is noted; the run fails on one ReadModels/DataFormat.lua does not list.
 local pricesFile, pricesAsked = nil, {}
-local PRICES_CHILDREN = { prices = { shared = "shared" }, shared = { lists = "entries", profiles = "entries" } }
+local PRICES_CHILDREN = { prices = { shared = "shared", namesWanted = "namesWanted" }, shared = { lists = "entries", profiles = "entries" } }
 local function noting(t, shape)
   if type(t) ~= "table" or getmetatable(t) then return t end
   local fields = {}
@@ -1023,6 +1023,8 @@ if SAVE then
   io.write(string.format("MEMORY %.0f KB after login, %.0f KB at the end, after a full collect\n", loginKB, (function() collectgarbage("collect") return collectgarbage("count") end)()))
   exit((#errors == 0 and not failedSteps) and 0 or 1)
 end
+-- The companion's data file at login lists the names the server lacks in this client's language (gf#397).
+GoldForever_Prices = { v = 1, at = now, markets = {}, namesWanted = { locale = LOCALE, items = { 2592 }, recipes = {}, quests = {}, factions = {}, maps = { 1411 } } }
 fire("ADDON_LOADED", "GoldForever")
 fire("PLAYER_LOGIN")
 fire("PLAYER_ENTERING_WORLD", true, false)
@@ -1162,6 +1164,13 @@ do
   wait(2)
   assert(string.find(day(), ",d2589,", 1, true), "the disenchant's loot row: " .. day())
   wait(30)
+end
+-- The names wanted, asked on the catalogue's ticker after the re-read (gf#397): the map and the item named.
+do
+  for _ = 1, 20 do if running(0.25) == 0 then break end tick(0.25) end
+  assert(GoldForeverDB.catalogue.maps[1411], "the map the data file wants is named")
+  assert(GoldForeverDB.catalogue.items[2592], "the item the data file wants is catalogued")
+  GoldForever_Prices = nil -- the session's later steps start with no data file
 end
 fire("TRADE_SKILL_SHOW")
 fire("MERCHANT_SHOW")

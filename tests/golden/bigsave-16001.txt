@@ -461,6 +461,7 @@
 + settings.mail.helper = true
 + settings.minimap.angle = 225
 + settings.minimap.hidden = false
++ settings.names.help = true
 + settings.prices = {}
 + settings.rares.announce = true
 + settings.rares.mark = true

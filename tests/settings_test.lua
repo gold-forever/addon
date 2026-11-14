@@ -51,6 +51,7 @@ local PINNED = {
 	minimap = "{ angle = 225, hidden = false }",
 	firstRun = "{  }",
 	fetch = "{  }",
+	names = "{ help = true }",
 }
 local sections = 0
 for name, want in pairs(PINNED) do

@@ -33,6 +33,8 @@ ns.DEFAULTS = {
 	minimap = { angle = 225, hidden = false },
 	firstRun = {},
 	fetch = {},
+	-- Help translate names (gf#397): the catalogue asks the game for the names the server lacks in its language.
+	names = { help = true },
 }
 
 -- The price and held-count lines' old on/off switches (prices.tooltip, prices.held) become their modes in

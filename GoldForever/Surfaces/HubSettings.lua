@@ -186,6 +186,7 @@ local function fillModules(page, prefs)
 	local prices = ns.settings("prices")
 	local crafting = ns.settings("crafting")
 	local mail = ns.settings("mail")
+	local names = ns.settings("names")
 	local MODULES = {
 		{ icon = "timer", name = L["Session HUD"], blurb = L["Gold, XP and kills an hour while you farm or level, and the session's loot."],
 			on = function() return appraiser.shown end,
@@ -246,6 +247,9 @@ local function fillModules(page, prefs)
 		{ icon = "skull", name = L["Rare alerts"], blurb = isRetail and L["Off on retail: its cities are full of markers the alert took for rares."] or L["A message and a sound when a rare is near."],
 			on = function() return rares.announce end,
 			set = function(on) rares.announce = on end, disabled = isRetail },
+		{ icon = "search", name = L["Help translate names"], blurb = L["Asks your game, slowly, for the names the site lacks in your language; they go up with your save."],
+			on = function() return names.help ~= false end,
+			set = function(on) names.help = on end },
 	}
 	-- 38 a row (manual test run 001: at 52 the list ran past it). The page holds about ten rows and the note,
 	-- so the list scrolls with the wheel, as the Guide does (Kit.scrollBody).
@@ -299,7 +303,7 @@ local function fillModules(page, prefs)
 			paint(row, on)
 		end
 	end
-	local note = UI.Text(m.body, L["The save records the same whatever is off: the site and the shared prices still get it."], { size = "xs", tone = "faint", wrap = true })
+	local note = UI.Text(m.body, L["Apart from Help translate names, the save records the same whatever is off: the site and the shared prices still get it."], { size = "xs", tone = "faint", wrap = true })
 	note:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -8)
 	note:SetPoint("RIGHT", m.body, "RIGHT")
 end

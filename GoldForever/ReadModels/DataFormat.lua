@@ -45,6 +45,13 @@ local F = {
 	listed = "listed",
 	volatile = "volatile",
 	dayPrice = "dayPrice",
+	namesWanted = "namesWanted",
+	locale = "locale",
+	items = "items",
+	recipes = "recipes",
+	quests = "quests",
+	factions = "factions",
+	maps = "maps",
 }
 DataFormat.field = F
 
@@ -60,7 +67,17 @@ DataFormat.tables = {
 		[F.at] = "integer: when the server built the prices",
 		[F.shared] = "shared, optional: the account's shared lists and sale profiles",
 		[F.characters] = "{ character, ... }, optional: the account's characters in this game, on every WoW account",
+		[F.namesWanted] = "namesWanted, optional: the IDs whose names in this client's language the server lacks",
 		[F.markets] = "{ [market key] = { [item id] = item } }",
+	},
+	-- At most 2,000 IDs a kind, those to ask first first (gf#397); a kind with none is {}.
+	namesWanted = {
+		[F.locale] = "string: the client's GetLocale() the list is for",
+		[F.items] = "{ integer, ... }: item IDs",
+		[F.recipes] = "{ integer, ... }: recipe spell IDs",
+		[F.quests] = "{ integer, ... }: quest IDs",
+		[F.factions] = "{ integer, ... }: faction IDs",
+		[F.maps] = "{ integer, ... }: ui map IDs",
 	},
 	shared = {
 		[F.at] = "integer: when the set last changed",

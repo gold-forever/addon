@@ -75,8 +75,14 @@ local function session(db, lean)
 				fn()
 			end
 		end,
+		settings = function(name)
+			db.settings = db.settings or {}
+			db.settings[name] = db.settings[name] or { help = true }
+			return db.settings[name]
+		end,
 	}
 	loadEncode(ns)
+	assert(load(SOURCES["DataFormat.lua"], "@DataFormat.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Schema.lua"], "@Schema.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Migrations.lua"], "@Migrations.lua"))("GoldForever", ns)
 	assert(load(SOURCES["Catalogue.lua"], "@Catalogue.lua"))("GoldForever", ns)
@@ -534,6 +540,180 @@ local askedBefore = asked[750001]
 login(resumeDb)
 eq(beat(), false, "a session after it is done starts no ticker")
 eq(asked[750001], askedBefore, "and reads nothing again")
+
+-- Names wanted (gf#397): the companion's data file lists the IDs the server has no name for in this client's
+-- language; once the re-read is through they are asked of the game on its ticker, one a beat, and each name
+-- goes into the catalogue as today's rows keep it. A recipe only gets the name its row lacks.
+local spells, titles, factionNames, mapInfo = {}, {}, {}, {}
+local asks = 0 -- names asked of the client, every kind
+C_Spell = { GetSpellName = function(id) asks = asks + 1 return spells[id] end }
+C_QuestLog = { GetTitleForQuestID = function(id) asks = asks + 1 return titles[id] end }
+C_Reputation = { GetFactionDataByID = function(id) asks = asks + 1 return factionNames[id] and { name = factionNames[id] } end }
+C_Map = { GetMapInfo = function(id) asks = asks + 1 return mapInfo[id] end }
+local locale = "frFR"
+GetLocale = function() return locale end
+local function wanted(list)
+	list.locale = list.locale or "frFR"
+	for _, kind in ipairs({ "items", "recipes", "quests", "factions", "maps" }) do
+		list[kind] = list[kind] or {}
+	end
+	GoldForever_Prices = { v = 1, at = NOW, markets = {}, namesWanted = list }
+end
+local function namesSave()
+	return { reread = { done = true }, catalogue = { items = {}, tooltips = {}, recipes = {}, questNames = {}, factions = {}, maps = {} } }
+end
+
+-- Every kind, one a beat, and the ticker stops once the list is through.
+spells[910], spells[911], spells[912] = "Toile de lin", "Pas de recette", "Autre"
+titles[920] = "La mine partie 2"
+factionNames[930] = "Hurlevent"
+mapInfo[940] = { name = "Forêt d'Elwynn", mapType = 3, parentMapID = 1415 }
+wanted({ items = { 900 }, recipes = { 910, 911, 912 }, quests = { 920 }, factions = { 930 }, maps = { 940 } })
+local kindsDb = namesSave()
+kindsDb.catalogue.recipes[910] = "197,2996,1,1,2589*2" -- a row from before its name column
+kindsDb.catalogue.recipes[912] = "197,2997,1,1,2589*3,Bolt"
+login(kindsDb)
+local c = kindsDb.catalogue
+eq(c.items[900], "Item 900,1,1,7,5,20,1,0,1,1,," .. T, "the first name at the start: an item's whole row, as the catalogue reads it")
+eq(tickers[1].every, 0.25, "on the re-read's ticker: four a second")
+beat()
+eq(c.recipes[910], "197,2996,1,1,2589*2,Toile de lin", "a recipe row without a name gets the spell's")
+beat()
+eq(c.questNames[920], "La mine partie 2", "a quest's title; the recipes without a row or with a name are not asked")
+eq(c.recipes[911], nil, "a recipe the save has no row for gets none: a spell's name alone is no recipe")
+eq(c.recipes[912], "197,2997,1,1,2589*3,Bolt", "a recipe with a name keeps it")
+beat()
+eq(c.factions[930], "Hurlevent", "a faction's name")
+beat()
+eq(c.maps[940], "Forêt d'Elwynn,3,1415", "a map's row, as Knowledge.lua writes it")
+beat()
+eq(beat(), false, "the list through: the ticker stopped")
+eq(kindsDb.names, nil, "every name given: the save keeps no record of unanswered IDs")
+
+-- A list for another language than the client's is not asked; nor what the save names already.
+wanted({ locale = "deDE", quests = { 920 } })
+asks = 0
+login(namesSave())
+eq(#tickers, 0, "a German list on a French client: no ticker")
+wanted({ quests = { 920, 921 } })
+titles[921] = "Encore"
+local namedDb = namesSave()
+namedDb.catalogue.questNames[920] = "Déjà nommée"
+login(namedDb)
+eq(asks, 1, "a quest the save names already is not asked")
+eq(namedDb.catalogue.questNames[920], "Déjà nommée", "and keeps its name")
+eq(namedDb.catalogue.questNames[921], "Encore", "the other asked")
+
+-- After the re-read: its rows first, then the names.
+wanted({ quests = { 922 } })
+titles[922] = "Après"
+local orderDb = rereadSave(2, 760000)
+orderDb.reread = nil
+for _, section in ipairs({ "recipes", "questNames", "factions", "maps" }) do
+	orderDb.catalogue[section] = {}
+end
+login(orderDb)
+beat()
+eq(orderDb.catalogue.questNames[922], nil, "the re-read's two rows first")
+beat()
+beat()
+eq(orderDb.catalogue.questNames[922], "Après", "then the names wanted")
+
+-- The switch: off, nothing asked; on again, the list goes on.
+wanted({ quests = { 923, 924 } })
+titles[923], titles[924] = "Un", "Deux"
+local switchDb = namesSave()
+switchDb.settings = { names = { help = false } }
+asks = 0
+login(switchDb)
+beat()
+beat()
+eq(asks, 0, "Help translate names off: nothing asked")
+switchDb.settings.names.help = true
+beat()
+eq(switchDb.catalogue.questNames[923], "Un", "on again: asked")
+
+-- Paused while the auction house is open, and in combat, as the re-read is.
+wanted({ quests = { 925, 926 } })
+titles[925], titles[926] = "Trois", "Quatre"
+local pausedDb = namesSave()
+tickers = {}
+local pausedNs, pausedTick = session(pausedDb, false)
+pausedNs.enableCatalogue()
+pausedTick()
+pausedNs.fire("AUCTION_HOUSE_SHOW")
+pausedTick()
+beat()
+eq(pausedDb.catalogue.questNames[925], nil, "the auction house open: nothing asked")
+pausedNs.fire("AUCTION_HOUSE_CLOSED")
+beat()
+eq(pausedDb.catalogue.questNames[925], "Trois", "closed: asked")
+fighting = true
+beat()
+eq(pausedDb.catalogue.questNames[926], nil, "in combat: nothing asked")
+endFight()
+beat()
+eq(pausedDb.catalogue.questNames[926], "Quatre", "after the fight: asked")
+
+-- An ID the game did not answer is kept as unanswered and not asked again in that language; another
+-- language's list asks it again.
+wanted({ quests = { 927 }, factions = { 931 } })
+factionNames[931] = "Forgefer"
+local silentDb = namesSave()
+asks = 0
+login(silentDb)
+beat()
+eq(silentDb.names.unanswered.quests[927], true, "no title: kept as unanswered")
+eq(silentDb.names.locale, "frFR", "in the client's language")
+eq(silentDb.catalogue.factions[931], "Forgefer", "and the list goes on")
+asks = 0
+login(silentDb)
+eq(asks, 0, "next session: the unanswered quest is not asked again, the faction is named")
+eq(#tickers, 1, "(the session started its walk)")
+locale = "deDE"
+wanted({ locale = "deDE", quests = { 927 } })
+login(silentDb)
+eq(asks, 1, "a German client: asked again")
+eq(silentDb.names.locale, "deDE", "the record is of the new language")
+locale = "frFR"
+
+-- An ID named since it went unanswered (an item that loaded later) leaves the record; an empty one goes.
+wanted({ quests = { 932 } })
+local laterDb = namesSave()
+login(laterDb)
+eq(laterDb.names.unanswered.quests[932], true, "no title yet: unanswered")
+laterDb.catalogue.questNames[932] = "Plus tard"
+login(laterDb)
+eq(laterDb.names, nil, "named since: the record is dropped at the next session")
+
+-- An item the save has a row for already is not asked.
+wanted({ items = { 901 } })
+local itemDb = namesSave()
+itemDb.catalogue.items[901] = "Gardé,1,1,7,5,20,1,0,1,1,,1790000000"
+itemDb.catalogue.tooltips[901] = "kept" -- no tooltip backfill
+asked[901] = nil
+login(itemDb)
+eq(asked[901], nil, "an item the save names already is not asked")
+
+-- A quest the client must load first: asked for, and named when it has loaded.
+local loads = {}
+C_QuestLog.RequestLoadQuestByID = function(id) loads[#loads + 1] = id end
+wanted({ quests = { 928 } })
+local loadDb = namesSave()
+tickers = {}
+local loadNs, loadTick = session(loadDb, false)
+loadNs.enableCatalogue()
+loadTick()
+loadTick()
+eq(table.concat(loads, " "), "928", "a quest not loaded yet is asked for")
+titles[929] = "Pas demandée"
+loadNs.fire("QUEST_DATA_LOAD_RESULT", 929, true)
+eq(loadDb.catalogue.questNames[929], nil, "another quest's load names nothing")
+titles[928] = "Chargée"
+loadNs.fire("QUEST_DATA_LOAD_RESULT", 928, true)
+eq(loadDb.catalogue.questNames[928], "Chargée", "loaded: named")
+eq(loadDb.names.unanswered.quests[928], nil, "and no longer unanswered")
+C_Spell, C_QuestLog, C_Reputation, C_Map, GetLocale, GoldForever_Prices = nil, nil, nil, nil, nil, nil
 C_Timer = nil
 
 return checks()

@@ -8,10 +8,11 @@ eq(D.VERSION, 1, "formatVersion")
 eq(D.ADDON, "GoldForever_Data", "addonName")
 eq(D.GLOBAL, "GoldForever_Prices", "dataGlobal")
 
--- format.go's field constants, fieldVersion to fieldDayPrice.
+-- format.go's field constants, fieldVersion to fieldMaps.
 local GO = { version = "v", at = "at", shared = "shared", lists = "lists", profiles = "profiles", id = "id",
 	edited = "edited", string = "string", characters = "characters", realm = "realm", name = "name", markets = "markets",
-	units = "units", sold = "sold", listed = "listed", volatile = "volatile", dayPrice = "dayPrice" }
+	units = "units", sold = "sold", listed = "listed", volatile = "volatile", dayPrice = "dayPrice", namesWanted = "namesWanted",
+	locale = "locale", items = "items", recipes = "recipes", quests = "quests", factions = "factions", maps = "maps" }
 local function sorted(t, values)
 	local out = {}
 	for k, v in pairs(t) do
@@ -24,7 +25,8 @@ eq(sorted(D.field, true), sorted(GO, true), "the fields")
 
 -- Data.lua's tables, as format.go draws them, and an item's figures in their order.
 local TABLES = {
-	prices = "at characters markets shared v",
+	prices = "at characters markets namesWanted shared v",
+	namesWanted = "factions items locale maps quests recipes",
 	shared = "at lists profiles",
 	entry = "edited id string",
 	character = "name realm",

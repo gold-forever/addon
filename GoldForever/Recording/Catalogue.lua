@@ -195,27 +195,37 @@ end
 -- already read for at most PASS_BUDGET_MS (PASS_CHECKS where the client has no timer). save.reread.after is
 -- the last item taken, in ID order, so the next session goes on after it and an item the game never answered
 -- is not asked twice; save.reread.done once the walk is through. A row written since always has readAt.
+-- The names wanted (below) take the same ticker once the re-read is through.
 local PASS, PASS_START, PASS_BUDGET_MS, PASS_CHECKS = 0.25, 30, 1, 200
 local busy = {} -- "auction house", "profession" -> true while that window is open
-local walk -- { ids, at, ticker }: this session's item IDs after the saved place, in order
+local walk -- { ids, at }: this session's item IDs after the saved place, in order
+local names -- { list = { { kind, id }, ... }, at }: this session's names wanted, in the file's order
+local ticker
 
 local function lacksReadAt(row)
 	return commas(row) < READ_AT - 1
 end
 
-local function finish(state)
-	state.done, state.after = true, nil
-	if walk.ticker then
-		walk.ticker:Cancel()
-	end
-	walk = nil
+-- A beat's checks are spent: its millisecond, or PASS_CHECKS without the client's timer.
+local function spent(started, checked)
+	return started and ns.frameStart() - started >= PASS_BUDGET_MS or not started and checked >= PASS_CHECKS
 end
 
-local function step()
-	local state = ns.db().reread
-	if not walk or ns.inCombat() or next(busy) then
-		return
+local function stopWhenIdle()
+	if not (walk or names) and ticker then
+		ticker:Cancel()
+		ticker = nil
 	end
+end
+
+local function finish(state)
+	state.done, state.after = true, nil
+	walk = nil
+	stopWhenIdle()
+end
+
+local function rereadStep()
+	local state = ns.db().reread
 	local items = ns.db().catalogue.items
 	local started, checked = ns.frameStart(), 0
 	while true do
@@ -233,18 +243,223 @@ local function step()
 			return
 		end
 		checked = checked + 1
-		if started and ns.frameStart() - started >= PASS_BUDGET_MS or not started and checked >= PASS_CHECKS then
+		if spent(started, checked) then
 			return
 		end
 	end
 end
 
--- The walk's IDs, after the saved place, in order: one frame's work once a session, until it is done.
-local function startWalk()
+-- Names wanted (gf#397): the IDs the server has no name for in this client's language, as the companion's
+-- data file lists them (DataFormat.lua), asked of the game one a beat once the re-read is through, while
+-- "Help translate names" is on. Each name goes into the catalogue as the game gives it, the row it keeps
+-- today, so the save uploads it in the client's locale; a recipe only gets the name its row lacks, since a
+-- spell's name alone is no recipe. What the save names already is not asked; an ID the game did not answer
+-- is kept in save.names.unanswered and not asked again in that language.
+local GetSpellName = C_Spell and C_Spell.GetSpellName or function(id)
+	return GetSpellInfo and (GetSpellInfo(id)) or nil
+end
+local NAME_AT = Encode.columns(ns.FIELDS.recipe).name
+local function text(value)
+	return type(value) == "string" and value ~= "" and value or nil
+end
+local function factionName(id)
+	if C_Reputation and C_Reputation.GetFactionDataByID then
+		local faction = C_Reputation.GetFactionDataByID(id)
+		return faction and text(faction.name)
+	end
+	return GetFactionInfoByID and text((GetFactionInfoByID(id))) or nil
+end
+local requested = {} -- quest IDs asked of the client this session, named when it has loaded them
+local function questTitle(id)
+	local title = C_QuestLog and C_QuestLog.GetTitleForQuestID and text(C_QuestLog.GetTitleForQuestID(id))
+	if not title and C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+		requested[id] = true
+		C_QuestLog.RequestLoadQuestByID(id) -- QUEST_DATA_LOAD_RESULT names it
+	end
+	return title
+end
+
+-- Each kind of the data file: whether the save lacks the name (wants), and the ask, true when it named it.
+local NAMERS = {
+	items = {
+		section = "items",
+		wants = function(rows, id)
+			return not rows[id] and not (pending[id] or queued[id] or tried[id])
+		end,
+		ask = function(id)
+			tried[id] = true
+			load(id)
+			return ns.db().catalogue.items[id] ~= nil
+		end,
+	},
+	recipes = {
+		section = "recipes",
+		wants = function(rows, id)
+			return rows[id] ~= nil and commas(rows[id]) < NAME_AT - 1
+		end,
+		ask = function(id)
+			local name = text(GetSpellName(id))
+			if name then
+				local recipes = ns.db().catalogue.recipes
+				recipes[id] = place(recipes[id], NAME_AT, Encode.name(name))
+			end
+			return name ~= nil
+		end,
+	},
+	quests = {
+		section = "questNames",
+		wants = function(rows, id)
+			return not rows[id]
+		end,
+		ask = function(id)
+			local title = questTitle(id)
+			if title then
+				ns.db().catalogue.questNames[id] = Encode.name(title)
+			end
+			return title ~= nil
+		end,
+	},
+	factions = {
+		section = "factions",
+		wants = function(rows, id)
+			return not rows[id]
+		end,
+		ask = function(id)
+			local name = factionName(id)
+			if name then
+				ns.db().catalogue.factions[id] = Encode.name(name)
+			end
+			return name ~= nil
+		end,
+	},
+	maps = {
+		section = "maps",
+		wants = function(rows, id)
+			return not rows[id]
+		end,
+		ask = function(id)
+			local info = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(id)
+			local name = info and text(info.name)
+			if name then
+				ns.db().catalogue.maps[id] = Encode.row(Encode.name(name), info.mapType, info.parentMapID)
+			end
+			return name ~= nil
+		end,
+	},
+}
+local NAME_KINDS = { "items", "recipes", "quests", "factions", "maps" } -- DataFormat.field's names of them
+
+local function helping()
+	return ns.settings("names").help ~= false
+end
+
+-- The IDs unanswered in this client's language, as save.names keeps them: another language's record is
+-- dropped, an ID named since (an item loaded later) leaves it, and an empty record is not kept.
+local function unansweredIn(locale)
+	local db = ns.db()
+	local unanswered = db.names and db.names.locale == locale and db.names.unanswered or {}
+	for _, kind in ipairs(NAME_KINDS) do
+		local rows, kept = db.catalogue[NAMERS[kind].section], unanswered[kind]
+		for id in pairs(kept or {}) do
+			if rows[id] then
+				kept[id] = nil
+			end
+		end
+		unanswered[kind] = kept and next(kept) and kept or nil
+	end
+	db.names = next(unanswered) and { locale = locale, unanswered = unanswered } or nil
+	return unanswered
+end
+
+local function keepUnanswered(kind, id)
+	local db, unanswered = ns.db(), names.unanswered
+	unanswered[kind] = unanswered[kind] or {}
+	unanswered[kind][id] = true
+	db.names = db.names or { locale = names.locale, unanswered = unanswered }
+end
+
+-- This session's names wanted: the data file's list when it is of this client's language, else none.
+local function namesWanted()
+	local D = ns.DataFormat
+	local F = D and D.field
+	local data = F and _G[D.GLOBAL]
+	local wanted = type(data) == "table" and data[F.namesWanted]
+	local locale = GetLocale and GetLocale()
+	if type(wanted) ~= "table" or not locale or wanted[F.locale] ~= locale then
+		return nil
+	end
+	local list = {}
+	for _, kind in ipairs(NAME_KINDS) do
+		local ids = wanted[F[kind]]
+		for _, id in ipairs(type(ids) == "table" and ids or {}) do
+			if type(id) == "number" then
+				list[#list + 1] = { kind, id }
+			end
+		end
+	end
+	return #list > 0 and { list = list, at = 1, locale = locale, unanswered = unansweredIn(locale) } or nil
+end
+
+local function namesStep()
+	local catalogue = ns.db().catalogue
+	local started, checked = ns.frameStart(), 0
+	while true do
+		local entry = names.list[names.at]
+		if not entry then
+			names = nil
+			stopWhenIdle()
+			return
+		end
+		names.at = names.at + 1
+		local kind, id = entry[1], entry[2]
+		local namer, unanswered = NAMERS[kind], names.unanswered
+		if not (unanswered[kind] and unanswered[kind][id]) and namer.wants(catalogue[namer.section], id) then
+			if not namer.ask(id) then
+				keepUnanswered(kind, id)
+			end
+			return
+		end
+		checked = checked + 1
+		if spent(started, checked) then
+			return
+		end
+	end
+end
+
+-- A quest the client loaded on request: named, and no longer unanswered.
+ns.on("QUEST_DATA_LOAD_RESULT", "catalogue", function(id, success)
+	if not (requested[id] and success) then
+		return
+	end
+	requested[id] = nil
+	local title = text(C_QuestLog.GetTitleForQuestID(id))
+	if title then
+		ns.db().catalogue.questNames[id] = Encode.name(title)
+		local unanswered = names and names.unanswered.quests
+		if unanswered then
+			unanswered[id] = nil
+		end
+	end
+end)
+
+local function step()
+	if ns.inCombat() or next(busy) then
+		return
+	end
+	if walk then
+		rereadStep()
+	elseif names and helping() then
+		namesStep()
+	end
+end
+
+-- The re-read's IDs, after the saved place, in order, until it is done; then the names wanted: one frame's
+-- work once a session.
+local function rereadWalk()
 	local db = ns.db()
 	db.reread = db.reread or {}
-	if db.reread.done or not (C_Timer and C_Timer.NewTicker) then
-		return
+	if db.reread.done then
+		return nil
 	end
 	local after, ids = db.reread.after or 0, {}
 	for id in pairs(db.catalogue.items) do
@@ -253,8 +468,18 @@ local function startWalk()
 		end
 	end
 	table.sort(ids)
-	walk = { ids = ids, at = 1 }
-	walk.ticker = C_Timer.NewTicker(PASS, function()
+	return { ids = ids, at = 1 }
+end
+
+local function startWalk()
+	if not (C_Timer and C_Timer.NewTicker) then
+		return
+	end
+	walk, names = rereadWalk(), namesWanted()
+	if not (walk or names) then
+		return
+	end
+	ticker = C_Timer.NewTicker(PASS, function()
 		ns.safely("catalogue", step)
 	end)
 	step()
