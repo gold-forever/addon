@@ -135,7 +135,7 @@ end
 local CATALOGUE = {
 	"items", "recipes", "vendor", "questNames", "taxiNodes", "tooltips", "npcs", "objects", "maps", "trainers",
 	"merchants", "currencies", "factions", "legacyPerks", "questStarters", "legacyRewards", "achievements",
-	"statistics",
+	"statistics", "recipeNames",
 }
 
 -- Every part of the save a module writes into, made when missing; a lean save drops what only Forever keeps.

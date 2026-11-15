@@ -21615,6 +21615,7 @@
 + catalogue.items[262000] = "Made-up Item 20000,4,489,0,4,1,364992,0,133432,16,,,,1792835263"
 + catalogue.maps[1415] = "Eastern Kingdoms,2,0"
 + catalogue.maps[1429] = "Elwynn Forest,3,1415"
++ catalogue.recipeNames = {}
 + catalogue.statistics[13001] = "Total gold acquired1,Character"
 + catalogue.statistics[13002] = "Total gold acquired2,Character"
 - catalogue.tooltips: [2013] [2026] [2039] [2052] [2065] [2078] [2091] [2104] [2117] [2130] [2143] [2156] [2169] [2182] [2195] [2208]
@@ -23102,6 +23103,7 @@
 + fields.questName = "name"
 + fields.rare = "t,char,npc,map,x,y,how"
 + fields.recipe = "skillLine,output,min,max,reagents,name"
++ fields.recipeName = "name"
 + fields.rep = "t,char,faction,delta,standing,map"
 + fields.sale = "t,char,item,qty,price,deposit,cut"
 + fields.scan = "item,unit,qty,auctions,left"
@@ -23152,11 +23154,14 @@
 + migrated[12].from = 12
 + migrated[12].t = 1792835263
 + migrated[12].to = 13
++ migrated[13].from = 13
++ migrated[13].t = 1792835263
++ migrated[13].to = 14
 + reread.done = true
 - scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-neutral@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
-+ schema = 13
++ schema = 14
 + settings.appraiser.pace = "always"
 + settings.appraiser.recap = true
 + settings.appraiser.shown = false

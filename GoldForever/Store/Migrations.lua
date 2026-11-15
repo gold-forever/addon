@@ -105,6 +105,13 @@ ns.MIGRATIONS = {
 		to = 13,
 		run = function() end,
 	},
+	-- The catalogue may hold recipeNames, a recipe's name alone (Catalogue.lua, gf#401); the rows kept read as
+	-- before.
+	{
+		from = 13,
+		to = 14,
+		run = function() end,
+	},
 }
 
 -- `save` brought to `schema` by `migrations`: the same table when none was needed, else an upgraded copy.

@@ -542,7 +542,7 @@ eq(asked[750001], askedBefore, "and reads nothing again")
 
 -- Names wanted (gf#397): the companion's data file lists the IDs the server has no name for in this client's
 -- language; once the re-read is through they are asked of the game on its ticker, one a beat, and each name
--- goes into the catalogue as today's rows keep it. A recipe only gets the name its row lacks.
+-- goes into the catalogue as today's rows keep it. A recipe's name goes into recipeNames (gf#401), never its row.
 local spells, titles, factionNames, mapInfo = {}, {}, {}, {}
 local asks = 0 -- names asked of the client, every kind
 C_Spell = { GetSpellName = function(id) asks = asks + 1 return spells[id] end }
@@ -559,7 +559,7 @@ local function wanted(list)
 	GoldForever_Prices = { v = 1, at = NOW, markets = {}, namesWanted = list }
 end
 local function namesSave()
-	return { reread = { done = true }, catalogue = { items = {}, tooltips = {}, recipes = {}, questNames = {}, factions = {}, maps = {} } }
+	return { reread = { done = true }, catalogue = { items = {}, tooltips = {}, recipes = {}, recipeNames = {}, questNames = {}, factions = {}, maps = {} } }
 end
 
 -- Every kind, one a beat, and the ticker stops once the list is through.
@@ -576,11 +576,15 @@ local c = kindsDb.catalogue
 eq(c.items[900], "Item 900,1,1,7,5,20,1,0,1,1,," .. T, "the first name at the start: an item's whole row, as the catalogue reads it")
 eq(tickers[1].every, 0.25, "on the re-read's ticker: four a second")
 beat()
-eq(c.recipes[910], "197,2996,1,1,2589*2,Toile de lin", "a recipe row without a name gets the spell's")
+eq(c.recipeNames[910], "Toile de lin", "a recipe row without a name: the spell's name into recipeNames")
+eq(c.recipes[910], "197,2996,1,1,2589*2", "and the row untouched")
 beat()
-eq(c.questNames[920], "La mine partie 2", "a quest's title; the recipes without a row or with a name are not asked")
-eq(c.recipes[911], nil, "a recipe the save has no row for gets none: a spell's name alone is no recipe")
-eq(c.recipes[912], "197,2997,1,1,2589*3,Bolt", "a recipe with a name keeps it")
+eq(c.recipeNames[911], "Pas de recette", "a recipe the save has no row for: its name alone, in recipeNames")
+eq(c.recipes[911], nil, "and no row: a spell's name alone is no recipe")
+beat()
+eq(c.questNames[920], "La mine partie 2", "a quest's title; the recipe whose row has a name is not asked")
+eq(c.recipeNames[912], nil, "a recipe whose row has a name is not asked")
+eq(c.recipes[912], "197,2997,1,1,2589*3,Bolt", "and keeps its row")
 beat()
 eq(c.factions[930], "Hurlevent", "a faction's name")
 beat()
@@ -684,6 +688,27 @@ eq(laterDb.names.unanswered.quests[932], true, "no title yet: unanswered")
 laterDb.catalogue.questNames[932] = "Plus tard"
 login(laterDb)
 eq(laterDb.names, nil, "named since: the record is dropped at the next session")
+
+-- A recipe recipeNames names already is not asked; one named since it went unanswered leaves the record.
+wanted({ recipes = { 913, 914 } })
+spells[913], spells[914] = "Déjà", nil
+local recipeDb = namesSave()
+recipeDb.catalogue.recipeNames[913] = "Déjà nommée"
+asks = 0
+login(recipeDb)
+eq(asks, 1, "a recipe named in recipeNames is not asked")
+eq(recipeDb.catalogue.recipeNames[913], "Déjà nommée", "and keeps its name")
+eq(recipeDb.names.unanswered.recipes[914], true, "no spell name: unanswered")
+recipeDb.catalogue.recipeNames[914] = "Plus tard"
+login(recipeDb)
+eq(recipeDb.names, nil, "named since: the record is dropped")
+
+-- A recipe name with a comma keeps the row format: the comma as U+201A.
+wanted({ recipes = { 915 } })
+spells[915] = "Fil, rouge"
+local commaDb = namesSave()
+login(commaDb)
+eq(commaDb.catalogue.recipeNames[915], "Fil\226\128\154 rouge", "a comma as U+201A")
 
 -- An item the save has a row for already is not asked.
 wanted({ items = { 901 } })

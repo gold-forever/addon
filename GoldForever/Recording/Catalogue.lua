@@ -300,8 +300,9 @@ end
 -- Names wanted (gf#397): the IDs the server has no name for in this client's language, as the companion's
 -- data file lists them (DataFormat.lua), asked of the game one a beat once the re-read is through, while
 -- "Help translate names" is on. Each name goes into the catalogue as the game gives it, the row it keeps
--- today, so the save uploads it in the client's locale; a recipe only gets the name its row lacks, since a
--- spell's name alone is no recipe. What the save names already is not asked; an ID the game did not answer
+-- today, so the save uploads it in the client's locale; a recipe's name goes into recipeNames (gf#401), never
+-- its row, since a spell's name alone is no recipe. What the save names already (a recipe row's name too) is
+-- not asked; an ID the game did not answer
 -- is kept in save.names.unanswered and not asked again in that language.
 local GetSpellName = C_Spell and C_Spell.GetSpellName or function(id)
 	return GetSpellInfo and (GetSpellInfo(id)) or nil
@@ -341,15 +342,15 @@ local NAMERS = {
 		end,
 	},
 	recipes = {
-		section = "recipes",
+		section = "recipeNames",
 		wants = function(rows, id)
-			return rows[id] ~= nil and commas(rows[id]) < NAME_AT - 1
+			local row = ns.db().catalogue.recipes[id]
+			return not rows[id] and not (row and commas(row) >= NAME_AT - 1)
 		end,
 		ask = function(id)
 			local name = text(GetSpellName(id))
 			if name then
-				local recipes = ns.db().catalogue.recipes
-				recipes[id] = place(recipes[id], NAME_AT, Encode.name(name))
+				ns.db().catalogue.recipeNames[id] = Encode.name(name)
 			end
 			return name ~= nil
 		end,

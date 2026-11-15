@@ -5,7 +5,7 @@ local _, ns = ...
 local Encode = ns.Encode
 
 -- The save's schema: raised by one with each migration (Migrations.lua).
-ns.SCHEMA = 13
+ns.SCHEMA = 14
 
 -- Column dictionary: every stream and catalogue entry the save holds, by the file that records it, in
 -- the order the TOCs load them.
@@ -27,6 +27,9 @@ ns.FIELDS = {
 	-- a slot of choices is "a/b/c*count" (Encode.parseReagents). A salvage that makes a recipe item (a
 	-- random result) leaves min and max empty: its quantity is what it takes.
 	recipe = "skillLine,output,min,max,reagents,name",
+	-- Catalogue.lua (from schema 14, gf#401): a recipe's name alone, in the client's language, for a recipe the
+	-- server asks names of (catalogue.recipeNames); never a recipe row.
+	recipeName = "name",
 	skill = "t,char,line,skill,max,spell,src,map",
 	-- Market.lua. left: the auctions' time-left band (Enum.AuctionHouseTimeLeftBand: 0 under 30 minutes,
 	-- 1 under 2 hours, 2 under 12 hours, 3 longer), so a listing that vanishes can be told sold from expired
