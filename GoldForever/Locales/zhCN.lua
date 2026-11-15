@@ -758,7 +758,7 @@ ns.Locale.add("zhCN", {
 	["COMMANDS"] = "命令",
 	["Commands"] = "命令",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "FOR WOW: FOREVER",
+	["BETA"] = "BETA",
 	["Search pages..."] = "搜索页面...",
 	["Reload UI"] = "重载界面",
 	["Look: %s"] = "外观：%s",

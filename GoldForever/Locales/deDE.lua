@@ -759,7 +759,7 @@ ns.Locale.add("deDE", {
 	["COMMANDS"] = "BEFEHLE",
 	["Commands"] = "Befehle",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "FÜR WOW: FOREVER",
+	["BETA"] = "BETA",
 	["Search pages..."] = "Seiten suchen...",
 	["Reload UI"] = "UI neu laden",
 	["Look: %s"] = "Stil: %s",

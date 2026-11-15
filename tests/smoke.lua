@@ -3713,10 +3713,10 @@ do
   p.ensure("modules")
   ns.setHud(false)
   SlashCmdList.GOLDFOREVER("ui settings")
-  assert(p.modules.rows[1].switch.on == false, "the Session HUD switch follows /gf hud")
+  assert(p.modules.rows[2].switch.on == false, "the Session HUD switch (second, under Help translate names) follows /gf hud")
   ns.setHud(true)
   SlashCmdList.GOLDFOREVER("ui settings")
-  assert(p.modules.rows[1].switch.on == true, "and back")
+  assert(p.modules.rows[2].switch.on == true, "and back")
 end
 -- A sale while logged in (addon#94): the client's sold message, one coin sound and one chat line with what
 -- arrives after the cut, from the character's own posts (the Wool Cloth posted above); Settings turns it off.

@@ -758,7 +758,7 @@ ns.Locale.add("koKR", {
 	["COMMANDS"] = "명령어",
 	["Commands"] = "명령어",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "WOW: FOREVER용",
+	["BETA"] = "베타",
 	["Search pages..."] = "페이지 검색...",
 	["Reload UI"] = "UI 다시 불러오기",
 	["Look: %s"] = "외형: %s",

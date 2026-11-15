@@ -110,8 +110,9 @@ function UI.Window(name, title, pages, store, opts)
 	end
 	w.title = UI.Text(side, skin.titleCaps and ns.upper(title) or title, { size = "xl", medium = true, tone = web and "text" or "accent" })
 	w.title:SetPoint("TOPLEFT", emblem, "TOPRIGHT", 12, -2)
-	local tagline = UI.Text(side, L["FOR WOW: FOREVER"], { size = "xs", tone = "faint" })
-	tagline:SetPoint("TOPLEFT", w.title, "BOTTOMLEFT", 1, -5)
+	-- "BETA" in the accent, as the site's header says it (owner, 2026-11-15), where "FOR WOW: FOREVER" was.
+	local beta = UI.Badge(side, L["BETA"])
+	beta:SetPoint("TOPLEFT", w.title, "BOTTOMLEFT", 1, -5)
 
 	local nav = CreateFrame("Frame", nil, side)
 	nav:SetPoint("TOPLEFT", 8, -130)

@@ -759,7 +759,7 @@ ns.Locale.add("esES", {
 	["COMMANDS"] = "COMANDOS",
 	["Commands"] = "Comandos",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "PARA WOW: FOREVER",
+	["BETA"] = "BETA",
 	["Search pages..."] = "Buscar páginas...",
 	["Reload UI"] = "Recargar IU",
 	["Look: %s"] = "Aspecto: %s",

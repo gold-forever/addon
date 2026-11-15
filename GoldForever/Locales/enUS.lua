@@ -757,7 +757,7 @@ ns.Locale.source({
 	"COMMANDS",
 	"Commands",
 	-- Surfaces: HubWindow
-	"FOR WOW: FOREVER",
+	"BETA",
 	"Search pages...",
 	"Reload UI",
 	"Look: %s",

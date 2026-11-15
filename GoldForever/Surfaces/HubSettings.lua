@@ -46,6 +46,11 @@ local function settingsCard(page, title, y, rows)
 		else
 			control:SetPoint("RIGHT", -20, 0)
 		end
+		-- The label ends where its control begins, wrapping rather than running under it (owner, 2026-11-15:
+		-- "Levelling pace on the HUD" ran into its three choices).
+		text:SetPoint("RIGHT", control, "LEFT", -12, 0)
+		text:SetJustifyH("LEFT")
+		text:SetWordWrap(true)
 		if r.hint then
 			local hint = UI.Text(cell, r.hint, { size = "xs", tone = "faint" })
 			hint:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -3)
@@ -188,6 +193,9 @@ local function fillModules(page, prefs)
 	local mail = ns.settings("mail")
 	local names = ns.settings("names")
 	local MODULES = {
+		{ icon = "search", name = L["Help translate names"], blurb = L["Asks your game, slowly, for the names the site lacks in your language; they go up with your save."],
+			on = function() return names.help ~= false end,
+			set = function(on) names.help = on end },
 		{ icon = "timer", name = L["Session HUD"], blurb = L["Gold, XP and kills an hour while you farm or level, and the session's loot."],
 			on = function() return appraiser.shown end,
 			set = function(on)
@@ -247,9 +255,6 @@ local function fillModules(page, prefs)
 		{ icon = "skull", name = L["Rare alerts"], blurb = isRetail and L["Off on retail: its cities are full of markers the alert took for rares."] or L["A message and a sound when a rare is near."],
 			on = function() return rares.announce end,
 			set = function(on) rares.announce = on end, disabled = isRetail },
-		{ icon = "search", name = L["Help translate names"], blurb = L["Asks your game, slowly, for the names the site lacks in your language; they go up with your save."],
-			on = function() return names.help ~= false end,
-			set = function(on) names.help = on end },
 	}
 	-- 38 a row (manual test run 001: at 52 the list ran past it). The page holds about ten rows and the note,
 	-- so the list scrolls with the wheel, as the Guide does (Kit.scrollBody).

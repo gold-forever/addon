@@ -759,7 +759,7 @@ ns.Locale.add("ruRU", {
 	["COMMANDS"] = "КОМАНДЫ",
 	["Commands"] = "Команды",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "ДЛЯ WOW: FOREVER",
+	["BETA"] = "БЕТА",
 	["Search pages..."] = "Поиск страниц...",
 	["Reload UI"] = "Перезагрузить интерфейс",
 	["Look: %s"] = "Стиль: %s",

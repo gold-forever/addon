@@ -758,7 +758,7 @@ ns.Locale.add("frFR", {
 	["COMMANDS"] = "COMMANDES",
 	["Commands"] = "Commandes",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "POUR WOW: FOREVER",
+	["BETA"] = "BÊTA",
 	["Search pages..."] = "Rechercher des pages...",
 	["Reload UI"] = "Recharger l'IU",
 	["Look: %s"] = "Apparence : %s",

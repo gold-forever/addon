@@ -759,7 +759,7 @@ ns.Locale.add("itIT", {
 	["COMMANDS"] = "COMANDI",
 	["Commands"] = "Comandi",
 	-- Surfaces: HubWindow
-	["FOR WOW: FOREVER"] = "PER WOW: FOREVER",
+	["BETA"] = "BETA",
 	["Search pages..."] = "Cerca pagine...",
 	["Reload UI"] = "Ricarica interfaccia",
 	["Look: %s"] = "Aspetto: %s",
