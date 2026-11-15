@@ -2987,6 +2987,35 @@ do
   assert(ends:find(",2592,20,2100,cancelled", 1, true), "cancelled auction: " .. ends)
   print("AH BUYS " .. buys)
 end
+-- After a login or /reload, one chat line with what came from the site (gf#407); nothing when nothing is new,
+-- nothing with its switch off, and the file seen is kept either way.
+do
+  local prices, arrival = GoldForever_Prices, ns.settings("arrival")
+  local seen = arrival.seenAt
+  local function arrive()
+    local said, saved = {}, print
+    function print(...) said[#said + 1] = table.concat({...}, " ") end
+    ns.test.arrive()
+    print = saved
+    return said
+  end
+  local list = { { id = "a1", edited = 100, string = ns.Shopping.encode({ { name = "Arrived", entries = {} } }) } }
+  GoldForever_Prices = { v = ns.DataFormat.VERSION, at = now - 180, markets = {}, shared = { at = 90, lists = list, profiles = {} } }
+  local said = arrive()
+  assert(#said == 1 and said[1] == ns.PREFIX .. ": " .. ns.Lists.arrivalLine(1, now - 180, nil, now), "the arrival line: " .. table.concat(said, " | "))
+  assert(#arrive() == 0, "nothing new: no line")
+  arrival.line = false
+  GoldForever_Prices.at = now - 60
+  assert(#arrive() == 0 and arrival.seenAt == now - 60, "switched off: no line, the file still seen")
+  arrival.line = true
+  -- A file of another version shows no prices, so the line does not speak of them.
+  GoldForever_Prices = { v = ns.DataFormat.VERSION + 1, at = now - 30, markets = {} }
+  assert(#arrive() == 0, "another version's prices: no line")
+  GoldForever_Prices, arrival.seenAt = prices, seen
+  for i = #ns.settings("auction").lists, 1, -1 do
+    if ns.settings("auction").lists[i].id == "a1" then table.remove(ns.settings("auction").lists, i) end
+  end
+end
 -- Lists and profiles carried from the site (Data.lua's `shared`): merged into the save, newest wins.
 do
   local prices = GoldForever_Prices

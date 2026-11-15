@@ -203,7 +203,7 @@ local function mergeShared()
 	dropOlderCopies(s)
 	if not shared or shared[F.at] == s.sharedAt then
 		restore()
-		return
+		return 0
 	end
 	local lists = sharedOnes(shared[F.lists], sharedList)
 	local profiles = sharedOnes(shared[F.profiles], ns.SalePlan.decode)
@@ -213,11 +213,43 @@ local function mergeShared()
 	s.profiles, b = ns.Shopping.merge(s.profiles or {}, profiles, s.removedShared)
 	s.sharedAt = shared[F.at]
 	restore()
-	if a + b > 0 then
-		ns.say(ns.plural(a + b, L["lists and profiles from the site: %d change."], L["lists and profiles from the site: %d changes."]))
+	return a + b
+end
+
+-- The login's line on what came from the site (gf#407): the merge's changes, and the prices' age when the
+-- file was built after the one last seen; nil when neither.
+function Lists.arrivalLine(changes, pricesAt, seenAt, now)
+	local prices
+	if pricesAt and pricesAt ~= seenAt then
+		prices = now - pricesAt < 60 and L["just now"] or ns.Views.ago(pricesAt, now)
+	end
+	if changes > 0 and prices then
+		return ns.plural(changes, L["from the site: %d list change, prices from %s."], L["from the site: %d list changes, prices from %s."], prices)
+	elseif changes > 0 then
+		return ns.plural(changes, L["from the site: %d list change."], L["from the site: %d list changes."])
+	elseif prices then
+		return string.format(L["from the site: prices from %s."], prices)
 	end
 end
-ns.on("PLAYER_LOGIN", "shared lists", function()
-	mergeShared()
-end)
+
+-- The prices' build time, from a file this addon reads prices from (another v shows none).
+local function pricesAt(file)
+	local ok = type(file) == "table" and file[F.version] == ns.DataFormat.VERSION and type(file[F.at]) == "number"
+	return ok and file[F.at] or nil
+end
+
+-- Once per load (PLAYER_LOGIN comes at a login and at each /reload). The file seen is kept with the switch
+-- off too, so turning it on does not announce old prices.
+local function arrive()
+	local changes = mergeShared()
+	local s = ns.settings("arrival")
+	local at = pricesAt(GoldForever_Prices)
+	local text = Lists.arrivalLine(changes, at, s.seenAt, ns.now())
+	s.seenAt = at or s.seenAt
+	if text and s.line ~= false then
+		ns.say(text)
+	end
+end
+ns.on("PLAYER_LOGIN", "shared lists", arrive)
 ns.test.mergeShared = mergeShared
+ns.test.arrive = arrive

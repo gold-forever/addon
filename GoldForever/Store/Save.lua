@@ -31,6 +31,9 @@ ns.DEFAULTS = {
 	auction = { rule = {}, duration = 2, sellWide = false }, -- sellWide: the Sell tab's wide layout (addon#84)
 	mail = { helper = true },
 	minimap = { angle = 225, hidden = false },
+	-- After a login or /reload, one chat line with what came from the site (gf#407); seenAt: the prices
+	-- file last seen (its at).
+	arrival = { line = true },
 	firstRun = {},
 	fetch = {},
 	-- Help translate names (gf#397): the catalogue asks the game for the names the server lacks in its language.

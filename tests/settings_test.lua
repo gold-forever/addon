@@ -49,6 +49,7 @@ local PINNED = {
 	auction = "{ duration = 2, rule = {  }, sellWide = false }",
 	mail = "{ helper = true }",
 	minimap = "{ angle = 225, hidden = false }",
+	arrival = "{ line = true }",
 	firstRun = "{  }",
 	fetch = "{  }",
 	names = "{ help = true }",

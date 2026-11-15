@@ -1,5 +1,9 @@
 # Gold Forever
 
+## Unreleased
+
+- **One line on what came from the site.** After each login or /reload, chat says in one line what new the site sent: "Gold Forever: from the site: 2 list changes, prices from 3m ago." It counts the shared lists and sale profiles that changed, and names the prices' age when the companion's prices file is newer than the last one the addon saw. Nothing is said when nothing is new. It replaces the "lists and profiles from the site" line. It is on by default; switch it off under Settings, Modules, Arrivals from the site. In every language.
+
 ## 0.22.0 (2026-11-15)
 
 - **The save stays under 8 MiB.** When your save is over 8 MiB, the addon drops your oldest auction house scans until it is under: at login, after each scan, and when the game writes your save (at logout and /reload). Scans that are not the newest full scan of their realm and side go first, then, if the save is still over, the oldest of those too; the newest full scan always stays. The site already has every scan it was sent, so nothing is lost there, and uploads are no longer refused for a save past the site's 10 MiB. Chat says so ("kept the save under 8 MiB by dropping 3 old scans"): at once at login or after a scan, and at the next login for a logout. /gf check shows how many went next to the save's size, one line a scan (realm and side, full or partial, age and size), and whether the guard ran at the last logout. Before, it ran at logout only, and a 10 MiB save kept all its 11 scans through two /reloads.

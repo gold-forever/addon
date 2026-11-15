@@ -192,6 +192,7 @@ local function fillModules(page, prefs)
 	local crafting = ns.settings("crafting")
 	local mail = ns.settings("mail")
 	local names = ns.settings("names")
+	local arrival = ns.settings("arrival")
 	local MODULES = {
 		{ icon = "search", name = L["Help translate names"], blurb = L["Asks your game, slowly, for the names the site lacks in your language; they go up with your save."],
 			on = function() return names.help ~= false end,
@@ -210,6 +211,9 @@ local function fillModules(page, prefs)
 		{ icon = "gavel", name = L["Auction house panel"], blurb = L["Scan, buy, sell and your auctions, beside the auction house."],
 			on = function() return not auction.hidden end,
 			set = function(on) auction.hidden = not on end },
+		{ icon = "package", name = L["Arrivals from the site"], blurb = L["After a login or reload, one chat line with the list changes and new prices the site sent."],
+			on = function() return arrival.line ~= false end,
+			set = function(on) arrival.line = on end },
 		{ icon = "search", name = L["Deals after a scan"], blurb = L["One chat line naming the list items listed at or under your price."],
 			on = function() return auction.dealsAlert ~= false end,
 			set = function(on) auction.dealsAlert = on end },
