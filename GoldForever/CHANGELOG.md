@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.22.0 (2026-11-15)
 
 - **The save stays under 8 MiB.** When your save is over 8 MiB, the addon drops your oldest auction house scans until it is under: at login, after each scan, and when the game writes your save (at logout and /reload). Scans that are not the newest full scan of their realm and side go first, then, if the save is still over, the oldest of those too; the newest full scan always stays. The site already has every scan it was sent, so nothing is lost there, and uploads are no longer refused for a save past the site's 10 MiB. Chat says so ("kept the save under 8 MiB by dropping 3 old scans"): at once at login or after a scan, and at the next login for a logout. /gf check shows how many went next to the save's size, one line a scan (realm and side, full or partial, age and size), and whether the guard ran at the last logout. Before, it ran at logout only, and a 10 MiB save kept all its 11 scans through two /reloads.
 - **Known spells after training on WoW: Forever.** Forever's client has no LEARNED_SPELL_IN_TAB, so a spell learned was not read until the trainer closed, and /gf check listed it under unknown events. The addon now reads your spells on SPELLS_CHANGED, which both clients have.
