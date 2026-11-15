@@ -1647,7 +1647,6 @@
 - scans order = EU-Shadowsong-horde@1792828063 EU-Shadowsong-horde@1792820863
 + scans order = EU-Shadowsong-horde@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
-+ scansDropped = 1
 + schema = 14
 + settings.appraiser.pace = "always"
 + settings.appraiser.recap = true
@@ -1716,4 +1715,5 @@
 + settings.window.sort.sales.key = 5
 + settings.window.tabs.ledger = "sales"
 + settings.window.tabs.session = "mobs"
++ sizeGuard = "ran"
 + tooltipsTrimmed = true

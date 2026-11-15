@@ -119,7 +119,10 @@ do
 	local said, popup = {}, nil
 	function print(line) said[#said + 1] = line end
 	ns.listen("checked", "test", function(text) popup = text end)
+	GoldForeverDB.scans = { { kind = "full", market = "EU-normal-horde", t = 1761148800 - 2 * 86400, rows = { string.rep("1", 524288) } },
+		{ kind = "throttled", partial = true, market = "EU-pvp-horde", t = 1761148800 - 2700 } }
 	ns.commands.check()
+	GoldForeverDB.scans = {}
 	function print() end
 	local lines = {}
 	for line in (popup or ""):gmatch("[^\n]+") do
@@ -130,6 +133,9 @@ do
 	eq((popup or "|"):find("|", 1, true), nil, "no colour or icon escapes")
 	eq((popup or ""):match("the save: about [%d.]+ MiB %(the site takes up to 10 MiB%) · 0 old scans dropped this session to keep it under 8 MiB") ~= nil, true,
 		"the save's size (gf#402), and the scans the guard dropped (gf#404)")
+	eq((popup or ""):find("scan EU-normal-horde full, 2d old, 0.50 MiB\n  scan EU-pvp-horde partial, 45m old, 0.00 MiB\n", 1, true) ~= nil, true,
+		"a line a scan: market, kind, age and size (gf#404)")
+	eq((popup or ""):find("the size guard at the last logout: no record", 1, true) ~= nil, true, "no record before the guard has run")
 	eq((popup or ""):find("long stopped by the client for running too long", 1, true) ~= nil, true, "the stopped call, plain")
 end
 eq(ns.plainText("|cffe0ac45Gold Forever|r: 1|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t 23|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"),

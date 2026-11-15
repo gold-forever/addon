@@ -95,6 +95,10 @@ end
 function written(value, depth)
 	local kind = type(value)
 	if kind == "string" then
+		-- Most strings (every scan row) have nothing to escape: found without the copy gsub makes.
+		if not string.find(value, '[\n\r"\\]') then
+			return #value + 2
+		end
 		local _, escapes = string.gsub(value, '[\n\r"\\]', "")
 		return #value + escapes + 2
 	elseif kind ~= "table" then
@@ -116,6 +120,35 @@ end
 -- About how many bytes db.scans[i] takes of that size.
 function ns.scanSize(scans, i)
 	return entry(i, scans[i], 1, #scans)
+end
+
+-- "45m", "3h", "2d": how long ago `t` was.
+local function age(t, now)
+	local s = math.max(0, now - (t or now))
+	if s < 3600 then
+		return math.floor(s / 60) .. "m"
+	elseif s < 86400 then
+		return math.floor(s / 3600) .. "h"
+	end
+	return math.floor(s / 86400) .. "d"
+end
+
+-- How far the last logout's size guard got (Market.lua): its marker as the load found it.
+local LAST_LOGOUT = {
+	ran = "ran",
+	started = "started but did not finish (the client stopped it)",
+	waiting = "did not run (the client stopped a logout listener before it)",
+}
+
+-- One line a scan, oldest first as stored, for the size guard (gf#404): what each takes of the save.
+local function scanLines(out, db)
+	local now = GetServerTime()
+	for i, s in ipairs(db.scans) do
+		table.insert(out, string.format("  scan %s %s, %s old, %.2f MiB", tostring(s.market),
+			s.partial and "partial" or tostring(s.kind), age(s.t, now), ns.scanSize(db.scans, i) / 1048576))
+	end
+	local last = ns.Scans.lastLogout
+	table.insert(out, "  the size guard at the last logout: " .. (LAST_LOGOUT[last] or "no record"))
 end
 
 local function statusLines(out)
@@ -140,6 +173,7 @@ local function statusLines(out)
 	end
 	table.insert(out, string.format("  the save: about %.1f MiB (the site takes up to 10 MiB) · %d old scans dropped this session to keep it under %d MiB",
 		ns.saveSize(db) / 1048576, ns.Scans.dropped, ns.Scans.MOST / 1048576))
+	scanLines(out, db)
 	for name, e in pairs(db.errors) do
 		table.insert(out, string.format("  |cffe8615a%s|r failed %dx - %s", name, e.n, e.msg))
 	end

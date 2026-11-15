@@ -94,20 +94,38 @@ local function prune()
 	ns.db().scans = kept
 end
 
--- The size guard (gf#404), last before the file is written: the oldest scans go until the save is under
--- Scans.MOST. Chat at a logout goes unseen, so the next load says it.
-local function keepUnder()
-	local dropped = ns.Scans.keepUnder(ns.db(), ns.Scans.MOST)
-	ns.db().scansDropped = dropped > 0 and dropped or nil
+-- The size guard (gf#404). At logout it runs last, and a listener the client stops for running too long
+-- takes the rest with it, unseen (the owner's 10.0 MiB save kept its 11 scans through two /reloads). So it
+-- runs at login and after each scan too, where chat is seen, and db.sizeGuard says how far the last
+-- logout's got: "waiting" (never reached), "started" (stopped in it) or "ran".
+local function dropped(n)
+	if n > 0 then
+		ns.Scans.dropped = ns.Scans.dropped + n
+		ns.say(ns.plural(n, L["kept the save under 8 MiB by dropping %d old scan"], L["kept the save under 8 MiB by dropping %d old scans"]))
+	end
 end
 
-local function tellDropped()
+local function guardNow()
+	dropped(ns.Scans.keepUnder(ns.db(), ns.Scans.MOST))
+end
+
+-- Chat at a logout goes unseen, so the next load says it.
+local function guardAtLogout()
 	local db = ns.db()
-	ns.Scans.dropped = db.scansDropped or 0
+	db.sizeGuard = "started"
+	local n = ns.Scans.keepUnder(db, ns.Scans.MOST)
+	db.scansDropped = n > 0 and n or nil
+	db.sizeGuard = "ran"
+end
+
+local function guardAtLogin()
+	local db = ns.db()
+	ns.Scans.lastLogout = db.sizeGuard
+	db.sizeGuard = "waiting"
+	ns.Scans.dropped = 0
+	local before = db.scansDropped or 0
 	db.scansDropped = nil
-	if ns.Scans.dropped > 0 then
-		ns.say(ns.plural(ns.Scans.dropped, L["kept the save under 8 MiB by dropping %d old scan"], L["kept the save under 8 MiB by dropping %d old scans"]))
-	end
+	dropped(before + ns.Scans.keepUnder(db, ns.Scans.MOST))
 end
 
 -- A file saved by an older version with more scans shrinks at the next login, not the next scan. The guard
@@ -116,8 +134,8 @@ ns.module("Market", {
 	requires = { "Store" },
 	enable = function()
 		ns.safely("scans", prune)
-		ns.safely("save size", tellDropped)
-		ns.on("PLAYER_LOGOUT", "save size", keepUnder)
+		ns.safely("save size", guardAtLogin)
+		ns.on("PLAYER_LOGOUT", "save size", guardAtLogout)
 	end,
 	-- Whether the zone is neutral changes with the zone.
 	world = function()
@@ -182,6 +200,8 @@ local function store(s, n, partial, rows, prices)
 	local scans = ns.db().scans
 	scans[#scans + 1] = record
 	prune()
+	-- In a frame of its own (through ns.safely): it measures the whole save.
+	ns.after(0, "save size", guardNow)
 	-- Prices built from the scans (Pricing.lua) are stale now; the count of scans may not change.
 	ns.scanVersion = (ns.scanVersion or 0) + 1
 	ns.lastScan = { t = s.t, kind = partial and "partial" or record.kind, auctions = n, prices = prices, seconds = ns.now() - s.t, market = s.market }

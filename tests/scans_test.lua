@@ -52,11 +52,44 @@ end
 eq(table.concat(ts, ","), "1500,1600,1700,1800,1900,2000,2100", "the newest kept, in their order")
 eq(S.keepUnder(db, 8 * MIB), 0, "a save under it: nothing dropped")
 
--- Each market's newest full scan stays, even when the save is still over.
+-- A market's older scans and markers go before any market's newest full scan.
 local big = { scans = { scan("EU-A-horde", 300, 1024), scan("EU-A-horde", 200, 1024), scan("EU-B-horde", 100, 1024),
 	{ kind = "throttled", market = "EU-B-horde", t = 900 } } }
-eq(S.keepUnder(big, MIB), 2, "the older scan of a market and a marker go")
-eq(#big.scans, 2, "two scans left")
-eq(big.scans[1].t .. "," .. big.scans[2].t, "300,100", "the newest full scan of each market, though over")
+eq(S.keepUnder(big, 2.5 * MIB), 1, "the older scan of a market goes first, though EU-B's is older")
+eq(big.scans[1].t .. "," .. big.scans[2].t, "300,100", "the newest full scan of each market")
+eq(S.keepUnder(big, 1.5 * MIB), 2, "then the marker, then the oldest market's newest")
+eq(#big.scans == 1 and big.scans[1].t, 300, "the newest full scan of all")
+
+-- The owner's save of 2026-11-15 (gf#404): 10.0 MiB, 11 scans in three Forever markets, full and cut
+-- short (stored as throttled, marked partial), the rest of it 3 MiB.
+local function owner()
+	local plan = { { "EU-normal-horde", "full" }, { "EU-pvp-horde", "full" }, { "EU-normal-neutral", "full" },
+		{ "EU-normal-horde", "partial" }, { "EU-normal-horde", "full" }, { "EU-pvp-horde", "partial" },
+		{ "EU-normal-neutral", "full" }, { "EU-normal-horde", "full" }, { "EU-pvp-horde", "full" },
+		{ "EU-normal-horde", "partial" }, { "EU-normal-horde", "full" } }
+	local save = { catalogue = { text = string.rep("x", 3 * MIB) }, scans = {} }
+	for i, p in ipairs(plan) do
+		local s = scan(p[1], 1000 + i * 100, 640)
+		s.kind, s.partial = p[2] == "full" and "full" or "throttled", p[2] == "partial" or nil
+		save.scans[i] = s
+	end
+	return save
+end
+local own = owner()
+eq(string.format("%.1f", ns.saveSize(own) / MIB), "10.0", "the owner's save")
+eq(S.keepUnder(own, 8 * MIB), 4, "the four oldest go, cut short or not")
+eq(ns.saveSize(own) < 8 * MIB, true, "under 8 MiB after: " .. ns.saveSize(own) / MIB)
+eq(#own.scans, 7, "seven scans left")
+
+-- The newest of each market alone over the budget: the oldest of them go too, the newest scan stays.
+own = owner()
+eq(S.keepUnder(own, 4 * MIB), 10, "all but one")
+eq(#own.scans == 1 and own.scans[1].t, 2100, "the newest full scan stays, though the save is still over")
+own = owner()
+eq(S.keepUnder(own, 4.5 * MIB), 9, "down to two")
+eq(own.scans[1].t .. "," .. own.scans[2].t, "1900,2100", "the newest of two markets: the oldest market's newest went")
+local markers = { scans = { scan("EU-A-horde", 100, 1024), { kind = "throttled", market = "EU-A-horde", t = 900, rows = { string.rep("1", 1024) } } } }
+eq(S.keepUnder(markers, 1), 1, "a newer marker is not the scan kept")
+eq(markers.scans[1].t, 100, "the newest full scan is")
 
 return checks()

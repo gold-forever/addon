@@ -23229,4 +23229,5 @@
 + settings.window.sort.sales.key = 5
 + settings.window.tabs.ledger = "sales"
 + settings.window.tabs.session = "mobs"
++ sizeGuard = "ran"
 + tooltipsTrimmed = true

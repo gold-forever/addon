@@ -43,7 +43,9 @@ local ns = {
 	catalogueItem = function(key) named[#named + 1] = tostring(key) end,
 }
 loadEncode(ns)
-assert(load(SOURCES["Market.lua"], "@Market.lua"))("GoldForever", ns)
+for _, file in ipairs({ "Scans.lua", "Diagnostics.lua", "Market.lua" }) do -- the size guard runs after a scan
+	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
+end
 
 local function wait(seconds)
 	local stop = clock + seconds

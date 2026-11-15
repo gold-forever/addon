@@ -30,37 +30,55 @@ function Scans.latestFull(scans, market, retail)
 	return latest
 end
 
--- The size guard (gf#404): drops the oldest scans until the save (ns.saveSize, as /gf check reads it) is
--- under `most` bytes, keeping each market's newest full scan. How many it dropped.
-function Scans.keepUnder(db, most)
-	local size, scans = ns.saveSize(db), db.scans
-	if size < most then
-		return 0
-	end
-	local newest = {}
+-- The newest full scan of each market, and the newest of them all: the guard keeps those longest.
+local function newestFull(scans)
+	local newest, single = {}, nil
 	for _, s in ipairs(scans) do
 		local kept = newest[s.market]
 		if s.kind == "full" and (not kept or s.t > kept.t) then
 			newest[s.market] = s
 		end
-	end
-	local oldest = {}
-	for i, s in ipairs(scans) do
-		if newest[s.market] ~= s then
-			oldest[#oldest + 1] = i
+		if s.kind == "full" and (not single or s.t > single.t) then
+			single = s
 		end
 	end
-	table.sort(oldest, function(a, b)
+	return newest, single
+end
+
+local function byAge(scans, list)
+	table.sort(list, function(a, b)
 		return (scans[a].t or 0) < (scans[b].t or 0)
 	end)
-	local dropped, n = {}, 0
-	for _, i in ipairs(oldest) do
-		if size < most then
-			break
+	return list
+end
+
+-- The size guard (gf#404): drops the oldest scans until the save (ns.saveSize, as /gf check reads it) is
+-- under `most` bytes: first those that are no market's newest full scan, then, if still over, the oldest
+-- of those too. The newest full scan of all stays. How many it dropped.
+function Scans.keepUnder(db, most)
+	local size, scans = ns.saveSize(db), db.scans
+	if size < most then
+		return 0
+	end
+	local newest, single = newestFull(scans)
+	local older, newestOnes = {}, {}
+	for i, s in ipairs(scans) do
+		if newest[s.market] ~= s then
+			older[#older + 1] = i
+		elseif s ~= single then
+			newestOnes[#newestOnes + 1] = i
 		end
-		size = size - ns.scanSize(scans, i)
-		dropped[scans[i]] = true
-		n = n + 1
+	end
+	local dropped, n = {}, 0
+	for _, list in ipairs({ byAge(scans, older), byAge(scans, newestOnes) }) do
+		for _, i in ipairs(list) do
+			if size < most then
+				break
+			end
+			size = size - ns.scanSize(scans, i)
+			dropped[scans[i]] = true
+			n = n + 1
+		end
 	end
 	local kept = {}
 	for _, s in ipairs(scans) do
