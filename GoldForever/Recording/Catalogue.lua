@@ -3,8 +3,9 @@
 -- loaded, and rewrites its row stamped with readAt (gf#392): the server takes a sell price as the game's
 -- only from a row read since launch, never from one carried over from the beta.
 --
--- From 0.4.0 each item also keeps its tooltip text: Forever-only items exist nowhere else once
--- the game is gone. Items catalogued before that are filled in by a slow pass after login.
+-- On Forever an item a character holds also keeps its tooltip text: Forever-only items exist nowhere else
+-- once the game is gone. Only those (gf#402): a scan's thousands and the re-read with theirs took the
+-- owner's save past the server's 10 MiB. A held item without one is filled in after login.
 
 local _, ns = ...
 local Encode = ns.Encode
@@ -87,7 +88,52 @@ local function place(row, at, value)
 	return row .. string.rep(",", at - 1 - commas(row)) .. value
 end
 
-local function write(id)
+-- What some character holds (gf#402): the item IDs in every character's saved bags, bank and mail, and
+-- worn. Built again only when one of those was saved anew (each read saves a new table).
+local PLACES = { "bags", "bank", "mail" }
+local heldIds, heldStamp
+local function stamp(characters)
+	local parts = {}
+	for guid, c in pairs(characters) do
+		parts[#parts + 1] = guid
+		for _, place in ipairs(PLACES) do
+			parts[#parts + 1] = tostring(c[place])
+		end
+		parts[#parts + 1] = tostring(c.gear)
+	end
+	return table.concat(parts, " ")
+end
+local function held(id)
+	local characters = ns.db().characters or {}
+	local now = stamp(characters)
+	if heldStamp ~= now then
+		heldIds, heldStamp = {}, now
+		for _, c in pairs(characters) do
+			for _, place in ipairs(PLACES) do
+				for item in pairs(Encode.parseItems(c[place] and c[place].items)) do
+					heldIds[item] = true
+				end
+			end
+			for _, key in pairs(c.gear or {}) do
+				local item = Encode.itemId(key)
+				if item then
+					heldIds[item] = true
+				end
+			end
+		end
+	end
+	return heldIds[id] == true
+end
+
+local tooltipAsked = {} -- item IDs written with their tooltip this session
+
+-- Whether an item already read this session is read again for its tooltip: held now, and without one.
+local function wantsTooltip(id)
+	return not ns.lean and not tooltipAsked[id] and not ns.db().catalogue.tooltips[id] and held(id)
+end
+
+-- The item's row, and its tooltip when keepTooltip (a held item, on Forever).
+local function write(id, keepTooltip)
 	local name, link, quality, ilvl, minLevel, _, _, stack, equipLoc, icon, sell, class, subclass, bind, expansionID = GetItemInfo(id)
 	if not name then
 		return false
@@ -105,7 +151,8 @@ local function write(id)
 		row = place(row, EXPANSION_AT, itemExpansion)
 	end
 	catalogue.items[id] = place(row, READ_AT, ns.now())
-	if not ns.lean then
+	if keepTooltip and not ns.lean then
+		tooltipAsked[id] = true
 		catalogue.tooltips[id] = tooltip(id) or catalogue.tooltips[id]
 	end
 	return true
@@ -117,8 +164,8 @@ local function outOfFight(fn)
 	ns.afterCombat("catalogue", fn)
 end
 
-local function load(id)
-	if write(id) then
+local function load(id, keepTooltip)
+	if write(id, keepTooltip) then
 		return
 	end
 	pending[id] = true
@@ -126,7 +173,7 @@ local function load(id)
 		Item:CreateFromItemID(id):ContinueOnItemLoad(function()
 			outOfFight(function()
 				pending[id] = nil
-				write(id)
+				write(id, keepTooltip)
 			end)
 		end)
 	end
@@ -165,7 +212,7 @@ local function drain()
 		queued[id] = nil
 		tried[id] = true
 		if not pending[id] then
-			load(id)
+			load(id, held(id))
 		end
 		if started and ns.frameStart() - started >= BUDGET_MS then
 			break
@@ -174,10 +221,11 @@ local function drain()
 	ns.after(PAUSE, "catalogue", drain)
 end
 
--- Reads an item key's ("14047", "10221:612" or a number) catalogue entry from the game, once a session.
+-- Reads an item key's ("14047", "10221:612" or a number) catalogue entry from the game, once a session,
+-- and again when it is held since without its tooltip (looted, then the bags read).
 function ns.catalogueItem(key)
 	local id = Encode.itemId(key)
-	if not id or pending[id] or queued[id] or tried[id] then
+	if not id or pending[id] or queued[id] or tried[id] and not wantsTooltip(id) then
 		return
 	end
 	queued[id] = true
@@ -239,7 +287,7 @@ local function rereadStep()
 		local row = items[id]
 		if row and lacksReadAt(row) and not (pending[id] or queued[id] or tried[id]) then
 			tried[id] = true
-			load(id)
+			load(id, false)
 			return
 		end
 		checked = checked + 1
@@ -288,7 +336,7 @@ local NAMERS = {
 		end,
 		ask = function(id)
 			tried[id] = true
-			load(id)
+			load(id, false)
 			return ns.db().catalogue.items[id] ~= nil
 		end,
 	},
@@ -508,16 +556,33 @@ ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "catalogue", function(kind)
 	end
 end)
 
--- After login: on Forever the items catalogued before 0.4.0 without a tooltip, on retail the rows written
--- without tier and expansion, through the queue; then the re-read.
+-- Once (gf#402): every stored tooltip of an item no character holds goes; the server keeps the ones it was
+-- sent, and one held again is read again. db.tooltipsTrimmed marks it done.
+local function trimTooltips()
+	local db = ns.db()
+	if db.tooltipsTrimmed then
+		return
+	end
+	local tooltips = db.catalogue.tooltips
+	for id in pairs(tooltips) do
+		if not held(id) then
+			tooltips[id] = nil
+		end
+	end
+	db.tooltipsTrimmed = true
+end
+
+-- After login: on Forever the tooltips trimmed once and the held items without one, on retail the rows
+-- written without tier and expansion, through the queue; then the re-read.
 ns.module("Catalogue", {
 	requires = { "Store" },
 	enable = function()
+		trimTooltips()
 		if not (ns.lean and not TIERED) then
 			ns.after(5, "catalogue", function()
 				local catalogue = ns.db().catalogue
 				for id, row in pairs(catalogue.items) do
-					if unfilled(row) or not (ns.lean or catalogue.tooltips[id]) then
+					if unfilled(row) or not ns.lean and not catalogue.tooltips[id] and held(id) then
 						ns.catalogueItem(id)
 					end
 				end

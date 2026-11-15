@@ -693,6 +693,7 @@ end
 -- GF_SMOKE_SAVE=<a copy of a SavedVariables file>: the addon on a real save instead of the session
 -- below, as that save's character, through every page, tab, look and panel, timed (tests/realsave.md).
 local SAVE = os.getenv("GF_SMOKE_SAVE")
+local SAVE_MOST_MIB = 10 -- the site's upload cap (gf#402): the big save on Forever took 10.9 MiB before it
 if SAVE then
   dofile(SAVE)
   local guid = os.getenv("GF_SMOKE_GUID")
@@ -1021,7 +1022,10 @@ if SAVE then
   end
   io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
   io.write(string.format("MEMORY %.0f KB after login, %.0f KB at the end, after a full collect\n", loginKB, (function() collectgarbage("collect") return collectgarbage("count") end)()))
-  exit((#errors == 0 and not failedSteps) and 0 or 1)
+  -- The save as the companion uploads it, under what the site takes (gf#402: 10 MiB, uploads refused past it).
+  local saveMiB = ns.saveSize(GoldForeverDB) / 1048576
+  io.write(string.format("SAVE %.1f MiB, under %d MiB\n", saveMiB, SAVE_MOST_MIB))
+  exit((#errors == 0 and not failedSteps and saveMiB < SAVE_MOST_MIB) and 0 or 1)
 end
 -- The companion's data file at login lists the names the server lacks in this client's language (gf#397).
 GoldForever_Prices = { v = 1, at = now, markets = {}, namesWanted = { locale = LOCALE, items = { 2592 }, recipes = {}, quests = {}, factions = {}, maps = { 1411 } } }

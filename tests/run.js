@@ -287,7 +287,7 @@ if (spawnSync('luajit', ['-v']).status === 0) {
   fs.writeFileSync(save, spawnSync('luajit', [path.join(__dirname, 'bigsave.lua')], { maxBuffer: 64 << 20 }).stdout)
   for (const interfaceNumber of ['16001', '120105']) {
     const out = smoke(`big save on ${interfaceNumber}`, `bigsave-${interfaceNumber}`, { GF_SMOKE_INTERFACE: interfaceNumber, GF_SMOKE_SAVE: save, GF_SMOKE_GUID: 'Player-3666-0000000A' })
-    if (out) console.log(`✓ big save on ${interfaceNumber}: ${out.match(/MEMORY .*/)?.[0] ?? ''}`)
+    if (out) console.log(`✓ big save on ${interfaceNumber}: ${out.match(/MEMORY .*/)?.[0] ?? ''}; ${out.match(/SAVE .*/)?.[0] ?? ''}`)
   }
   // A follower dungeon on the big save, frame by frame (addon#53).
   const dungeon = smoke('dungeon on the big save', null, { GF_SMOKE_INTERFACE: '120105', GF_SMOKE_SAVE: save, GF_SMOKE_GUID: 'Player-3666-0000000A', GF_SMOKE_DUNGEON: '1' })

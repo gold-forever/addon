@@ -128,9 +128,14 @@ do
 	eq(#lines, #said, "the popup has a line for each chat line")
 	eq(lines[1], "Gold Forever " .. ns.VERSION .. " · schema " .. ns.SCHEMA .. " · " .. GoldForeverDB.client.build, "its first line, plain")
 	eq((popup or "|"):find("|", 1, true), nil, "no colour or icon escapes")
+	eq((popup or ""):match("the save: about [%d.]+ MiB %(the site takes up to 10 MiB%)") ~= nil, true,
+		"the save's size (gf#402)")
 	eq((popup or ""):find("long stopped by the client for running too long", 1, true) ~= nil, true, "the stopped call, plain")
 end
 eq(ns.plainText("|cffe0ac45Gold Forever|r: 1|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t 23|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"),
 	"Gold Forever: 1g 23s", "coin icons read as g, s and c")
+-- The save's size as the client writes the file: one entry a line, tabs, the list part numbered.
+local written = 'GoldForeverDB = {\n\t["a"] = "x\\"y",\n\t[7] = 12,\n\t{\n\t\t["b"] = true,\n\t}, -- [1]\n}\n'
+eq(ns.saveSize({ a = 'x"y', [7] = 12, { b = true } }), #written, "the save's size, byte for byte on a small one")
 eq(ns.plainText("5|A:coin-copper:0:0|a"), "5c", "coin atlases too")
 return checks()

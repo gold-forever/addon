@@ -27646,4 +27646,5 @@ settings.window.sort.sales.descending = true
 settings.window.sort.sales.key = 5
 settings.window.tabs.ledger = "inventory"
 settings.window.tabs.session = "levelling"
+tooltipsTrimmed = true
 writtenAt = 1792608700

@@ -81,6 +81,34 @@ local function size(t)
 	return n
 end
 
+-- The bytes of a value as the client writes it into SavedVariables at a depth: a table one entry a line,
+-- indented by tabs, its list part as "value, -- [n]" and the rest as "[key] = value,".
+local function written(value, depth)
+	local kind = type(value)
+	if kind == "string" then
+		local _, escapes = string.gsub(value, '[\n\r"\\]', "")
+		return #value + escapes + 2
+	elseif kind ~= "table" then
+		return #tostring(value)
+	end
+	local bytes, n = 3 + depth, #value
+	for key, v in pairs(value) do
+		bytes = bytes + depth + 1 + written(v, depth + 1) + 2
+		if type(key) == "number" and key >= 1 and key <= n and key % 1 == 0 then
+			bytes = bytes + #tostring(key) + 6
+		else
+			bytes = bytes + written(key, 0) + 5
+		end
+	end
+	return bytes
+end
+
+-- About how many bytes the save takes on disk ("GoldForeverDB = " and the table): what the companion
+-- uploads, which the site takes up to 10 MiB of (gf#402).
+function ns.saveSize(db)
+	return #"GoldForeverDB = " + written(db, 0) + 1
+end
+
 local function statusLines(out)
 	local db = ns.db()
 	local me = ns.me()
@@ -101,6 +129,7 @@ local function statusLines(out)
 	if me and me.flights then
 		table.insert(out, string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
 	end
+	table.insert(out, string.format("  the save: about %.1f MiB (the site takes up to 10 MiB)", ns.saveSize(db) / 1048576))
 	for name, e in pairs(db.errors) do
 		table.insert(out, string.format("  |cffe8615a%s|r failed %dx - %s", name, e.n, e.msg))
 	end

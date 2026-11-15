@@ -138,9 +138,8 @@ for i = 100001, 100000 + N do
 end
 eq(catalogued, N, "items catalogued after a scan named them while the queue drained")
 eq(count(db.catalogue.items), N, "a row for each in the saved catalogue")
-eq(count(db.catalogue.tooltips), N, "and its tooltip")
+eq(count(db.catalogue.tooltips), 0, "and no tooltip: nobody holds a scan's items (gf#402)")
 eq(db.catalogue.items[100001], "Item 100001,1,1,7,5,20,1,0,1,1,," .. T, "the item's row, read now")
-eq(db.catalogue.tooltips[100001], "Item 100001\nTwo-Hand\tStaff", "the item's tooltip")
 
 -- Asked again in the same session: nothing queued, nothing asked.
 ns.catalogueItem(100001)
@@ -150,7 +149,7 @@ eq(asked[100001], 1, "an item catalogued is not asked for again")
 
 -- The next session on the same save: an item seen is read again, its row rewritten with this session's
 -- readAt, even with its row and tooltip kept; an item not seen keeps its row as it was.
-db.catalogue.tooltips[100002] = nil
+db.characters = { ["Player-1"] = { bags = { items = "100002*1" } } }
 db.catalogue.items[100001] = "Item 100001,1,1,7,5,20,960,0,1,1,,1780000000" -- a beta-era price, carried
 NOW = NOW + 86400
 local T2 = tostring(NOW)
@@ -162,8 +161,8 @@ while tick() do
 end
 eq(asked[100001], 2, "next session: a catalogued item seen is asked for again, once")
 eq(db.catalogue.items[100001], "Item 100001,1,1,7,5,20,1,0,1,1,," .. T2, "and rewritten from the game: today's price and readAt")
-eq(asked[100002], 2, "next session: an item without its tooltip is asked for")
-eq(db.catalogue.tooltips[100002], "Item 100002\nTwo-Hand\tStaff", "and its tooltip is written")
+eq(asked[100002], 2, "next session: an item seen is asked for")
+eq(db.catalogue.tooltips[100002], "Item 100002\nTwo-Hand\tStaff", "and, held now, its tooltip is written")
 eq(db.catalogue.items[100003], "Item 100003,1,1,7,5,20,1,0,1,1,," .. T, "an item not seen this session keeps its row and its readAt")
 NOW = NOW - 86400
 
@@ -714,6 +713,102 @@ loadNs.fire("QUEST_DATA_LOAD_RESULT", 928, true)
 eq(loadDb.catalogue.questNames[928], "Chargée", "loaded: named")
 eq(loadDb.names.unanswered.quests[928], nil, "and no longer unanswered")
 C_Spell, C_QuestLog, C_Reputation, C_Map, GetLocale, GoldForever_Prices = nil, nil, nil, nil, nil, nil
+
+-- Tooltips only for what a character holds (gf#402): an item in a character's saved bags, bank or mail, or
+-- worn. A scan's thousands and the re-read write rows and no tooltip (the owner's save passed the server's
+-- 10 MiB); an item held later (a loot, once the bags are read) gets its tooltip then.
+local function holder(places)
+	return { characters = { ["Player-1"] = places }, tooltipsTrimmed = true, reread = { done = true },
+		catalogue = { items = {}, tooltips = {} } }
+end
+do
+	local held = holder({ bags = { items = "910001*2+910002:612*1" }, bank = { items = "910003*5" },
+		mail = { items = "910004*1" }, gear = { [16] = "910005" } })
+	local s, t = session(held, false)
+	for k = 1, 5000 do
+		s.catalogueItem(920000 + k)
+	end
+	for k = 1, 5 do
+		s.catalogueItem(910000 + k)
+	end
+	while t() do
+	end
+	eq(count(held.catalogue.items), 5005, "held: a row for every item a scan named, and the held ones")
+	eq(count(held.catalogue.tooltips), 5, "held: a scan of 5,000 items adds no tooltip; the five held get theirs")
+	eq(held.catalogue.tooltips[910002], "Item 910002\nTwo-Hand\tStaff", "held: a variant in the bags is the item held")
+
+	-- Looted before the bags are read: no tooltip then; once the bags hold it, the next sighting writes it, once.
+	s.catalogueItem(930001)
+	while t() do
+	end
+	eq(held.catalogue.tooltips[930001], nil, "held: an item not yet in the saved bags gets no tooltip")
+	held.characters["Player-1"].bags = { items = "910001*2+930001*1" }
+	s.catalogueItem(930001)
+	while t() do
+	end
+	eq(held.catalogue.tooltips[930001], "Item 930001\nTwo-Hand\tStaff", "held: once in the bags, its tooltip is written")
+	local before = asked[930001]
+	s.catalogueItem(930001)
+	while t() do
+	end
+	eq(asked[930001], before, "held: and it is not asked again that session")
+
+	-- Held, and the game gives no tooltip for it: asked once for one, not at every sighting.
+	local answers = C_TooltipInfo.GetItemByID
+	C_TooltipInfo.GetItemByID = function(item)
+		return item ~= 960001 and answers(item) or nil
+	end
+	held.characters["Player-1"].bags = { items = "960001*1" }
+	for _ = 1, 3 do
+		s.catalogueItem(960001)
+		while t() do
+		end
+	end
+	C_TooltipInfo.GetItemByID = answers
+	eq(asked[960001], 1, "held: an item without a tooltip from the game is asked once for it")
+end
+
+-- The re-read of the whole catalogue writes no tooltip, held or not.
+do
+	local rereadDb = holder({ bags = { items = "950001*1" } })
+	rereadDb.reread = nil
+	rereadDb.catalogue.tooltips[950001] = "kept"
+	for k = 1, 300 do
+		rereadDb.catalogue.items[950000 + k] = "Old " .. k .. ",1,1,7,5,20,99,0,1,1,"
+	end
+	login(rereadDb)
+	while beat() do
+	end
+	eq(rereadDb.reread.done, true, "re-read: through")
+	eq(withReadAt(rereadDb), 300, "re-read: every row read")
+	eq(count(rereadDb.catalogue.tooltips), 1, "re-read: no tooltip added")
+end
+
+-- Once, at login: every stored tooltip of an item no character holds is dropped (the server keeps those it
+-- was sent); the marker keeps it from running again. A held item without one gets it after login.
+do
+	local trimDb = holder({ bags = { items = "940001*1" }, bank = { items = "940004*1" } })
+	trimDb.tooltipsTrimmed = nil
+	for _, id in ipairs({ 940001, 940002, 940004 }) do
+		trimDb.catalogue.items[id] = "Item " .. id .. ",1,1,7,5,20,1,0,1,1,," .. T
+	end
+	trimDb.catalogue.tooltips[940001] = "kept"
+	trimDb.catalogue.tooltips[940002] = "scanned"
+	local s, t = session(trimDb, false)
+	s.enableCatalogue()
+	while t() do
+	end
+	eq(trimDb.catalogue.tooltips[940002], nil, "trim: the tooltip of an item nobody holds is dropped")
+	eq(trimDb.catalogue.tooltips[940001], "kept", "trim: a held item's is kept")
+	eq(trimDb.catalogue.tooltips[940004], "Item 940004\nTwo-Hand\tStaff", "trim: a held item without one gets it")
+	eq(trimDb.tooltipsTrimmed, true, "trim: the marker")
+	trimDb.catalogue.tooltips[940002] = "again"
+	s, t = session(trimDb, false)
+	s.enableCatalogue()
+	while t() do
+	end
+	eq(trimDb.catalogue.tooltips[940002], "again", "trim: once only")
+end
 C_Timer = nil
 
 return checks()
