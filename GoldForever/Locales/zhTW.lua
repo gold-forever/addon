@@ -94,6 +94,8 @@ ns.Locale.add("zhTW", {
 	["Took"] = "耗時",
 	["Scanned"] = "已掃描",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "每個帳號每 15 分鐘一次完整掃描：這是伺服器的限制。從不儲存賣家。",
+	["kept the save under 8 MiB by dropping %d old scan"] = "存檔保持在 8 MiB 以下：刪除了 %d 次舊掃描",
+	["kept the save under 8 MiB by dropping %d old scans"] = "存檔保持在 8 MiB 以下：刪除了 %d 次舊掃描",
 	["Asking the server..."] = "正在詢問伺服器...",
 	["Reading %s of %s"] = "正在讀取 %s / %s",
 	["Ready to scan"] = "可以掃描",

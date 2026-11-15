@@ -95,6 +95,8 @@ ns.Locale.add("ruRU", {
 	["Took"] = "Заняло",
 	["Scanned"] = "Отсканировано",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "Одно полное сканирование раз в 15 минут на учетную запись: ограничение сервера. Продавцы никогда не сохраняются.",
+	["kept the save under 8 MiB by dropping %d old scan"] = "сохранение удержано в пределах 8 МиБ: удалено старое сканирование (%d)",
+	["kept the save under 8 MiB by dropping %d old scans"] = "сохранение удержано в пределах 8 МиБ: удалено старых сканирований: %d",
 	["Asking the server..."] = "Запрос к серверу...",
 	["Reading %s of %s"] = "Чтение: %s из %s",
 	["Ready to scan"] = "Готово к сканированию",

@@ -94,11 +94,30 @@ local function prune()
 	ns.db().scans = kept
 end
 
--- A file saved by an older version with more scans shrinks at the next login, not the next scan.
+-- The size guard (gf#404), last before the file is written: the oldest scans go until the save is under
+-- Scans.MOST. Chat at a logout goes unseen, so the next load says it.
+local function keepUnder()
+	local dropped = ns.Scans.keepUnder(ns.db(), ns.Scans.MOST)
+	ns.db().scansDropped = dropped > 0 and dropped or nil
+end
+
+local function tellDropped()
+	local db = ns.db()
+	ns.Scans.dropped = db.scansDropped or 0
+	db.scansDropped = nil
+	if ns.Scans.dropped > 0 then
+		ns.say(ns.plural(ns.Scans.dropped, L["kept the save under 8 MiB by dropping %d old scan"], L["kept the save under 8 MiB by dropping %d old scans"]))
+	end
+end
+
+-- A file saved by an older version with more scans shrinks at the next login, not the next scan. The guard
+-- listens from the login, after every file's own logout listener.
 ns.module("Market", {
 	requires = { "Store" },
 	enable = function()
 		ns.safely("scans", prune)
+		ns.safely("save size", tellDropped)
+		ns.on("PLAYER_LOGOUT", "save size", keepUnder)
 	end,
 	-- Whether the zone is neutral changes with the zone.
 	world = function()

@@ -38,8 +38,9 @@ module.world()
 eq(me.spells, "585,2050", "the class tab's known spells, sorted: not General's, a future spell's, a flyout's, the guild's or an off-spec's")
 
 book[5] = { "SPELL", 591 }
-handlers.LEARNED_SPELL_IN_TAB(591, 2)
-eq(me.spells, "585,591,2050", "a spell learned is read again")
+handlers.SPELLS_CHANGED()
+eq(me.spells, "585,591,2050", "a spell learned is read again: SPELLS_CHANGED, which Forever has")
+eq(handlers.LEARNED_SPELL_IN_TAB, nil, "not LEARNED_SPELL_IN_TAB, which Forever's client lacks (gf#404)")
 
 me.spells = nil
 handlers.TRAINER_CLOSED()

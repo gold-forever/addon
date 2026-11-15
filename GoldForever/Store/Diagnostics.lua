@@ -83,7 +83,16 @@ end
 
 -- The bytes of a value as the client writes it into SavedVariables at a depth: a table one entry a line,
 -- indented by tabs, its list part as "value, -- [n]" and the rest as "[key] = value,".
-local function written(value, depth)
+local written
+-- The bytes of one entry of a table at a depth whose list part has n entries.
+local function entry(key, value, depth, n)
+	local bytes = depth + 1 + written(value, depth + 1) + 2
+	if type(key) == "number" and key >= 1 and key <= n and key % 1 == 0 then
+		return bytes + #tostring(key) + 6
+	end
+	return bytes + written(key, 0) + 5
+end
+function written(value, depth)
 	local kind = type(value)
 	if kind == "string" then
 		local _, escapes = string.gsub(value, '[\n\r"\\]', "")
@@ -93,12 +102,7 @@ local function written(value, depth)
 	end
 	local bytes, n = 3 + depth, #value
 	for key, v in pairs(value) do
-		bytes = bytes + depth + 1 + written(v, depth + 1) + 2
-		if type(key) == "number" and key >= 1 and key <= n and key % 1 == 0 then
-			bytes = bytes + #tostring(key) + 6
-		else
-			bytes = bytes + written(key, 0) + 5
-		end
+		bytes = bytes + entry(key, v, depth, n)
 	end
 	return bytes
 end
@@ -107,6 +111,11 @@ end
 -- uploads, which the site takes up to 10 MiB of (gf#402).
 function ns.saveSize(db)
 	return #"GoldForeverDB = " + written(db, 0) + 1
+end
+
+-- About how many bytes db.scans[i] takes of that size.
+function ns.scanSize(scans, i)
+	return entry(i, scans[i], 1, #scans)
 end
 
 local function statusLines(out)
@@ -129,7 +138,8 @@ local function statusLines(out)
 	if me and me.flights then
 		table.insert(out, string.format("  %s: %d paid flights, %s", me.name, me.flights.n, ns.Money.format(me.flights.cost, "icons")))
 	end
-	table.insert(out, string.format("  the save: about %.1f MiB (the site takes up to 10 MiB)", ns.saveSize(db) / 1048576))
+	table.insert(out, string.format("  the save: about %.1f MiB (the site takes up to 10 MiB) · %d old scans dropped this session to keep it under %d MiB",
+		ns.saveSize(db) / 1048576, ns.Scans.dropped, ns.Scans.MOST / 1048576))
 	for name, e in pairs(db.errors) do
 		table.insert(out, string.format("  |cffe8615a%s|r failed %dx - %s", name, e.n, e.msg))
 	end

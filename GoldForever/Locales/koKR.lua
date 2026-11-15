@@ -94,6 +94,8 @@ ns.Locale.add("koKR", {
 	["Took"] = "소요",
 	["Scanned"] = "스캔됨",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "계정당 15분에 한 번 전체 스캔: 서버 제한입니다. 판매자는 저장하지 않습니다.",
+	["kept the save under 8 MiB by dropping %d old scan"] = "저장 파일을 8MiB 미만으로 유지했습니다: 오래된 스캔 %d개 삭제",
+	["kept the save under 8 MiB by dropping %d old scans"] = "저장 파일을 8MiB 미만으로 유지했습니다: 오래된 스캔 %d개 삭제",
 	["Asking the server..."] = "서버에 요청 중...",
 	["Reading %s of %s"] = "%s / %s 읽는 중",
 	["Ready to scan"] = "스캔 준비됨",

@@ -95,6 +95,8 @@ ns.Locale.add("itIT", {
 	["Took"] = "Durata",
 	["Scanned"] = "Scansionato",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "Una scansione completa ogni 15 minuti per account: il limite del server. I venditori non vengono mai salvati.",
+	["kept the save under 8 MiB by dropping %d old scan"] = "salvataggio tenuto sotto 8 MiB: rimossa %d scansione vecchia",
+	["kept the save under 8 MiB by dropping %d old scans"] = "salvataggio tenuto sotto 8 MiB: rimosse %d scansioni vecchie",
 	["Asking the server..."] = "Richiesta al server...",
 	["Reading %s of %s"] = "Lettura: %s di %s",
 	["Ready to scan"] = "Pronto per la scansione",

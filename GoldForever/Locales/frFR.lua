@@ -94,6 +94,8 @@ ns.Locale.add("frFR", {
 	["Took"] = "Durée",
 	["Scanned"] = "Analysé",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "Une analyse complète toutes les 15 minutes par compte : la limite du serveur. Les vendeurs ne sont jamais enregistrés.",
+	["kept the save under 8 MiB by dropping %d old scan"] = "sauvegarde gardée sous 8 Mio : %d ancienne analyse supprimée",
+	["kept the save under 8 MiB by dropping %d old scans"] = "sauvegarde gardée sous 8 Mio : %d anciennes analyses supprimées",
 	["Asking the server..."] = "Demande au serveur...",
 	["Reading %s of %s"] = "Lecture : %s sur %s",
 	["Ready to scan"] = "Prêt à analyser",

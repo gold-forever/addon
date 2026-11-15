@@ -95,6 +95,8 @@ ns.Locale.add("ptBR", {
 	["Took"] = "Duração",
 	["Scanned"] = "Escaneado",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "Uma varredura completa a cada 15 minutos por conta: o limite do servidor. Vendedores nunca são guardados.",
+	["kept the save under 8 MiB by dropping %d old scan"] = "o save ficou abaixo de 8 MiB: %d varredura antiga removida",
+	["kept the save under 8 MiB by dropping %d old scans"] = "o save ficou abaixo de 8 MiB: %d varreduras antigas removidas",
 	["Asking the server..."] = "Consultando o servidor...",
 	["Reading %s of %s"] = "Lendo %s de %s",
 	["Ready to scan"] = "Pronto para escanear",

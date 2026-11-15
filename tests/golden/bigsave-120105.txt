@@ -23158,8 +23158,8 @@
 + migrated[13].t = 1792835263
 + migrated[13].to = 14
 + reread.done = true
-- scans order = EU-Shadowsong-neutral@1792828063 EU-Shadowsong-horde@1792820863
-+ scans order = EU-Shadowsong-neutral@1792828063
+- scans order = EU-Shadowsong-horde@1792828063 EU-Shadowsong-horde@1792820863
++ scans order = EU-Shadowsong-horde@1792828063
 - scans["EU-Shadowsong-horde@1792820863"] (110010 lines)
 + schema = 14
 + settings.appraiser.pace = "always"

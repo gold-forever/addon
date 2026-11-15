@@ -6,7 +6,7 @@
 --   GF_SMOKE_INTERFACE=120105 GF_SMOKE_SAVE=/tmp/bigsave.lua luajit tests/smoke.lua GoldForever
 --
 -- Volumes: 20 000 catalogued items with tooltips, 5 300 achievements, 2 060 statistics, three characters,
--- two scans of 110 000 rows (the neutral and the Horde auction house), and fourteen days of events (positions every five seconds for
+-- two scans of 110 000 rows (the Horde auction house, two hours apart), and fourteen days of events (positions every five seconds for
 -- four hours a day, loot, money, experience, sales).
 
 local seed = 20261024
@@ -91,8 +91,9 @@ for n, guid in ipairs(guids) do
   db.dings[guid] = { on = n == 1, t = NOW - 7200 }
 end
 
--- Scans: two markets, a full scan each, rows "item,unit,qty,count,band" in chunks of 500.
-for m, market in ipairs({ "EU-Shadowsong-neutral", "EU-Shadowsong-horde" }) do
+-- Scans: two full scans of the character's market, rows "item,unit,qty,count,band" in chunks of 500: on
+-- Forever the size guard (gf#404) has an older scan to drop.
+for m, market in ipairs({ "EU-Shadowsong-horde", "EU-Shadowsong-horde" }) do
   local chunks, rows = {}, {}
   for i = 1, SCAN_ROWS do
     rows[#rows + 1] = string.format("%d,%d,%d,%d,%d", item(), 100 + rand(5000000), 1 + rand(200), 1 + rand(5), rand(4))

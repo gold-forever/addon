@@ -93,6 +93,8 @@ ns.Locale.source({
 	"Took",
 	"Scanned",
 	"One full scan every 15 minutes per account: the server's limit. Sellers are never stored.",
+	"kept the save under 8 MiB by dropping %d old scan",
+	"kept the save under 8 MiB by dropping %d old scans",
 	"Asking the server...",
 	"Reading %s of %s",
 	"Ready to scan",

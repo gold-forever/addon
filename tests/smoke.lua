@@ -124,6 +124,8 @@ local NUMBERS = { GetWidth = 400, GetHeight = 300, GetStringWidth = 60, GetVerti
 -- for the client this run plays; a method the client lacks fails the run, as it would fail in game.
 local METHODS = assert(loadfile((dir or "GoldForever") .. "/../tests/widget_methods.lua"))()
 local FLAVOUR = (tonumber(os.getenv("GF_SMOKE_INTERFACE") or "") or 16001) >= 110000 and "retail" or "forever"
+-- Events Forever's client does not know: its /gf check listed them as unknown (gf#404).
+local FOREVER_LACKS = { LEARNED_SPELL_IN_TAB = true }
 -- Methods Blizzard's own frames, templates and mixins add (not in the widget docs), which the addon calls,
 -- and child frames it reads by key.
 local MIXIN = { AddLine = true, SetOwner = true, SelectBrowseResult = true, GetRecipeInfo = true, GetBagAndSlot = true, AddDoubleLine = true,
@@ -238,7 +240,7 @@ function CreateFrame(kind, name, parent) local f = widget({ events = {}, shown =
     function f:NumLines() return #(self.lines or {}) end
   end
   if type(parent) == "table" and parent.children then f.parent = parent; table.insert(parent.children, f) end
-  function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") then error("unknown event") end self.events[e] = true end
+  function f:RegisterEvent(e) if e == "COMBAT_LOG_EVENT_UNFILTERED" then error("ADDON_ACTION_FORBIDDEN: " .. e) end if e:find("^UNKNOWN") or (FLAVOUR == "forever" and FOREVER_LACKS[e]) then error("unknown event") end self.events[e] = true end
   -- One unit's event only: the client passes the unit first, and calls the frame for no other.
   function f:RegisterUnitEvent(e, ...) self:RegisterEvent(e) self.units = self.units or {} self.units[e] = {} for _, u in ipairs({...}) do self.units[e][u] = true end end
   function f:SetScript(name, fn) if name == "OnEvent" then self.handler = fn else self.scripts[name] = fn and PRESS_SCRIPTS[name] and pressing(fn) or fn end end
@@ -693,7 +695,7 @@ end
 -- GF_SMOKE_SAVE=<a copy of a SavedVariables file>: the addon on a real save instead of the session
 -- below, as that save's character, through every page, tab, look and panel, timed (tests/realsave.md).
 local SAVE = os.getenv("GF_SMOKE_SAVE")
-local SAVE_MOST_MIB = 10 -- the site's upload cap (gf#402): the big save on Forever took 10.9 MiB before it
+local SAVE_MOST_MIB = 8 -- the size guard (gf#404), under the site's 10 MiB upload cap (gf#402)
 if SAVE then
   dofile(SAVE)
   local guid = os.getenv("GF_SMOKE_GUID")
@@ -1022,7 +1024,7 @@ if SAVE then
   end
   io.write("ERRORS " .. #errors .. "\n", table.concat(errors, "\n"), "\n")
   io.write(string.format("MEMORY %.0f KB after login, %.0f KB at the end, after a full collect\n", loginKB, (function() collectgarbage("collect") return collectgarbage("count") end)()))
-  -- The save as the companion uploads it, under what the site takes (gf#402: 10 MiB, uploads refused past it).
+  -- The save as the companion uploads it, under the size guard (gf#404) and so what the site takes (10 MiB).
   local saveMiB = ns.saveSize(GoldForeverDB) / 1048576
   io.write(string.format("SAVE %.1f MiB, under %d MiB\n", saveMiB, SAVE_MOST_MIB))
   exit((#errors == 0 and not failedSteps and saveMiB < SAVE_MOST_MIB) and 0 or 1)
@@ -1233,6 +1235,7 @@ do
   assert(title == T("Gold Forever: check") and copied == table.concat(plain, "\n"), "the copy box gets the chat lines: " .. tostring(copied))
   local line
   for _, l in ipairs(said) do if l:find("paid flights", 1, true) then line = l end end
+  for _, l in ipairs(said) do assert(not l:find("unknown events", 1, true), "every event the addon listens to is known: " .. l) end
   assert(line and line:find(ns.price.coins(12345), 1, true) and not line:find("12345c", 1, true), "flights line: " .. tostring(line))
 end
 -- /gf probe: its lines in the copy box too, focused and selected; Escape closes it.

@@ -70,8 +70,9 @@ ns.module("Spellbook", {
 		ns.after(4, "spellbook", readSoon)
 	end,
 })
--- A spell learned (LEARNED_SPELL_IN_SKILL_LINE on retail), and the trainer closed: what was trained there.
-ns.on("LEARNED_SPELL_IN_TAB", "spellbook", readSoon)
+-- A spell learned (SPELLS_CHANGED: Forever's client has no LEARNED_SPELL_IN_TAB, gf#404; and
+-- LEARNED_SPELL_IN_SKILL_LINE on retail), and the trainer closed: what was trained there.
+ns.on("SPELLS_CHANGED", "spellbook", readSoon)
 ns.on("LEARNED_SPELL_IN_SKILL_LINE", "spellbook", readSoon)
 ns.on("TRAINER_CLOSED", "spellbook", readSoon)
 ns.on("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "spellbook", function(kind)

@@ -94,6 +94,8 @@ ns.Locale.add("zhCN", {
 	["Took"] = "耗时",
 	["Scanned"] = "已扫描",
 	["One full scan every 15 minutes per account: the server's limit. Sellers are never stored."] = "每个账号每 15 分钟只能完整扫描一次：这是服务器的限制。从不存储卖家。",
+	["kept the save under 8 MiB by dropping %d old scan"] = "存档保持在 8 MiB 以下：删除了 %d 次旧扫描",
+	["kept the save under 8 MiB by dropping %d old scans"] = "存档保持在 8 MiB 以下：删除了 %d 次旧扫描",
 	["Asking the server..."] = "正在询问服务器...",
 	["Reading %s of %s"] = "正在读取 %s / %s",
 	["Ready to scan"] = "可以扫描",

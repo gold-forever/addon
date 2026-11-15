@@ -21,7 +21,7 @@ local errorHandler = function(err) shown[#shown + 1] = err end
 function geterrorhandler() return errorHandler end
 function seterrorhandler(fn) errorHandler = fn end
 local ns = {}
-for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Diagnostics.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
+for _, file in ipairs({ "Encode.lua", "EncodeIds.lua", "EncodeText.lua", "EncodeAmounts.lua", "Scans.lua", "Realms.lua", "Modules.lua", "Errors.lua", "Scheduling.lua", "Events.lua", "Chat.lua", "Commands.lua", "Save.lua", "Characters.lua", "Diagnostics.lua", "Core.lua", "Schema.lua", "Migrations.lua" }) do
 	assert(load(SOURCES[file], "@" .. file))("GoldForever", ns)
 end
 
@@ -128,8 +128,8 @@ do
 	eq(#lines, #said, "the popup has a line for each chat line")
 	eq(lines[1], "Gold Forever " .. ns.VERSION .. " · schema " .. ns.SCHEMA .. " · " .. GoldForeverDB.client.build, "its first line, plain")
 	eq((popup or "|"):find("|", 1, true), nil, "no colour or icon escapes")
-	eq((popup or ""):match("the save: about [%d.]+ MiB %(the site takes up to 10 MiB%)") ~= nil, true,
-		"the save's size (gf#402)")
+	eq((popup or ""):match("the save: about [%d.]+ MiB %(the site takes up to 10 MiB%) · 0 old scans dropped this session to keep it under 8 MiB") ~= nil, true,
+		"the save's size (gf#402), and the scans the guard dropped (gf#404)")
 	eq((popup or ""):find("long stopped by the client for running too long", 1, true) ~= nil, true, "the stopped call, plain")
 end
 eq(ns.plainText("|cffe0ac45Gold Forever|r: 1|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t 23|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"),
