@@ -1,5 +1,5 @@
 -- Gold Forever: the character's own auctions (design 002 reserves them as an additive section).
--- Every auction posted (`post` rows), every sale from the auction house's "successful" mail (`sale`
+-- Every auction the server created from a post (`post` rows), every sale from the auction house's "successful" mail (`sale`
 -- rows), what the character bought (`ahBuy`) and how its other auctions ended (`auctionEnd`: expired,
 -- from the "expired" mail, or cancelled; data gap D7). Nothing about other players: neither the buyer
 -- named in a mail nor the seller of a purchase is kept.
@@ -7,9 +7,19 @@
 local _, ns = ...
 local Encode = ns.Encode
 
-local DEDUPE_SECONDS = 5 -- a post and its confirmation are one auction
+local PENDING_SECONDS = 60 -- a post the server has not answered by then failed (or was never sent)
 
-local lastPost -- { key, at }
+-- Posts pressed and waiting for the server's answer, oldest first. A post is recorded only when the
+-- server says the auction was created (AUCTION_HOUSE_AUCTION_CREATED): a press can fail (the money
+-- ran short for the deposit, the bags changed), and a failed post is no auction.
+local pending = {} -- { key, qty, unit, duration, commodity, deposit, at, signature }
+
+local function expire()
+	local now = GetTime()
+	while pending[1] and now - pending[1].at > PENDING_SECONDS do
+		table.remove(pending, 1)
+	end
+end
 
 -- The deposit the client takes for a post, where it can tell it (retail's C_AuctionHouse); else nil.
 local function deposit(location, duration, quantity, commodity)
@@ -20,11 +30,10 @@ local function deposit(location, duration, quantity, commodity)
 	return ah.CalculateItemDeposit and ah.CalculateItemDeposit(location, duration, quantity) or nil
 end
 
--- A post, or with [confirming] the confirmation the client asks for after a warning (the same
--- auction, recorded once).
+-- A post pressed, or with [confirming] the confirmation the client asks for after a warning (the
+-- same auction, waiting once). What it is is read now, while the item is still in the bags.
 local function post(location, duration, quantity, unit, commodity, confirming)
-	local me = ns.me()
-	if not me or not location then
+	if not ns.me() or not location then
 		return
 	end
 	local link = C_Item.GetItemLink and C_Item.GetItemLink(location)
@@ -32,14 +41,26 @@ local function post(location, duration, quantity, unit, commodity, confirming)
 	if key == "" then
 		return
 	end
+	expire()
 	local signature = table.concat({ key, quantity or 1, unit or 0 }, ":")
-	if confirming and lastPost and lastPost.key == signature and GetTime() - lastPost.at < DEDUPE_SECONDS then
-		return -- the confirmation of the post just recorded
+	local last = pending[#pending]
+	if confirming and last and last.signature == signature then
+		last.at = GetTime() -- the confirmation of the post waiting: still one auction
+		return
 	end
-	lastPost = { key = signature, at = GetTime() }
-	ns.append("post", Encode.row(ns.now(), me.ref, key, quantity or 1, unit, duration, commodity,
-		deposit(location, duration, quantity or 1, commodity)))
-	ns.catalogueItem(key)
+	pending[#pending + 1] = { key = key, qty = quantity or 1, unit = unit, duration = duration, commodity = commodity,
+		deposit = deposit(location, duration, quantity or 1, commodity), at = GetTime(), signature = signature }
+end
+
+-- The server created the auction: the oldest post waiting is it.
+local function created()
+	expire()
+	local me, p = ns.me(), table.remove(pending, 1)
+	if not me or not p then
+		return
+	end
+	ns.append("post", Encode.row(ns.now(), me.ref, p.key, p.qty, p.unit, p.duration, p.commodity, p.deposit))
+	ns.catalogueItem(p.key)
 end
 
 if C_AuctionHouse then
@@ -65,6 +86,11 @@ if C_AuctionHouse then
 			hooksecurefunc(C_AuctionHouse, name, hook)
 		end
 	end
+	ns.on("AUCTION_HOUSE_AUCTION_CREATED", "post", created)
+	-- A post the server refused: the oldest waiting is no auction.
+	ns.on("AUCTION_HOUSE_POST_ERROR", "post", function()
+		table.remove(pending, 1)
+	end)
 end
 
 -- Purchases: recorded when the server says the purchase went through, never on the press alone (a

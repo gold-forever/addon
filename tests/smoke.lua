@@ -2865,7 +2865,7 @@ for _, h in ipairs(unitTooltipHooks) do h(GameTooltip, { guid = "Creature-0-4620
 seen("MOB STARTER ", tostring(GameTooltip.lines[3]), "Drops a quest starter: Captain Sander's Treasure Map (25% of loots) · not done")
 -- Stop: the session ends and its clock stops.
 SlashCmdList.GOLDFOREVER("reset")
--- Posting: a commodity and its confirmation are one post; an item's unit price is its buyout per item. Each
+-- Posting: a commodity and its confirmation are one post, recorded when the server creates it; an item's unit price is its buyout per item. Each
 -- carries the deposit the client asks for it, where the client tells it (retail); Forever's are empty.
 C_Item.GetItemLink = function() return "|Hitem:2592::::::::30|h[Wool Cloth]|h" end
 C_Item.GetItemID = function() return 2592 end
@@ -2874,10 +2874,20 @@ if FLAVOUR == "retail" then
   C_AuctionHouse.CalculateCommodityDeposit = function(itemID, duration, quantity) return itemID == 2592 and duration == 2 and 3 * quantity end
   C_AuctionHouse.CalculateItemDeposit = function(location, duration, quantity) return location and duration == 3 and 250 * quantity end
 end
+-- A post is recorded only when the server creates the auction: one the deposit was short for (no
+-- answer) or one the server refused is no post.
+pressKey(C_AuctionHouse.PostItem, {}, 3, 1, 0, 9000) -- the money ran short: never created
+clock = clock + 61
+pressKey(C_AuctionHouse.PostItem, {}, 3, 4, 0, 8000)
+fire("AUCTION_HOUSE_POST_ERROR") -- refused
 pressKey(C_AuctionHouse.PostCommodity, {}, 2, 20, 95)
 pressKey(C_AuctionHouse.ConfirmPostCommodity, {}, 2, 20, 95)
+fire("AUCTION_HOUSE_AUCTION_CREATED", 11)
 pressKey(C_AuctionHouse.PostItem, {}, 3, 2, 0, 3000)
 pressKey(C_AuctionHouse.PostItem, {}, 3, 2, 0, 3000) -- a second alike auction, no confirmation: two posts
+fire("AUCTION_HOUSE_AUCTION_CREATED", 12)
+fire("AUCTION_HOUSE_AUCTION_CREATED", 13)
+fire("AUCTION_HOUSE_AUCTION_CREATED", 14) -- nothing left waiting: no row
 local day = GoldForeverDB.events["2026-10-20"]
 seen("POSTS ", tostring(day.post and day.post[1]),
   "1792517415,1,2592,20,95,2,1,;1792517415,1,2592,2,1500,3,,;1792517415,1,2592,2,1500,3,,",
