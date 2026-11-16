@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **A roll you lost is no longer your loot.** An item up for a roll leaves the loot window when anyone wins it, and the addon recorded it as yours. It now counts only when your bags gained it, so a boss item someone else won no longer shows as your loot or your best loot on a level-up card. A roll that ends after you close the loot window is not recorded, even when you win it.
+
 - **Only posts that went through are recorded.** A post is now recorded when the auction house says the auction was created. Before, the addon recorded it as soon as you pressed Post, so a post the server turned down still showed on the site as posted, for example when you were short of money for the deposit. A post the server refuses, or doesn't answer within a minute, is not recorded.
 
 - **One line on what came from the site.** After each login or /reload, chat says in one line what new the site sent: "Gold Forever: from the site: 2 list changes, prices from 3m ago." It counts the shared lists and sale profiles that changed, and names the prices' age when the companion's prices file is newer than the last one the addon saw. Nothing is said when nothing is new. It replaces the "lists and profiles from the site" line. It is on by default; switch it off under Settings, Modules, Arrivals from the site. In every language.

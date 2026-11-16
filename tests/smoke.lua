@@ -445,7 +445,7 @@ local slots = {
 }
 function GetNumLootItems() return #slots end
 function GetLootSlotType(s) return slots[s].kind end
-function GetLootSlotInfo(s) return nil, nil, slots[s].qty or 0, nil, 1, false, slots[s].quest ~= nil, slots[s].quest, false end
+function GetLootSlotInfo(s) return nil, nil, slots[s].qty or 0, nil, 1, slots[s].locked or false, slots[s].quest ~= nil, slots[s].quest, false end
 function GetLootSlotLink(s) return slots[s].link end
 function GetLootSourceInfo(s) return unpack(slots[s].sources) end
 function IsFishingLoot() return fishing end
@@ -1158,6 +1158,28 @@ fire("UNIT_SPELLCAST_SENT", "player", "Testchar", "Cast-8", 1243)
 slots = { { kind = 1, link = "|Hitem:6358::::::::30|h[Oily Blackmouth]|h", qty = 1, sources = { "GameObject-0-4620-0-12-35591-000E", 1 } } }
 fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
 seen("BOBBER NAMED ", tostring(GoldForeverDB.catalogue.objects[35591]), "nil")
+-- A rolled item leaves everyone's window when anyone wins it: it is this character's loot only when its
+-- bags gained it (Mograine's Might lost, then won; a roll started for a slot the client shows unlocked).
+do
+  local function day() return table.concat(GoldForeverDB.events[ns.Encode.day(GetServerTime())].loot, ";") end
+  local count, held, rollLink = C_Item.GetItemCount, 0, GetLootRollItemLink
+  C_Item.GetItemCount = function(id) return id == 7723 and held or 0 end
+  local mograine = { kind = 1, link = "|Hitem:7723::::::::30|h[Mograine's Might]|h", qty = 1, locked = true, sources = { "Creature-0-4620-0-12-3976-000F", 1 } }
+  slots = { mograine }
+  fire("LOOT_READY") fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+  wait(2)
+  assert(not string.find(day(), ",7723", 1, true), "a roll lost is no loot: " .. day())
+  mograine.sources = { "Creature-0-4620-0-12-3976-0010", 1 }
+  fire("LOOT_READY") held = 1; fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+  wait(2)
+  assert(select(2, string.gsub(day(), "7723", "")) == 1, "a roll won is loot: " .. day())
+  mograine.locked, mograine.sources = nil, { "Creature-0-4620-0-12-3976-0011", 1 }
+  function GetLootRollItemLink() return mograine.link end
+  fire("LOOT_READY") fire("START_LOOT_ROLL", 1) fire("LOOT_SLOT_CLEARED", 1) fire("LOOT_CLOSED")
+  wait(2)
+  assert(select(2, string.gsub(day(), "7723", "")) == 1, "a roll started, lost: no loot: " .. day())
+  C_Item.GetItemCount, GetLootRollItemLink = count, rollLink
+end
 wait(30)
 -- Disenchanting the item clicked in the bags (the stand-in's bags hold 2589): its loot is marked with it.
 do

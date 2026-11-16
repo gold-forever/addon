@@ -1,7 +1,8 @@
 -- Gold Forever: loot and farming positions (design 002, Stream: events).
 --
 -- One loot row per source per loot window: the items actually taken and the coin, split over the
--- window's sources. Positions are sampled only while farming: from a loot until 15 minutes after
+-- window's sources. An item up for a roll (or under master loot) leaves the window when anyone gets it,
+-- so it counts only when this character's bags gained it. Positions are sampled only while farming: from a loot until 15 minutes after
 -- the last one.
 
 local _, ns = ...
@@ -25,6 +26,17 @@ local touched -- { id, at }: the bag item last clicked or used, what a spell bei
 local casting -- `touched` as a Disenchant began: later clicks in the bags are not its target
 local disenchanted -- { id, at }: the item of the last Disenchant that succeeded, for `d<itemId>` sources
 local lastLoot -- GetTime() of the last loot, while farming
+
+local function itemCount(id)
+	return id and (C_Item and C_Item.GetItemCount or _G.GetItemCount)(id) or 0
+end
+
+-- A slot up for a roll: what the bags held of its item before, to tell a win from someone else's.
+local function rolled(info)
+	if not info.rolled then
+		info.rolled, info.before = true, itemCount(Encode.itemId(info.key))
+	end
+end
 
 -- Map position of the player, coordinates empty in instances.
 function ns.position()
@@ -100,7 +112,7 @@ end
 -- A loot slot as the window holds it: its item, its sources and their amounts, and whether it is coin.
 local function readSlot(w, slot)
 	local kind = GetLootSlotType(slot)
-	local _, _, quantity, _, _, _, _, questID = GetLootSlotInfo(slot)
+	local _, _, quantity, _, _, locked, _, questID = GetLootSlotInfo(slot)
 	local info = { sources = {} }
 	if kind == ITEM_SLOT then
 		info.key = Encode.itemKey(GetLootSlotLink(slot))
@@ -108,6 +120,9 @@ local function readSlot(w, slot)
 		local item = Encode.itemId(info.key)
 		if item and questID and questID > 0 then
 			ns.db().catalogue.questStarters[item] = questID
+		end
+		if locked and info.key ~= "" then
+			rolled(info)
 		end
 	end
 	local list = { GetLootSourceInfo(slot) }
@@ -154,6 +169,21 @@ ns.on("LOOT_READY", "loot", function()
 	ns.lootAt = GetTime()
 	local first = w.order[1]
 	ns.lootSource = first and (w.sources[first].src or sourceOf(first)) or nil -- for skill-ups from gathering
+end)
+
+-- A roll for an item of the open window: that slot is up for a roll even when the client shows it unlocked.
+ns.on("START_LOOT_ROLL", "loot", function(rollID)
+	local link = window and GetLootRollItemLink and GetLootRollItemLink(rollID)
+	local key = link and Encode.itemKey(link)
+	if not key or key == "" then
+		return
+	end
+	for _, info in pairs(window.slots) do
+		if info.key == key and not info.taken then
+			rolled(info)
+			return
+		end
+	end
 end)
 
 -- Windows whose coin was taken and whose rows are not written yet, oldest first. The coin of one
@@ -253,6 +283,10 @@ ns.on("LOOT_SLOT_CLEARED", "loot", function(slot)
 		return
 	end
 	info.taken = true
+	if info.rolled then
+		info.cleared = true -- someone got it: whether this character did is told by the bags (finish)
+		return
+	end
 	for _, s in ipairs(info.sources) do
 		local items = window.sources[s.guid].items
 		items[info.key] = (items[info.key] or 0) + (tonumber(s.n) or 1)
@@ -342,12 +376,25 @@ local function itemsTaken(w)
 	return taken
 end
 
+-- The rolled items that left the window: this character's when its bags gained them since.
+local function addWon(w)
+	for _, info in pairs(w.slots) do
+		if info.cleared and itemCount(Encode.itemId(info.key)) > info.before then
+			for _, s in ipairs(info.sources) do
+				local items = w.sources[s.guid].items
+				items[info.key] = (items[info.key] or 0) + (tonumber(s.n) or 1)
+			end
+		end
+	end
+end
+
 local function finish(w)
 	stopAwaiting(w)
 	local me = ns.me()
 	if not me then
 		return
 	end
+	addWon(w)
 	local coin = w.coin or 0
 	local shares = coinShares(w, coin)
 	local rows = {}
