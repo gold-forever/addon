@@ -1373,6 +1373,8 @@
 + characters["Player-3666-0000000A"].loc.map = 1429
 + characters["Player-3666-0000000A"].loc.zone = "Elwynn Forest"
 + characters["Player-3666-0000000A"].money = 79098
+- characters["Player-3666-0000000A"].prof[171] (4 lines)
+- characters["Player-3666-0000000A"].prof[182] (4 lines)
 + characters["Player-3666-0000000A"].prof[197].max = 150
 + characters["Player-3666-0000000A"].prof[197].name = "Tailoring"
 + characters["Player-3666-0000000A"].prof[197].skill = 75

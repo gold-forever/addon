@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **A profession you unlearn leaves your character.** When you dropped a profession for another, the addon kept the old one, so the site showed three: Herbalism, Engineering and the Skinning you had given up. It now keeps only the professions the game lists, and the old row is gone after your next login and upload. A profession list the game hasn't loaded yet removes nothing.
+
 - **A roll you lost is no longer your loot.** An item up for a roll leaves the loot window when anyone wins it, and the addon recorded it as yours. It now counts only when your bags gained it, so a boss item someone else won no longer shows as your loot or your best loot on a level-up card. A roll that ends after you close the loot window is not recorded, even when you win it.
 
 - **Only posts that went through are recorded.** A post is now recorded when the auction house says the auction was created. Before, the addon recorded it as soon as you pressed Post, so a post the server turned down still showed on the site as posted, for example when you were short of money for the deposit. A post the server refuses, or doesn't answer within a minute, is not recorded.

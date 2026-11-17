@@ -1641,6 +1641,25 @@ do
   assert(me.prof[197] and me.prof[197].name == "Tailoring", "the open profession still recorded")
   C_TradeSkillUI = api
 end
+-- An unlearned profession leaves the save: the game lists Tailoring and Fishing alone now, so the
+-- Enchanting and Skinning rows go; a list not loaded yet (none at all) wipes nothing.
+do
+  local me, listed = ns.me(), GetProfessions
+  me.prof[164] = { name = "Blacksmithing", skill = 90, max = 150, t = 1 }
+  GetProfessions = function() return 1, nil, nil, 4, nil end
+  fire("SKILL_LINES_CHANGED")
+  wait(3)
+  assert(me.prof[164] == nil and me.prof[333] == nil, "an unlearned profession's row is dropped")
+  assert(me.prof[197] and me.prof[356], "the professions still held are kept")
+  GetProfessions = function() return end
+  fire("SKILL_LINES_CHANGED")
+  wait(3)
+  assert(me.prof[197] and me.prof[356], "an empty list wipes nothing")
+  GetProfessions = listed
+  fire("SKILL_LINES_CHANGED")
+  wait(3)
+  assert(me.prof[333], "Enchanting back once the game lists it again")
+end
 if INTERFACE >= 110000 then
   local api = C_TradeSkillUI
   C_TradeSkillUI = setmetatable({ GetAllRecipeIDs = function() return { 445118 } end,

@@ -52,8 +52,8 @@ local function readSkills()
 	end
 	me.prof = me.prof or {}
 	if GetProfessions then
-		local indices = { GetProfessions() }
-		for i = 1, 5 do
+		local indices, listed = { GetProfessions() }, {}
+		for i = 1, select("#", GetProfessions()) do
 			local index = indices[i]
 			if index then
 				local name, _, skill, max, _, _, line = GetProfessionInfo(index)
@@ -61,6 +61,16 @@ local function readSkills()
 					local p = me.prof[line] or {}
 					me.prof[line] = p
 					p.name, p.skill, p.max, p.t = name, skill, max, ns.now()
+					listed[line] = true
+				end
+			end
+		end
+		-- A profession the game no longer lists was unlearned: its row goes. Only rows this reader writes
+		-- (with a skill); a list not loaded yet (none at all) drops nothing.
+		if next(listed) then
+			for line, p in pairs(me.prof) do
+				if p.skill and not listed[line] then
+					me.prof[line] = nil
 				end
 			end
 		end
