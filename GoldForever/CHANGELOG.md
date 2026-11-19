@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.24.0 (2026-11-19)
 
 - **The auction panel no longer covers your profession window.** With a profession window and the auction house open together, Gold Forever's auction panel sat over the profession window and you could not use it. The two now take turns: whichever you clicked last is on top, and a click on the auction house or the panel brings both up together. A new button in the auction house's title bar, left of its close button, hides and shows the panel: "Hide Gold Forever" while it shows, "Show Gold Forever" while it is hidden. The choice is kept across /reload and logins, as /gf ah keeps it, and a hidden panel stays hidden when you open the auction house again or switch its tabs. In every language.
 
