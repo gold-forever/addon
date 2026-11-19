@@ -26,8 +26,10 @@ local function buildScan(page)
 		scanSettings.auto = on
 	end)
 	auto:SetPoint("LEFT", button, "RIGHT", 16, 0)
-	local autoLabel = UI.Text(page, L["Scan when I open the auction house"], { size = "sm", tone = "muted" })
+	-- Within the panel: in the web look the label ran past its edge (owner, 2026-11-19); it wraps instead.
+	local autoLabel = UI.Text(page, L["Scan when I open the auction house"], { size = "sm", tone = "muted", wrap = true })
 	autoLabel:SetPoint("LEFT", auto, "RIGHT", 8, 0)
+	autoLabel:SetPoint("RIGHT", page, "RIGHT")
 	local cards = {}
 	for i, label in ipairs({ L["Listings"], L["Prices"], L["Took"], L["Scanned"] }) do
 		local c = UI.StatCard(page, label, "", "")
