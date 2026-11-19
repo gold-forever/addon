@@ -330,6 +330,9 @@ ns.Locale.add("koKR", {
 	["The auction house refused it."] = "경매장이 거부했습니다.",
 	["the auction panel no longer opens at the auction house; /gf ah there brings it back."] = "경매 패널이 이제 경매장에서 열리지 않습니다. 경매장에서 /gf ah로 되돌릴 수 있습니다.",
 	["the auction panel opens at the auction house again."] = "경매 패널이 다시 경매장에서 열립니다.",
+	["Hide Gold Forever"] = "Gold Forever 숨기기",
+	["Show Gold Forever"] = "Gold Forever 표시",
+	["Shows or hides Gold Forever's auction panel beside the auction house."] = "경매장 옆의 Gold Forever 경매 패널을 표시하거나 숨깁니다.",
 	-- Surfaces: HubLedger
 	["This character"] = "이 캐릭터",
 	["All characters"] = "모든 캐릭터",

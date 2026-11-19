@@ -52,7 +52,12 @@ end
 local function build()
 	local p = UI.Panel(UIParent, { window = true, color = Theme.color.bg, borderColor = Theme.color.borderStrong })
 	p:SetWidth(ah.WIDTH)
-	p:SetFrameStrata("HIGH")
+	-- Layered as Blizzard's own panels (AuctionHouseFrame, ProfessionsFrame: MEDIUM, toplevel), so the one
+	-- clicked last is on top; HIGH covered a profession window opened beside it (owner, 2026-11-19). Its
+	-- dropdowns, prompts and tooltips stay over it: they sit at levels above it, or in a higher strata.
+	p:SetFrameStrata("MEDIUM")
+	p:SetToplevel(true)
+	p:EnableMouse(true)
 	p:Hide()
 	local mark = UI.Icon(p, "coins", 18, "accent")
 	mark:SetPoint("TOPLEFT", 16, -16)
@@ -301,9 +306,89 @@ key:SetScript("OnClick", function()
 	end
 end)
 
+-- The panel and Blizzard's window are one window to the player: a mouse-down in either brings both up
+-- (the client raises only the toplevel frame that was clicked).
+local function within(f, top)
+	while f do
+		if f == top then
+			return true
+		end
+		f = f.GetParent and f:GetParent()
+	end
+	return false
+end
+ns.on("GLOBAL_MOUSE_DOWN", "auction panel", function()
+	local p, frame = ah.panel, AuctionHouseFrame
+	if not (p and frame and p:IsShown()) then
+		return
+	end
+	local focus = GetMouseFoci and (GetMouseFoci() or {})[1] or GetMouseFocus and GetMouseFocus()
+	if within(focus, p) or within(focus, frame) then
+		frame:Raise()
+		p:Raise()
+	end
+end)
+
+-- A button on Blizzard's window that hides and shows the panel, kept as /gf ah keeps it: in its title
+-- bar, left of its close button, where Blizzard has nothing. One per look, as the panel.
+local toggles = {}
+local function label(b)
+	b:SetLabel(settings().hidden and L["Show Gold Forever"] or L["Hide Gold Forever"])
+	b:SetWidth(math.max(60, (b.label:GetStringWidth() or 40) + 24))
+end
+
+local function setHidden(hidden)
+	settings().hidden = hidden
+	if hidden then
+		hide()
+	elseif AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+		show()
+	end
+	local b = toggles[Theme.key]
+	if b then
+		label(b)
+	end
+end
+
+local function buildToggle(frame)
+	local b = UI.Button(frame, L["Hide Gold Forever"], function()
+		setHidden(not settings().hidden)
+	end, { kind = "ghost", height = 18 })
+	b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -28, -2)
+	b:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+		GameTooltip:AddLine("Gold Forever", 1, 1, 1)
+		GameTooltip:AddLine(L["Shows or hides Gold Forever's auction panel beside the auction house."], 0.7, 0.7, 0.7, true)
+		GameTooltip:Show()
+	end)
+	b:HookScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	b.home = frame
+	return b
+end
+
+-- The button in the look now set, on Blizzard's window; another look's hidden.
+local function placeToggle()
+	local frame = AuctionHouseFrame
+	if not frame then
+		return
+	end
+	local b = toggles[Theme.key]
+	if not b or b.home ~= frame then
+		b = buildToggle(frame)
+		toggles[Theme.key] = b
+	end
+	for _, other in pairs(toggles) do
+		other:SetShown(other == b)
+	end
+	label(b)
+end
+
 local function opened()
 	-- Ask the client whether its auction house takes copper (Forever's source leaves it to the client).
 	Post.copper = C_AuctionHouse and C_AuctionHouse.SupportsCopperValues and C_AuctionHouse.SupportsCopperValues() or false
+	ns.safely("auction panel toggle", placeToggle)
 	if settings().hidden then
 		return
 	end
@@ -321,6 +406,9 @@ ns.module("AuctionPanel", {
 ns.on("AUCTION_HOUSE_CLOSED", "auction panel", hide)
 -- A panel that shows is drawn again in the look now set.
 panels:onLook("auction panel", function(redrawn)
+	if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+		placeToggle()
+	end
 	if not redrawn then
 		refresh()
 	end
@@ -405,17 +493,13 @@ end)
 
 -- "/gf ah" shows or hides the panel at the auction house, and remembers.
 ns.commands.ah = function()
-	local s = settings()
 	if ah.panel and ah.panel:IsShown() then
-		s.hidden = true
-		hide()
+		setHidden(true)
 		ns.say(L["the auction panel no longer opens at the auction house; /gf ah there brings it back."])
 	else
-		s.hidden = false
 		-- Shown only at the auction house: away from it, it opens there next time.
-		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
-			show()
-		else
+		setHidden(false)
+		if not (AuctionHouseFrame and AuctionHouseFrame:IsShown()) then
 			ns.say(L["the auction panel opens at the auction house again."])
 		end
 	end
@@ -425,6 +509,9 @@ end
 ns.AuctionPanel = {
 	panel = function()
 		return ah.panel
+	end,
+	toggle = function()
+		return toggles[Theme.key]
 	end,
 	tab = function(key)
 		if ah.panel then

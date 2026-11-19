@@ -331,6 +331,9 @@ ns.Locale.add("ruRU", {
 	["The auction house refused it."] = "Аукционный дом отказал.",
 	["the auction panel no longer opens at the auction house; /gf ah there brings it back."] = "панель аукциона больше не открывается у аукционного дома; /gf ah там вернет ее.",
 	["the auction panel opens at the auction house again."] = "панель аукциона снова открывается у аукционного дома.",
+	["Hide Gold Forever"] = "Скрыть Gold Forever",
+	["Show Gold Forever"] = "Показать Gold Forever",
+	["Shows or hides Gold Forever's auction panel beside the auction house."] = "Показывает или скрывает панель аукциона Gold Forever рядом с аукционным домом.",
 	-- Surfaces: HubLedger
 	["This character"] = "Этот персонаж",
 	["All characters"] = "Все персонажи",

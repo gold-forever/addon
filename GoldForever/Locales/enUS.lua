@@ -329,6 +329,9 @@ ns.Locale.source({
 	"The auction house refused it.",
 	"the auction panel no longer opens at the auction house; /gf ah there brings it back.",
 	"the auction panel opens at the auction house again.",
+	"Hide Gold Forever",
+	"Show Gold Forever",
+	"Shows or hides Gold Forever's auction panel beside the auction house.",
 	-- Surfaces: HubLedger
 	"This character",
 	"All characters",

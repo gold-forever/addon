@@ -331,6 +331,9 @@ ns.Locale.add("esES", {
 	["The auction house refused it."] = "La casa de subastas lo ha rechazado.",
 	["the auction panel no longer opens at the auction house; /gf ah there brings it back."] = "el panel de subastas ya no se abre en la casa de subastas; /gf ah allí lo recupera.",
 	["the auction panel opens at the auction house again."] = "el panel de subastas vuelve a abrirse en la casa de subastas.",
+	["Hide Gold Forever"] = "Ocultar Gold Forever",
+	["Show Gold Forever"] = "Mostrar Gold Forever",
+	["Shows or hides Gold Forever's auction panel beside the auction house."] = "Muestra u oculta el panel de subastas de Gold Forever junto a la casa de subastas.",
 	-- Surfaces: HubLedger
 	["This character"] = "Este personaje",
 	["All characters"] = "Todos los personajes",

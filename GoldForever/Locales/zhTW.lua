@@ -330,6 +330,9 @@ ns.Locale.add("zhTW", {
 	["The auction house refused it."] = "拍賣場拒絕了。",
 	["the auction panel no longer opens at the auction house; /gf ah there brings it back."] = "拍賣面板不會再於拍賣場開啟；在那裡輸入 /gf ah 可恢復。",
 	["the auction panel opens at the auction house again."] = "拍賣面板會再次於拍賣場開啟。",
+	["Hide Gold Forever"] = "隱藏 Gold Forever",
+	["Show Gold Forever"] = "顯示 Gold Forever",
+	["Shows or hides Gold Forever's auction panel beside the auction house."] = "顯示或隱藏拍賣場旁的 Gold Forever 拍賣面板。",
 	-- Surfaces: HubLedger
 	["This character"] = "此角色",
 	["All characters"] = "所有角色",

@@ -221,6 +221,26 @@ local function run(f, script)
     if c.shown then run(c, script) end
   end
 end
+local stratas, toplevels = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+local raises = setmetatable({ n = 0 }, { __mode = "k" })
+-- Whether `a` is drawn over `b`: in a higher strata, or in the same one and raised after it.
+local STRATA_ORDER = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4, DIALOG = 5, FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8 }
+function above(a, b)
+  local sa, sb = STRATA_ORDER[a:GetFrameStrata()], STRATA_ORDER[b:GetFrameStrata()]
+  if sa ~= sb then return sa > sb end
+  return (raises[a] or 0) > (raises[b] or 0)
+end
+-- A left mouse-down on `target`, as the client handles it: its toplevel ancestor raised, then
+-- GLOBAL_MOUSE_DOWN with `target` under the mouse.
+function mouseDown(target)
+  local top = target
+  while top and not toplevels[top] do top = top.parent end
+  if top then top:Raise() end
+  local foci = GetMouseFoci
+  GetMouseFoci = function() return { target } end
+  fire("GLOBAL_MOUSE_DOWN", "LeftButton")
+  GetMouseFoci = foci
+end
 function CreateFrame(kind, name, parent) local f = widget({ events = {}, shown = true, scripts = {}, children = {}, name = name })
   -- Retail's tooltip names the spell a trainer's service teaches (SERVICE_SPELLS); Forever's is not probed yet.
   if kind == "GameTooltip" and FLAVOUR == "retail" then
@@ -252,6 +272,12 @@ function CreateFrame(kind, name, parent) local f = widget({ events = {}, shown =
   function f:IsShown() return self.shown end
   function f:GetParent() return self.parent end
   function f:IsVisible() return visible(self) end
+  -- Layering as the client keeps it: a strata (MEDIUM unless set), toplevel or not, and the order of raises.
+  function f:SetFrameStrata(s) stratas[self] = s end
+  function f:GetFrameStrata() return stratas[self] or "MEDIUM" end
+  function f:SetToplevel(on) toplevels[self] = on and true or nil end
+  function f:IsToplevel() return toplevels[self] == true end
+  function f:Raise() raises.n = raises.n + 1; raises[self] = raises.n end
   function f:CreateFontString() local fs = widget({}); fontStrings[fs] = true; function fs:SetText(t) self.text = t; texts[self] = t; appraiserText = t end; function fs:GetStringHeight() return 80 end; return fs end
   frames[#frames+1] = f; return f end
 UIParent = widget()
@@ -2890,6 +2916,57 @@ do
   assert(given and type(given.minPrice) == "number", "the browse result has a price")
   assert(typed and searched and p.tab == "shop", "refused: the name searched in Blizzard's search bar")
   C_AuctionHouse.GetItemKeyInfo = keyInfo
+  -- The panel and a profession window open together (owner, 2026-11-19: the panel covered it): the panel
+  -- is layered as Blizzard's own panels are (MEDIUM, toplevel, as AuctionHouseFrame and ProfessionsFrame
+  -- are declared), and whichever of the two was clicked last is on top; the auction house and the panel
+  -- come up together.
+  do
+    local proto = CreateFrame("Frame")
+    for _, m in ipairs({ "SetFrameStrata", "GetFrameStrata", "SetToplevel", "IsToplevel", "Raise", "GetParent" }) do f[m] = proto[m] end
+    f:SetToplevel(true)
+    local professions = CreateFrame("Frame", "ProfessionsFrame", UIParent)
+    professions:SetToplevel(true)
+    local recipe = CreateFrame("Button", nil, professions)
+    assert(p:GetFrameStrata() == "MEDIUM" and p:IsToplevel(), "the panel is layered as Blizzard's panels: " .. p:GetFrameStrata())
+    mouseDown(recipe)
+    assert(above(professions, p) and above(professions, f), "a click in the profession window brings it over the panel")
+    mouseDown(p)
+    assert(above(p, professions) and above(f, professions), "a click on the panel brings it and the auction house over it")
+    mouseDown(professions)
+    mouseDown(f)
+    assert(above(f, professions) and above(p, professions), "a click on the auction house brings the panel up with it")
+    mouseDown(professions)
+    local button = CreateFrame("Button", nil, p.pages.shop)
+    mouseDown(button)
+    assert(above(p, professions) and above(f, professions), "a click on a button inside the panel too")
+  end
+  -- A button on Blizzard's window hides and shows the panel, and the choice is kept: a hidden panel stays
+  -- hidden when the auction house opens again and when Blizzard's tabs switch, with Space free.
+  do
+    local AP, auction = ns.AuctionPanel, GoldForeverDB.settings.auction
+    local toggle = AP.toggle()
+    local function says(text) return ns.upper(toggle.label:GetText()) == ns.upper(T(text)) end
+    assert(toggle, "the button is made")
+    assert(says("Hide Gold Forever"), "while the panel shows, the button hides it: " .. tostring(toggle.label:GetText()))
+    GameTooltip.lines = {}
+    toggle.scripts.OnEnter(toggle)
+    local tip = table.concat(GameTooltip.lines, "\n")
+    assert(tip:find(T("Shows or hides Gold Forever's auction panel beside the auction house."), 1, true), "its tooltip says what it does: " .. tip)
+    AP.tab("post")
+    assert(AP.bound(), "Space posts on Post")
+    toggle.scripts.OnClick(toggle)
+    assert(not p:IsShown() and auction.hidden == true, "a press hides the panel, and it is saved")
+    assert(not AP.bound(), "Space is free while the panel is hidden")
+    assert(says("Show Gold Forever"), "and the button now shows it: " .. tostring(toggle.label:GetText()))
+    f:SetDisplayMode(M.Buy) -- another tab than the panel's (Post)
+    assert(not p:IsShown() and not AP.bound(), "Blizzard's tab switch leaves it hidden")
+    fire("AUCTION_HOUSE_CLOSED")
+    fire("AUCTION_HOUSE_SHOW")
+    assert(not p:IsShown() and not AP.bound(), "opening the auction house again leaves it hidden")
+    assert(AP.toggle() == toggle and says("Show Gold Forever"), "the same button, offering to show it")
+    toggle.scripts.OnClick(toggle)
+    assert(p:IsShown() and auction.hidden == false and says("Hide Gold Forever"), "a press shows it again, and it is saved")
+  end
   fire("AUCTION_HOUSE_CLOSED")
   AuctionHouseFrame, AuctionHouseFrameDisplayMode = nil, nil
 end
@@ -4906,6 +4983,16 @@ local function recorded()
   table.sort(out)
   return out
 end
+-- The auction panel hidden by the button on Blizzard's window: still hidden after the /reload below.
+do
+  AuctionHouseFrame = widget()
+  fire("AUCTION_HOUSE_SHOW")
+  local toggle = ns.AuctionPanel.toggle()
+  toggle.scripts.OnClick(toggle)
+  assert(not ns.AuctionPanel.panel():IsShown() and GoldForeverDB.settings.auction.hidden == true, "hidden by the button before the reload")
+  fire("AUCTION_HOUSE_CLOSED")
+  AuctionHouseFrame = nil
+end
 assert(#recorded() == 0, "errors before the reload:\n" .. table.concat(recorded(), "\n"))
 -- A /reload: the file is written, the addon loads again from scratch with the same saved table.
 local before = ns.test.sessionText()
@@ -4940,6 +5027,19 @@ do
 end
 seen("SAME TOTALS ", tostring((before:match("Total: [^|]*")) == (after:match("Total: [^|]*"))), "true")
 assert(before:match("Total: [^|]*") and before:match("Total: [^|]*") == after:match("Total: [^|]*"), "the session survives a /reload")
+-- The auction panel hidden before the reload stays hidden at the auction house; the button brings it back.
+do
+  AuctionHouseFrame = widget()
+  fire("AUCTION_HOUSE_SHOW")
+  local AP = ns2.AuctionPanel
+  assert(AP and not (AP.panel() and AP.panel():IsShown()), "hidden after the reload")
+  local toggle = AP.toggle()
+  assert(ns2.upper(toggle.label:GetText()) == ns2.upper(ns2.L["Show Gold Forever"]), "the button offers to show it: " .. tostring(toggle.label:GetText()))
+  toggle.scripts.OnClick(toggle)
+  assert(AP.panel():IsShown() and GoldForeverDB.settings.auction.hidden == false, "shown again by the button")
+  fire("AUCTION_HOUSE_CLOSED")
+  AuctionHouseFrame = nil
+end
 -- An old prices file: one line at login, not again the same day.
 do
   local prices, warned = GoldForever_Prices, 0
