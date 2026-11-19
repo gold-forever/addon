@@ -1,6 +1,6 @@
 # Gold Forever
 
-## Unreleased
+## 0.24.1 (2026-11-19)
 
 - **"Scan when I open the auction house" stays inside the panel.** In the web look the switch's label ran past the auction panel's right edge. It now wraps onto a second line when it does not fit, in every look and language.
 
