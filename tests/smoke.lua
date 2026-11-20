@@ -3329,7 +3329,7 @@ do
     local p = ns.Mail.panel()
     local box, open, inbox = panelBox(p), boxOf(OpenMailFrame), boxOf(MailFrame)
     local where = string.format("%s: panel %d,%d-%d,%d, open mail %d,%d-%d,%d", what, box.l, box.b, box.r, box.t, open.l, open.b, open.r, open.t)
-    assert(not meet(box, open), where .. ": the panel covers the open mail")
+    assert(not OpenMailFrame.shown or not meet(box, open), where .. ": the panel covers the open mail")
     assert(not meet(box, inbox), where .. ": the panel covers the inbox")
     assert(box.l >= 0 and box.b >= 0 and box.r <= 1365 and box.t <= 768, where .. ": the panel off the screen")
     return anchor(p, "TOPLEFT") or anchor(p, "TOPRIGHT")
@@ -3365,10 +3365,18 @@ do
       close()
     end
   end
-  -- Room below the inbox: the panel under it, the mail open or not.
+  -- Right of the inbox, tops aligned (owner, 2026-11-20); a mail opened there: right of the open mail.
   openMail(1, 338, 424)
-  local at = clear("room below", 1)
-  assert(at[1] == "TOPLEFT" and at[2] == MailFrame and at[3] == "BOTTOMLEFT", "room below: under the inbox: " .. tostring(at[3]))
+  local at = clear("mail open", 1)
+  assert(at[1] == "TOPLEFT" and at[2] == OpenMailFrame and at[3] == "TOPRIGHT", "mail open: right of the open mail: " .. tostring(at[3]))
+  OpenMailFrame.shown = false
+  OpenMailFrame.hooks.OnHide(OpenMailFrame)
+  wait(0.1)
+  at = clear("mail closed", 1)
+  assert(at[1] == "TOPLEFT" and at[2] == MailFrame and at[3] == "TOPRIGHT", "mail closed: right of the inbox: " .. tostring(at[3]))
+  OpenMailFrame.shown = true
+  OpenMailFrame.hooks.OnShow(OpenMailFrame)
+  wait(0.1)
   -- A mail addon puts the open mail under the inbox, where the panel was: it moves out of the way.
   OpenMailFrame.at.l, OpenMailFrame.at.b = 16, MailFrame.at.b - 6 - 424
   OpenMailFrame:SetPoint("TOPLEFT", MailFrame, "BOTTOMLEFT", 0, -6)
@@ -3376,20 +3384,23 @@ do
   at = clear("open mail moved under the inbox", 1)
   assert(at[2] ~= MailFrame or at[3] ~= "BOTTOMLEFT", "moved off the open mail")
   close()
-  -- No room below (an addon moved the inbox down and right): left of the inbox.
+  -- No room right or below (an addon moved the inbox down and right): left of the inbox.
   openMail(1, 338, 424)
-  MailFrame.at.l, MailFrame.at.b = 400, 40
-  OpenMailFrame.at.l, OpenMailFrame.at.b = 738, 40
-  MailFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 400, 40)
+  MailFrame.at.l, MailFrame.at.b = 700, 40
+  OpenMailFrame.at.l, OpenMailFrame.at.b = 1038, 40
+  MailFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 700, 40)
   wait(0.1)
-  at = clear("no room below", 1)
-  assert(at[1] == "TOPRIGHT" and at[2] == MailFrame and at[3] == "TOPLEFT", "no room below: left of the inbox: " .. tostring(at[3]))
+  at = clear("no room right or below", 1)
+  assert(at[1] == "TOPRIGHT" and at[2] == MailFrame and at[3] == "TOPLEFT", "no room right or below: left of the inbox: " .. tostring(at[3]))
   close()
   -- The inbox's tabs hang 30 below it (owner, 2026-11-20: the panel covered them): the panel under them.
+  -- No room right (the inbox moved right, no mail open): under it, below the tabs.
   openMail(1, 338, 424)
+  OpenMailFrame.shown = false
+  MailFrame.at.l = 1000
   MailFrameTab1 = mailFrame(MailFrame.at.l, MailFrame.at.b - 30, 80, 32)
   MailFrameTab2 = mailFrame(MailFrame.at.l + 80, MailFrame.at.b - 30, 80, 32)
-  MailFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -104)
+  MailFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 1000, -104)
   wait(0.1)
   at = clear("tabs below", 1)
   local p = ns.Mail.panel()

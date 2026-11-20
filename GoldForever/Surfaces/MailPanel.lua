@@ -48,13 +48,15 @@ local function build()
 	return p
 end
 
--- Where the panel may sit, first that fits: under the inbox, to its left, then beside or under the open
--- mail; never on the inbox or the open mail (the client puts it right of the inbox, an addon anywhere).
+-- Where the panel may sit, first that fits: right of the inbox, tops aligned (owner, 2026-11-20), and
+-- right of the open mail while one shows there; then under the inbox, to its left, under the open mail.
+-- Never on the inbox or the open mail.
 local GAP = 6
 local SPOTS = {
+	{ "TOPLEFT", "MailFrame", "TOPRIGHT", GAP, 0 },
+	{ "TOPLEFT", "OpenMailFrame", "TOPRIGHT", GAP, 0 },
 	{ "TOPLEFT", "MailFrame", "BOTTOMLEFT", 0, -GAP },
 	{ "TOPRIGHT", "MailFrame", "TOPLEFT", -GAP, 0 },
-	{ "TOPLEFT", "OpenMailFrame", "TOPRIGHT", GAP, 0 },
 	{ "TOPLEFT", "OpenMailFrame", "BOTTOMLEFT", 0, -GAP },
 }
 
@@ -72,10 +74,11 @@ local function meets(a, b)
 	return a.l < b.r and b.l < a.r and a.b < b.t and b.b < a.t
 end
 
--- A frame's box with its tabs: the inbox's Inbox and Send Mail tabs hang below it, and the panel stays
+-- A shown frame's box with its tabs (a hidden one is neither in the way nor a place): the inbox's Inbox and Send Mail tabs hang below it, and the panel stays
 -- clear of them (owner, 2026-11-20: it covered them).
 local function reach(name)
-	local b = box(_G[name])
+	local f = _G[name]
+	local b = f and (not f.IsShown or f:IsShown()) and box(f)
 	if not b then
 		return nil
 	end

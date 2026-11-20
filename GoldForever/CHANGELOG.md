@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **The mail panel no longer covers the mailbox's tabs.** Under the mailbox it sat over the Inbox and Send Mail tabs; it now sits below them. A new button in the mailbox's title bar, left of its close button, hides and shows the panel: "Hide Gold Forever" while it shows, "Show Gold Forever" while it is hidden. It is the same switch as Settings > Modules > Mail helper, so the choice is kept across /reload and logins. In every language.
+- **The mail panel sits right of the mailbox.** It sat under the mailbox, over its Inbox and Send Mail tabs. It now sits to the mailbox's right, tops aligned, and right of an opened mail while one shows there. With no room on the right it goes under the mailbox, below its tabs, else to its left. A new button in the mailbox's title bar, left of its close button, hides and shows the panel: "Hide Gold Forever" while it shows, "Show Gold Forever" while it is hidden. It is the same switch as Settings > Modules > Mail helper, so the choice is kept across /reload and logins. In every language.
 
 ## 0.24.1 (2026-11-19)
 
