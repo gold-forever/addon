@@ -334,6 +334,7 @@ ns.Locale.add("deDE", {
 	["Hide Gold Forever"] = "Gold Forever ausblenden",
 	["Show Gold Forever"] = "Gold Forever einblenden",
 	["Shows or hides Gold Forever's auction panel beside the auction house."] = "Zeigt oder verbirgt das Auktionshausfenster von Gold Forever neben dem Auktionshaus.",
+	["Shows or hides Gold Forever's mail panel beside the mailbox."] = "Zeigt oder verbirgt das Postfenster von Gold Forever neben dem Briefkasten.",
 	-- Surfaces: HubLedger
 	["This character"] = "Dieser Charakter",
 	["All characters"] = "Alle Charaktere",

@@ -3385,6 +3385,32 @@ do
   at = clear("no room below", 1)
   assert(at[1] == "TOPRIGHT" and at[2] == MailFrame and at[3] == "TOPLEFT", "no room below: left of the inbox: " .. tostring(at[3]))
   close()
+  -- The inbox's tabs hang 30 below it (owner, 2026-11-20: the panel covered them): the panel under them.
+  openMail(1, 338, 424)
+  MailFrameTab1 = mailFrame(MailFrame.at.l, MailFrame.at.b - 30, 80, 32)
+  MailFrameTab2 = mailFrame(MailFrame.at.l + 80, MailFrame.at.b - 30, 80, 32)
+  MailFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -104)
+  wait(0.1)
+  at = clear("tabs below", 1)
+  local p = ns.Mail.panel()
+  local tabsBox = boxOf(MailFrameTab1)
+  assert(at[3] == "BOTTOMLEFT" and panelBox(p).t <= tabsBox.b, "under the tabs: panel top " .. panelBox(p).t .. ", tabs bottom " .. tabsBox.b)
+  -- The button on the mailbox hides the panel and says so; again shows it; the choice is the settings' switch.
+  local b = ns.Mail.toggle()
+  local function says(text) return ns.upper(b.label:GetText()) == ns.upper(T(text)) end
+  assert(b and b:IsShown() and says("Hide Gold Forever"), "the mailbox's button: " .. tostring(b and b.label:GetText()))
+  GameTooltip.lines = {}
+  b.scripts.OnEnter(b)
+  assert(table.concat(GameTooltip.lines, "\n"):find(T("Shows or hides Gold Forever's mail panel beside the mailbox."), 1, true), "its tooltip")
+  b.scripts.OnClick(b)
+  assert(not p:IsShown() and GoldForeverDB.settings.mail.helper == false and says("Show Gold Forever"), "the button hides the panel")
+  close()
+  fire("MAIL_SHOW")
+  assert(not ns.Mail.panel():IsShown() and ns.Mail.toggle():IsShown(), "hidden at the next mailbox; the button still there")
+  b.scripts.OnClick(b)
+  assert(ns.Mail.toggle() == b and ns.Mail.panel():IsShown() and GoldForeverDB.settings.mail.helper == true, "the button shows it again")
+  close()
+  MailFrameTab1, MailFrameTab2 = nil, nil
   -- An addon scales the mail frames down (0.8) at UI scale 1.
   openMail(1, 384, 512, 0.8)
   clear("mail frames at 0.8", 1)

@@ -333,6 +333,7 @@ ns.Locale.add("koKR", {
 	["Hide Gold Forever"] = "Gold Forever 숨기기",
 	["Show Gold Forever"] = "Gold Forever 표시",
 	["Shows or hides Gold Forever's auction panel beside the auction house."] = "경매장 옆의 Gold Forever 경매 패널을 표시하거나 숨깁니다.",
+	["Shows or hides Gold Forever's mail panel beside the mailbox."] = "우편함 옆의 Gold Forever 우편 패널을 표시하거나 숨깁니다.",
 	-- Surfaces: HubLedger
 	["This character"] = "이 캐릭터",
 	["All characters"] = "모든 캐릭터",

@@ -332,6 +332,7 @@ ns.Locale.source({
 	"Hide Gold Forever",
 	"Show Gold Forever",
 	"Shows or hides Gold Forever's auction panel beside the auction house.",
+	"Shows or hides Gold Forever's mail panel beside the mailbox.",
 	-- Surfaces: HubLedger
 	"This character",
 	"All characters",

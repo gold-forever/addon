@@ -72,6 +72,23 @@ local function meets(a, b)
 	return a.l < b.r and b.l < a.r and a.b < b.t and b.b < a.t
 end
 
+-- A frame's box with its tabs: the inbox's Inbox and Send Mail tabs hang below it, and the panel stays
+-- clear of them (owner, 2026-11-20: it covered them).
+local function reach(name)
+	local b = box(_G[name])
+	if not b then
+		return nil
+	end
+	for i = 1, 4 do
+		local tab = _G[name .. "Tab" .. i]
+		local t = tab and tab.IsShown and tab:IsShown() and box(tab)
+		if t then
+			b.l, b.b, b.r, b.t = math.min(b.l, t.l), math.min(b.b, t.b), math.max(b.r, t.r), math.max(b.t, t.t)
+		end
+	end
+	return b
+end
+
 -- The panel's box at `spot` beside `to`, the box of the frame it is anchored to.
 local function boxAt(p, spot, to)
 	local s = p:GetEffectiveScale()
@@ -89,7 +106,7 @@ end
 
 local function covers(a)
 	for _, name in ipairs({ "MailFrame", "OpenMailFrame" }) do
-		local other = box(_G[name])
+		local other = reach(name)
 		if other and meets(a, other) then
 			return true
 		end
@@ -101,7 +118,7 @@ end
 local function spot(p)
 	local clear
 	for _, at in ipairs(SPOTS) do
-		local to = box(_G[at[2]])
+		local to = reach(at[2])
 		local a = to and boxAt(p, at, to)
 		local free = a and not covers(a)
 		if free and onScreen(a) then
@@ -112,10 +129,19 @@ local function spot(p)
 	return clear or SPOTS[1]
 end
 
+-- Anchored to the frame itself, moved by what its tabs add on that side.
 local function dock(p)
 	local at = spot(p)
+	local frame = _G[at[2]]
+	local own, to = box(frame), reach(at[2])
+	local dx, dy = 0, 0
+	if own and to then
+		local s = p:GetEffectiveScale()
+		dx = ((at[3]:find("LEFT") and to.l - own.l) or to.r - own.r) / s
+		dy = ((at[3]:find("TOP") and to.t - own.t) or to.b - own.b) / s
+	end
 	p:ClearAllPoints()
-	p:SetPoint(at[1], _G[at[2]], at[3], at[4], at[5])
+	p:SetPoint(at[1], frame, at[3], at[4] + dx, at[5] + dy)
 end
 panels = UI.perLook(build, dock)
 
@@ -151,19 +177,63 @@ local function close()
 	end
 end
 
--- The client's mailbox opens and closes through its interaction manager, and MAIL_CLOSED does not come
--- every time the inbox goes (its close button, Escape, walking away): the panel goes with MailFrame.
-local hooked = false
-ns.on("MAIL_SHOW", "mail helper", function()
-	if settings().helper == false or not MailFrame then
+-- A button on the mailbox that hides and shows the panel, kept as Settings > Modules > Mail helper keeps
+-- it (the same switch): in its title bar, left of its close button. One per look, as the panel.
+local toggles = {}
+local function label(b)
+	b:SetLabel(settings().helper == false and L["Show Gold Forever"] or L["Hide Gold Forever"])
+	b:SetWidth(math.max(60, (b.label:GetStringWidth() or 40) + 24))
+end
+
+local show
+local function buildToggle(frame)
+	local b = UI.Button(frame, L["Hide Gold Forever"], function()
+		local on = settings().helper == false
+		settings().helper = on
+		if on then
+			show()
+		else
+			close()
+		end
+		label(toggles[ns.Theme.key] or b)
+	end, { kind = "ghost", height = 18 })
+	local x = _G.MailFrameCloseButton or frame.CloseButton
+	if x then
+		b:SetPoint("RIGHT", x, "LEFT", -2, 0)
+	else
+		b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -28, -2)
+	end
+	b:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+		GameTooltip:AddLine("Gold Forever", 1, 1, 1)
+		GameTooltip:AddLine(L["Shows or hides Gold Forever's mail panel beside the mailbox."], 0.7, 0.7, 0.7, true)
+		GameTooltip:Show()
+	end)
+	b:HookScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	b.home = frame
+	return b
+end
+
+-- The button in the look now set, on the mailbox; another look's hidden.
+local function placeToggle()
+	local frame = MailFrame
+	if not frame then
 		return
 	end
-	if not hooked and MailFrame.HookScript then
-		hooked = true
-		MailFrame:HookScript("OnHide", function()
-			ns.safely("mail helper", close)
-		end)
+	local b = toggles[ns.Theme.key]
+	if not b or b.home ~= frame then
+		b = buildToggle(frame)
+		toggles[ns.Theme.key] = b
 	end
+	for _, other in pairs(toggles) do
+		other:SetShown(other == b)
+	end
+	label(b)
+end
+
+show = function()
 	local panel = panels.frame
 	if not panel or panels.key ~= ns.Theme.key then
 		panel = panels:get()
@@ -173,10 +243,33 @@ ns.on("MAIL_SHOW", "mail helper", function()
 	dock(panel)
 	panel:Show()
 	refresh()
+end
+
+-- The client's mailbox opens and closes through its interaction manager, and MAIL_CLOSED does not come
+-- every time the inbox goes (its close button, Escape, walking away): the panel goes with MailFrame.
+local hooked = false
+ns.on("MAIL_SHOW", "mail helper", function()
+	if not MailFrame then
+		return
+	end
+	if not hooked and MailFrame.HookScript then
+		hooked = true
+		MailFrame:HookScript("OnHide", function()
+			ns.safely("mail helper", close)
+		end)
+	end
+	ns.safely("mail helper toggle", placeToggle)
+	if settings().helper == false then
+		return
+	end
+	show()
 end)
 ns.on("MAIL_CLOSED", "mail helper", close)
 -- A panel that shows is drawn again in the look now set.
 panels:onLook("mail helper", function(redrawn)
+	if MailFrame and MailFrame:IsShown() then
+		placeToggle()
+	end
 	if redrawn then
 		refresh()
 	end
@@ -185,4 +278,7 @@ end)
 -- For the smoke test.
 Mail.panel = function()
 	return panels.frame
+end
+Mail.toggle = function()
+	return toggles[ns.Theme.key]
 end

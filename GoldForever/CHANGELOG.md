@@ -1,5 +1,9 @@
 # Gold Forever
 
+## Unreleased
+
+- **The mail panel no longer covers the mailbox's tabs.** Under the mailbox it sat over the Inbox and Send Mail tabs; it now sits below them. A new button in the mailbox's title bar, left of its close button, hides and shows the panel: "Hide Gold Forever" while it shows, "Show Gold Forever" while it is hidden. It is the same switch as Settings > Modules > Mail helper, so the choice is kept across /reload and logins. In every language.
+
 ## 0.24.1 (2026-11-19)
 
 - **"Scan when I open the auction house" stays inside the panel.** In the web look the switch's label ran past the auction panel's right edge. It now wraps onto a second line when it does not fit, in every look and language.

@@ -333,6 +333,7 @@ ns.Locale.add("zhTW", {
 	["Hide Gold Forever"] = "隱藏 Gold Forever",
 	["Show Gold Forever"] = "顯示 Gold Forever",
 	["Shows or hides Gold Forever's auction panel beside the auction house."] = "顯示或隱藏拍賣場旁的 Gold Forever 拍賣面板。",
+	["Shows or hides Gold Forever's mail panel beside the mailbox."] = "顯示或隱藏信箱旁的 Gold Forever 郵件面板。",
 	-- Surfaces: HubLedger
 	["This character"] = "此角色",
 	["All characters"] = "所有角色",
