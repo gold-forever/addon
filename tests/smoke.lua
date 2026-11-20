@@ -3399,9 +3399,12 @@ do
   local b = ns.Mail.toggle()
   local function says(text) return ns.upper(b.label:GetText()) == ns.upper(T(text)) end
   assert(b and b:IsShown() and says("Hide Gold Forever"), "the mailbox's button: " .. tostring(b and b.label:GetText()))
+  local tipLines = GameTooltip.lines
   GameTooltip.lines = {}
   b.scripts.OnEnter(b)
   assert(table.concat(GameTooltip.lines, "\n"):find(T("Shows or hides Gold Forever's mail panel beside the mailbox."), 1, true), "its tooltip")
+  b.scripts.OnLeave(b)
+  GameTooltip.lines = tipLines
   b.scripts.OnClick(b)
   assert(not p:IsShown() and GoldForeverDB.settings.mail.helper == false and says("Show Gold Forever"), "the button hides the panel")
   close()
