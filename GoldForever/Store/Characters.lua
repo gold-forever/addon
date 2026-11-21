@@ -11,11 +11,12 @@ function ns.me()
 end
 
 -- Market of the auction house or guild bank the player is at: region, realm (until the ruleset
--- is known, checklist #8) and side. On retail the realm is the connected group's key (Realms.marketRealm).
+-- is known, checklist #8) and side. On retail the realm is the connected group's key, on Forever with no
+-- realm name the game mode (Realms.marketRealm).
 function ns.market(side)
 	local client = ns.db().client
 	local realm = ns.Realms.marketRealm(client.interface, me and me.realm,
-		GetNormalizedRealmName and GetNormalizedRealmName(), ns.Realms.connected())
+		GetNormalizedRealmName and GetNormalizedRealmName(), ns.Realms.connected(), ns.Realms.gameMode())
 	return (client.region or "?") .. "-" .. (realm or "?") .. "-" .. side
 end
 

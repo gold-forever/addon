@@ -1,5 +1,9 @@
 # Gold Forever
 
+## Unreleased
+
+- **Prices in the game again on WoW: Forever.** Since Forever's hotfix 1.60.1 the game no longer names your realm, so the addon could not tell which auction house you were at: tooltips and the auction panel showed no prices, and scans were recorded under no realm. One auction house serves everyone in a region on the same game mode and side, so the addon now names the game mode instead: PvE, PvP, RP or RP PvP. Prices show again, and new scans are recorded under the game mode. Where the game still names your realm, nothing changes.
+
 ## 0.24.2 (2026-11-20)
 
 - **The mail panel sits right of the mailbox.** It sat under the mailbox, over its Inbox and Send Mail tabs. It now sits to the mailbox's right, tops aligned, and right of an opened mail while one shows there. With no room on the right it goes under the mailbox, below its tabs, else to its left. A new button in the mailbox's title bar, left of its close button, hides and shows the panel: "Hide Gold Forever" while it shows, "Show Gold Forever" while it is hidden. It is the same switch as Settings > Modules > Mail helper, so the choice is kept across /reload and logins. In every language.
